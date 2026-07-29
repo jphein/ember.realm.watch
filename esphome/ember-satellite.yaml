@@ -1,0 +1,1126 @@
+########################################################################
+# ember-satellite — LCDWIKI/QDtech ES3C28P (sold as "Hosyond 2.8in ESP32-S3")
+#
+# HA voice satellite for the Ember pipeline. The screen IS the hearth: one
+# fire in a grate whose temperature is the whole state machine.
+#
+# Pinout is traced to the manufacturer's schematic (see
+# scratch/hosyond-s3/nebula-prior-art.md + ES3C28P_official_schematic.pdf),
+# NOT copied from community tables — several of those have the I2S data
+# pins inverted because the silkscreen names them from the codec's side.
+#
+# Activation: TOUCH the screen (no wake word for now).
+#
+# ARCHITECTURE NOTE — why no LVGL:
+#   The audio callback does maths ONLY (compute RMS, push to ring buffer).
+#   The display redraws on its own interval and reads that buffer. This
+#   deliberately decouples the I2S callback from SPI drawing, because mic
+#   and speaker share one I2S hub on this board and blocking in the audio
+#   path risks dropouts. A hand-drawn waveform is also far simpler and
+#   lighter than bending LVGL widgets into a histogram (LVGL has no chart
+#   widget in ESPHome 2026.7.2).
+#
+# ARCHITECTURE NOTE — BANDED PARTIAL REDRAW (added 2026-07-29):
+#   The screen is divided into four fixed horizontal bands. At most ONE band
+#   is repainted per frame, and mipi_spi flushes only the dirty bounding box,
+#   so per-frame cost is proportional to the band, not the panel. This is what
+#   buys a 20fps fire animation at LOWER main-loop duty than the previous
+#   3.3fps full-frame repaint. Two hard requirements fall out of it:
+#     - `auto_clear_enabled: false` (otherwise clear() dirties every pixel
+#       before the lambda even runs — see the display block).
+#     - Nothing may draw outside its own band. The framebuffer now PERSISTS
+#       between frames, so a stray draw leaves permanent litter whose symptom
+#       (ghosting) looks nothing like its cause.
+#
+# ARCHITECTURE NOTE — why the fire renders ROW-MAJOR:
+#   The framebuffer is allocated by RAMAllocator, whose default flags are
+#   ALLOC_INTERNAL|ALLOC_EXTERNAL == external FIRST (core/helpers.h:2185), so
+#   153,600 bytes of it live in octal PSRAM. Display::filled_rectangle is
+#   rows-of-horizontal_line over a per-pixel draw_pixel_at
+#   (display.cpp:88-112 — whose own "Future:" comments flag this as the known
+#   weak spot). A 4px-wide x 70px-tall flame column therefore touches ~70
+#   separate PSRAM cache lines to write 8 useful bytes each. The fire is
+#   instead emitted as horizontal RUNS, so every write is sequential in x with
+#   rows ascending and each cache line is fully consumed.
+#   >>> Do not "simplify" the fire back into per-column filled_rectangle
+#       calls. It looks identical and costs several times more. <<<
+########################################################################
+
+substitutions:
+  name: ember-satellite
+  friendly_name: Ember Satellite
+  # Histogram width in samples; must match level_hist array size below.
+  hist_len: "120"
+  # dBFS window the level meter maps to 0-100%. THESE NEED CALIBRATING on
+  # real hardware — too narrow and the meter pins, too wide and it looks dead.
+  # Speak at normal volume ~40cm away and watch sensor.mic_rms, then set
+  # db_floor just under the room-noise reading and db_ceil just over speech.
+  db_floor: "-72.0"
+  db_ceil: "-30.0"
+
+  # ---- speaking-phase animation ----
+  # The flame wave advances one full spatial cycle per this many ms of REAL
+  # audio (frames clocked to the DAC), not per this much wall time.
+  flame_cycle_ms: "900"
+  # Fuse denominator: est_ms = tts_lead_ms + chars * tts_ms_per_char.
+  # 62 ms/char ~= 16 chars/s, about right for en-GB Piper/Azure. CALIBRATE:
+  # watch the "spoken x.xs / ~y.ys" line in the telemetry band and adjust until
+  # the fuse lands near the right-hand edge as Ember stops talking.
+  tts_lead_ms: "400"
+  tts_ms_per_char: "62"
+  # If the frame counter doesn't advance for this long while the speaker still
+  # reports is_running(), the fire gutters and the telemetry band says so.
+  stall_ms: "300"
+
+  # ---- text wrapping (character budgets, estimated from Roboto's average
+  # advance — NOT measured. Feed it a long reply and watch the right edge.) ----
+  cpl_body: "30"        # chars per line at font_body (Roboto 15)
+  cpl_sm: "38"          # chars per line at font_sm   (Roboto 12)
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  min_version: 2025.11.0
+  name_add_mac_suffix: false
+  on_boot:
+    - priority: 600
+      then:
+        - light.turn_on:
+            id: backlight
+            brightness: 80%
+
+    # Register the ONE thing this design takes from the speaker: a frame counter.
+    #
+    # !! THIS CALLBACK RUNS IN speaker_task, NOT THE MAIN LOOP. !!
+    #    i2s_audio_speaker.cpp:239 invokes audio_output_callback_ from
+    #    run_speaker_task(); i2s_audio_speaker.h:22-23 give TASK_STACK_SIZE 4096
+    #    and TASK_PRIORITY 19. That is the SAME hazard class as the
+    #    `microphone: on_data:` block warned about below — so the body here is
+    #    deliberately ONE 32-bit add and nothing else. No floats, no ESP_LOG, no
+    #    std:: containers, no allocation. DO NOT GROW IT.
+    #
+    # Cross-task safety, chosen deliberately rather than assumed:
+    #   spk_frames is `volatile uint32_t`. An aligned 32-bit load/store on
+    #   Xtensa LX7 is a single instruction and cannot tear, so no lock is
+    #   needed; `volatile` is what stops the compiler caching the value across
+    #   the display lambda's reads. The counter is monotonic and is only ever
+    #   used for elapsed-time subtraction, so reading a value one callback stale
+    #   is visually irrelevant. Strictly cheaper AND safer than a mutex.
+    - priority: -100
+      then:
+        - lambda: |-
+            id(spk)->add_audio_output_callback([](uint32_t frames, int64_t ts) {
+              (void) ts;
+              id(spk_frames) += frames;
+            });
+
+esp32:
+  variant: esp32s3
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+
+# N16R8 module: 8MB OPI (octal) PSRAM. Octal consumes GPIO33-37 —
+# do not use those pins. Without this, display buffers won't fit.
+psram:
+  mode: octal
+  speed: 80MHz
+
+logger:
+  # NOTE: the i2c bus scan prints at [C]/CONFIG level, and in ESPHome's
+  # ordering CONFIG is MORE verbose than INFO — so level: INFO silently
+  # hides the scan results. Keep DEBUG until bring-up is finished.
+  level: DEBUG
+  #
+  # TO VERIFY THE BANDED REDRAW (the one test that matters), swap the above for
+  # the block below. mipi_spi logs both the dirty box and the flush time every
+  # frame (mipi_spi.h:570, 575-576) at VERBOSE.
+  #
+  # The global `level:` is a COMPILE-TIME ceiling — esph_log_v is compiled out
+  # entirely unless the global level is VERBOSE, so per-tag VERBOSE alone does
+  # nothing. Raise the global and dial the noisy tags back down:
+  #
+  # level: VERBOSE
+  # logs:
+  #   mipi_spi: VERBOSE
+  #   sensor: INFO
+  #   voice_assistant: DEBUG
+  #   esp32_rmt_led_strip: INFO
+  #   i2s_audio: INFO
+  #
+  # Expected on a SPEAKING frame:  "x_low 0, y_low 188, x_high 239, y_high 263"
+  #                                "Total update took 7..10ms"
+  # Expected between ticks:        nothing at all (empty box -> flush skipped,
+  #                                mipi_spi.h:573).
+  # If a flame frame logs y_low 0, band isolation is broken.
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+
+captive_portal:
+
+########################  buses  ########################
+
+# ES8311 codec (0x18) and FT6336G touch (0x38) share one bus.
+i2c:
+  - id: i2c_bus
+    sda: GPIO16
+    scl: GPIO15
+    frequency: 100kHz
+    scan: true
+
+spi:
+  - id: lcd_spi
+    clk_pin: GPIO12
+    mosi_pin: GPIO11
+    miso_pin: GPIO13
+
+########################  audio  ########################
+
+i2s_audio:
+  - id: i2s_bus
+    i2s_mclk_pin: GPIO4
+    i2s_bclk_pin: GPIO5
+    i2s_lrclk_pin: GPIO7
+
+audio_dac:
+  - platform: es8311
+    id: es8311_dac
+    i2c_id: i2c_bus
+    address: 0x18
+    bits_per_sample: 16bit
+    sample_rate: 16000
+    use_mclk: true
+    # ESPHome's default mic_gain is 42DB — the MAXIMUM. Stacked on
+    # voice_assistant's auto_gain: 31dBFS and volume_multiplier: 2.0 that
+    # clips and pins the dBFS meter. Start conservative; this is tuning
+    # knob #2 after the mic channel question.
+    mic_gain: 36db
+    # Deliberately NOT setting use_microphone: true.
+    # In ESPHome's es8311 driver that flag enables a PDM *digital* mic.
+    # This board's mic is an ANALOG MEMS part wired differentially into
+    # MIC1P/MIC1N, so the default (false) is correct — it leaves
+    # REG14 = 0x1A ("analog MIC + max PGA gain").
+
+speaker:
+  - platform: i2s_audio
+    id: spk
+    i2s_audio_id: i2s_bus
+    i2s_dout_pin: GPIO8        # -> ES8311 DSDIN (schematic net I2S_DI)
+    dac_type: external
+    audio_dac: es8311_dac
+    sample_rate: 16000
+    bits_per_sample: 16bit
+    channel: mono
+    buffer_duration: 100ms
+
+microphone:
+  - platform: i2s_audio
+    id: mic
+    i2s_audio_id: i2s_bus
+    i2s_din_pin: GPIO6         # -> ES8311 ASDOUT (schematic net I2S_DO)
+    adc_type: external
+    pdm: false                 # analog mic behind the codec, not PDM
+    channel: left              # ES8311 is mono; ADC data sits in the LEFT slot
+    sample_rate: 16000
+    bits_per_sample: 16bit
+    # NOTE: deliberately NO on_data lambda here.
+    #
+    # on_data fires at 62.5Hz (i2s_audio_microphone.cpp READ_DURATION_MS = 16)
+    # and its automation runs SYNCHRONOUSLY inside mic_task — priority 23,
+    # 4096-byte stack. Anything slow there directly starves the I2S read, and
+    # writing globals from that task while the main loop reads them for drawing
+    # is a cross-task race.
+    #
+    # sound_level (below) gives the same information at 20Hz through a proper
+    # lock-free ring buffer and publishes from loop(), so its on_value runs in
+    # the main loop. Since a visual waveform only needs ~16-20Hz anyway, the
+    # hand-rolled path bought nothing and cost thread-safety. Everything that
+    # touches the display now runs single-threaded in the main loop.
+    #
+    # (The one exception, added deliberately and kept to a single 32-bit add,
+    # is the speaker frame counter registered in on_boot. See the note there.)
+
+output:
+  - platform: gpio
+    id: amp_enable
+    pin: GPIO1                 # amp SHUTDOWN — ACTIVE LOW
+    inverted: true
+
+  - platform: ledc
+    id: backlight_pwm
+    pin: GPIO45                # Also the VDD_SPI strapping pin, but SAFE here:
+    frequency: 20000Hz         # the schematic has R32 = 10K gate-to-GND on the
+                               # BSS138 that drives the backlight, which hard-
+                               # wires the strap LOW in hardware. The strap is
+                               # latched at reset while GPIO drivers are still
+                               # inputs, so R32 always wins — no firmware
+                               # setting can cause the 1.8V brownout.
+                               # Active-HIGH, so no `inverted:`.
+                               # Screen dark through boot is expected.
+
+  # GPIO18 = CTP_RST is deliberately left UNCONFIGURED.
+  #
+  # The schematic shows no pull-up/pull-down on this net, so in principle it
+  # floats and should be driven — Oracle flagged that, correctly in theory.
+  # But empirically, BOTH attempts to touch this pin broke the touch driver:
+  #   - `reset_pin: GPIO18` on the touchscreen  -> "touch driver failed to start"
+  #   - a gpio `output:` held high at on_boot   -> "touch driver failed to start"
+  # Left unconfigured, the FT6336 pulls RSTN high internally and reports
+  # chipid 100. celer's config (the only other working one for this board)
+  # also omits it. Tested beats derived.
+  #
+  # FOLLOW-UP: proper reset handling probably needs a timed low pulse BEFORE
+  # i2c setup, not a static level. Tracked as hardening, not shipped blind.
+
+light:
+  - platform: monochromatic
+    id: backlight
+    name: Backlight
+    output: backlight_pwm
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: esp32_rmt_led_strip
+    id: status_led
+    name: Status LED
+    pin: GPIO42
+    num_leds: 1
+    chipset: ws2812
+    rgb_order: GRB
+    # `pulse` is registered via register_monochromatic_effect(), which also
+    # appends it to ADDRESSABLE_EFFECTS (light/effects.py:126-139) — so it is
+    # valid on a WS2812. Costs no LCD SPI at all.
+    effects:
+      - pulse:
+          name: bank
+          transition_length: 2s
+          update_interval: 2s
+          min_brightness: 8%
+          max_brightness: 22%
+      - pulse:
+          name: crucible
+          transition_length: 350ms
+          update_interval: 350ms
+          min_brightness: 45%
+          max_brightness: 100%
+
+########################  runtime controls  ########################
+# Live-adjustable from HA so tuning doesn't need a reflash. The es8311 boots
+# at set_volume(0.75) = 0dB (es8311.cpp:33), which JP reported as too loud.
+number:
+  - platform: template
+    id: spk_volume
+    name: Speaker Volume
+    icon: mdi:volume-high
+    optimistic: true
+    restore_value: true
+    initial_value: 45
+    min_value: 0
+    max_value: 100
+    step: 5
+    unit_of_measurement: "%"
+    mode: slider
+    set_action:
+      - audio_dac.set_volume:
+          id: es8311_dac
+          volume: !lambda 'return x / 100.0f;'
+
+switch:
+  - platform: output
+    id: amp_switch
+    name: Speaker Amplifier
+    output: amp_enable
+    restore_mode: ALWAYS_ON    # If it idle-hisses (class-D BTL often does),
+                               # switch to ALWAYS_OFF and toggle around TTS.
+
+  # prefers-color-scheme has no meaning on a bare SPI panel, so JP's
+  # dark/light rule is honoured by exposing the daylight ramp as a control
+  # rather than pretending a media query applies.
+  - platform: template
+    id: hearth_daylight
+    name: Daylight Hearth
+    icon: mdi:white-balance-sunny
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action:
+      - lambda: |-
+          id(theme_light) = true;
+          id(force_full_repaint) = true;
+    turn_off_action:
+      - lambda: |-
+          id(theme_light) = false;
+          id(force_full_repaint) = true;
+
+sensor:
+  - platform: adc
+    pin: GPIO9
+    name: Battery Voltage
+    update_interval: 60s
+    attenuation: 12db
+    filters:
+      - multiply: 2.0          # onboard 2:1 divider
+
+  # Calibrated dBFS level, straight from ESPHome's purpose-built component.
+  #
+  # passive: true is what makes this safe on this board: it NEVER starts or
+  # stops the microphone, it only piggybacks on audio another component has
+  # already started (Microphone::add_data_callback is a CallbackManager, so
+  # N consumers are fine). That means zero contention with voice_assistant
+  # over the shared I2S hub.
+  #
+  # Capped at 20Hz (measurement_duration floor is 50ms), which is why the
+  # fast waveform below still uses the on_data ring buffer instead.
+  #
+  # Publishes NAN while the mic isn't running (e.g. during TTS playback) —
+  # the on_value guards below hold the last good value rather than drawing junk.
+  - platform: sound_level
+    id: sound_lvl
+    microphone:
+      microphone: mic
+      channels: 0
+    passive: true
+    measurement_duration: 50ms
+    rms:
+      name: Mic RMS
+      id: mic_rms_db
+      on_value:
+        # Runs in the MAIN LOOP (sound_level publish_state()s from loop()),
+        # so touching display state from here is safe.
+        - lambda: |-
+            if (!std::isnan(x)) {
+              id(db_rms) = x;
+              id(mic_live) = true;
+              // Push into the rolling waveform history. 20Hz x 120 samples
+              // = 6 seconds of visible history.
+              float f = (x - ${db_floor}f) / (${db_ceil}f - ${db_floor}f);
+              if (f < 0.0f) f = 0.0f;
+              if (f > 1.0f) f = 1.0f;
+              id(level_hist)[id(hist_idx)] = f;
+              id(hist_idx) = (id(hist_idx) + 1) % ${hist_len};
+            } else {
+              id(mic_live) = false;
+            }
+    peak:
+      name: Mic Peak
+      id: mic_peak_db
+      on_value:
+        - lambda: |-
+            if (!std::isnan(x) && x > id(db_peak_hold)) id(db_peak_hold) = x;
+
+  # BRING-UP AFFORDANCE for the frames-derived speaking animation.
+  #
+  # During TTS this MUST climb at ~16000/s. If it stays flat, then
+  # audio_output_callback_ is not reaching us — most likely a resampler or mixer
+  # sits between voice_assistant and `spk`, so frames are counted at a different
+  # stage. Fallback (an is_running()-gated wall clock) is in
+  # scratch/hosyond-s3/luna-visual-design.md section 5.3.
+  #
+  # Caveat: float has a 24-bit mantissa, so this reads exactly only up to
+  # 16.7M frames (~17 min of cumulative playback). Diagnostic only — the
+  # display maths uses the uint32_t directly and is unaffected.
+  - platform: template
+    name: Speaker Frames
+    id: spk_frames_sensor
+    lambda: 'return (float) id(spk_frames);'
+    update_interval: 1s
+    accuracy_decimals: 0
+    entity_category: diagnostic
+
+########################  visualiser state  ########################
+
+globals:
+  # Rolling waveform history, 0.0-1.0, fed from sound_level's on_value at 20Hz.
+  - id: level_hist
+    type: float[120]
+    restore_value: false
+
+  - id: hist_idx
+    type: int
+    restore_value: false
+    initial_value: '0'
+
+  # Calibrated dBFS from sound_level (20Hz) — drives the fire in LISTENING.
+  - id: db_rms
+    type: float
+    restore_value: false
+    initial_value: '${db_floor}f'
+
+  - id: db_peak_hold
+    type: float
+    restore_value: false
+    initial_value: '${db_floor}f'
+
+  # false while sound_level publishes NAN (mic not running, e.g. during TTS)
+  - id: mic_live
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+
+  # 0 idle · 1 listening · 2 thinking · 3 speaking · 4 error
+  - id: va_state
+    type: int
+    restore_value: false
+    initial_value: '0'
+
+  # ---- the audio clock ----
+  # Frames clocked to the DAC. WRITTEN FROM speaker_task (see the on_boot note),
+  # read from the main loop. volatile + naturally-atomic 32-bit access.
+  # Never widen this type and never add a second writer.
+  - id: spk_frames
+    type: volatile uint32_t
+    restore_value: false
+    initial_value: '0'
+
+  # Snapshot of spk_frames when playback actually began. Main loop only.
+  - id: spk_frames_mark
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+
+  # Estimated utterance length, from the on_tts_start text. 0 = unknown, and
+  # the fuse then hides itself rather than inventing a denominator.
+  - id: tts_est_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+
+  # ---- the words ----
+  - id: heard_text
+    type: std::string
+    restore_value: false
+    initial_value: '""'
+
+  - id: said_text
+    type: std::string
+    restore_value: false
+    initial_value: '""'
+
+  # Bumped whenever heard_text/said_text change, so the display repaints the
+  # scroll band on CHANGE only — it is the most expensive band by far.
+  - id: scroll_gen
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+
+  # ---- theme + repaint control ----
+  - id: theme_light
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+
+  # Requests one full-frame repaint (boot, theme flip).
+  - id: force_full_repaint
+    type: bool
+    restore_value: false
+    initial_value: 'true'
+
+########################  display + touch  ########################
+
+display:
+  - platform: mipi_spi
+    id: lcd
+    model: ILI9341
+    spi_id: lcd_spi
+    cs_pin: GPIO10
+    dc_pin: GPIO46             # strapping pin; fine as a runtime output
+    # CRITICAL: mipi_spi's base ILI9341 model declares NO data_rate, so it
+    # falls back to the 10MHz default (mipi_spi/display.py default_data_rate).
+    # At 10MHz a full 240x320x16bpp frame is 122.9ms of pure wire time, which
+    # is what made frames take 141-152ms — NOT render overhead.
+    # 40MHz is proven safe for this chip by ESPHome's own cyd.py model.
+    data_rate: 40MHz
+    # No reset_pin — LCD RST is bonded to CHIP_PU/EN on this board.
+    invert_colors: true        # panel requires inversion
+    dimensions:
+      width: 240
+      height: 320
+
+    ####################################################################
+    # COST MODEL, calibrated from the two hardware measurements.
+    #
+    #   full frame @10MHz = 141-152ms  (wire alone would be 122.9ms)
+    #   full frame @40MHz =  55-65ms   (wire alone would be  30.7ms)
+    #
+    # Two measurements, two unknowns. Solving total = render + wire/rate:
+    #   wire@40MHz ~= 28.6ms  (so the bus runs at ~93% of theoretical — good)
+    #   render     ~= 31ms    (constant, and therefore the BIGGER half)
+    #
+    # That render half is why `data_rate` alone couldn't fix this: it is CPU +
+    # PSRAM time in draw_pixel_at, not transfer. Both halves scale with the
+    # number of ROWS touched, which is exactly what the banded design below
+    # reduces. Per row at 40MHz: ~0.089ms wire + render proportional to how
+    # many pixels the band actually writes.
+    #
+    # PARTIAL REDRAW — how it works and why it is safe:
+    #   mipi_spi maintains a dirty bounding box: draw_pixel_at() expands
+    #   x_low_/y_low_/x_high_/y_high_ (mipi_spi.h:623-634) and update()
+    #   flushes ONLY that box before resetting it (mipi_spi.h:573-591).
+    #
+    # auto_clear_enabled MUST be false. Its default is CONF_UNSPECIFIED, which
+    # resolves to `CONF_LAMBDA in config` (display/__init__.py:132-137) => TRUE
+    # for this config. That calls clear() -> fill(BLACK) -> dirties every pixel
+    # BEFORE the lambda runs, forcing a full flush on every single frame. It is
+    # what made the previous full-frame repaint mandatory rather than chosen.
+    #
+    # Frames where no band is due touch nothing at all: the box stays empty and
+    # update() skips the flush entirely (mipi_spi.h:573,
+    # `if (x_low_ > x_high_ || y_low_ > y_high_) continue;`). Idle frames cost
+    # ZERO bytes on the wire and near-zero CPU.
+    #
+    # Bands are FULL WIDTH deliberately: that makes stride == w in
+    # write_display_data_ (mipi_spi.h:390-399), so the whole band goes out as
+    # ONE write_array instead of one SPI transaction per row.
+    #
+    # >>> DO NOT set `buffer_size:`. psram: octal is configured and no explicit
+    #     size is given, so denominator() returns FRACTION=1 and the lambda is
+    #     called exactly ONCE per update. A fractional buffer would call it once
+    #     per horizontal slice, and the static band scheduler below would be
+    #     stepped N times per frame — silently wrong timing, not a clean fail.
+    ####################################################################
+    auto_clear_enabled: false
+    # 50ms = the fastest band's tick. At most ONE band paints per frame, so the
+    # dirty box never spans two bands.
+    # >>> If audio hiccups during a conversation, the knobs in preference
+    #     order are: FLAM_H 76->60, then the flame tick 50->70ms, then
+    #     NC 60->40 with CW 4->6. Raise this interval last. <<<
+    update_interval: 50ms
+
+    lambda: |-
+      // ================= band geometry =================
+      // Bands tile 0..319 exactly, and every boundary is a multiple of 4 so the
+      // design is immune to whatever draw_rounding the model declares (mipi_spi
+      // rounds the dirty box out to ROUNDING before flushing, mipi_spi.h:578-581).
+      //
+      //            y     h     wire@40MHz
+      const int W       = it.get_width();
+      const int SIGIL_Y =   0, SIGIL_H =  32;   //  2.9 ms
+      const int SCRL_Y  =  32, SCRL_H  = 156;   // 14.0 ms
+      const int FLAM_Y  = 188, FLAM_H  =  76;   //  6.8 ms   <- the animated band
+      const int TELE_Y  = 264, TELE_H  =  56;   //  5.0 ms
+      // The progress fuse deliberately lives in the TOP 4 ROWS OF THE FLAME BAND
+      // rather than in a band of its own. It used to have one, and the host
+      // harness showed why that was wrong: a 4-row repaint still consumes a whole
+      // frame slot, so at a 200ms fuse tick the fire only got 260 of 400 slots
+      // (~13fps instead of ~18). Folding it into the flame band costs nothing
+      // extra, repaints it at the fire's rate, and reads better anyway — the fire
+      // is burning along the fuse.
+      const int FUSE_H  = 4;
+      const uint32_t now = millis();
+      const int st = id(va_state);
+
+      // ================= palette: one fire-temperature ramp =================
+      // Every state is a rung on ember->amber->gold->white-hot. The ONLY colour
+      // off the ramp is `alarm`, because error means the fire went out.
+      // The ramp is monotonic in luminance as well as hue, so the states stay
+      // distinguishable to a red-green colour blind viewer — and every state is
+      // ALSO carried by the sigil word and by its motion signature, never by
+      // colour alone.
+      Color c_bg, c_ink, c_dim, c_ash, c_bed, c_ember, c_amber, c_gold, c_tip, c_alarm;
+      if (id(theme_light)) {
+        c_bg    = Color(0xF2, 0xE8, 0xDA);   // parchment
+        c_ink   = Color(0x2A, 0x1C, 0x12);
+        c_dim   = Color(0x8A, 0x76, 0x62);
+        c_ash   = Color(0xD8, 0xCA, 0xB8);
+        c_bed   = Color(0x8C, 0x2E, 0x0A);
+        c_ember = Color(0xB8, 0x3A, 0x0C);
+        c_amber = Color(0xE0, 0x6A, 0x10);
+        c_gold  = Color(0xF0, 0xA8, 0x20);
+        c_tip   = Color(0xFF, 0xE0, 0x90);
+        c_alarm = Color(0xA8, 0x14, 0x10);
+      } else {
+        c_bg    = Color(0x0A, 0x06, 0x04);   // warm near-black: cold hearth stone
+        c_ink   = Color(0xF2, 0xDC, 0xB8);
+        c_dim   = Color(0x6A, 0x52, 0x40);
+        c_ash   = Color(0x3A, 0x32, 0x2C);
+        c_bed   = Color(0x4A, 0x10, 0x02);   // the darkest coal
+        c_ember = Color(0x8E, 0x22, 0x06);
+        c_amber = Color(0xE0, 0x5A, 0x08);
+        c_gold  = Color(0xFF, 0xA8, 0x1E);
+        c_tip   = Color(0xFF, 0xE8, 0xB4);   // white-hot
+        c_alarm = Color(0xFF, 0x3C, 0x18);
+      }
+
+      Color accent = c_ember;
+      switch (st) {
+        case 1: accent = c_amber; break;
+        case 2: accent = c_gold;  break;
+        case 3: accent = c_tip;   break;
+        case 4: accent = c_alarm; break;
+      }
+
+      // ================= the audio clock =================
+      // spk_frames is incremented from speaker_task. Read it ONCE per frame into
+      // a plain local; everything downstream uses the local, so the whole frame
+      // is internally consistent.
+      const uint32_t frames = id(spk_frames);
+      static uint32_t last_frames = 0;
+      static uint32_t last_change_ms = 0;
+      if (frames != last_frames) { last_frames = frames; last_change_ms = now; }
+
+      const bool playing = id(spk)->is_running();
+      // Honest stall indicator: the speaker says it is running but no frames
+      // have reached the DAC. Real buffer underrun / wifi hiccup.
+      const bool guttering = playing && (now - last_change_ms) > ${stall_ms}u;
+
+      // 16000 frames/s -> frames/16 == milliseconds. Wrap-safe subtraction.
+      const uint32_t spoken_ms = (frames - id(spk_frames_mark)) / 16u;
+
+      float prog = 0.0f;
+      if (id(tts_est_ms) > 0) {
+        prog = (float) spoken_ms / (float) id(tts_est_ms);
+        if (prog > 0.97f) prog = 0.97f;   // never claim done before tts_stream_end
+      }
+
+      // >>> THE GROUNDING: the animation phase advances on frames PLAYED, not on
+      //     millis(). One full spatial cycle per ${flame_cycle_ms} ms of real
+      //     audio. If the stream stalls, the fire stops. The shape is synthetic;
+      //     the clock is not, so the screen cannot lie about whether sound is
+      //     actually coming out. <<<
+      const float ph = (float) spoken_ms * (6.28318f / ${flame_cycle_ms}.0f);
+
+      auto db_to_frac = [&](float db) {
+        float f = (db - ${db_floor}f) / (${db_ceil}f - ${db_floor}f);
+        return f < 0.0f ? 0.0f : (f > 1.0f ? 1.0f : f);
+      };
+
+      // ================= text helper =================
+      // Word-wrap on a character budget. O(n) and good enough: this runs only
+      // when the text changes (a few times per conversation), never per frame.
+      auto wrap = [&](int x, int y, auto *fnt, Color col, const std::string &s,
+                      int cpl, int lh, int max_lines) {
+        int ly = y, lines = 0; size_t i = 0;
+        while (i < s.size() && lines < max_lines) {
+          size_t take = (s.size() - i) < (size_t) cpl ? (s.size() - i) : (size_t) cpl;
+          if (i + take < s.size()) {
+            size_t sp = s.rfind(' ', i + take);
+            if (sp != std::string::npos && sp > i) take = sp - i;
+          }
+          it.print(x, ly, fnt, col, s.substr(i, take).c_str());
+          i += take;
+          while (i < s.size() && s[i] == ' ') i++;
+          ly += lh; lines++;
+        }
+      };
+
+      // ================= band painters =================
+      // Each painter erases its OWN band first. That is what keeps the dirty box
+      // band-sized now that auto_clear is off. NOTHING may draw outside its band.
+
+      auto paint_sigil = [&]() {
+        it.filled_rectangle(0, SIGIL_Y, W, SIGIL_H, c_bg);
+        const char *name; const char *sub;
+        switch (st) {
+          case 1:  name = "LISTENING"; sub = "speak - i'm here";                     break;
+          case 2:  name = "THINKING";  sub = "turning it over";                      break;
+          case 3:  name = "SPEAKING";  sub = "";                                     break;
+          // The WORD stays "ERROR" — an error must be recognisable before it is
+          // charming. The metaphor lives in the sub-line.
+          case 4:  name = "ERROR";     sub = "the fire guttered - touch to rekindle"; break;
+          default: name = "EMBER";     sub = "banked - touch to wake";               break;
+        }
+        // The ember dot: the fire's own pilot light, at the state's temperature.
+        it.filled_circle(13, SIGIL_Y + 13, 5, accent);
+        if (st == 1 || st == 3) it.circle(13, SIGIL_Y + 13, 8, c_dim);  // halo when live
+        it.print(28, SIGIL_Y + 3, id(font_hdr), accent, name);
+        // Right-aligned rather than measured off the name's width: no strlen, no
+        // font metrics, and name-left / status-right is the better composition.
+        if (sub[0] != '\0') {
+          it.print(W - 6, SIGIL_Y + 9, id(font_sm), c_dim,
+                   display::TextAlign::TOP_RIGHT, sub);
+        }
+        // The state's temperature as a rule under the header.
+        it.filled_rectangle(0, SIGIL_Y + 28, W, 3, accent);
+      };
+
+      auto paint_scroll = [&]() {
+        it.filled_rectangle(0, SCRL_Y, W, SCRL_H, c_bg);
+        it.print(6, SCRL_Y + 2, id(font_sm), c_dim, "heard");
+        if (!id(heard_text).empty()) {
+          wrap(6, SCRL_Y + 18, id(font_sm), c_ink, id(heard_text), ${cpl_sm}, 14, 2);
+        } else {
+          it.print(6, SCRL_Y + 18, id(font_sm), c_ash, "-");
+        }
+        it.filled_rectangle(6, SCRL_Y + 50, W - 12, 1, c_ash);
+        if (!id(said_text).empty()) {
+          wrap(6, SCRL_Y + 58, id(font_body),
+               st == 4 ? c_alarm : c_ink, id(said_text), ${cpl_body}, 18, 5);
+        }
+      };
+
+      auto paint_telem = [&]() {
+        it.filled_rectangle(0, TELE_Y, W, TELE_H, c_bg);
+        it.filled_rectangle(0, TELE_Y, W, 1, c_ash);
+        if (st == 3) {
+          it.printf(6, TELE_Y + 6, id(font_sm), guttering ? c_alarm : c_dim,
+                    "spoken %u.%us / ~%u.%us%s",
+                    spoken_ms / 1000u, (spoken_ms % 1000u) / 100u,
+                    id(tts_est_ms) / 1000u, (id(tts_est_ms) % 1000u) / 100u,
+                    guttering ? "   BUFFER STALL" : "");
+        } else if (id(mic_live)) {
+          it.printf(6, TELE_Y + 6, id(font_sm), c_dim, "%.1f dBFS   peak %.1f",
+                    id(db_rms), id(db_peak_hold));
+        } else {
+          it.print(6, TELE_Y + 6, id(font_sm), c_ash, "mic idle (no capture)");
+        }
+        // print(), not printf() — no format specifiers, so no varargs.
+        it.print(6, TELE_Y + 24, id(font_sm), c_ash, "ember - hearth spirit");
+      };
+
+      // ---------------------------- THE FIRE ----------------------------
+      auto paint_flame = [&]() {
+        const int NC = 60, CW = 4;               // 60 x 4 = 240 exactly
+        const int GRATE = 3;
+        const int base_row = FLAM_H - GRATE;     // rows >= this are the grate
+        const int MAXH = FLAM_H - 8;             // headroom above the tallest flame
+
+        // ---- pass 1: column geometry. 60 iterations of float maths, once. ----
+        // Terms that don't depend on the column are hoisted out so the
+        // transcendentals run ONCE per frame, not 60 times.
+        const float syl    = 0.55f + 0.45f * powf(fabsf(sinf(ph * 0.83f)), 1.6f);
+        const float breath = 0.5f * (1.0f + sinf((float) now * 0.001047f));   // 6.0s
+        const float orbit  = fmodf((float) now * 0.00042f, 1.0f) * (float) NC; // 2.4s
+
+        uint8_t ch[60], csa[60], csb[60];
+        bool chot[60];
+        for (int i = 0; i < NC; i++) {
+          const float fx = (float) i;
+          float f;
+
+          if (st == 1) {
+            // LISTENING: real mic history AS the fire — the waveform and the
+            // flames are the same object. Average the sample pair so all 120
+            // samples contribute across 60 columns.
+            int a = (id(hist_idx) + i * 2) % ${hist_len};
+            int b = (a + 1) % ${hist_len};
+            f = 0.10f + 0.86f * (0.5f * (id(level_hist)[a] + id(level_hist)[b]));
+
+          } else if (st == 3) {
+            // SPEAKING: two travelling waves at INCOMMENSURATE spatial
+            // frequencies (0.27 vs 0.11 rad/col) moving in OPPOSITE directions,
+            // so the product never visibly repeats — which is the giveaway that
+            // makes frame-cycled animimg prior art read as fake.
+            float w1 = 0.5f * (1.0f + sinf(0.27f * fx - ph * 2.3f));
+            float w2 = 0.5f * (1.0f + sinf(0.11f * fx + ph * 1.4f + 1.7f));
+            // Crackle: deterministic hash of (column, frames). 3 ops, no random().
+            uint32_t h = ((uint32_t) i * 2654435761u) ^ (frames * 1013904223u);
+            float crackle = (float) ((h >> 24) & 0xFFu) * (0.14f / 255.0f);
+            // syl's |sin|^1.6 gives speech's fast attack and slower decay rather
+            // than a sine's symmetry.
+            f = 0.22f + 0.62f * w1 * w2 * syl + crackle;
+            if (guttering) f *= 0.35f;           // collapse rather than lie
+
+          } else if (st == 2) {
+            // THINKING: still bed, one hot cell orbiting and wrapping, like a
+            // coal being stirred. Hottest colour, least motion — concentration
+            // reads as stillness, not busyness.
+            float d = fabsf(fx - orbit);
+            if (d > (float) NC * 0.5f) d = (float) NC - d;
+            f = 0.10f + 0.72f * expf(-(d * d) / 18.0f);
+
+          } else if (st == 4) {
+            // ERROR: a flat ash bed. Deliberately MOTIONLESS — after everything
+            // else has been alive, stillness is the loudest thing on the screen,
+            // and it costs zero SPI once painted.
+            f = 0.16f;
+
+          } else {
+            // IDLE: banked coals. One slow breath, barely alive.
+            float w = 0.5f * (1.0f + sinf(0.19f * fx + (float) now * 0.0004f));
+            f = 0.06f + 0.16f * breath * (0.55f + 0.45f * w);
+          }
+
+          if (f < 0.0f) f = 0.0f;
+          if (f > 1.0f) f = 1.0f;
+          int hgt = (int) (f * (float) MAXH);
+          if (hgt < 1) hgt = 1;
+          ch[i]   = (uint8_t) hgt;
+          csa[i]  = (uint8_t) (hgt * 50 / 100);   // bed   0-50% of the column
+          csb[i]  = (uint8_t) (hgt * 82 / 100);   // body 50-82%
+          chot[i] = (f > 0.72f);                  // tall tongues go white-hot
+        }
+
+        // Peak-hold survives from the previous design as the fire's reach. It is
+        // drawn only where the fire ISN'T, so it reads as a high-water mark.
+        int pk_row = -1;
+        if (st == 1) {
+          int pk = (int) (db_to_frac(id(db_peak_hold)) * (float) MAXH);
+          if (pk > 1) pk_row = pk;
+        }
+
+        // Temperature BY HEIGHT: a fire's own depth cue, for one Color pick per run.
+        Color k_bed, k_body, k_tipg, k_tipw;
+        if (st == 4)        { k_bed = c_ash;   k_body = c_ash;   k_tipg = c_ash;   k_tipw = c_ash; }
+        else if (st == 0)   { k_bed = c_bed;   k_body = c_ember; k_tipg = c_amber; k_tipw = c_amber; }
+        else if (guttering) { k_bed = c_ash;   k_body = c_bed;   k_tipg = c_ember; k_tipw = c_ember; }
+        else                { k_bed = c_ember; k_body = c_amber; k_tipg = c_gold;  k_tipw = c_tip; }
+
+        // ---- pass 2: ROW-MAJOR render (see the header note) ----
+        // Walks the band top-to-bottom emitting one horizontal_line per run of
+        // adjacent same-colour columns. Every pixel is written EXACTLY ONCE —
+        // background included — so there is no fill-then-overdraw, and every
+        // write is sequential in x so PSRAM cache lines are fully consumed.
+        for (int r = 0; r < FLAM_H; r++) {
+          const int y = FLAM_Y + r;
+
+          // ---- the burning fuse: top FUSE_H rows, grounded in frames played ----
+          // Emitted as exact runs so the row still tiles to precisely W px.
+          if (r < FUSE_H) {
+            if (st == 3 && id(tts_est_ms) > 0) {
+              int wpx = (int) (prog * (float) W);
+              if (wpx > 3) {
+                it.horizontal_line(0, y, wpx - 3, c_amber);
+                it.horizontal_line(wpx - 3, y, 3, guttering ? c_ash : c_tip);
+              } else if (wpx > 0) {
+                it.horizontal_line(0, y, wpx, c_amber);
+              }
+              if (wpx < W) it.horizontal_line(wpx, y, W - wpx, c_ash);
+            } else if (st == 4) {
+              it.horizontal_line(0, y, W, c_alarm);
+            } else {
+              it.horizontal_line(0, y, W, c_bg);
+            }
+            continue;
+          }
+
+          if (r >= base_row) { it.horizontal_line(0, y, W, c_ash); continue; }  // grate
+          const int hup = base_row - r;          // px above the grate at this row
+          int run_i = 0, run_k = -1;
+          for (int i = 0; i <= NC; i++) {
+            int k;
+            if (i == NC) {
+              k = -2;                                       // sentinel: final flush
+            } else if (hup > (int) ch[i]) {
+              k = (hup == pk_row) ? 5 : 0;                  // background / high-water
+            } else if (hup <= (int) csa[i]) {
+              k = 1;                                        // bed
+            } else if (hup <= (int) csb[i]) {
+              k = 2;                                        // body
+            } else {
+              k = chot[i] ? 4 : 3;                          // tip
+            }
+            if (k != run_k) {
+              if (run_k >= 0) {
+                Color rc;
+                switch (run_k) {
+                  case 1:  rc = k_bed;  break;
+                  case 2:  rc = k_body; break;
+                  case 3:  rc = k_tipg; break;
+                  case 4:  rc = k_tipw; break;
+                  case 5:  rc = c_dim;  break;
+                  default: rc = c_bg;   break;
+                }
+                it.horizontal_line(run_i * CW, y, (i - run_i) * CW, rc);
+              }
+              run_k = k; run_i = i;
+            }
+          }
+        }
+      };
+
+      // ================= band scheduler =================
+      // Bits: 0x01 sigil · 0x04 scroll · 0x08 telemetry · 0x10 flame
+      //
+      // INVARIANT: at most ONE band is painted per frame, and chrome outranks the
+      // flame. Because the dirty region is a single bounding box, painting the
+      // sigil (y0) and the flame (y188) on the same frame would produce a
+      // 264-row box instead of two small ones. Chrome changes are rare, so the
+      // flame effectively never loses a frame — and when it does, one dropped
+      // frame at ~18fps is imperceptible.
+      //
+      // !! EVERY TICK MUST BE A MULTIPLE OF update_interval (50ms). !!
+      //    A tick is only tested on frame boundaries, so it rounds UP to the next
+      //    multiple: a 60ms tick actually fires every 100ms. The host harness in
+      //    scratch/hosyond-s3/harness.cpp caught exactly that on THINKING and it
+      //    is invisible from the YAML — the tick number looks honest and isn't.
+      //
+      // NOTE: these statics assume the lambda runs ONCE per update (FRACTION=1).
+      // See the `buffer_size` warning above.
+      static uint8_t  pend = 0x1F;
+      static int      seen_state = -1;
+      static uint32_t seen_gen = 0xFFFFFFFFu;
+      static uint32_t t_flame = 0, t_tele = 0;
+
+      // The framebuffer is heap-allocated and NOT zeroed, and auto_clear is off,
+      // so the very first frame must ground the whole panel or boot garbage shows
+      // through under the 80%-bright backlight. One ~60ms frame, once — ESPHome
+      // will log "display took a long time" for it, which is expected. Also the
+      // repaint path for a theme flip.
+      if (id(force_full_repaint)) {
+        id(force_full_repaint) = false;
+        it.fill(c_bg);
+        pend = 0x1F;
+        seen_state = st;
+        seen_gen = id(scroll_gen);
+        paint_sigil();
+        return;
+      }
+
+      if (st != seen_state)           { seen_state = st;            pend |= 0x1F; }
+      if (id(scroll_gen) != seen_gen) { seen_gen = id(scroll_gen);  pend |= 0x04; }
+      if (now >= t_tele)              { pend |= 0x08; t_tele = now + 500u; }
+
+      if (pend & 0x01)      { pend &= ~0x01; paint_sigil();  }
+      else if (pend & 0x04) { pend &= ~0x04; paint_scroll(); }
+      else if (pend & 0x08) { pend &= ~0x08; paint_telem();  }
+      else if (st == 4) {
+        // Error paints once and then costs literally nothing.
+        if (pend & 0x10) { pend &= ~0x10; paint_flame(); }
+      } else {
+        // Multiples of update_interval (50ms) ONLY — see the warning above.
+        const uint32_t iv = (st == 0) ? 200u : 50u;
+        if ((pend & 0x10) || now >= t_flame) {
+          pend &= ~0x10; t_flame = now + iv; paint_flame();
+        }
+      }
+
+font:
+  - file: "gfonts://Roboto"
+    id: font_hdr
+    size: 18
+  - file: "gfonts://Roboto"
+    id: font_body
+    size: 15
+  - file: "gfonts://Roboto"
+    id: font_sm
+    size: 12
+
+touchscreen:
+  - platform: ft63x6
+    id: touch
+    i2c_id: i2c_bus
+    address: 0x38
+    interrupt_pin: GPIO17
+    # reset_pin: GPIO18 REMOVED 2026-07-29.
+    # With it set, boot logged "Performing bus recovery" (ESPHome only does
+    # that when SDA/SCL is found stuck low) followed by
+    # "[E][FT63X6] FT6336U touch driver failed to start".
+    # celer's config — the only one known to work on this board — omits it.
+    # Nebula's report recommended adding it for "reliable init", but that was
+    # reasoned from the schematic, not tested. Hardware disagrees.
+    on_touch:
+      # Touch-to-talk: start a conversation, or cancel one in progress.
+      - if:
+          condition:
+            - lambda: 'return id(va_state) == 0 || id(va_state) == 4;'
+          then:
+            # Clearing here (not only in on_start) means the error text goes away
+            # the instant you touch, so the device feels responsive before the
+            # pipeline has answered.
+            - lambda: |-
+                if (id(va_state) == 4) {
+                  id(said_text).clear();
+                  id(heard_text).clear();
+                  id(scroll_gen)++;
+                }
+            - voice_assistant.start:
+          else:
+            - voice_assistant.stop:
+
+########################  voice assistant  ########################
+
+voice_assistant:
+  id: va
+  microphone:
+    microphone: mic
+  speaker: spk
+  noise_suppression_level: 2
+  auto_gain: 31dBFS
+  volume_multiplier: 2.0
+  # No micro_wake_word / use_wake_word — activation is by touch for now.
+
+  # on_stt_end / on_tts_start carry the actual TEXT (Trigger<std::string>,
+  # voice_assistant.h:215,217). Bump scroll_gen so the display repaints the
+  # expensive scroll band on CHANGE only.
+  on_start:
+    - lambda: |-
+        id(heard_text).clear();
+        id(said_text).clear();
+        id(tts_est_ms) = 0;
+        id(scroll_gen)++;
+
+  on_listening:
+    - lambda: |-
+        id(va_state) = 1;
+        id(db_peak_hold) = ${db_floor}f;
+    - light.turn_on:
+        id: status_led
+        red: 100%
+        green: 40%
+        blue: 4%          # amber — rung 1 of the fire ramp
+
+  on_stt_end:
+    - lambda: |-
+        id(heard_text) = x;
+        id(scroll_gen)++;
+
+  on_stt_vad_end:
+    - lambda: 'id(va_state) = 2;'
+    - light.turn_on:
+        id: status_led
+        red: 100%
+        green: 66%
+        blue: 12%         # gold — rung 2
+        effect: crucible
+
+  # Fires while the audio is still being FETCHED — not speaking yet, so the
+  # state deliberately stays 2. Previously this set state 3, which made the
+  # header claim SPEAKING before any sound existed. We use the text for the
+  # fuse denominator and to show it on screen.
+  on_tts_start:
+    - lambda: |-
+        id(said_text) = x;
+        id(tts_est_ms) = ${tts_lead_ms}u + (uint32_t) x.size() * ${tts_ms_per_char}u;
+        id(scroll_gen)++;
+
+  # THIS is when sound actually starts leaving the speaker. Requires `speaker:`
+  # (voice_assistant/__init__.py:83-86) — we have one.
+  on_tts_stream_start:
+    - lambda: |-
+        id(va_state) = 3;
+        id(spk_frames_mark) = id(spk_frames);
+    - light.turn_on:
+        id: status_led
+        red: 100%
+        green: 91%
+        blue: 70%         # white-hot — rung 3
+
+  on_tts_stream_end:
+    - lambda: 'id(spk_frames_mark) = id(spk_frames);'
+
+  on_end:
+    - lambda: |-
+        id(va_state) = 0;
+        id(tts_est_ms) = 0;
+    # Not turn_off: the ember still burns while the room is dark.
+    - light.turn_on:
+        id: status_led
+        red: 100%
+        green: 14%
+        blue: 2%
+        brightness: 20%
+        effect: bank
+
+  on_error:
+    - lambda: |-
+        id(va_state) = 4;
+        // on_error is the ONE voice_assistant trigger whose lambda params are
+        // NOT named x/y — voice_assistant/__init__.py:278 declares them as
+        // (std_string "code", std_string "message"). Every single-param
+        // trigger (on_stt_end / on_tts_start / on_tts_end) does use `x`.
+        id(said_text) = code + " / " + message;
+        id(scroll_gen)++;
+    - light.turn_on:
+        id: status_led
+        red: 100%
+        green: 0%
+        blue: 0%
+        effect: none
