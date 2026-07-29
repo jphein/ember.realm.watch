@@ -1,0 +1,37 @@
+# Live persona tweaks for Ember, editable from the dashboard.
+#
+# WHY THIS IS A SEPARATE 255-CHAR FIELD RATHER THAN THE WHOLE PERSONA:
+#
+# 1. HA's only editable-text helper is `input_text`, hard-capped at 255 chars.
+#    Ember's full persona is ~1000 chars, so it cannot live here. The full text
+#    is edited at Settings -> Devices & Services -> "Ember (familiar local)" ->
+#    the conversation subentry -> reconfigure, which exposes the whole prompt.
+#
+# 2. More importantly: Ember answers in ~1.7s warm ONLY because the prompt
+#    prefix is byte-stable, which lets llama.cpp reuse the KV cache (516 tokens
+#    re-prefilled instead of 7,559). Anything volatile early in the prompt
+#    destroys that and costs ~6.5s per turn — measured, not theorised.
+#
+#    So this field is injected at the VERY END of the prompt — after the
+#    Environment State block. {{now()}} there already changes every request and
+#    is therefore already the cache boundary, so trailing placement costs
+#    NOTHING extra — and it buys maximum recency, which turned out to matter:
+#    placed mid-prompt (after the ~7k-token entity manifest) the model IGNORED
+#    it entirely, even an explicit "reply in French" override. Moved to last, it
+#    takes effect immediately. Delivery was never the problem; position was.
+#
+#    >>> If you ever move this reference earlier in the prompt, you will
+#        silently trade 1.7s replies back for 7.6s ones. <<<
+#
+# Reloadable without an HA restart: `input_text.reload`.
+
+input_text:
+  ember_persona_extra:
+    name: Ember Persona Tweak
+    icon: mdi:comment-edit-outline
+    max: 255
+    initial: ""
+    # Examples of the kind of thing this is for:
+    #   "Be even terser today, one sentence only."
+    #   "You are in a hurry and a little short with me."
+    #   "Mention the weather if it is relevant."
