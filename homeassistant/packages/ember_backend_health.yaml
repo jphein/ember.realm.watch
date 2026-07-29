@@ -1,0 +1,50 @@
+# Ember backend health — is the local LLM actually reachable?
+#
+# The Ember dashboard could show WHICH conversation agent is selected but not
+# whether it was up. That's a live blind spot rather than a cosmetic one:
+# `familiar` S3-sleeps itself after ~15 minutes idle, and the coder lane that
+# serves Ember is not guaranteed to come back, so "Ember is selected" and
+# "Ember will answer" are genuinely different facts.
+#
+# Addressed by polling the llama.cpp lane directly.
+#
+# Notes for whoever touches this next:
+#   - `familiar.lan`, NOT `familiar`. HAOS does not resolve the bare hostname.
+#     And never the IP: it moved .124 -> 10.0.6.107 and the stale literal cost
+#     a debugging session.
+#   - Polling does NOT keep familiar awake. Its autosuspend decides on whether
+#     the inference lane is loaded, not on network traffic, and an HTTP request
+#     to a sleeping host simply fails rather than waking it (that needs WOL).
+#     So a failed poll is a true signal, not an artefact of measuring.
+#   - Reloadable without a full HA restart: `rest.reload`.
+
+rest:
+  - resource: http://familiar.lan:8091/health
+    scan_interval: 60
+    timeout: 8
+    binary_sensor:
+      - name: Ember Backend
+        unique_id: ember_backend_health
+        device_class: connectivity
+        # llama-server returns {"status":"ok"} when the model is loaded and
+        # serving. Anything else, including an unreachable host, is not-ok.
+        value_template: "{{ value_json.status == 'ok' }}"
+        availability: "{{ value_json is defined }}"
+
+template:
+  - binary_sensor:
+      # Collapses "asleep/unreachable" and "up but unhealthy" into one
+      # tri-state the dashboard can render without special-casing
+      # `unavailable` in every card.
+      - name: Ember Reachable
+        unique_id: ember_reachable
+        device_class: connectivity
+        state: >
+          {{ states('binary_sensor.ember_backend') == 'on' }}
+        attributes:
+          detail: >
+            {% set s = states('binary_sensor.ember_backend') %}
+            {% if s == 'on' %}serving
+            {% elif s == 'off' %}reachable but not ready
+            {% else %}unreachable (familiar asleep?)
+            {% endif %}
