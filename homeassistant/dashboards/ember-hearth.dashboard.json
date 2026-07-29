@@ -1,0 +1,1106 @@
+{
+ "views": [
+  {
+   "title": "The Hearth",
+   "path": "hearth",
+   "icon": "mdi:fireplace",
+   "type": "sections",
+   "max_columns": 3,
+   "badges": [
+    {
+     "type": "entity",
+     "entity": "assist_satellite.ember_satellite_assist_satellite",
+     "name": "Ember",
+     "color": "amber"
+    },
+    {
+     "type": "entity",
+     "entity": "select.ember_satellite_assistant",
+     "name": "Pipeline",
+     "color": "orange"
+    },
+    {
+     "type": "entity",
+     "entity": "number.ember_satellite_speaker_volume",
+     "name": "Volume",
+     "color": "deep-orange"
+    },
+    {
+     "type": "entity",
+     "entity": "switch.ember_satellite_speaker_amplifier",
+     "name": "Amp",
+     "color": "red"
+    },
+    {
+     "type": "entity",
+     "entity": "sensor.ember_satellite_battery_voltage",
+     "name": "Cell",
+     "color": "yellow"
+    }
+   ],
+   "sections": [
+    {
+     "type": "grid",
+     "column_span": 3,
+     "cards": [
+      {
+       "type": "markdown",
+       "grid_options": {
+        "columns": "full"
+       },
+       "content": "{% set na = ['unknown','unavailable','none',''] %}\n{% set st = states('assist_satellite.ember_satellite_assist_satellite') %}\n{% set pl = states('select.ember_satellite_assistant') %}\n{% set chain = {\n  'familiar-ember': ['Ember \u00b7 local Qwen3.6-35B on familiar','vosk','piper','en_GB-cori-medium'],\n  'claude-donkee': ['Claude Opus 4.7 \u00b7 Bedrock','vosk','piper','en_US-hfc_female-medium'],\n  'Chatgpt': ['ChatGPT','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Gemini-vosk-piper-donkee': ['Google Gemini','vosk','piper','en_US-hfc_female-medium'],\n  'yurt-butler': ['Home Assistant','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Home Assistant': ['Home Assistant','\u2014','HA Cloud','JennyNeural'],\n  'preferred': ['Google Gemini \u00b7 HA preferred','vosk','piper','en_US-hfc_female-medium']\n} %}\n{% set glyph = {'idle':'\u25cb','listening':'\u25c9','processing':'\u25d0','responding':'\u25c6','responding_speaking':'\u25c6'}.get(st,'\u00b7') %}\n{% set p = chain.get(pl, ['\u2014','\u2014','\u2014','\u2014']) %}\n# Ember\nthe hearth-spirit \u00b7 **{{ glyph }} {{ st }}**\n\nlistening as **{{ pl }}** \u2192 {{ p[0] }}\n{{ p[1] }} \u27f6 {{ p[2] }} \u00b7 *{{ p[3] }}*\n\nhearth **{% set v = states('number.ember_satellite_speaker_volume') %}{{ (v | float | int) ~ '%' if v not in na else '\u2014' }}** \u00b7 amp **{{ states('switch.ember_satellite_speaker_amplifier') }}** \u00b7 ear **{% set v = states('sensor.ember_satellite_mic_rms') %}{{ (v | float | round(1)) ~ ' dB' if v not in na else '\u2014' }}** \u00b7 coals **{% set v = states('sensor.ember_satellite_battery_voltage') %}{{ (v | float | round(2)) ~ ' V' if v not in na else '\u2014' }}**\n",
+       "card_mod": {
+        "style": {
+         ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:none; box-shadow:none; padding:2px 6px 8px;\n  background:radial-gradient(120% 160% at 8% 118%,\n    color-mix(in srgb, var(--em-coal) 30%, transparent) 0%,\n    color-mix(in srgb, var(--em-bed) 16%, transparent) 42%, transparent 74%); }\n",
+         "ha-markdown$": "\nh1 { font-family:'Georgia','IBM Plex Serif',serif; font-size:52px; line-height:.92;\n  margin:0; letter-spacing:1px; color:var(--em-gold);\n  text-shadow:0 0 26px color-mix(in srgb, var(--em-glow) 55%, transparent),\n              0 0 6px color-mix(in srgb, var(--em-tip) 30%, transparent); }\np { margin:6px 0 0; font-size:13px; line-height:1.75;\n  color:var(--secondary-text-color); letter-spacing:.3px; }\nstrong { color:var(--em-glow); font-weight:600; }\nem { color:var(--em-tip); font-style:normal; letter-spacing:.6px; }\n"
+        }
+       }
+      },
+      {
+       "type": "markdown",
+       "content": "&nbsp;",
+       "grid_options": {
+        "columns": "full",
+        "rows": 1
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { height:6px; min-height:6px; padding:0; border:none; box-shadow:none;\n  overflow:hidden; border-radius:3px;\n  background:linear-gradient(90deg, var(--em-bed) 0%, var(--em-coal) 20%,\n    var(--em-glow) 46%, var(--em-gold) 74%, var(--em-tip) 100%); }\nha-card > * { display:none; }\n"
+       }
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 2,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Output \u00b7 the speaking flame",
+       "heading_style": "subtitle",
+       "icon": "mdi:volume-high"
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "number.ember_satellite_speaker_volume",
+         "state": [
+          "unavailable",
+          "unknown"
+         ]
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "\u26a0 **Speaker Volume is not reporting.** The DAC-volume control arrives with the firmware that adds `number: spk_volume` \u2014 flash `scratch/ember-satellite.yaml` and this tile self-heals. Until then the es8311 boots at `set_volume(0.75)` = 0 dB, which is the *too loud* default.",
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-alarm); border-radius:10px;\n  background:color-mix(in srgb, var(--em-alarm) 8%, var(--card-background-color)); }\n",
+          "ha-markdown$": "p { margin:0; font-size:12.5px; line-height:1.65; }\nstrong { color:var(--em-alarm); }\nem { color:var(--em-gold); font-style:normal; }\ncode { color:var(--em-glow); background:none; font-size:11.5px; }\n"
+         }
+        }
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "number.ember_satellite_speaker_volume",
+       "name": "Hearth Voice \u00b7 Output Level",
+       "icon": "mdi:volume-high",
+       "features": [
+        {
+         "type": "numeric-input",
+         "style": "slider"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid color-mix(in srgb, var(--em-glow) 45%, transparent);\n  border-radius:12px;\n  --tile-color: var(--em-gold);\n  --control-slider-color: var(--em-glow);\n  --control-slider-background: var(--em-coal);\n  --control-slider-background-opacity: .35;\n  background:linear-gradient(100deg,\n    color-mix(in srgb, var(--em-bed) 22%, var(--card-background-color)) 0%,\n    var(--card-background-color) 55%);\n  box-shadow:0 0 22px color-mix(in srgb, var(--em-coal) 28%, transparent); }\n"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "switch.ember_satellite_speaker_amplifier",
+       "name": "Speaker Amplifier",
+       "icon": "mdi:audio-input-stereo-minijack",
+       "color": "deep-orange",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ]
+      },
+      {
+       "type": "tile",
+       "entity": "sensor.ember_satellite_speaker_frames",
+       "name": "Frames Spoken",
+       "icon": "mdi:waveform",
+       "color": "amber"
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 1,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Input \u00b7 the listening ear",
+       "heading_style": "subtitle",
+       "icon": "mdi:microphone"
+      },
+      {
+       "type": "gauge",
+       "entity": "sensor.ember_satellite_mic_rms",
+       "name": "Mic RMS",
+       "unit": "dB",
+       "min": -72,
+       "max": -30,
+       "needle": true,
+       "severity": {
+        "green": -72,
+        "yellow": -52,
+        "red": -36
+       }
+      },
+      {
+       "type": "gauge",
+       "entity": "sensor.ember_satellite_mic_peak",
+       "name": "Mic Peak (hold)",
+       "unit": "dB",
+       "min": -72,
+       "max": -30,
+       "needle": true,
+       "severity": {
+        "green": -72,
+        "yellow": -52,
+        "red": -36
+       }
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 3,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Assist \u00b7 how Ember hears you",
+       "heading_style": "subtitle",
+       "icon": "mdi:account-voice"
+      },
+      {
+       "type": "tile",
+       "entity": "assist_satellite.ember_satellite_assist_satellite",
+       "name": "Assist Satellite",
+       "icon": "mdi:fireplace",
+       "color": "amber"
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_satellite_assistant",
+       "name": "Pipeline",
+       "icon": "mdi:transit-connection-variant",
+       "color": "orange",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_satellite_finished_speaking_detection",
+       "name": "Finished-speaking Detection",
+       "icon": "mdi:ear-hearing",
+       "color": "brown",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_satellite_wake_word",
+       "name": "Wake Word (none on-device)",
+       "icon": "mdi:sleep-off",
+       "color": "grey"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Voice Pipeline",
+   "path": "pipeline",
+   "icon": "mdi:transit-connection-variant",
+   "type": "sections",
+   "max_columns": 3,
+   "sections": [
+    {
+     "type": "grid",
+     "column_span": 3,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "The chain, hearing to speech",
+       "heading_style": "title",
+       "icon": "mdi:transit-connection-variant"
+      },
+      {
+       "type": "markdown",
+       "grid_options": {
+        "columns": "full"
+       },
+       "content": "{% set na = ['unknown','unavailable','none',''] %}\n{% set pl = states('select.ember_satellite_assistant') %}\n{% set chain = {\n  'familiar-ember': ['Ember \u00b7 local Qwen3.6-35B on familiar','vosk','piper','en_GB-cori-medium'],\n  'claude-donkee': ['Claude Opus 4.7 \u00b7 Bedrock','vosk','piper','en_US-hfc_female-medium'],\n  'Chatgpt': ['ChatGPT','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Gemini-vosk-piper-donkee': ['Google Gemini','vosk','piper','en_US-hfc_female-medium'],\n  'yurt-butler': ['Home Assistant','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Home Assistant': ['Home Assistant','\u2014','HA Cloud','JennyNeural'],\n  'preferred': ['Google Gemini \u00b7 HA preferred','vosk','piper','en_US-hfc_female-medium']\n} %}\n{% set p = chain.get(pl, ['\u2014','\u2014','\u2014','\u2014']) %}\n{% set held = states.select['ember_satellite_assistant'] %}\n| | stage | engine | reading |\n|:--|:--|:--|:--|\n| \u25cb | **wake** | openwakeword | {{ 'ready' if states('wake_word.openwakeword') not in na else 'idle' }} |\n| \u25d4 | **ear** | {{ p[1] }} | {% set v = states('sensor.ember_satellite_mic_rms') %}{{ (v | float | round(1)) ~ ' dB' if v not in na else '\u2014' }} |\n| \u25d1 | **mind** | {{ p[0] }} | {{ relative_time(held.last_changed) ~ ' on this pipeline' if held else '\u2014' }} |\n| \u25c6 | **voice** | {{ p[2] }} \u00b7 *{{ p[3] }}* | {% set v = states('sensor.ember_satellite_speaker_frames') %}{{ (v | float | int) ~ ' frames' if v not in na else '\u2014' }} |\n",
+       "card_mod": {
+        "style": {
+         ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--divider-color); border-radius:10px;\n  background:linear-gradient(180deg,\n    color-mix(in srgb, var(--em-bed) 10%, var(--card-background-color)) 0%,\n    var(--card-background-color) 60%); }\n",
+         "ha-markdown$": "\ntable { width:100%; border-collapse:collapse; font-size:12.5px; }\nth { text-align:left; font-size:10px; letter-spacing:2.5px; text-transform:uppercase;\n  color:var(--em-dim); border-bottom:1px solid var(--divider-color); padding:4px 8px; }\ntd { padding:7px 8px; border-bottom:1px solid\n  color-mix(in srgb, var(--divider-color) 42%, transparent);\n  color:var(--secondary-text-color); }\nstrong { color:var(--em-gold); font-weight:600; letter-spacing:.4px; }\nem { color:var(--em-tip); font-style:normal; }\ncode { color:var(--em-glow); background:none; }\n\ntd:first-child { color:var(--em-glow); width:22px; font-size:15px; }\n"
+        }
+       }
+      },
+      {
+       "type": "markdown",
+       "content": "&nbsp;",
+       "grid_options": {
+        "columns": "full",
+        "rows": 1
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { height:6px; min-height:6px; padding:0; border:none; box-shadow:none;\n  overflow:hidden; border-radius:3px;\n  background:linear-gradient(90deg, var(--em-bed) 0%, var(--em-coal) 20%,\n    var(--em-glow) 46%, var(--em-gold) 74%, var(--em-tip) 100%); }\nha-card > * { display:none; }\n"
+       }
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 1,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Swap Ember's mind",
+       "heading_style": "subtitle",
+       "icon": "mdi:swap-horizontal"
+      },
+      {
+       "type": "button",
+       "name": "Ember \u00b7 local Qwen",
+       "icon": "mdi:fireplace",
+       "show_state": false,
+       "tap_action": {
+        "action": "perform-action",
+        "perform_action": "select.select_option",
+        "target": {
+         "entity_id": "select.ember_satellite_assistant"
+        },
+        "data": {
+         "option": "familiar-ember"
+        }
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-gold); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-gold) 14%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-gold) 45%, transparent); }\nha-state-icon, ha-icon { color:var(--em-gold); }\n"
+       }
+      },
+      {
+       "type": "button",
+       "name": "Claude Opus \u00b7 Bedrock",
+       "icon": "mdi:cloud-outline",
+       "show_state": false,
+       "tap_action": {
+        "action": "perform-action",
+        "perform_action": "select.select_option",
+        "target": {
+         "entity_id": "select.ember_satellite_assistant"
+        },
+        "data": {
+         "option": "claude-donkee"
+        }
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-coal); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-coal) 14%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-coal) 45%, transparent); }\nha-state-icon, ha-icon { color:var(--em-coal); }\n"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_satellite_assistant",
+       "name": "Active Pipeline",
+       "icon": "mdi:transit-connection-variant",
+       "color": "orange",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 1,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Conversation agents",
+       "heading_style": "subtitle",
+       "icon": "mdi:brain"
+      },
+      {
+       "type": "tile",
+       "entity": "conversation.extended_openai_conversation_2",
+       "name": "Ember \u00b7 local Qwen3.6-35B",
+       "icon": "mdi:fireplace",
+       "color": "amber"
+      },
+      {
+       "type": "tile",
+       "entity": "conversation.extended_openai_conversation",
+       "name": "Claude Opus 4.7 \u00b7 Bedrock",
+       "icon": "mdi:cloud-outline",
+       "color": "deep-orange"
+      },
+      {
+       "type": "tile",
+       "entity": "conversation.home_assistant",
+       "name": "Home Assistant (built-in)",
+       "icon": "mdi:home-assistant",
+       "color": "grey"
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 1,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Ear, voice & wake engines",
+       "heading_style": "subtitle",
+       "icon": "mdi:cog-outline"
+      },
+      {
+       "type": "tile",
+       "entity": "stt.vosk",
+       "name": "vosk \u00b7 STT (Ember's ear)",
+       "icon": "mdi:ear-hearing",
+       "color": "amber"
+      },
+      {
+       "type": "tile",
+       "entity": "stt.faster_whisper",
+       "name": "faster-whisper \u00b7 STT",
+       "icon": "mdi:ear-hearing-off",
+       "color": "grey"
+      },
+      {
+       "type": "tile",
+       "entity": "tts.piper",
+       "name": "piper \u00b7 TTS (Ember's voice)",
+       "icon": "mdi:account-voice",
+       "color": "orange"
+      },
+      {
+       "type": "tile",
+       "entity": "wake_word.openwakeword",
+       "name": "openwakeword",
+       "icon": "mdi:sleep-off",
+       "color": "brown"
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 3,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Every pipeline on this Home Assistant",
+       "heading_style": "subtitle",
+       "icon": "mdi:format-list-bulleted"
+      },
+      {
+       "type": "markdown",
+       "grid_options": {
+        "columns": "full"
+       },
+       "content": "| pipeline | agent | stt | tts \u00b7 voice |\n|:--|:--|:--|:--|\n| **familiar-ember** | Ember \u2014 local Qwen3.6-35B (familiar) | vosk | piper \u00b7 *en_GB-cori-medium* |\n| **claude-donkee** | Claude Opus 4.7 \u00b7 Bedrock | vosk | piper \u00b7 *en_US-hfc_female-medium* |\n| **Chatgpt** | ChatGPT | faster-whisper | piper \u00b7 *en_US-hfc_female-medium* |\n| **Gemini-vosk-piper-donkee** | Google Gemini *(HA preferred)* | vosk | piper \u00b7 *en_US-hfc_female-medium* |\n| **yurt-butler** | Home Assistant | faster-whisper | piper \u00b7 *en_US-hfc_female-medium* |\n| **Home Assistant** | Home Assistant | \u2014 | HA Cloud \u00b7 *JennyNeural* |\n\nSnapshot of `assist_pipeline/pipeline/list`, 2026-07-29. The pipelines themselves are edited in Settings \u2192 Voice assistants, not here.",
+       "card_mod": {
+        "style": {
+         ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { border:1px solid var(--divider-color); border-radius:10px; }\n",
+         "ha-markdown$": "\ntable { width:100%; border-collapse:collapse; font-size:12.5px; }\nth { text-align:left; font-size:10px; letter-spacing:2.5px; text-transform:uppercase;\n  color:var(--em-dim); border-bottom:1px solid var(--divider-color); padding:4px 8px; }\ntd { padding:7px 8px; border-bottom:1px solid\n  color-mix(in srgb, var(--divider-color) 42%, transparent);\n  color:var(--secondary-text-color); }\nstrong { color:var(--em-gold); font-weight:600; letter-spacing:.4px; }\nem { color:var(--em-tip); font-style:normal; }\ncode { color:var(--em-glow); background:none; }\n\np { margin:10px 0 0; font-size:11.5px; color:var(--em-dim); }\n"
+        }
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Diagnostics",
+   "path": "diagnostics",
+   "icon": "mdi:pulse",
+   "type": "sections",
+   "max_columns": 3,
+   "sections": [
+    {
+     "type": "grid",
+     "column_span": 3,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Ear \u00b7 sound level, last hour",
+       "heading_style": "title",
+       "icon": "mdi:waveform"
+      },
+      {
+       "type": "history-graph",
+       "hours_to_show": 1,
+       "grid_options": {
+        "columns": "full",
+        "rows": 5
+       },
+       "entities": [
+        {
+         "entity": "sensor.ember_satellite_mic_rms",
+         "name": "RMS"
+        },
+        {
+         "entity": "sensor.ember_satellite_mic_peak",
+         "name": "Peak"
+        }
+       ]
+      },
+      {
+       "type": "markdown",
+       "content": "Calibrated dBFS from ESPHome's `sound_level` component (`passive: true` \u2014 it never starts or stops the mic, so it cannot contend with `voice_assistant` over the shared I\u00b2S hub). The device's own waveform is scaled `-72 dB \u2192 -30 dB`; these gauges use the same floor and ceiling. Reads *unknown* while TTS is playing \u2014 `sound_level` publishes NAN whenever the mic isn't running.",
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": {
+         ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
+         "ha-markdown$": "p { margin:0; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\ncode { color:var(--em-glow); background:none; font-size:11px; }\nstrong { color:var(--em-glow); }\nem { color:var(--em-gold); font-style:normal; }\n"
+        }
+       }
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 2,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Coals \u00b7 battery",
+       "heading_style": "subtitle",
+       "icon": "mdi:battery-charging-medium"
+      },
+      {
+       "type": "history-graph",
+       "hours_to_show": 24,
+       "grid_options": {
+        "columns": "full",
+        "rows": 4
+       },
+       "entities": [
+        {
+         "entity": "sensor.ember_satellite_battery_voltage",
+         "name": "Cell voltage"
+        }
+       ]
+      },
+      {
+       "type": "tile",
+       "entity": "sensor.ember_satellite_battery_voltage",
+       "name": "Battery Voltage",
+       "icon": "mdi:battery-charging-medium",
+       "color": "yellow",
+       "grid_options": {
+        "columns": "full"
+       }
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 1,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Cell level",
+       "heading_style": "subtitle",
+       "icon": "mdi:battery-heart-variant"
+      },
+      {
+       "type": "gauge",
+       "entity": "sensor.ember_satellite_battery_voltage",
+       "name": "LiPo",
+       "unit": "V",
+       "min": 3.2,
+       "max": 4.25,
+       "needle": true
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 2,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Speech liveness \u00b7 frames pushed to the DAC",
+       "heading_style": "subtitle",
+       "icon": "mdi:waveform"
+      },
+      {
+       "type": "history-graph",
+       "hours_to_show": 6,
+       "grid_options": {
+        "columns": "full",
+        "rows": 4
+       },
+       "entities": [
+        {
+         "entity": "sensor.ember_satellite_speaker_frames",
+         "name": "Speaker frames"
+        }
+       ]
+      },
+      {
+       "type": "markdown",
+       "content": "During TTS this must climb at roughly **16000/s**. A flat line while Ember is *responding* means `audio_output_callback_` never reaches the counter \u2014 usually a resampler or mixer sitting between `voice_assistant` and `spk`. Exact only to ~16.7 M frames (float mantissa); diagnostic only, the display maths uses the `uint32_t` directly.",
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": {
+         ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
+         "ha-markdown$": "p { margin:0; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\ncode { color:var(--em-glow); background:none; font-size:11px; }\nstrong { color:var(--em-glow); }\nem { color:var(--em-gold); font-style:normal; }\n"
+        }
+       }
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 1,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "The hearth glass",
+       "heading_style": "subtitle",
+       "icon": "mdi:television-ambient-light"
+      },
+      {
+       "type": "tile",
+       "entity": "light.ember_satellite_backlight",
+       "name": "Backlight",
+       "icon": "mdi:brightness-6",
+       "color": "amber",
+       "features": [
+        {
+         "type": "light-brightness"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "light.ember_satellite_status_led",
+       "name": "Status LED",
+       "icon": "mdi:led-on",
+       "color": "deep-orange",
+       "features": [
+        {
+         "type": "light-brightness"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "switch.ember_satellite_daylight_hearth",
+       "name": "Daylight Hearth (parchment theme)",
+       "icon": "mdi:white-balance-sunny",
+       "color": "yellow",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 3,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Everything, plainly",
+       "heading_style": "subtitle",
+       "icon": "mdi:format-list-bulleted-square"
+      },
+      {
+       "type": "entities",
+       "show_header_toggle": false,
+       "grid_options": {
+        "columns": "full"
+       },
+       "entities": [
+        {
+         "type": "section",
+         "label": "Assist"
+        },
+        {
+         "entity": "assist_satellite.ember_satellite_assist_satellite",
+         "name": "Assist satellite"
+        },
+        {
+         "entity": "select.ember_satellite_assistant",
+         "name": "Pipeline"
+        },
+        {
+         "entity": "select.ember_satellite_assistant_2",
+         "name": "Pipeline (duplicate registry entry)"
+        },
+        {
+         "entity": "select.ember_satellite_finished_speaking_detection",
+         "name": "Finished-speaking detection"
+        },
+        {
+         "entity": "select.ember_satellite_wake_word",
+         "name": "Wake word"
+        },
+        {
+         "type": "section",
+         "label": "Audio"
+        },
+        {
+         "entity": "number.ember_satellite_speaker_volume",
+         "name": "Speaker volume (DAC)"
+        },
+        {
+         "entity": "switch.ember_satellite_speaker_amplifier",
+         "name": "Speaker amplifier"
+        },
+        {
+         "entity": "sensor.ember_satellite_speaker_frames",
+         "name": "Speaker frames"
+        },
+        {
+         "entity": "sensor.ember_satellite_mic_rms",
+         "name": "Mic RMS"
+        },
+        {
+         "entity": "sensor.ember_satellite_mic_peak",
+         "name": "Mic peak"
+        },
+        {
+         "type": "section",
+         "label": "Display & power"
+        },
+        {
+         "entity": "light.ember_satellite_backlight",
+         "name": "Backlight"
+        },
+        {
+         "entity": "light.ember_satellite_status_led",
+         "name": "Status LED"
+        },
+        {
+         "entity": "switch.ember_satellite_daylight_hearth",
+         "name": "Daylight hearth"
+        },
+        {
+         "entity": "sensor.ember_satellite_battery_voltage",
+         "name": "Battery voltage"
+        }
+       ]
+      },
+      {
+       "type": "logbook",
+       "hours_to_show": 24,
+       "grid_options": {
+        "columns": "full",
+        "rows": 6
+       },
+       "target": {
+        "entity_id": [
+         "assist_satellite.ember_satellite_assist_satellite",
+         "select.ember_satellite_assistant",
+         "number.ember_satellite_speaker_volume",
+         "switch.ember_satellite_speaker_amplifier",
+         "switch.ember_satellite_daylight_hearth"
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "title": "Fleet",
+   "path": "fleet",
+   "icon": "mdi:account-group",
+   "type": "sections",
+   "max_columns": 3,
+   "sections": [
+    {
+     "type": "grid",
+     "column_span": 3,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Three ears in the house",
+       "heading_style": "title",
+       "icon": "mdi:account-group"
+      },
+      {
+       "type": "markdown",
+       "content": "&nbsp;",
+       "grid_options": {
+        "columns": "full",
+        "rows": 1
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { height:6px; min-height:6px; padding:0; border:none; box-shadow:none;\n  overflow:hidden; border-radius:3px;\n  background:linear-gradient(90deg, var(--em-bed) 0%, var(--em-coal) 20%,\n    var(--em-glow) 46%, var(--em-gold) 74%, var(--em-tip) 100%); }\nha-card > * { display:none; }\n"
+       }
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 1,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Ember \u00b7 Hosyond S3",
+       "heading_style": "subtitle",
+       "icon": "mdi:fireplace"
+      },
+      {
+       "type": "tile",
+       "entity": "assist_satellite.ember_satellite_assist_satellite",
+       "name": "State",
+       "icon": "mdi:fireplace",
+       "color": "amber"
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_satellite_assistant",
+       "name": "Pipeline",
+       "color": "orange",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "number.ember_satellite_speaker_volume",
+       "name": "Volume",
+       "icon": "mdi:volume-high",
+       "color": "deep-orange",
+       "features": [
+        {
+         "type": "numeric-input",
+         "style": "slider"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "switch.ember_satellite_speaker_amplifier",
+       "name": "Amplifier",
+       "color": "red",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ]
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_satellite_finished_speaking_detection",
+       "name": "Finished-speaking",
+       "color": "brown",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 1,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "voice-satellite \u00b7 M5Stack Atom Echo",
+       "heading_style": "subtitle",
+       "icon": "mdi:microphone-variant"
+      },
+      {
+       "type": "tile",
+       "entity": "assist_satellite.m5stack_atom_echo_a14320_assist_satellite",
+       "name": "State",
+       "icon": "mdi:microphone-variant",
+       "color": "blue"
+      },
+      {
+       "type": "tile",
+       "entity": "select.m5stack_atom_echo_a14320_assist_pipeline",
+       "name": "Pipeline",
+       "color": "blue",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.m5stack_atom_echo_a14320_wake_word",
+       "name": "Wake word",
+       "color": "blue",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.m5stack_atom_echo_a14320_wake_word_engine_location",
+       "name": "Wake engine",
+       "color": "blue",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "switch.m5stack_atom_echo_a14320_use_listen_light",
+       "name": "Listen light",
+       "color": "blue",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ]
+      },
+      {
+       "type": "tile",
+       "entity": "select.m5stack_atom_echo_a14320_finished_speaking_detection",
+       "name": "Finished-speaking",
+       "color": "blue",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 1,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "assist microphone \u00b7 ATOM Echo dev",
+       "heading_style": "subtitle",
+       "icon": "mdi:microphone"
+      },
+      {
+       "type": "tile",
+       "entity": "assist_satellite.assist_microphone",
+       "name": "State",
+       "icon": "mdi:microphone",
+       "color": "purple"
+      },
+      {
+       "type": "tile",
+       "entity": "binary_sensor.assist_microphone_assist_in_progress",
+       "name": "Assist in progress",
+       "color": "purple"
+      },
+      {
+       "type": "tile",
+       "entity": "select.assist_microphone_assist_pipeline",
+       "name": "Pipeline",
+       "color": "purple",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "number.assist_microphone_mic_volume",
+       "name": "Mic volume",
+       "color": "purple",
+       "features": [
+        {
+         "type": "numeric-input",
+         "style": "slider"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "number.assist_microphone_auto_gain",
+       "name": "Auto gain",
+       "color": "purple",
+       "features": [
+        {
+         "type": "numeric-input",
+         "style": "slider"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "switch.assist_microphone_mute",
+       "name": "Mute",
+       "color": "purple",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ]
+      },
+      {
+       "type": "tile",
+       "entity": "select.assist_microphone_noise_suppression_level",
+       "name": "Noise suppression",
+       "color": "purple",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 3,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Shared backend",
+       "heading_style": "subtitle",
+       "icon": "mdi:server"
+      },
+      {
+       "type": "tile",
+       "entity": "stt.vosk",
+       "name": "vosk",
+       "icon": "mdi:ear-hearing",
+       "color": "amber"
+      },
+      {
+       "type": "tile",
+       "entity": "stt.faster_whisper",
+       "name": "faster-whisper",
+       "icon": "mdi:ear-hearing",
+       "color": "grey"
+      },
+      {
+       "type": "tile",
+       "entity": "tts.piper",
+       "name": "piper",
+       "icon": "mdi:account-voice",
+       "color": "orange"
+      },
+      {
+       "type": "tile",
+       "entity": "wake_word.openwakeword",
+       "name": "openwakeword",
+       "icon": "mdi:sleep-off",
+       "color": "brown"
+      },
+      {
+       "type": "tile",
+       "entity": "update.piper_update",
+       "name": "piper add-on",
+       "color": "grey"
+      },
+      {
+       "type": "tile",
+       "entity": "update.vosk_update",
+       "name": "vosk add-on",
+       "color": "grey"
+      },
+      {
+       "type": "tile",
+       "entity": "update.openwakeword_update",
+       "name": "openwakeword add-on",
+       "color": "grey"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
