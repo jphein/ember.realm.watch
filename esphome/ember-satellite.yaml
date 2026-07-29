@@ -77,6 +77,21 @@ substitutions:
   cpl_body: "30"        # chars per line at font_body (Roboto 15)
   cpl_sm: "38"          # chars per line at font_sm   (Roboto 12)
 
+  # ---- overlay geometry ----
+  # SHARED between the display lambda (which draws the targets) and the
+  # touchscreen hit-test (which must land on them). Defined once here because a
+  # silent drift between "where it's drawn" and "where it's tappable" is the
+  # classic touch-UI bug and it is invisible in review.
+  ui_oy: "32"           # overlay origin y — must equal SCRL_Y
+  ui_vol_by: "104"      # volume +/- targets: top edge
+  ui_vol_bh: "76"       # volume +/- targets: height (76px ~= 14mm)
+  ui_pm_iy: "72"        # power menu: first item top edge
+  ui_pm_ih: "46"        # power menu: item height (46px ~= 8.4mm)
+  ui_pm_n: "4"          # power menu: item count
+  # Auto-dismiss after this long without interaction.
+  ui_vol_timeout: "5000"
+  ui_pm_timeout: "12000"
+
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
@@ -221,7 +236,16 @@ speaker:
     sample_rate: 16000
     bits_per_sample: 16bit
     channel: mono
-    buffer_duration: 100ms
+    # 500ms is ESPHome's OWN DEFAULT. This was 100ms — copied from the
+    # m5stack-atom-echo config, which has NO DISPLAY competing for the main
+    # loop. Here a full display frame blocks the loop for up to 60ms and a
+    # scroll-band repaint for 18-22ms, and the scroll band repaints on
+    # on_tts_start — i.e. exactly when playback begins. 100ms of runway
+    # against a 60ms blocking redraw is a coin flip, and JP heard it as
+    # choppy audio. At 16kHz/16-bit mono this is 16000 bytes; PSRAM is free.
+    # >>> Do not lower this to "save memory". The memory is not the scarce
+    #     resource here; main-loop time is. <<<
+    buffer_duration: 500ms
 
 microphone:
   - platform: i2s_audio
@@ -359,6 +383,232 @@ switch:
       - lambda: |-
           id(theme_light) = false;
           id(force_full_repaint) = true;
+
+  # Do-not-disturb. The microphone component has no mute action, and disabling it
+  # would fight sound_level's passive consumer over the shared I2S hub, so "hush"
+  # is a GATE on the talk gesture rather than a change to the audio path. Honest
+  # about what it does: Ember stops listening for you, the hardware doesn't change.
+  - platform: template
+    id: sw_hush
+    name: Hush
+    icon: mdi:microphone-off
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action:
+      - lambda: 'id(ui_gen)++;'
+    turn_off_action:
+      - lambda: 'id(ui_gen)++;'
+
+button:
+  - platform: restart
+    id: btn_restart
+    name: Restart
+    entity_category: diagnostic
+
+  # Touch-controller recovery. Recipe and datasheet timings from
+  # scratch/hosyond-s3/nebula-touch-reset.md §4-B.
+  #
+  # Exposed as a button so it is reachable from HA *remotely* — the whole point is
+  # that recovering the touchscreen must not require the touchscreen. It is also
+  # wired to the power menu, which the BOOT button can drive without touch.
+  #
+  # SAFE with respect to the boot-path rule: GPIO18 stays UNCONFIGURED at boot.
+  # This only ever drives it at runtime, on explicit request, and hands it back to
+  # the FT6336G's internal 3K pull-up (datasheet Figure 3-2) when done. It cannot
+  # regress boot because it never runs during boot.
+  #
+  # nebula flagged `attach_interrupt_` re-entry as unverified. VERIFIED since:
+  # ft63x6::setup() calls attach_interrupt_ -> ESP32InternalGPIOPin::attach_interrupt
+  # (esp32/gpio.cpp:68-98), which guards gpio_install_isr_service behind a static
+  # bool and then calls gpio_isr_handler_add(). IDF's handler_add REPLACES the
+  # per-pin handler rather than appending, and we re-register the identical
+  # (func, arg) for the identical pin — so re-running setup() is idempotent here.
+  # It does not leak an ISR or double-fire.
+  #
+  # The blocking delay()s total ~310ms. That WILL log "took a long time"; it is a
+  # deliberate manual recovery action, not a loop-rate path.
+  - platform: template
+    id: btn_rouse_touch
+    name: Rouse Touch Sensor
+    icon: mdi:gesture-tap
+    entity_category: diagnostic
+    on_press:
+      - lambda: |-
+          ESP_LOGW("ember", "touch recovery: pulsing CTP_RST");
+          gpio_set_direction(GPIO_NUM_18, GPIO_MODE_OUTPUT);
+          gpio_set_level(GPIO_NUM_18, 0);
+          delay(10);                    // Trst >= 5ms  (FT6336G datasheet Table 3-5)
+          gpio_set_level(GPIO_NUM_18, 1);
+          delay(300);                   // Tpon >= 300ms before the chip reports
+          gpio_set_direction(GPIO_NUM_18, GPIO_MODE_INPUT);  // back to the 3K pull-up
+          id(touch)->setup();           // re-reads chip id; no reset (reset_pin unset)
+
+binary_sensor:
+  # The ONLY usable button on this PCB.
+  #
+  # K1/K2 are RESET and BOOT. RESET is hardwired to CHIP_PU (it resets the MCU and
+  # the LCD) and cannot be read. So GPIO0/BOOT is the entire hardware input budget,
+  # and GPIO 2/14/21 are the only free broken-out pins — adding real buttons means
+  # soldering, which is out of scope.
+  #
+  # GPIO0 is a strapping pin (esp32/gpio_esp32_s3.py:35). The warning is advisory
+  # only (pins.py:271-279) and `ignore_strapping_warning` silences it; it is
+  # justified here because we only ever READ the pin at runtime, and strapping is
+  # sampled once at reset. We attach no external pull — the board already has one.
+  #
+  # ⚠️ ONE REAL HAZARD: holding BOOT low *across a reset* enters ROM download mode.
+  # Both handlers below are `on_click`, which fires on RELEASE, so the button is
+  # always up before any action (including restart) runs. Do not convert these to
+  # `on_press` without re-thinking that.
+  - platform: gpio
+    id: btn_boot
+    name: Boot Button
+    entity_category: diagnostic
+    pin:
+      number: GPIO0
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+      ignore_strapping_warning: true
+    on_click:
+      # ---- SHORT: summon / step volume, or move the power-menu cursor ----
+      - min_length: 30ms
+        max_length: 800ms
+        then:
+          - lambda: |-
+              id(ui_last_ms) = millis();
+              if (id(ui_mode) == 0) {
+                id(ui_mode) = 1;              // summon the volume overlay
+                id(ui_action) = 0;
+              } else if (id(ui_mode) == 1) {
+                id(ui_action) = 2;            // step up (wraps — see below)
+              } else {
+                // power menu: advance the cursor
+                id(ui_sel) = (id(ui_sel) + 1) % ${ui_pm_n};
+                id(ui_action) = 0;
+              }
+              id(ui_gen)++;
+          # cycle: TRUE only on this path. A single button cannot express two
+          # directions, so it must wrap 100% -> 0% to be able to go down at all.
+          # The on-screen -/+ below use cycle: false, where wrapping would be a bug.
+          - if:
+              condition:
+                - lambda: 'return id(ui_action) == 2;'
+              then:
+                - number.increment:
+                    id: spk_volume
+                    cycle: true
+                - lambda: 'id(ui_gen)++;'
+
+      # ---- LONG: open the power menu, or activate the highlighted item ----
+      - min_length: 900ms
+        max_length: 6000ms
+        then:
+          - lambda: |-
+              id(ui_last_ms) = millis();
+              id(ui_action) = 0;
+              if (id(ui_mode) == 2) {
+                // Activate whatever the cursor is on. ui_sel == -1 (the initial
+                // value) deliberately means "dismiss", so a stray long-press can
+                // never fire a destructive item.
+                switch (id(ui_sel)) {
+                  case 0:  id(ui_action) = 5; break;   // hush
+                  case 1:  id(ui_action) = 6; break;   // bank
+                  case 2:  id(ui_action) = 7; break;   // rouse
+                  case 3:  id(ui_action) = 8; break;   // rekindle
+                  default: id(ui_action) = 4; break;   // dismiss
+                }
+              } else {
+                id(ui_mode) = 2;
+                id(ui_sel) = -1;
+              }
+              id(ui_gen)++;
+          - script.execute: ui_dispatch
+
+########################  overlay action dispatch  ########################
+# The hit-test lambdas decide WHAT, this script does it. Split that way so every
+# volume change still flows through the documented `number.*` actions ->
+# TemplateNumber::control() -> set_action (audio_dac.set_volume) + publish_state
+# (template_number.cpp:38-46). HA therefore stays in sync and spk_volume remains
+# the single source of truth — nothing here writes the DAC directly.
+script:
+  - id: ui_dispatch
+    mode: single
+    then:
+      # cycle: false on both on-screen targets. `number.increment`/`decrement`
+      # default to cycle: TRUE (number/__init__.py:392), which would silently
+      # wrap 100% -> 0% when you press "+" at maximum. That default is wrong for
+      # a volume control and has to be overridden explicitly.
+      - if:
+          condition: { lambda: 'return id(ui_action) == 1;' }
+          then:
+            - number.decrement: { id: spk_volume, cycle: false }
+            - lambda: 'id(ui_gen)++;'
+      - if:
+          condition: { lambda: 'return id(ui_action) == 2;' }
+          then:
+            - number.increment: { id: spk_volume, cycle: false }
+            - lambda: 'id(ui_gen)++;'
+
+      # talk toggle — the gesture that existed before, unchanged, and gated by hush
+      - if:
+          condition: { lambda: 'return id(ui_action) == 3;' }
+          then:
+            - if:
+                condition:
+                  - lambda: 'return id(va_state) == 0 || id(va_state) == 4;'
+                then:
+                  - if:
+                      condition: { switch.is_off: sw_hush }
+                      then:
+                        - lambda: |-
+                            if (id(va_state) == 4) {
+                              id(said_text).clear();
+                              id(heard_text).clear();
+                              id(scroll_gen)++;
+                            }
+                        - voice_assistant.start:
+                else:
+                  - voice_assistant.stop:
+
+      - if:
+          condition: { lambda: 'return id(ui_action) == 5;' }
+          then:
+            - switch.toggle: sw_hush
+            - lambda: 'id(ui_action) = 4;'          # then dismiss
+
+      - if:
+          condition: { lambda: 'return id(ui_action) == 6;' }
+          then:
+            - light.turn_off: backlight
+            - lambda: |-
+                id(screen_banked) = true;
+                id(ui_action) = 4;                  // then dismiss
+
+      - if:
+          condition: { lambda: 'return id(ui_action) == 7;' }
+          then:
+            - button.press: btn_rouse_touch
+            - lambda: 'id(ui_action) = 4;'          # then dismiss
+
+      # Rekindle LAST, and it is item index 3 so a cycling cursor reaches every
+      # harmless option before it. on_click fires on release, so BOOT is already
+      # up — the board cannot fall into ROM download mode on this path.
+      - if:
+          condition: { lambda: 'return id(ui_action) == 8;' }
+          then:
+            - button.press: btn_restart
+
+      - if:
+          condition: { lambda: 'return id(ui_action) == 4;' }
+          then:
+            - lambda: |-
+                id(ui_mode) = 0;
+                id(ui_sel) = -1;
+                id(force_full_repaint) = true;      // one ~60ms frame, clean slate
+
+      - lambda: 'id(ui_action) = 0;'
 
 sensor:
   - platform: adc
@@ -517,11 +767,64 @@ globals:
     restore_value: false
     initial_value: 'false'
 
-  # Requests one full-frame repaint (boot, theme flip).
+  # Requests one full-frame repaint (boot, theme flip, overlay dismiss).
   - id: force_full_repaint
     type: bool
     restore_value: false
     initial_value: 'true'
+
+  # ---- modal overlay state ----
+  # 0 = normal · 1 = volume · 2 = power menu
+  #
+  # WHY MODAL, AND WHY SUMMONED FROM HARDWARE: touch-to-talk is "tap anywhere",
+  # which leaves no screen region free for controls. Rather than carve the screen
+  # into zones (invisible, needs relearning, and a mis-tap silently does the wrong
+  # thing), the controls live in a modal overlay opened by the ONE hardware button.
+  # While ui_mode == 0 the touch gesture is exactly what it was; while an overlay
+  # is up, touch addresses the overlay and talk is suspended. One boolean of state
+  # instead of a gesture recogniser.
+  - id: ui_mode
+    type: uint8_t
+    restore_value: false
+    initial_value: '0'
+
+  # Power-menu highlight, -1 = nothing selected.
+  # Exists ONLY so the menu is fully operable from the button alone when the touch
+  # controller is wedged — which is the entire reason the menu is on hardware.
+  # Starts at -1 so a stray long-press dismisses rather than firing an action.
+  - id: ui_sel
+    type: int
+    restore_value: false
+    initial_value: '-1'
+
+  # Bumped whenever the overlay's appearance changes, so it repaints ONE-SHOT on
+  # change and is never animated.
+  - id: ui_gen
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+
+  # Last interaction, for auto-dismiss.
+  - id: ui_last_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+
+  # Hit-test result, handed from the on_touch lambda to the YAML actions below so
+  # volume still goes through the documented number.* action path rather than a
+  # second source of truth.
+  # 0 none · 1 vol- · 2 vol+ · 3 talk · 4 dismiss · 5 hush · 6 bank · 7 rouse · 8 rekindle
+  - id: ui_action
+    type: uint8_t
+    restore_value: false
+    initial_value: '0'
+
+  # "Bank the fire" turned the backlight off. Tracked explicitly rather than read
+  # back off the light component so the wake path has no API assumption in it.
+  - id: screen_banked
+    type: bool
+    restore_value: false
+    initial_value: 'false'
 
 ########################  display + touch  ########################
 
@@ -717,6 +1020,18 @@ display:
 
       auto paint_sigil = [&]() {
         it.filled_rectangle(0, SIGIL_Y, W, SIGIL_H, c_bg);
+        // While a modal overlay is up the header names the overlay, not the
+        // conversation state — the overlay is what the touchscreen now addresses,
+        // so it has to be what the header says.
+        if (id(ui_mode) != 0) {
+          const char *t = (id(ui_mode) == 1) ? "VOLUME" : "POWER";
+          it.filled_circle(13, SIGIL_Y + 13, 5, c_gold);
+          it.print(28, SIGIL_Y + 3, id(font_hdr), c_gold, t);
+          it.print(W - 6, SIGIL_Y + 9, id(font_sm), c_dim,
+                   display::TextAlign::TOP_RIGHT, "BOOT: tap=next  hold=pick");
+          it.filled_rectangle(0, SIGIL_Y + 28, W, 3, c_gold);
+          return;
+        }
         const char *name; const char *sub;
         switch (st) {
           case 1:  name = "LISTENING"; sub = "speak - i'm here";                     break;
@@ -772,7 +1087,96 @@ display:
           it.print(6, TELE_Y + 6, id(font_sm), c_ash, "mic idle (no capture)");
         }
         // print(), not printf() — no format specifiers, so no varargs.
-        it.print(6, TELE_Y + 24, id(font_sm), c_ash, "ember - hearth spirit");
+        if (id(sw_hush).state) {
+          it.print(6, TELE_Y + 24, id(font_sm), c_alarm, "hushed - ember isn't listening");
+        } else {
+          it.print(6, TELE_Y + 24, id(font_sm), c_ash, "ember - hearth spirit");
+        }
+      };
+
+      // ---------------------- THE MODAL OVERLAY ----------------------
+      // ONE-SHOT ONLY. Repainted when ui_gen changes (a human tap, so >=150ms
+      // apart) and never on a timer, so it is not an animation and does not
+      // compete with the fire for frame slots.
+      //
+      // Region it owns:
+      //   volume  y32..187  (156 rows, == the SCROLL band)          ~18-22 ms
+      //   power   y32..263  (232 rows, == SCROLL + FLAME)           ~27-32 ms
+      //
+      // The volume overlay deliberately does NOT cover the flame band: the main
+      // reason to reach for volume is that Ember is too loud RIGHT NOW, so she
+      // should still be visibly burning and talking while you adjust her. The
+      // power menu does cover it, and suspends the fire, because you are about to
+      // restart or sleep the thing.
+      auto paint_overlay = [&]() {
+        const int OY = ${ui_oy};
+        const int OH = (id(ui_mode) == 2) ? (SCRL_H + FLAM_H) : SCRL_H;
+        it.filled_rectangle(0, OY, W, OH, c_bg);
+        it.filled_rectangle(0, OY, W, 1, c_ash);
+
+        if (id(ui_mode) == 1) {
+          const int vol = (int) (id(spk_volume).state + 0.5f);
+          it.printf(6, OY + 4, id(font_hdr), c_tip, "%d%%", vol);
+          it.print(W - 6, OY + 9, id(font_sm), c_dim,
+                   display::TextAlign::TOP_RIGHT, "how loudly ember speaks");
+
+          // Hearth stones: 20 of them, one per 5% step, lit ones climbing the
+          // fire ramp. A level readout that belongs to the metaphor rather than a
+          // grey progress bar bolted onto it.
+          const int SN = 20, sw = 10, sg = 2, sy = OY + 32, sh = 30;
+          const int sx0 = (W - (SN * (sw + sg) - sg)) / 2;
+          const int lit = vol / 5;
+          for (int i = 0; i < SN; i++) {
+            Color c = c_ash;
+            if (i < lit) {
+              float t = (float) i / (float) (SN - 1);
+              c = (t < 0.45f) ? c_ember : (t < 0.78f) ? c_amber : c_gold;
+            }
+            it.filled_rectangle(sx0 + i * (sw + sg), sy, sw, sh, c);
+          }
+
+          // The two targets. 114 x 76 px == ~21 x 14 mm on this 2.8" panel, well
+          // clear of the ~9mm minimum touch target. Glyphs are drawn as bars
+          // rather than typed, so nothing depends on font metrics.
+          const int by = ${ui_vol_by}, bh = ${ui_vol_bh};
+          const bool can_dn = vol > 0, can_up = vol < 100;
+          it.rectangle(4, by, 114, bh, c_dim);
+          it.filled_rectangle(43, by + bh / 2 - 2, 36, 5, can_dn ? c_ink : c_ash);
+          it.rectangle(122, by, 114, bh, c_dim);
+          it.filled_rectangle(161, by + bh / 2 - 2, 36, 5, can_up ? c_ink : c_ash);
+          it.filled_rectangle(177, by + bh / 2 - 18, 5, 36, can_up ? c_ink : c_ash);
+
+        } else {
+          it.print(6, OY + 4, id(font_hdr), c_gold, "THE HEARTH");
+          it.print(W - 6, OY + 9, id(font_sm), c_dim,
+                   display::TextAlign::TOP_RIGHT, "tap away to leave");
+
+          // Order is least-destructive-first, deliberately: the BOOT-only path
+          // advances a cursor through these in order, so "Rekindle" is last and
+          // cannot be reached by accident before three harmless options.
+          const char *names[4] = {"Hush the mic", "Bank the fire",
+                                  "Rouse the touch sensor", "Rekindle"};
+          const char *subs[4]  = {"stop listening for me", "screen off - touch to wake",
+                                  "reset the touch controller", "restart ember"};
+          for (int i = 0; i < ${ui_pm_n}; i++) {
+            const int iy = ${ui_pm_iy} + i * ${ui_pm_ih};
+            const bool sel = (id(ui_sel) == i);
+            // Rekindle is the one destructive row — mark it in alarm, not ink.
+            const Color fg = (i == 3) ? c_alarm : c_ink;
+            if (sel) {
+              it.filled_rectangle(0, iy, W, ${ui_pm_ih} - 2, c_ash);
+              it.filled_rectangle(0, iy, 4, ${ui_pm_ih} - 2, accent);
+            } else {
+              it.filled_rectangle(0, iy + ${ui_pm_ih} - 3, W, 1, c_ash);
+            }
+            it.print(12, iy + 4, id(font_body), fg, names[i]);
+            it.print(12, iy + 24, id(font_sm), c_dim, subs[i]);
+            if (i == 0 && id(sw_hush).state) {
+              it.print(W - 8, iy + 8, id(font_sm), c_alarm,
+                       display::TextAlign::TOP_RIGHT, "ON");
+            }
+          }
+        }
       };
 
       // ---------------------------- THE FIRE ----------------------------
@@ -944,10 +1348,14 @@ display:
       //
       // NOTE: these statics assume the lambda runs ONCE per update (FRACTION=1).
       // See the `buffer_size` warning above.
+      // All the scheduler statics live together and BEFORE the early-return paths
+      // below, so none of them can be skipped over on a frame that returns early.
       static uint8_t  pend = 0x1F;
       static int      seen_state = -1;
       static uint32_t seen_gen = 0xFFFFFFFFu;
       static uint32_t t_flame = 0, t_tele = 0;
+      static uint32_t seen_ui = 0xFFFFFFFFu;
+      static uint8_t  seen_mode = 0xFF;
 
       // The framebuffer is heap-allocated and NOT zeroed, and auto_clear is off,
       // so the very first frame must ground the whole panel or boot garbage shows
@@ -960,17 +1368,53 @@ display:
         pend = 0x1F;
         seen_state = st;
         seen_gen = id(scroll_gen);
+        // Sync the overlay watchers too, or a dismiss would burn the next frame
+        // on an overlay branch that then no-ops because ui_mode is already 0.
+        seen_ui = id(ui_gen);
+        seen_mode = id(ui_mode);
+        if (id(ui_mode) != 0) pend |= 0x20;
         paint_sigil();
         return;
+      }
+
+      // ---- overlay auto-dismiss ----
+      // Lives here rather than in an `interval:` because this lambda already runs
+      // every 50ms and owns the repaint that dismissal needs.
+      if (id(ui_mode) != 0) {
+        const uint32_t life = (id(ui_mode) == 1) ? ${ui_vol_timeout}u : ${ui_pm_timeout}u;
+        if (now - id(ui_last_ms) > life) {
+          id(ui_mode) = 0;
+          id(ui_sel) = -1;
+          id(force_full_repaint) = true;
+          return;                        // next frame repaints from scratch
+        }
       }
 
       if (st != seen_state)           { seen_state = st;            pend |= 0x1F; }
       if (id(scroll_gen) != seen_gen) { seen_gen = id(scroll_gen);  pend |= 0x04; }
       if (now >= t_tele)              { pend |= 0x08; t_tele = now + 500u; }
+      // Overlay repaints on change only — 0x20 is never set by a timer.
+      if (id(ui_gen) != seen_ui || id(ui_mode) != seen_mode) {
+        seen_ui = id(ui_gen); seen_mode = id(ui_mode);
+        pend |= 0x20 | 0x01;             // overlay + the header that names it
+      }
 
       if (pend & 0x01)      { pend &= ~0x01; paint_sigil();  }
-      else if (pend & 0x04) { pend &= ~0x04; paint_scroll(); }
+      else if (pend & 0x20) { pend &= ~0x20; if (id(ui_mode) != 0) paint_overlay(); }
       else if (pend & 0x08) { pend &= ~0x08; paint_telem();  }
+      else if (id(ui_mode) != 0) {
+        // An overlay owns the scroll band, so the scroll band must not repaint
+        // under it; and in POWER mode the overlay owns the flame band too, so the
+        // fire is suspended. Dropping both here is what keeps the persistent
+        // framebuffer honest — anything still drawing would leave litter.
+        pend &= ~0x04;
+        if (id(ui_mode) == 1) {
+          if ((pend & 0x10) || now >= t_flame) {
+            pend &= ~0x10; t_flame = now + 50u; paint_flame();
+          }
+        }
+      }
+      else if (pend & 0x04) { pend &= ~0x04; paint_scroll(); }
       else if (st == 4) {
         // Error paints once and then costs literally nothing.
         if (pend & 0x10) { pend &= ~0x10; paint_flame(); }
@@ -1007,23 +1451,72 @@ touchscreen:
     # Nebula's report recommended adding it for "reliable init", but that was
     # reasoned from the schematic, not tested. Hardware disagrees.
     on_touch:
-      # Touch-to-talk: start a conversation, or cancel one in progress.
-      - if:
-          condition:
-            - lambda: 'return id(va_state) == 0 || id(va_state) == 4;'
-          then:
-            # Clearing here (not only in on_start) means the error text goes away
-            # the instant you touch, so the device feels responsive before the
-            # pipeline has answered.
-            - lambda: |-
-                if (id(va_state) == 4) {
-                  id(said_text).clear();
-                  id(heard_text).clear();
-                  id(scroll_gen)++;
-                }
-            - voice_assistant.start:
-          else:
-            - voice_assistant.stop:
+      # ---- hit-test only; the doing happens in script ui_dispatch ----
+      #
+      # RESOLVING THE TOUCH-TO-TALK CONFLICT: when no overlay is up, ANY touch is
+      # still "talk", byte-for-byte the gesture that shipped. No zones, no drag
+      # recognition, no tap/hold timing — nothing to relearn and nothing that can
+      # silently do the wrong thing. Controls only compete for the screen while a
+      # modal overlay is open, and an overlay can only be opened from the hardware
+      # button, so the two input meanings are never live at the same time.
+      #
+      # Geometry comes from ${ui_*} substitutions shared with the display lambda,
+      # so "where it's drawn" and "where it's tappable" cannot drift apart.
+      - lambda: |-
+          const int ty = touch.y;
+          const int tx = touch.x;
+          id(ui_last_ms) = millis();
+          id(ui_action) = 0;
+
+          // Banked screen: the first touch only wakes the backlight. Consuming it
+          // means you can't accidentally start a conversation while feeling for a
+          // dark screen.
+          if (id(screen_banked)) {
+            id(screen_banked) = false;
+            auto call = id(backlight).turn_on();
+            call.set_brightness(0.8f);
+            call.perform();
+            return;
+          }
+
+          if (id(ui_mode) == 1) {
+            // volume overlay: two targets, else tap-away to dismiss
+            if (ty >= ${ui_vol_by} && ty < ${ui_vol_by} + ${ui_vol_bh}) {
+              id(ui_action) = (tx < 120) ? 1 : 2;
+            } else {
+              id(ui_action) = 4;
+            }
+            return;
+          }
+
+          if (id(ui_mode) == 2) {
+            // power menu: rows activate directly on tap (the ui_sel cursor is only
+            // for the button-only path), else tap-away to dismiss.
+            //
+            // The `% ih < ih - 2` test makes the 2px separator AND the band slack
+            // below the last row dead zones instead of part of a row. Without it,
+            // y254..263 is drawn as empty background but hit-tests as row 3 —
+            // which is Rekindle. Tapping visible nothing must never restart Ember.
+            const int rel = ty - ${ui_pm_iy};
+            const int row = rel / ${ui_pm_ih};
+            if (rel >= 0 && row < ${ui_pm_n} && (rel % ${ui_pm_ih}) < ${ui_pm_ih} - 2) {
+              id(ui_sel) = row;
+              id(ui_gen)++;
+              switch (row) {
+                case 0: id(ui_action) = 5; break;
+                case 1: id(ui_action) = 6; break;
+                case 2: id(ui_action) = 7; break;
+                case 3: id(ui_action) = 8; break;
+              }
+            } else {
+              id(ui_action) = 4;
+            }
+            return;
+          }
+
+          // normal: touch-to-talk, exactly as before
+          id(ui_action) = 3;
+      - script.execute: ui_dispatch
 
 ########################  voice assistant  ########################
 
