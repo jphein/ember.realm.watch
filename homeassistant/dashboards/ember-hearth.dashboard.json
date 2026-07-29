@@ -98,7 +98,7 @@
         "rows": 1
        },
        "card_mod": {
-        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { height:6px; min-height:6px; padding:0; border:none; box-shadow:none;\n  overflow:hidden; border-radius:3px;\n  background:linear-gradient(90deg, var(--em-bed) 0%, var(--em-coal) 20%,\n    var(--em-glow) 46%, var(--em-gold) 74%, var(--em-tip) 100%); }\nha-card > * { display:none; }\n"
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { height:100%; padding:0; border:none; box-shadow:none;\n  overflow:hidden; border-radius:6px;\n  background:linear-gradient(90deg, var(--em-bed) 0%, var(--em-coal) 20%,\n    var(--em-glow) 46%, var(--em-gold) 74%, var(--em-tip) 100%); }\nha-card > * { display:none; }\n"
        }
       }
      ]
@@ -154,7 +154,7 @@
         "columns": "full"
        },
        "card_mod": {
-        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid color-mix(in srgb, var(--em-glow) 45%, transparent);\n  border-radius:12px;\n  --tile-color: var(--em-gold);\n  --control-slider-color: var(--em-glow);\n  --control-slider-background: var(--em-coal);\n  --control-slider-background-opacity: .35;\n  background:linear-gradient(100deg,\n    color-mix(in srgb, var(--em-bed) 22%, var(--card-background-color)) 0%,\n    var(--card-background-color) 55%);\n  box-shadow:0 0 22px color-mix(in srgb, var(--em-coal) 28%, transparent); }\n"
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\n/* The slider lives in hui-card-features, which sets --control-slider-color from\n   its OWN --tile-color \u2014 so setting the vars only on ha-card loses and the track\n   stays HA default blue. Set them on the feature element too. */\nha-card, hui-card-features, hui-numeric-input-tile-feature {\n  --tile-color: var(--em-gold);\n  --control-slider-color: var(--em-glow);\n  --control-slider-background: var(--em-coal);\n  --control-slider-background-opacity: .35; }\nha-card { border:1px solid color-mix(in srgb, var(--em-glow) 45%, transparent);\n  border-radius:12px;\n  background:linear-gradient(100deg,\n    color-mix(in srgb, var(--em-bed) 22%, var(--card-background-color)) 0%,\n    var(--card-background-color) 55%);\n  box-shadow:0 0 22px color-mix(in srgb, var(--em-coal) 28%, transparent); }\n"
        }
       },
       {
@@ -189,31 +189,87 @@
        "icon": "mdi:microphone"
       },
       {
-       "type": "gauge",
-       "entity": "sensor.ember_satellite_mic_rms",
-       "name": "Mic RMS",
-       "unit": "dB",
-       "min": -72,
-       "max": -30,
-       "needle": true,
-       "severity": {
-        "green": -72,
-        "yellow": -52,
-        "red": -36
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "sensor.ember_satellite_mic_rms",
+         "state_not": "unknown"
+        },
+        {
+         "condition": "state",
+         "entity": "sensor.ember_satellite_mic_rms",
+         "state_not": "unavailable"
+        }
+       ],
+       "card": {
+        "type": "gauge",
+        "entity": "sensor.ember_satellite_mic_rms",
+        "name": "Mic RMS",
+        "unit": "dB",
+        "min": -72,
+        "max": -30,
+        "needle": true,
+        "severity": {
+         "green": -72,
+         "yellow": -52,
+         "red": -36
+        }
        }
       },
       {
-       "type": "gauge",
-       "entity": "sensor.ember_satellite_mic_peak",
-       "name": "Mic Peak (hold)",
-       "unit": "dB",
-       "min": -72,
-       "max": -30,
-       "needle": true,
-       "severity": {
-        "green": -72,
-        "yellow": -52,
-        "red": -36
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "sensor.ember_satellite_mic_peak",
+         "state_not": "unknown"
+        },
+        {
+         "condition": "state",
+         "entity": "sensor.ember_satellite_mic_peak",
+         "state_not": "unavailable"
+        }
+       ],
+       "card": {
+        "type": "gauge",
+        "entity": "sensor.ember_satellite_mic_peak",
+        "name": "Mic Peak (hold)",
+        "unit": "dB",
+        "min": -72,
+        "max": -30,
+        "needle": true,
+        "severity": {
+         "green": -72,
+         "yellow": -52,
+         "red": -36
+        }
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "sensor.ember_satellite_mic_rms",
+         "state": [
+          "unknown",
+          "unavailable"
+         ]
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "*Mic parked.* `sound_level` publishes NAN whenever the microphone isn't running \u2014 during TTS, and any time Ember isn't listening \u2014 so the gauges hide rather than render a non-numeric error. They return the moment a level arrives.",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
+          "ha-markdown$": "p { margin:0; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\ncode { color:var(--em-glow); background:none; font-size:11px; }\nstrong { color:var(--em-glow); }\nem { color:var(--em-gold); font-style:normal; }\n"
+         }
+        }
        }
       }
      ]
@@ -330,7 +386,7 @@
         "rows": 1
        },
        "card_mod": {
-        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { height:6px; min-height:6px; padding:0; border:none; box-shadow:none;\n  overflow:hidden; border-radius:3px;\n  background:linear-gradient(90deg, var(--em-bed) 0%, var(--em-coal) 20%,\n    var(--em-glow) 46%, var(--em-gold) 74%, var(--em-tip) 100%); }\nha-card > * { display:none; }\n"
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { height:100%; padding:0; border:none; box-shadow:none;\n  overflow:hidden; border-radius:6px;\n  background:linear-gradient(90deg, var(--em-bed) 0%, var(--em-coal) 20%,\n    var(--em-glow) 46%, var(--em-gold) 74%, var(--em-tip) 100%); }\nha-card > * { display:none; }\n"
        }
       }
      ]
@@ -361,7 +417,7 @@
         }
        },
        "card_mod": {
-        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-gold); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-gold) 14%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-gold) 45%, transparent); }\nha-state-icon, ha-icon { color:var(--em-gold); }\n"
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-gold); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-gold) 14%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-gold) 45%, transparent); }\n/* The button card's glyph is an ha-svg-icon nested a couple of shadow roots down,\n   so colour it through the icon custom properties rather than a descendant\n   selector that won't pierce. */\nha-card { --card-mod-icon-color:var(--em-gold); --state-icon-color:var(--em-gold);\n  --paper-item-icon-color:var(--em-gold); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-gold); }\n"
        }
       },
       {
@@ -380,7 +436,7 @@
         }
        },
        "card_mod": {
-        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-coal); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-coal) 14%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-coal) 45%, transparent); }\nha-state-icon, ha-icon { color:var(--em-coal); }\n"
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-coal); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-coal) 14%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-coal) 45%, transparent); }\n/* The button card's glyph is an ha-svg-icon nested a couple of shadow roots down,\n   so colour it through the icon custom properties rather than a descendant\n   selector that won't pierce. */\nha-card { --card-mod-icon-color:var(--em-coal); --state-icon-color:var(--em-coal);\n  --paper-item-icon-color:var(--em-coal); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-coal); }\n"
        }
       },
       {
@@ -934,7 +990,7 @@
         "rows": 1
        },
        "card_mod": {
-        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { height:6px; min-height:6px; padding:0; border:none; box-shadow:none;\n  overflow:hidden; border-radius:3px;\n  background:linear-gradient(90deg, var(--em-bed) 0%, var(--em-coal) 20%,\n    var(--em-glow) 46%, var(--em-gold) 74%, var(--em-tip) 100%); }\nha-card > * { display:none; }\n"
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { height:100%; padding:0; border:none; box-shadow:none;\n  overflow:hidden; border-radius:6px;\n  background:linear-gradient(90deg, var(--em-bed) 0%, var(--em-coal) 20%,\n    var(--em-glow) 46%, var(--em-gold) 74%, var(--em-tip) 100%); }\nha-card > * { display:none; }\n"
        }
       }
      ]
