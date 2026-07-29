@@ -22,6 +22,12 @@ unstyled. No custom *card types* are used, unlike the rooms/devices cockpits.
 
 Notes:
 - HA requires a custom dashboard url_path to contain a hyphen (UI + WS enforce it).
+- Depends on `packages/ember_backend_health.yaml` for `binary_sensor.ember_reachable`
+  (+ `ember_backend`). The mind stage reads its `detail` attribute rather than the
+  on/off state, because "off" covers both "up but not ready" and "host asleep" —
+  two facts a user needs told apart. Reachability is rendered ONLY while the
+  familiar-hosted pipeline is selected: on a cloud agent a sleeping `familiar` is
+  irrelevant, so flagging it would be a false alarm.
 - The pipeline -> agent/stt/tts/voice map inside the markdown cards is a snapshot
   of `assist_pipeline/pipeline/list` (2026-07-29). If pipelines are added/renamed
   in Settings -> Voice assistants, refresh those two tables.

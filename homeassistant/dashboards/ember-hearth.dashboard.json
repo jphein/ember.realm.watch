@@ -15,6 +15,12 @@
     },
     {
      "type": "entity",
+     "entity": "binary_sensor.ember_reachable",
+     "name": "Mind",
+     "color": "orange"
+    },
+    {
+     "type": "entity",
      "entity": "select.ember_satellite_assistant",
      "name": "Pipeline",
      "color": "orange"
@@ -48,11 +54,39 @@
        "grid_options": {
         "columns": "full"
        },
-       "content": "{% set na = ['unknown','unavailable','none',''] %}\n{% set st = states('assist_satellite.ember_satellite_assist_satellite') %}\n{% set pl = states('select.ember_satellite_assistant') %}\n{% set chain = {\n  'familiar-ember': ['Ember \u00b7 local Qwen3.6-35B on familiar','vosk','piper','en_GB-cori-medium'],\n  'claude-donkee': ['Claude Opus 4.7 \u00b7 Bedrock','vosk','piper','en_US-hfc_female-medium'],\n  'Chatgpt': ['ChatGPT','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Gemini-vosk-piper-donkee': ['Google Gemini','vosk','piper','en_US-hfc_female-medium'],\n  'yurt-butler': ['Home Assistant','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Home Assistant': ['Home Assistant','\u2014','HA Cloud','JennyNeural'],\n  'preferred': ['Google Gemini \u00b7 HA preferred','vosk','piper','en_US-hfc_female-medium']\n} %}\n{% set glyph = {'idle':'\u25cb','listening':'\u25c9','processing':'\u25d0','responding':'\u25c6','responding_speaking':'\u25c6'}.get(st,'\u00b7') %}\n{% set p = chain.get(pl, ['\u2014','\u2014','\u2014','\u2014']) %}\n# Ember\nthe hearth-spirit \u00b7 **{{ glyph }} {{ st }}**\n\nlistening as **{{ pl }}** \u2192 {{ p[0] }}\n{{ p[1] }} \u27f6 {{ p[2] }} \u00b7 *{{ p[3] }}*\n\nhearth **{% set v = states('number.ember_satellite_speaker_volume') %}{{ (v | float | int) ~ '%' if v not in na else '\u2014' }}** \u00b7 amp **{{ states('switch.ember_satellite_speaker_amplifier') }}** \u00b7 ear **{% set v = states('sensor.ember_satellite_mic_rms') %}{{ (v | float | round(1)) ~ ' dB' if v not in na else '\u2014' }}** \u00b7 coals **{% set v = states('sensor.ember_satellite_battery_voltage') %}{{ (v | float | round(2)) ~ ' V' if v not in na else '\u2014' }}**\n",
+       "content": "{% set na = ['unknown','unavailable','none',''] %}\n{% set local = states('select.ember_satellite_assistant') == 'familiar-ember' %}{% set up = is_state('binary_sensor.ember_reachable', 'on') %}{% set det = (state_attr('binary_sensor.ember_reachable', 'detail') or '\u2014') | trim %}\n{% set st = states('assist_satellite.ember_satellite_assist_satellite') %}\n{% set pl = states('select.ember_satellite_assistant') %}\n{% set chain = {\n  'familiar-ember': ['Ember \u00b7 local Qwen3.6-35B on familiar','vosk','piper','en_GB-cori-medium'],\n  'claude-donkee': ['Claude Opus 4.7 \u00b7 Bedrock','vosk','piper','en_US-hfc_female-medium'],\n  'Chatgpt': ['ChatGPT','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Gemini-vosk-piper-donkee': ['Google Gemini','vosk','piper','en_US-hfc_female-medium'],\n  'yurt-butler': ['Home Assistant','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Home Assistant': ['Home Assistant','\u2014','HA Cloud','JennyNeural'],\n  'preferred': ['Google Gemini \u00b7 HA preferred','vosk','piper','en_US-hfc_female-medium']\n} %}\n{% set glyph = {'idle':'\u25cb','listening':'\u25c9','processing':'\u25d0','responding':'\u25c6','responding_speaking':'\u25c6'}.get(st,'\u00b7') %}\n{% set p = chain.get(pl, ['\u2014','\u2014','\u2014','\u2014']) %}\n# Ember\nthe hearth-spirit \u00b7 **{{ glyph }} {{ st }}**\n\nlistening as **{{ pl }}** \u2192 {{ p[0] }}{% if local %} \u00b7 mind {{ '**' ~ det ~ '**' if up else '`' ~ det ~ '`' }}{% endif %}\n{{ p[1] }} \u27f6 {{ p[2] }} \u00b7 *{{ p[3] }}*\n\nhearth **{% set v = states('number.ember_satellite_speaker_volume') %}{{ (v | float | int) ~ '%' if v not in na else '\u2014' }}** \u00b7 amp **{{ states('switch.ember_satellite_speaker_amplifier') }}** \u00b7 ear **{% set v = states('sensor.ember_satellite_mic_rms') %}{{ (v | float | round(1)) ~ ' dB' if v not in na else '\u2014' }}** \u00b7 coals **{% set v = states('sensor.ember_satellite_battery_voltage') %}{{ (v | float | round(2)) ~ ' V' if v not in na else '\u2014' }}**\n",
        "card_mod": {
         "style": {
          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:none; box-shadow:none; padding:2px 6px 8px;\n  background:radial-gradient(120% 160% at 8% 118%,\n    color-mix(in srgb, var(--em-coal) 30%, transparent) 0%,\n    color-mix(in srgb, var(--em-bed) 16%, transparent) 42%, transparent 74%); }\n",
-         "ha-markdown$": "\nh1 { font-family:'Georgia','IBM Plex Serif',serif; font-size:52px; line-height:.92;\n  margin:0; letter-spacing:1px; color:var(--em-gold);\n  text-shadow:0 0 26px color-mix(in srgb, var(--em-glow) 55%, transparent),\n              0 0 6px color-mix(in srgb, var(--em-tip) 30%, transparent); }\np { margin:6px 0 0; font-size:13px; line-height:1.75;\n  color:var(--secondary-text-color); letter-spacing:.3px; }\nstrong { color:var(--em-glow); font-weight:600; }\nem { color:var(--em-tip); font-style:normal; letter-spacing:.6px; }\n"
+         "ha-markdown$": "\nh1 { font-family:'Georgia','IBM Plex Serif',serif; font-size:52px; line-height:.92;\n  margin:0; letter-spacing:1px; color:var(--em-gold);\n  text-shadow:0 0 26px color-mix(in srgb, var(--em-glow) 55%, transparent),\n              0 0 6px color-mix(in srgb, var(--em-tip) 30%, transparent); }\np { margin:6px 0 0; font-size:13px; line-height:1.75;\n  color:var(--secondary-text-color); letter-spacing:.3px; }\nstrong { color:var(--em-glow); font-weight:600; }\nem { color:var(--em-tip); font-style:normal; letter-spacing:.6px; }\ncode { color:var(--em-alarm); background:none; font-family:inherit;\n  font-weight:600; letter-spacing:.3px; }\n"
+        }
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "select.ember_satellite_assistant",
+         "state": "familiar-ember"
+        },
+        {
+         "condition": "state",
+         "entity": "binary_sensor.ember_reachable",
+         "state_not": "on"
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "{% set local = states('select.ember_satellite_assistant') == 'familiar-ember' %}{% set up = is_state('binary_sensor.ember_reachable', 'on') %}{% set det = (state_attr('binary_sensor.ember_reachable', 'detail') or '\u2014') | trim %}\n\u26a0 **Ember's mind is not answering.** `familiar-ember` is the selected pipeline, but the local Qwen lane on `familiar:8091` reports *{{ det }}*. The satellite will hear you and then fall silent \u2014 the failure looks identical to *idle* from the outside.\n\nWake the host with `familiar-wake`, or swap to **Claude Opus \u00b7 Bedrock** on the Voice Pipeline view to keep talking now.",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-alarm); border-radius:10px;\n  background:color-mix(in srgb, var(--em-alarm) 8%, var(--card-background-color)); }\n",
+          "ha-markdown$": "p { margin:0 0 6px; font-size:12.5px; line-height:1.65; }\np:last-child { margin-bottom:0; }\nstrong { color:var(--em-alarm); }\nem { color:var(--em-gold); font-style:normal; }\ncode { color:var(--em-glow); background:none; font-size:11.5px; }\n"
+         }
         }
        }
       },
@@ -93,11 +127,14 @@
        ],
        "card": {
         "type": "markdown",
-        "content": "\u26a0 **Speaker Volume is not reporting.** The DAC-volume control arrives with the firmware that adds `number: spk_volume` \u2014 flash `scratch/ember-satellite.yaml` and this tile self-heals. Until then the es8311 boots at `set_volume(0.75)` = 0 dB, which is the *too loud* default.",
+        "content": "\u26a0 **Speaker Volume is not reporting.** The DAC-volume control arrives with the firmware that adds `number: spk_volume` \u2014 flash the device config and this tile self-heals. Until then the es8311 boots at `set_volume(0.75)` = 0 dB, which is the *too loud* default.",
+        "grid_options": {
+         "columns": "full"
+        },
         "card_mod": {
          "style": {
           ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-alarm); border-radius:10px;\n  background:color-mix(in srgb, var(--em-alarm) 8%, var(--card-background-color)); }\n",
-          "ha-markdown$": "p { margin:0; font-size:12.5px; line-height:1.65; }\nstrong { color:var(--em-alarm); }\nem { color:var(--em-gold); font-style:normal; }\ncode { color:var(--em-glow); background:none; font-size:11.5px; }\n"
+          "ha-markdown$": "p { margin:0 0 6px; font-size:12.5px; line-height:1.65; }\np:last-child { margin-bottom:0; }\nstrong { color:var(--em-alarm); }\nem { color:var(--em-gold); font-style:normal; }\ncode { color:var(--em-glow); background:none; font-size:11.5px; }\n"
          }
         }
        }
@@ -215,6 +252,22 @@
       },
       {
        "type": "tile",
+       "entity": "binary_sensor.ember_reachable",
+       "name": "Local lane \u00b7 familiar:8091",
+       "icon": "mdi:heart-pulse",
+       "color": "amber",
+       "state_content": [
+        "detail"
+       ],
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card {\n  --tile-color: {{ 'var(--em-gold)' if is_state('binary_sensor.ember_reachable', 'on')\n    else 'var(--em-alarm)' }};\n  border:1px solid {{ 'transparent' if is_state('binary_sensor.ember_reachable', 'on')\n    else 'var(--em-alarm)' }}; }\n"
+       }
+      },
+      {
+       "type": "tile",
        "entity": "select.ember_satellite_finished_speaking_detection",
        "name": "Finished-speaking Detection",
        "icon": "mdi:ear-hearing",
@@ -261,11 +314,11 @@
        "grid_options": {
         "columns": "full"
        },
-       "content": "{% set na = ['unknown','unavailable','none',''] %}\n{% set pl = states('select.ember_satellite_assistant') %}\n{% set chain = {\n  'familiar-ember': ['Ember \u00b7 local Qwen3.6-35B on familiar','vosk','piper','en_GB-cori-medium'],\n  'claude-donkee': ['Claude Opus 4.7 \u00b7 Bedrock','vosk','piper','en_US-hfc_female-medium'],\n  'Chatgpt': ['ChatGPT','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Gemini-vosk-piper-donkee': ['Google Gemini','vosk','piper','en_US-hfc_female-medium'],\n  'yurt-butler': ['Home Assistant','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Home Assistant': ['Home Assistant','\u2014','HA Cloud','JennyNeural'],\n  'preferred': ['Google Gemini \u00b7 HA preferred','vosk','piper','en_US-hfc_female-medium']\n} %}\n{% set p = chain.get(pl, ['\u2014','\u2014','\u2014','\u2014']) %}\n{% set held = states.select['ember_satellite_assistant'] %}\n| | stage | engine | reading |\n|:--|:--|:--|:--|\n| \u25cb | **wake** | openwakeword | {{ 'ready' if states('wake_word.openwakeword') not in na else 'idle' }} |\n| \u25d4 | **ear** | {{ p[1] }} | {% set v = states('sensor.ember_satellite_mic_rms') %}{{ (v | float | round(1)) ~ ' dB' if v not in na else '\u2014' }} |\n| \u25d1 | **mind** | {{ p[0] }} | {{ relative_time(held.last_changed) ~ ' on this pipeline' if held else '\u2014' }} |\n| \u25c6 | **voice** | {{ p[2] }} \u00b7 *{{ p[3] }}* | {% set v = states('sensor.ember_satellite_speaker_frames') %}{{ (v | float | int) ~ ' frames' if v not in na else '\u2014' }} |\n",
+       "content": "{% set na = ['unknown','unavailable','none',''] %}\n{% set local = states('select.ember_satellite_assistant') == 'familiar-ember' %}{% set up = is_state('binary_sensor.ember_reachable', 'on') %}{% set det = (state_attr('binary_sensor.ember_reachable', 'detail') or '\u2014') | trim %}\n{% set pl = states('select.ember_satellite_assistant') %}\n{% set chain = {\n  'familiar-ember': ['Ember \u00b7 local Qwen3.6-35B on familiar','vosk','piper','en_GB-cori-medium'],\n  'claude-donkee': ['Claude Opus 4.7 \u00b7 Bedrock','vosk','piper','en_US-hfc_female-medium'],\n  'Chatgpt': ['ChatGPT','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Gemini-vosk-piper-donkee': ['Google Gemini','vosk','piper','en_US-hfc_female-medium'],\n  'yurt-butler': ['Home Assistant','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Home Assistant': ['Home Assistant','\u2014','HA Cloud','JennyNeural'],\n  'preferred': ['Google Gemini \u00b7 HA preferred','vosk','piper','en_US-hfc_female-medium']\n} %}\n{% set p = chain.get(pl, ['\u2014','\u2014','\u2014','\u2014']) %}\n{% set held = states.select['ember_satellite_assistant'] %}\n{% set since = relative_time(held.last_changed) ~ ' on this pipeline' if held else '\u2014' %}\n{% set mind = (det if up else '`' ~ det ~ '`') if local else 'cloud agent \u00b7 not gated on familiar' %}\n| | stage | engine | reading |\n|:--|:--|:--|:--|\n| \u25cb | **wake** | openwakeword | {{ 'ready' if states('wake_word.openwakeword') not in na else 'idle' }} |\n| \u25d4 | **ear** | {{ p[1] }} | {% set v = states('sensor.ember_satellite_mic_rms') %}{{ (v | float | round(1)) ~ ' dB' if v not in na else '\u2014' }} |\n| {{ '\u25d1' if (up or not local) else '`\u2716`' }} | **mind** | {{ p[0] }} | {{ mind }} \u00b7 {{ since }} |\n| \u25c6 | **voice** | {{ p[2] }} \u00b7 *{{ p[3] }}* | {% set v = states('sensor.ember_satellite_speaker_frames') %}{{ (v | float | int) ~ ' frames' if v not in na else '\u2014' }} |\n",
        "card_mod": {
         "style": {
          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--divider-color); border-radius:10px;\n  background:linear-gradient(180deg,\n    color-mix(in srgb, var(--em-bed) 10%, var(--card-background-color)) 0%,\n    var(--card-background-color) 60%); }\n",
-         "ha-markdown$": "\ntable { width:100%; border-collapse:collapse; font-size:12.5px; }\nth { text-align:left; font-size:10px; letter-spacing:2.5px; text-transform:uppercase;\n  color:var(--em-dim); border-bottom:1px solid var(--divider-color); padding:4px 8px; }\ntd { padding:7px 8px; border-bottom:1px solid\n  color-mix(in srgb, var(--divider-color) 42%, transparent);\n  color:var(--secondary-text-color); }\nstrong { color:var(--em-gold); font-weight:600; letter-spacing:.4px; }\nem { color:var(--em-tip); font-style:normal; }\ncode { color:var(--em-glow); background:none; }\n\ntd:first-child { color:var(--em-glow); width:22px; font-size:15px; }\n"
+         "ha-markdown$": "\ntable { width:100%; border-collapse:collapse; font-size:12.5px; }\nth { text-align:left; font-size:10px; letter-spacing:2.5px; text-transform:uppercase;\n  color:var(--em-dim); border-bottom:1px solid var(--divider-color); padding:4px 8px; }\ntd { padding:7px 8px; border-bottom:1px solid\n  color-mix(in srgb, var(--divider-color) 42%, transparent);\n  color:var(--secondary-text-color); }\nstrong { color:var(--em-gold); font-weight:600; letter-spacing:.4px; }\nem { color:var(--em-tip); font-style:normal; }\ncode { color:var(--em-glow); background:none; }\n\ntd:first-child { color:var(--em-glow); width:22px; font-size:15px; }\n/* Backticks are this table's only use of `code`, and they mark the unhealthy\n   mind \u2014 so repoint code from the shared glow to alarm. */\ncode { color:var(--em-alarm); font-family:inherit; font-weight:600; }\n"
         }
        }
       },
@@ -363,6 +416,22 @@
        "name": "Ember \u00b7 local Qwen3.6-35B",
        "icon": "mdi:fireplace",
        "color": "amber"
+      },
+      {
+       "type": "tile",
+       "entity": "binary_sensor.ember_reachable",
+       "name": "\u21b3 is that lane serving?",
+       "icon": "mdi:heart-pulse",
+       "color": "amber",
+       "state_content": [
+        "detail"
+       ],
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card {\n  --tile-color: {{ 'var(--em-gold)' if is_state('binary_sensor.ember_reachable', 'on')\n    else 'var(--em-alarm)' }};\n  border:1px solid {{ 'transparent' if is_state('binary_sensor.ember_reachable', 'on')\n    else 'var(--em-alarm)' }}; }\n"
+       }
       },
       {
        "type": "tile",
@@ -595,6 +664,75 @@
     },
     {
      "type": "grid",
+     "column_span": 2,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Mind \u00b7 the local Qwen lane on familiar",
+       "heading_style": "subtitle",
+       "icon": "mdi:brain"
+      },
+      {
+       "type": "history-graph",
+       "hours_to_show": 24,
+       "grid_options": {
+        "columns": "full",
+        "rows": 4
+       },
+       "entities": [
+        {
+         "entity": "binary_sensor.ember_reachable",
+         "name": "Reachable"
+        },
+        {
+         "entity": "binary_sensor.ember_backend",
+         "name": "REST poll"
+        }
+       ]
+      },
+      {
+       "type": "tile",
+       "entity": "binary_sensor.ember_reachable",
+       "name": "Reachability \u00b7 detail",
+       "icon": "mdi:heart-pulse",
+       "color": "amber",
+       "state_content": [
+        "detail"
+       ],
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card {\n  --tile-color: {{ 'var(--em-gold)' if is_state('binary_sensor.ember_reachable', 'on')\n    else 'var(--em-alarm)' }};\n  border:1px solid {{ 'transparent' if is_state('binary_sensor.ember_reachable', 'on')\n    else 'var(--em-alarm)' }}; }\n"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "binary_sensor.ember_backend",
+       "name": "Raw poll \u00b7 familiar.lan:8091/health",
+       "icon": "mdi:web-check",
+       "color": "amber",
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "markdown",
+       "content": "`binary_sensor.ember_backend` polls llama.cpp's `/health` every 60 s and goes *unavailable* when the host doesn't answer at all; `ember_reachable` collapses that into on/off plus a readable `detail`, so no card has to special-case `unavailable`. Over 24 h this graph is effectively **familiar's sleep log** \u2014 the host S3-suspends itself after ~15 min idle. Polling does not keep it awake (autosuspend watches whether the inference lane is loaded, not network traffic), so a gap here is a true signal rather than an artefact of measuring.",
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": {
+         ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
+         "ha-markdown$": "p { margin:0; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\ncode { color:var(--em-glow); background:none; font-size:11px; }\nstrong { color:var(--em-glow); }\nem { color:var(--em-gold); font-style:normal; }\n"
+        }
+       }
+      }
+     ]
+    },
+    {
+     "type": "grid",
      "column_span": 1,
      "cards": [
       {
@@ -717,6 +855,18 @@
         },
         {
          "type": "section",
+         "label": "Mind (backend)"
+        },
+        {
+         "entity": "binary_sensor.ember_reachable",
+         "name": "Ember reachable"
+        },
+        {
+         "entity": "binary_sensor.ember_backend",
+         "name": "Ember backend (REST poll)"
+        },
+        {
+         "type": "section",
          "label": "Display & power"
         },
         {
@@ -748,6 +898,7 @@
         "entity_id": [
          "assist_satellite.ember_satellite_assist_satellite",
          "select.ember_satellite_assistant",
+         "binary_sensor.ember_reachable",
          "number.ember_satellite_speaker_volume",
          "switch.ember_satellite_speaker_amplifier",
          "switch.ember_satellite_daylight_hearth"
@@ -817,6 +968,22 @@
        ],
        "grid_options": {
         "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "binary_sensor.ember_reachable",
+       "name": "Local lane",
+       "icon": "mdi:heart-pulse",
+       "color": "amber",
+       "state_content": [
+        "detail"
+       ],
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card {\n  --tile-color: {{ 'var(--em-gold)' if is_state('binary_sensor.ember_reachable', 'on')\n    else 'var(--em-alarm)' }};\n  border:1px solid {{ 'transparent' if is_state('binary_sensor.ember_reachable', 'on')\n    else 'var(--em-alarm)' }}; }\n"
        }
       },
       {
