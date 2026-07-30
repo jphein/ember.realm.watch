@@ -260,6 +260,35 @@ for _name, _cx in (("btn-boot", E.BTN_BOOT_X), ("btn-reset", E.BTN_RESET_X)):
                        _name if _i == 0 else f"{_name}-cap"))
 write_svg(os.path.join(OUT,"case-docked-rear.svg"), groups, "case-dock")
 
+# ------------------------------------------------------------ the bezel face
+# THE HERO CANNOT SHOW THIS AND IT IS NOT THE HERO'S FAULT. The bezel's honeycomb and the
+# hearth-wyrm mark are debossed 0.45mm into a 92mm part: at page scale that is sub-pixel
+# depth, and a shaded render has only the recess side-walls to work with, so the motif reads
+# as triangulation noise rather than as a pattern. Visible at 300% zoom, near-invisible at
+# 100%. A figure that technically contains the information but cannot deliver it is the same
+# class of problem as the five figures that could not show a buried button.
+#
+# A SECTION IS THE HONEST VIEW, and it is also the cheap one. Slicing the solid 0.20mm below
+# the front face cuts through every recess and nothing else, so the resulting outlines ARE the
+# motif — no shading, no lighting, no camera angle to get wrong. It is measured from the part
+# rather than drawn from the parameters, which matters here: it is how the empty rails were
+# caught, when the cell count said 75 and every one of them was in the chin.
+#
+# Straight-on, from far away, so it is effectively orthographic. In this view board +X is the
+# viewer's RIGHT and +Y is UP (looking at the XY plane from +Z), so the mark reads top-LEFT as
+# specified and the mic flare sits top-right. That is the opposite handedness to
+# case-back.svg, which is exactly why neither figure may describe these features as left or
+# right — see the coordinate block in ember_case.py.
+print("bezel face:")
+_fz = E.FRONT_Z - 0.20
+_sec = bezel & (Pos(-50,-50,_fz) * Box(200,200,0.02, align=(Align.MIN,Align.MIN,Align.MIN)))
+_faces = [f for f in _sec.faces() if abs(f.center().Z - _fz) < 0.03]
+FACE_TGT = (25.0, 43.0, _fz)
+FACE_EYE = (25.0, 43.0, _fz + 3000.0)
+groups = [(*project(Compound(children=_faces), FACE_EYE, up=(0,1,0), target=FACE_TGT), "face")]
+write_svg(os.path.join(OUT,"case-front.svg"), groups, "case-front")
+print(f"    {len(_faces)} section faces (chin cells + rail chains + wyrm + window + outline)")
+
 # ============================== 3. PRINT LAYOUT (svg) ========================
 print("print layout:")
 # Hand-placed offsets overlapped: the bezel was flipped with Rot(180,0,0), which puts it

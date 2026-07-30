@@ -68,6 +68,17 @@ BTN_BOOT_X      = 36.58              # big cap, the only readable switch
 #                          upper-left and the x=46 countersinks are the left-hand pair)
 #   case-print-layout.svg  shell open-side-up -> mirrored back again, +X on the RIGHT
 #   case-hero.png          a front view entirely
+#   the VENDOR OUTLINE DRAWING (spec p.14) — the fourth figure, and the dangerous one,
+#                          because it is the document someone checking this work will reach
+#                          for first. It reads the OPPOSITE way to the bench test. An agent
+#                          re-derived the assignment from it in good faith and got BOOT and
+#                          RESET swapped, via a chain that was sound except for the handedness
+#                          of a -90deg-rotated, 180deg-flipped figure — which cannot be
+#                          established from the drawing itself. ⚠️ THE VENDOR DRAWING IS NOT
+#                          USABLE TO RE-DERIVE THIS. The bench test wins because it anchors a
+#                          physical observation to a model coordinate: JP pressed both, and
+#                          the volume one is on the microSD side, and SD_PLATE is at x
+#                          33.68..44.83 in the STEP. That is a landmark, not an orientation.
 #
 # So "big cap on the left" is true in one figure, false in another and meaningless in the
 # third. Spec from the wrong one and the generous thumb-sized cap lands over the HARDWARE
@@ -138,6 +149,28 @@ DEBOSS_SMALL = 0.50   # RESET, deliberately shyer under the finger
 CAP_INSET  = 1.00    # cap circumradius is R - this, leaving a shoulder inside the island
                      # edge so the raised cap can never bridge the slot and weld shut.
 HINGE_T    = 0.90    # living-hinge thickness
+# FLEXURE LENGTH IS PER-BUTTON, AND IT IS A STRENGTH FIX, NOT A FEEL ONE.
+#
+# The hinge rotation is not a free variable: theta = pip travel / the pip's distance from the
+# hinge. The SMALLER cap has the LARGER angle, because its pip sits on a shorter arm — 5.6deg
+# on RESET against 3.5deg on BOOT. Bending strain is (t/2)*theta/L, so at a shared 1.0mm
+# flexure the small button was the one being over-strained:
+#
+#   BOOT   t=0.90  L=1.0  ->  2.75%
+#   RESET  t=0.90  L=1.0  ->  4.37%   past PLA's ~2% yield, into its 4-6% break band
+#
+# A teammate, reasoning about FEEL rather than strength, proposed thickening RESET's hinge to
+# 1.40mm — correctly observing that with equal thickness the smaller hex always presses
+# lighter, which is backwards from "deliberately shyer under the finger". But strain scales
+# with t, so that fix takes RESET to 6.79% and cracks the hinge on the bench. The feel defect
+# is real and the proposed cure destroys the part.
+#
+# Lengthening the flexure fixes what actually breaks and costs nothing: 2.18% and 1.37%. The
+# force ordering stays mildly inverted, and that is the right trade — an easy RESET is an
+# annoyance, a cracked RESET hinge is a dead part, and RESET is the recoverable button anyway.
+# Findability is already differentiated by size and deboss depth, which cost no strain at all.
+HINGE_L_BOOT  = 1.20
+HINGE_L_RESET = 2.00
 SLOT_W     = 0.60    # printed-in-place slot around the button pads
 # LED_WIN_D / DIFF_D deleted with the rear glow window and the diffuser disc. The fine
 # hex field on the back now carries the WS2812's light, and JP is printing in WHITE — a
@@ -183,6 +216,133 @@ def cyl(x,y,z0,z1,d):
     return Pos(x,y,z0) * Cylinder(d/2, z1-z0,
                                   align=(Align.CENTER,Align.CENTER,Align.MIN))
 
+# ---- BEZEL FACE: debossed honeycomb + the hearth-wyrm mark ----
+# JP: "we should debossed hexagons on the front of the front bezel with the ember logo on the
+# top left", then, on seeing the hero render: "the case hero i just was shown doesn't have the
+# debossed hexagons on the front bezel — or the logo". Correct, and the figure was being
+# honest: this was designed, discussed at length, and never wired into front_bezel(). A
+# decision recorded only in conversation is not in the part.
+#
+# EVERYTHING HERE IS A RECESS, AND THAT IS FORCED. The bezel prints FRONT FACE DOWN on the
+# bed, so any raised feature on this face becomes the lowest point of the part and the bezel
+# lands on its own logo. Same trap that killed the raised button caps on the back shell, in
+# the same session, on the opposite face — which is the tell that it is a property of the
+# process rather than a one-off mistake: on a bed face, relief only goes inward.
+BEZEL_DEBOSS = 0.45   # every debossed feature on the front face. Deliberately NOT stated as
+                      # a layer count: PRINT-SHEET specifies 0.16mm layers for this part, so
+                      # 0.45 is 2.8 of them and the recess floor lands mid-layer. That is fine
+                      # — the slicer rounds — but an asserted "3 layers" would be false, and a
+                      # confident wrong number is how the next person mis-tunes it.
+BEZ_AFLAT    = 2.60   # hex across flats. Finer than the back's 3.20 — this face is read
+                      # from arm's length, and the brow is only 13.69mm tall.
+BEZ_WEB      = 0.70   # material between cells. Two extrusion widths at a 0.4mm nozzle.
+BEZ_MARGIN   = 1.20   # keepout from the screen window, the outer edge and the mic flare
+
+def _inside_rrect(px, py, x0, x1, y0, y1, r, m=0.0):
+    """Is (px,py) inside a rounded rectangle, inset by m? Standard rounded-rect distance.
+
+    This exists because the bezel's outline is a RectangleRounded with a 6.45mm corner, and a
+    naive x/y range test lets cells sit in the corner voids where there is no material — a
+    hex tiling that pokes out of the part's own silhouette. At x=1.0 the top edge is at 88.45,
+    not 88.95, purely because of the corner arc.
+    """
+    dx = max(x0 + r - px, px - (x1 - r), 0.0)
+    dy = max(y0 + r - py, py - (y1 - r), 0.0)
+    return math.hypot(dx, dy) <= r - m
+
+def _bezel_cells():
+    """Pointy-top hex cells on the bezel face. Returns (solid, {region: count}).
+
+    TWO REGIONS, GENERATED SEPARATELY, AND COUNTED SEPARATELY. The first version filtered one
+    global staggered grid and produced 75 cells — all of them in the CHIN, none on the rails,
+    because the nearest grid column missed the rail's 0.75mm-wide usable band by 0.05mm. That
+    is the worst possible outcome: the stand covers 86% of the chin and 0% of the rails, so
+    the entire motif landed on the one surface you cannot see while docked.
+    ⚠️ AND THE ASSERT PASSED. It read `_n >= 60`, and 75 >= 60 is true. A TOTAL ABSORBED A
+    COMPLETE REGIONAL ABSENCE — the same shape as every other proxy failure recorded in
+    docs/verification.md: the number was real, it just wasn't the property. Hence a dict of
+    per-region counts and a non-empty assert on each, which no single total can satisfy
+    vacuously. If you add a region, add its count and its assert.
+
+    The rails get an explicit CHAIN rather than a filtered tiling, because a 3.35mm usable
+    width admits exactly one column and whether that column exists should not depend on where
+    a global grid's phase happens to fall.
+
+    POINTY-TOP here (rotation=30), unlike the button caps: this is decorative lattice with no
+    hinge to hem, so it follows the honeycomb pitch the rest of the case uses.
+
+    The brow is deliberately EXCLUDED. It carries the wyrm mark, and a mark reads better
+    against a calm field than against texture — also the mic flare and the top corner arcs
+    turn the brow into a fragmented strip where whole cells barely fit.
+    """
+    R = BEZ_AFLAT / math.sqrt(3)          # circumradius: pointy-top spans R*sqrt(3) across
+    px, py = BEZ_AFLAT + BEZ_WEB, 1.5 * R + BEZ_WEB * math.sqrt(3) / 2
+    win = (VA[0]-WIN_MARGIN, VA[1]+WIN_MARGIN, VA[2]-WIN_MARGIN, VA[3]+WIN_MARGIN)
+    out = None
+    cnt = {"chin": 0, "rails": 0}
+
+    def _fits(x, y):
+        return all(_inside_rrect(x + R*math.cos(math.radians(a+30)),
+                                 y + R*math.sin(math.radians(a+30)),
+                                 OX0, OX1, OY0, OY1, OUT_R, BEZ_MARGIN)
+                   for a in range(0, 360, 60))
+
+    def _cell(x, y):
+        return Pos(x, y, FRONT_Z - BEZEL_DEBOSS) * extrude(
+                   RegularPolygon(R, 6, rotation=30), BEZEL_DEBOSS + 1)
+
+    # --- CHIN: a proper staggered honeycomb, full width, below the window ---
+    j, y = 0, OY0
+    while y <= win[2]:
+        x = OX0 + (px/2 if j % 2 else 0.0)
+        while x <= OX1:
+            if _fits(x, y) and y + R < win[2] - BEZ_MARGIN:
+                out = _cell(x, y) if out is None else out + _cell(x, y)
+                cnt["chin"] += 1
+            x += px
+        y += py
+        j += 1
+
+    # --- RAILS: one explicit chain up each side of the window ---
+    # Pitch is 2R + BEZ_WEB, so the vertical gap between cells matches the web thickness used
+    # everywhere else. That consistency reads more strongly at arm's length than sharing the
+    # chin's row rhythm would, and a lone column of a staggered tiling (pitch 3R) would look
+    # like a dotted line rather than a chain.
+    for rc in ((OX0 + win[0]) / 2.0, (win[1] + OX1) / 2.0):
+        y = win[2] + R
+        while y <= win[3] - R:
+            if _fits(rc, y):
+                out = _cell(rc, y) if out is None else out + _cell(rc, y)
+                cnt["rails"] += 1
+            y += 2*R + BEZ_WEB
+    return out, cnt
+
+def _bezel_mark():
+    """The hearth-wyrm, debossed into the brow at top-left. Returns (solid, w, h, min_feat).
+
+    ONE CREATURE, NOW RENDERED FOUR WAYS — the device draws it as RLE spans, the website
+    traces it to SVG, the stand's grille is cut from it, and this debosses it. All four read
+    esphome/art/dragon.py, so re-posing the wyrm moves all four.
+
+    THE SCALE IS SET BY THE PRINT FLOOR, NOT BY THE AVAILABLE SPACE. wyrm_spans is generated
+    with a verified 1.23mm minimum feature (morphological opening at k=2, the third metric
+    tried — row-runs never terminate and erosion-to-empty measures the THICKEST feature).
+    Scaling shrinks that linearly, so filling the brow's full 10.49mm usable height would
+    take the thinnest part of the creature to 0.84mm, under the 0.90mm floor. Scale is
+    therefore 0.90/1.23, and the mark is as large as the floor allows rather than as large as
+    the brow allows.
+    """
+    s = 0.90 / 1.23
+    w, h = _W.WYRM_W * s, _W.WYRM_H * s
+    x0 = 1.00
+    y0 = (VA[3] + WIN_MARGIN) + BEZ_MARGIN
+    out = None
+    for (rx, ry, rw, rh) in _W.WYRM:
+        b = bx(x0 + rx*s, x0 + (rx+rw)*s, y0 + ry*s, y0 + (ry+rh)*s,
+               FRONT_Z - BEZEL_DEBOSS, FRONT_Z + 1)
+        out = b if out is None else out + b
+    return out, w, h, 1.23 * s
+
 def cap_hex_pts(cx, cy, R):
     """The six corners of a FLAT-top hexagon, in mm, counter-clockwise from +X.
 
@@ -202,6 +362,11 @@ def cap_hex_pts(cx, cy, R):
 def cap_hex_top_y(cy, R):
     """Y of the flat-top hexagon's +Y edge — where the hinge lives."""
     return cy + R*math.sqrt(3)/2
+
+def cap_hinge_len(cx):
+    """Thinned-flexure length for the cap at board x=cx. Keyed on the coordinate, like
+    cap_geometry, and for the same reason: sides flip between figures, coordinates do not."""
+    return HINGE_L_BOOT if cx == BTN_BOOT_X else HINGE_L_RESET
 
 def cap_geometry(cx):
     """(cy, R, deboss_depth) for the cap at board x=cx. THE single derivation.
@@ -242,6 +407,30 @@ def front_bezel():
     p += cyl(mx,my, PCB_TOP+0.30, SEAM_Z, 5.0)          # collar (tube wall)
     p -= cyl(mx,my, PCB_TOP+0.20, FRONT_Z+1, 2.40)       # the port bore
     p -= cone(mx,my, FRONT_Z-0.90, FRONT_Z+0.01, 2.40, 4.60)  # outside flare
+    # ---- debossed honeycomb + the hearth-wyrm mark, both cut INTO the front face ----
+    _cells, _cnt = _bezel_cells()
+    if _cells is not None:
+        p -= _cells
+    _mark, _mw, _mh, _mf = _bezel_mark()
+    p -= _mark
+    # A DEBOSS THAT BREAKS THROUGH IS A HOLE. The bezel is BEZEL_T over the glass and this
+    # face is the only thing between a finger and the LCD, so assert the remaining thickness
+    # rather than trusting that 0.45 "looks shallow".
+    assert BEZEL_T - BEZEL_DEBOSS >= 2.00, (
+        f"a {BEZEL_DEBOSS}mm deboss leaves only {BEZEL_T-BEZEL_DEBOSS:.2f}mm of bezel over "
+        f"the glass")
+    # PER-REGION, never a total: see _bezel_cells() for the run where 75 >= 60 passed with
+    # the rails completely empty.
+    for _rg, _min in (("chin", 60), ("rails", 20)):
+        assert _cnt[_rg] >= _min, (
+            f"only {_cnt[_rg]} hex cells landed on the bezel {_rg} (need >={_min}) — "
+            f"a keepout or the grid phase has eaten the region. Counts: {_cnt}")
+    assert _mf >= 0.90, f"wyrm mark min feature {_mf:.2f}mm is under the 0.90mm print floor"
+    # the mark must not collide with the mic flare, which lives in the same strip
+    assert 1.00 + _mw < MIC[0] - 2.30 - BEZ_MARGIN, (
+        f"wyrm mark reaches x={1.00+_mw:.2f} and the mic flare starts at "
+        f"x={MIC[0]-2.30-BEZ_MARGIN:.2f}")
+    front_bezel.report = (_cnt, _mw, _mh, _mf)
     return p
 
 # ============================================================================
@@ -289,7 +478,8 @@ def back_shell():
                    cyh, ytop + SLOT_W + 1, BACK_Z-1, CAV_FLOOR+1)
         p -= ring
         # thin the hinge from the inside
-        p -= bx(cx - R/2 - SLOT_W, cx + R/2 + SLOT_W, ytop-0.5, ytop+0.5,
+        _hl = cap_hinge_len(cx)
+        p -= bx(cx - R/2 - SLOT_W, cx + R/2 + SLOT_W, ytop - _hl/2, ytop + _hl/2,
                 BACK_Z+HINGE_T, CAV_FLOOR+1)
         # pip that reaches the switch plunger
         p += cyl(cx,cy, CAV_FLOOR, BTN_TIP_Z-0.15, 4.00)
@@ -379,6 +569,13 @@ SLOT_CY  = 34.0                    # slot centreline Y at the floor
 # ample), the visible area is entirely clear of the stand, and 20.0mm remains below for
 # the plug. See the VA_CLEAR assert below — this must not silently regress.
 SLOT_FLOOR = 24.0
+# Finger scallops in the rear slot wall — see the block in desk_stand() for why they exist
+# and why a taller cap could not have worked. Module scope because _check_geometry() asserts
+# against them too, and a second hand-typed 12.00 in the assert is exactly the kind of
+# duplicate constant this file has been bitten by: the check would keep passing against a
+# depth the part no longer has.
+SCALLOP_Z0 = 5.00    # local, from the slab's bottom edge: keeps the lower rear grip intact
+SCALLOP_D  = 12.00   # out from the slot's rear face, leaving ~7mm of wall behind it
 # --- grille: lyra-artist's hearth-wyrm dorsal ridge, RE-DERIVED for this field.
 #
 # An earlier comment here deferred the motif and gave the wrong reason ("changing open
@@ -425,8 +622,10 @@ GRILLE_RAKE   = 24.0     # degrees back from vertical, from lyra's motif
 GRILLE_N      = 9
 GRILLE_W0     = 3.20     # widest slot, at the head
 GRILLE_TAPER  = 0.78     # narrowest / widest, toward the tail
-GRILLE_SLOT_W = 2.20
-GRILLE_SLOT_W = 2.20
+GRILLE_SLOT_W = 2.20     # was written twice, identically, back to back. Harmless only
+                         # because both values agreed — the second silently wins, so the
+                         # next person to tune this has even odds of editing the dead line
+                         # and seeing nothing change.
 GRILLE_PITCH  = 3.40
 # Slots are clipped to the driver's RADIATING AREA, inset 1.5mm from its outline so
 # the grille never opens onto the frame — an open slot over the flange is a dust path
@@ -522,6 +721,44 @@ def desk_stand():
     slot = Box(SLAB_W+2*SLOT_CLR, SLAB_T+2*SLOT_CLR, 70,
                align=(Align.CENTER,Align.CENTER,Align.MIN))
     p -= Pos(ST_W/2, SLOT_CY, SLOT_FLOOR) * (Rot(-TILT,0,0) * slot)
+    # ---- FINGER SCALLOPS: the buttons were unreachable while docked ----
+    #
+    # JP, looking at the render: "are those new hexagon buttons tall enough? seems like there
+    # should be a tab to bring them taller to be more accessible when in the stand." The
+    # instinct was right and the cause was worse than height. The stand swallows the first
+    # 16.56mm of the slab and both switches sit 3.26mm from the board's bottom edge, so BOTH
+    # caps are entirely inside the slot — the BOOT cap's top edge is 3.81mm BELOW the stand's
+    # rim, the RESET cap's 6.23mm below — with 0.40mm of SLOT_CLR between the cap face and a
+    # solid wall. A finger does not fit in 0.40mm, so a cap of any height reaches nothing:
+    # THE OBSTRUCTION IS BESIDE THE CAP, NOT ABOVE IT. Adding material cannot fix a problem
+    # caused by surrounding material; the wall has to go.
+    #
+    # WHY NOT THE TAB, since that was the actual suggestion. A lever hinged at the pad's
+    # BOTTOM with a thumb tab reaching above the stand is mechanically sound in principle and
+    # unbuildable here. The hinge angle is not a free variable: it is pip travel over the
+    # pip's distance from the hinge, 0.40 / 2.46 = 9.3deg, and it does not improve by making
+    # the lever longer (a longer lever buys tip travel, not a gentler bend). Holding PLA under
+    # ~2% strain through 9.3deg needs about 4mm of thinned flexure; there is 2.46mm between
+    # the shell's bottom wall and the switch. The hinge would craze in service. The existing
+    # top-hinged pad only works because its pip is 7.07mm from the hinge, which is 3.2deg.
+    #
+    # WHY A SCALLOP RATHER THAN A WINDOW. The rear wall is ~19mm thick at this height, so a
+    # through-window is a tunnel, not an access port. Opening the pocket UPWARD instead means
+    # the finger comes down the back of the slab from above — and it prints with no bridge at
+    # all, since the pocket floor is solid and every wall is near-vertical.
+    #
+    # THE SLAB LEANS BACK, SO THIS REAR RIM IS THE LOADED SURFACE — the scallops are sized to
+    # leave three well-spaced bearing zones rather than one continuous line. THE ZONES ARE
+    # IN BOARD X (0..50): x < 8.4, 18.5..29.6, and > 43.6. The slab is 55.9mm wide because
+    # it spans board x -2.95..52.95, so quoting zones in one frame and the width in the
+    # other invites exactly the arithmetic error this file keeps warning about. On a ~100g slab the raised contact pressure is
+    # irrelevant; losing the bearing line entirely would not be.
+    for (cx, cy) in BTN:
+        _cyh, _R, _ = cap_geometry(cx)
+        _w = 14.0 if cx == BTN_BOOT_X else 10.0
+        _sc = Box(_w, SCALLOP_D, 70, align=(Align.CENTER, Align.MIN, Align.MIN))
+        p -= Pos(ST_W/2, SLOT_CY, SLOT_FLOOR) * (Rot(-TILT,0,0) * (
+                 Pos(cx - BW/2, SLAB_T/2 + SLOT_CLR, SCALLOP_Z0) * _sc))
     # sealed speaker chamber, open at the bottom (closed by the base plate)
     cx0,cx1 = ST_WALL+1, ST_W-ST_WALL-1
     # Rear wall pushed 21.0 -> 22.0. That is as far as it safely goes: the slab slot's
@@ -803,6 +1040,41 @@ def _check_geometry():
     # 3. the slot must still hold it
     assert engagement >= 12.0, f"slot engagement {engagement:.1f}mm is too shallow to retain the slab"
 
+    # 3b. THE BUTTONS MUST BE REACHABLE WHILE DOCKED.
+    #
+    # THIS IS THE LENS THAT WAS MISSING, and it is the third time this project has shipped a
+    # feature the stand quietly swallowed. Assert 1 asks whether the stand occludes the
+    # DISPLAY. Assert 2 asks whether there is room for the USB-C PLUG. Nobody asked about the
+    # BUTTONS — and the stand covered them completely, both of them, with 0.40mm of slot
+    # clearance between the cap face and solid wall. Same blindness every time: the boolean
+    # clearance check compares parts to the BOARD, and a stand wall sitting beside a button
+    # intersects nothing at all.
+    #
+    # The generalisation worth keeping is that "does it collide" and "can you get at it" are
+    # different questions, and passing the first says nothing about the second. Every feature
+    # a human has to REACH needs its own reachability check; enumerate them rather than
+    # trusting that a previous assert's neighbourhood covered them. Display, plug, buttons,
+    # microSD, mic port, USB — this file now checks the first three.
+    #
+    # Probed as a fingertip, not as a point: a 6 x 4mm contact patch 6mm out from the cap
+    # face. A centreline sample would pass through a slot the finger cannot enter.
+    _stand = desk_stand()
+    for _cx, _cy in BTN:
+        _cyh, _R, _ = cap_geometry(_cx)
+        _probe = Box(6.0, 6.0, 4.0, align=(Align.CENTER, Align.MIN, Align.CENTER))
+        _probe = Pos(ST_W/2, SLOT_CY, SLOT_FLOOR) * (Rot(-TILT,0,0) * (
+                     Pos(_cx - BW/2, SLAB_T/2, _cyh - OY0) * _probe))
+        _blocked = (_stand & _probe).volume
+        assert _blocked < 1.0, (
+            f"cap at x={_cx} is blocked by {_blocked:.1f}mm3 of stand — a finger cannot "
+            f"reach it while docked. The stand swallows the first "
+            f"{(ST_H-SLOT_FLOOR)/math.cos(math.radians(TILT)):.2f}mm of the slab.")
+    # and the scallops must not eat their way out through the stand's back face
+    _rear = (SLOT_CY + (SLAB_T/2 + SLOT_CLR)*math.cos(math.radians(TILT))
+             + ((ST_H-SLOT_FLOOR)/math.cos(math.radians(TILT)))*math.sin(math.radians(TILT)))
+    assert ST_D - (_rear + SCALLOP_D) >= 3.0, (
+        f"finger scallops leave only {ST_D-(_rear+SCALLOP_D):.1f}mm of rear wall at the rim")
+
     # 4. THE BUTTON PADS MUST STILL BE ATTACHED.
     #
     # This is the one assert here that tests the thing rather than a proxy for it. The
@@ -819,6 +1091,28 @@ def _check_geometry():
     assert _n == 1, (
         f"back shell is {_n} solids, not 1 — a button pad has been cut free of its hinge "
         f"and will fall out of the print. Check the hinge tab width against R/2 + SLOT_W.")
+
+    # 4b. THE HINGES MUST NOT BE STRAINED PAST THE MATERIAL.
+    #
+    # The only assert here about the material rather than the shape, and the one that would
+    # have caught both the shipped RESET hinge (4.37%) and a proposed "fix" that took it to
+    # 6.79%. Every other check in this file would pass all three variants happily: the
+    # geometry is valid, nothing collides, the pad stays attached, it prints. It just breaks
+    # in the user's hand after a few dozen presses, which is not a shape property.
+    #
+    # theta is FIXED by pip travel over the pip's lever arm and cannot be tuned away; the only
+    # levers are thickness (which makes strain worse) and flexure length (which makes it
+    # better). 2.5% is the threshold: PLA yields around 2% and breaks in the 4-6% band, so
+    # this sits just past yield and well clear of fracture, for a control pressed by hand.
+    for _cx, _cy in BTN:
+        _cyh, _R, _ = cap_geometry(_cx)
+        _arm = cap_hex_top_y(_cyh, _R) - _cy
+        _theta = 0.40 / _arm                     # 0.40mm = air gap + switch travel
+        _strain = (HINGE_T/2) * _theta / cap_hinge_len(_cx)
+        assert _strain <= 0.025, (
+            f"hinge at x={_cx} bends {math.degrees(_theta):.1f}deg over "
+            f"{cap_hinge_len(_cx)}mm at t={HINGE_T} -> {100*_strain:.2f}% strain. PLA yields "
+            f"near 2% and breaks by 4-6%. LENGTHEN the flexure; thickening makes it worse.")
 
     # 5. geometry the hex caps have to satisfy, each pinned by something real
     for _d in (DEBOSS_BIG, DEBOSS_SMALL):
