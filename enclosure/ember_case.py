@@ -541,8 +541,18 @@ def desk_stand():
     # is y=20.6, inside the sealed chamber whose rear wall is at 22.0 — the assert in
     # _check_geometry caught it, which is the whole point of having it. 12.0 lands at 22.6.
     _wellY = 12.0
+    # DEPTH IS DERIVED, not 30.0. At 30 the well ran 30mm down the tilted axis and its far
+    # end reached z = -4.98 — straight THROUGH the 4mm floor, leaving a 1099mm2 hole in the
+    # underside and a bearing footprint of only 2911 of 4010mm2. The stand was standing on a
+    # ring. Nothing detected it: the boolean check compares parts to the BOARD, and a hole in
+    # the floor intersects nothing at all.
+    #
+    # The plug never needed it. Measured clearance was "past 20.7mm" for every plug size, and
+    # 20.7 IS the floor — (SLOT_FLOOR - ST_WALL)/cos(TILT). So ending the well exactly at the
+    # inner floor surface costs nothing and closes the hole for free.
+    _wellDepth = (SLOT_FLOOR - ST_WALL) / math.cos(math.radians(TILT))
     p -= Pos(ST_W/2, SLOT_CY, SLOT_FLOOR) * (Rot(-TILT,0,0) *
-             Box(22.0, _wellY, 30.0, align=(Align.CENTER, Align.CENTER, Align.MAX)))
+             Box(22.0, _wellY, _wellDepth, align=(Align.CENTER, Align.CENTER, Align.MAX)))
     # cable route: slot floor -> out the back
     p -= bx(ST_W/2-8, ST_W/2+8, 29.0, ST_D+1, ST_WALL, 13.0)
     # SPEAKER WIRE PASS-THROUGH. Caught by JP: the chamber had no exit at all. Its only
@@ -633,6 +643,14 @@ if __name__ == "__main__":
 # looking at a render — the kind a boolean clearance check cannot catch, because
 # nothing intersects: the stand was simply in front of the screen.
 # ─────────────────────────────────────────────────────────────────────────────
+def _bearing_footprint():
+    """Material area in the stand's bottom 0.4mm, i.e. what it actually rests on."""
+    st = desk_stand()
+    probe = Pos(ST_W/2, ST_D/2, 0.0) * Box(ST_W, ST_D, 0.4,
+                                           align=(Align.CENTER, Align.CENTER, Align.MIN))
+    return (st & probe).volume / 0.4
+
+
 def _check_geometry():
     import math
     # 1. the stand must not occlude any of the visible area
@@ -650,6 +668,22 @@ def _check_geometry():
     # 2. room under the slab for a USB-C plug
     below = SLOT_FLOOR - ST_WALL
     assert below >= 16.0, f"only {below:.1f}mm under the slab for a USB-C plug (need >=16)"
+    # 2b. THE STAND MUST NOT STAND ON A RING.
+    #
+    # The USB-C well once ran 30mm down the tilted axis, reaching z = -4.98 and cutting
+    # straight through the 4mm floor — a 273mm2 hole, bearing footprint 2911 of 4010mm2.
+    # Nothing caught it, and the reason is the pattern this project keeps hitting: the
+    # boolean check compares each part to the BOARD, and a hole in the floor intersects
+    # nothing whatsoever. An absence cannot collide.
+    #
+    # The one opening that is intentional is the speaker chamber's bottom access, 54 x 15.3
+    # = 826mm2, closed by ember-stand-base. So the floor is correct at ~3184mm2 of bearing
+    # material, and the threshold is set just under that.
+    _foot = _bearing_footprint()
+    assert _foot >= 3150.0, (
+        f"stand bearing footprint {_foot:.0f}mm2 — something is piercing the floor beyond "
+        f"the speaker chamber's intentional 826mm2 access")
+
     # 3. the slot must still hold it
     assert engagement >= 12.0, f"slot engagement {engagement:.1f}mm is too shallow to retain the slab"
     return engagement, va_start, below
