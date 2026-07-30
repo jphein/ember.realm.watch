@@ -225,20 +225,34 @@ figcaption{
    thing this figure could do: it asserts, in the most legible way available, something that
    is false. So --alarm and dashed, which reads as "flagged" in any theme and matches the
    page's other caveats. It goes back to an accent when the geometry is actually fixed. */
-.linework #case-back-btn-vis{
-  stroke:var(--alarm); stroke-width:2.6; stroke-dasharray:7 5;
+.linework #case-back-btn-boot-vis,
+.linework #case-back-btn-reset-vis{
+  stroke:var(--alarm); stroke-dasharray:7 5;
 }
+/* The two pads are drawn at DIFFERENT WEIGHTS, and the caption refers to them that way.
+   BOOT is GPIO0 and the whole usable input; RESET is hardwired to CHIP_PU and firmware
+   cannot read it. Drawing them identically asserted that they are the same kind of thing.
+   Weight, not position: the apparent side flips between figures — this view is from
+   behind so board +X is on the viewer's left, and the print-layout figure mirrors it
+   back — so a caption saying "the left one is BOOT" is right in one figure and wrong in
+   another. "The heavier outline" is a property of the drawing and cannot be mirrored. It
+   also pre-figures the real asymmetry: a big thumb cap over BOOT, a smaller one over
+   RESET. */
+.linework #case-back-btn-boot-vis {stroke-width:3.4}
+.linework #case-back-btn-reset-vis{stroke-width:1.9}
 /* In light, --alarm (#B3200A) sits almost on top of the --ember the linework uses
    (#A32A08) — the same hue collision that ruled --alarm out as the accent. The dash
-   pattern still separates them, but colour contributes nothing, so weight has to: 3.6
-   against the linework's 1.4 is unmistakable whatever the hue does. This is why the
-   caption says "dashed" rather than "red" — the dash is the signal that survives both
-   themes, and a caption that names a colour is a caption that can be wrong. */
+   pattern separates them but colour contributes nothing, so both weights step up to
+   clear the linework's 1.4 while keeping the boot/reset ratio legible. This is why the
+   caption says "dashed" rather than "red": a caption that names a colour can be wrong. */
 @media (prefers-color-scheme:light){
-  .linework #case-back-btn-vis{stroke-width:3.6}
+  .linework #case-back-btn-boot-vis {stroke-width:4.2}
+  .linework #case-back-btn-reset-vis{stroke-width:2.4}
 }
-:root[data-theme="light"] .linework #case-back-btn-vis{stroke-width:3.6}
-:root[data-theme="dark"]  .linework #case-back-btn-vis{stroke-width:2.6}
+:root[data-theme="light"] .linework #case-back-btn-boot-vis {stroke-width:4.2}
+:root[data-theme="light"] .linework #case-back-btn-reset-vis{stroke-width:2.4}
+:root[data-theme="dark"]  .linework #case-back-btn-boot-vis {stroke-width:3.4}
+:root[data-theme="dark"]  .linework #case-back-btn-reset-vis{stroke-width:1.9}
 /* The exploded view is portrait — the camera was moved off-axis so the parts read as
    plates rather than edges, and that costs aspect ratio. Cap it so a tall figure
    cannot push the rest of the section off the screen on a laptop. */
@@ -1013,6 +1027,16 @@ footer p{margin:.4rem 0}
       read it at all. So only <em>one</em> of these two pads was ever going to be an input,
       which is exactly why the firmware wraps volume from 100% back to 0% — a single button
       cannot express two directions, so wrapping is the only way down.
+      <br><br>
+      Which is which is now settled on hardware rather than inferred: pressing them on the
+      bare board raises the volume overlay from the switch on the microSD side, and the
+      microSD cage sits at board x&nbsp;33.7–44.8, so <strong>BOOT is the one at
+      x&nbsp;36.58</strong> and RESET is at x&nbsp;13.45. In this figure the
+      <strong>heavier dashed outline is BOOT</strong>. That is deliberately a statement about
+      the drawing and not about which side it is on — a back view mirrors the board, and the
+      print-orientation figure further down mirrors it back again, so "the left one" is true
+      in one figure and false in another. Get it backwards when you cut the caps and the big
+      inviting thumb button ends up over the one that reboots the device.
       <br><br>
       <strong>Worth naming how this survived.</strong> Both shell parts are checked against
       the vendor board solid by boolean intersection, and the geometry asserts screen

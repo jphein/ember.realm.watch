@@ -184,14 +184,24 @@ groups = [(*project(shell, BACK_EYE, up=(0,1,0), target=BACK_TGT), "shell")]
 # there is no separable solid to project even if one were wanted. Sitting 0.04mm outside
 # the back face avoids z-fighting with the shell's own edges; each group is HLR'd
 # independently (no inter-part occlusion) so the overlay always draws.
+# ONE GROUP PER SWITCH, keyed by IDENTITY and never by position. These two pads are not
+# interchangeable: BOOT is GPIO0 and the entire usable input, RESET is hardwired to
+# CHIP_PU and firmware cannot read it at all. A single combined `btn` group drew them
+# identically, which visually asserts that they are the same kind of thing.
+#
+# The ids say boot/reset rather than left/right because THE APPARENT SIDE FLIPS WITH THE
+# VIEW — this figure looks from behind, so board +X lands on the viewer's left, and the
+# print-layout figure (shell open side up) mirrors it back again. An id like `btn-left`
+# would be correct in one figure, wrong in another, and silently wrong forever after
+# someone changes a camera. The coordinate cannot be mirrored; the position can.
 _pw = E.BUTTON_PAD_W
-pads = Compound(children=[
-    Face(Wire.make_polygon([
+def _pad_face(cx):
+    return Face(Wire.make_polygon([
         (cx - _pw/2, E.PAD_Y0, E.BACK_Z - 0.04), (cx + _pw/2, E.PAD_Y0, E.BACK_Z - 0.04),
         (cx + _pw/2, E.PAD_Y1, E.BACK_Z - 0.04), (cx - _pw/2, E.PAD_Y1, E.BACK_Z - 0.04),
     ], close=True))
-    for (cx, _cy) in E.BTN])
-groups.append((*project(pads, BACK_EYE, up=(0,1,0), target=BACK_TGT), "btn"))
+for _name, _cx in (("btn-boot", E.BTN_BOOT_X), ("btn-reset", E.BTN_RESET_X)):
+    groups.append((*project(_pad_face(_cx), BACK_EYE, up=(0,1,0), target=BACK_TGT), _name))
 write_svg(os.path.join(OUT,"case-back.svg"), groups, "case-back")
 
 # ============================== 3. PRINT LAYOUT (svg) ========================
