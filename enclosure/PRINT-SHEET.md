@@ -93,10 +93,32 @@ straight USB-C plug body needs **~18–20 mm**. There was nowhere for the power 
 | Visible area | **entirely clear** of the stand |
 | Room below for USB-C | **20.0 mm** |
 
-There is a **USB-C well** under the slot — 22 × 22 mm, full height from the stand floor to
-the slot floor, opening into the rear cable route. Deliberately generous: a moulded plug's
-strain relief is wider than the connector, and a cable forced into a tight well takes the
-bend at the plug rather than in the lead, which is how USB-C cables die.
+There is a **USB-C well** under the slot — 22 mm wide × 12 mm deep, **tilted to follow the
+slab's own axis** and running 30 mm down it into the rear cable route.
+
+⚠️ **It was a flat box first, and that did not work.** The slot is a box rotated by the tilt
+with `align=MIN`, so **its bottom face tilts too** — the front-bottom corner sits at
+z ≈ 26.4 while the rear-bottom drops to ≈ 21.6. A well cut flat to z = 24 therefore left a
+wedge of material exactly where the plug emerges. It measured as "20 mm clear" only because
+the check point-sampled the **centreline**, which is the single locus where that discrepancy
+vanishes. A plug has width, and its front corner hit the wedge.
+
+Re-measured by sweeping a plug-shaped box down the insertion axis:
+
+| plug | clears |
+|---|---|
+| slim / low-profile 12 × 6 mm | past 20.7 mm |
+| typical moulded 14 × 7 mm | past 20.7 mm |
+| chunky braided 16 × 9 mm | past 20.7 mm |
+| very bulky 20 × 11 mm | past 20.7 mm |
+
+20.7 mm is the stand floor; past that the well opens into the cable route. A straight plug's
+overmould is 18–25 mm, so all of them fit.
+
+**Depth is 12 mm, not 22, and that is solved rather than chosen:** the well drifts forward
+`sin(15°)` per mm of descent, and at 22 mm wide its front face reached y = 20.6 — inside the
+sealed speaker chamber, whose rear wall is at y = 22.0. `_check_geometry` asserts this, and
+it is what caught it.
 
 `ember_case.py` asserts all three of these on every run (`_check_geometry`), so the screen
 cannot get buried again by a later tweak.

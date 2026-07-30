@@ -174,10 +174,30 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <tr><td>Visible area</td><td><b>entirely clear</b> of the stand</td></tr>
 <tr><td>Room below for USB-C</td><td><b>20.0 mm</b></td></tr>
 </tbody></table></div>
-<p>There is a <b>USB-C well</b> under the slot — 22 × 22 mm, full height from the stand floor to</p>
-<p>the slot floor, opening into the rear cable route. Deliberately generous: a moulded plug's</p>
-<p>strain relief is wider than the connector, and a cable forced into a tight well takes the</p>
-<p>bend at the plug rather than in the lead, which is how USB-C cables die.</p>
+<p>There is a <b>USB-C well</b> under the slot — 22 mm wide × 12 mm deep, **tilted to follow the</p>
+<p>slab's own axis** and running 30 mm down it into the rear cable route.</p>
+<p>⚠️ <b>It was a flat box first, and that did not work.</b> The slot is a box rotated by the tilt</p>
+<p>with <code>align=MIN</code>, so <b>its bottom face tilts too</b> — the front-bottom corner sits at</p>
+<p>z ≈ 26.4 while the rear-bottom drops to ≈ 21.6. A well cut flat to z = 24 therefore left a</p>
+<p>wedge of material exactly where the plug emerges. It measured as "20 mm clear" only because</p>
+<p>the check point-sampled the <b>centreline</b>, which is the single locus where that discrepancy</p>
+<p>vanishes. A plug has width, and its front corner hit the wedge.</p>
+<p>Re-measured by sweeping a plug-shaped box down the insertion axis:</p>
+<div class="tablewrap"><table><thead><tr>
+<th>plug</th>
+<th>clears</th>
+</tr></thead><tbody>
+<tr><td>slim / low-profile 12 × 6 mm</td><td>past 20.7 mm</td></tr>
+<tr><td>typical moulded 14 × 7 mm</td><td>past 20.7 mm</td></tr>
+<tr><td>chunky braided 16 × 9 mm</td><td>past 20.7 mm</td></tr>
+<tr><td>very bulky 20 × 11 mm</td><td>past 20.7 mm</td></tr>
+</tbody></table></div>
+<p>20.7 mm is the stand floor; past that the well opens into the cable route. A straight plug's</p>
+<p>overmould is 18–25 mm, so all of them fit.</p>
+<p><b>Depth is 12 mm, not 22, and that is solved rather than chosen:</b> the well drifts forward</p>
+<p><code>sin(15°)</code> per mm of descent, and at 22 mm wide its front face reached y = 20.6 — inside the</p>
+<p>sealed speaker chamber, whose rear wall is at y = 22.0. <code>_check_geometry</code> asserts this, and</p>
+<p>it is what caught it.</p>
 <p><code>ember_case.py</code> asserts all three of these on every run (<code>_check_geometry</code>), so the screen</p>
 <p>cannot get buried again by a later tweak.</p>
 <h2>Speaker</h2>
