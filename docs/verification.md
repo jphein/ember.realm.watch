@@ -304,6 +304,34 @@ what it covered.
 **Both failures share a shape: a claim one step wider than its evidence.** Neither author was
 careless and neither claim was false — each was assembled from true parts.
 
+### 12. A blanket caveat does not correct a specific wrong instruction
+
+An improvement document listed, as its most urgent item, an instruction to gate wake-word start
+on "the mode's listen bit" — warning that otherwise `ANNOUNCE`/`DISPLAY` would open the
+microphone. Every noun in it referred to a **Revision-1 design that no longer exists**: there
+are no such modes, there is no listen bit, and the current spec says explicitly that wake word
+needs no mode gate at all. Following the instruction would have reintroduced the exact axis the
+spec had deleted.
+
+The document *did* carry a caveat at the top — "notes now read one mode narrower". That caveat
+is true in aggregate and wrong about this item, which is not narrower but **void**.
+
+**The asymmetry is the whole finding: a header is read once, and an instruction is read at the
+moment of acting on it.** By the time someone is executing item four, the caveat is thirty
+lines and several minutes behind them, and it did not say "some items are void" — it described
+a uniform, milder drift. A caveat that under-describes the damage is worse than no caveat,
+because it licenses exactly the confidence that skips verification.
+
+So: when a document is superseded in a way that makes specific items *wrong* rather than merely
+*dated*, mark the items. A note at the top does not reach the reader at the point of use, and
+the point of use is the only place it would have helped.
+
+Related, from the same pass: a comment claimed the DAC mute *slews*, citing register 37 as "the
+ramp rate, 0x08". The ramp-rate field is bits 7:4, so `0x08` **disables** soft ramp — bit 3 is
+`DAC_EQBYPASS`. The mute is a hard step. The comment reached the right conclusion (the amp, not
+the codec, is what makes the silence gate work) **by accident, with the mechanism inverted** —
+and it sat precisely where the next person would reason about the audio path.
+
 ---
 
 ## The cheapest countermeasure found so far: ask, don't assemble
