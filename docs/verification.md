@@ -80,6 +80,16 @@ the board" icon that was valid SVG and rendered as a trash can, an `<audio prelo
 over a `data:` URI that could not be lazy because the bytes are part of the document, and
 an exploded view rendered edge-on because the camera was placed to satisfy an aspect ratio.
 
+**Adding a caveat can invalidate a claim elsewhere in the same document — and the source
+view is the one place you will not see them together.** Writing the vendor-STEP caveat into
+`docs/enclosure.md` (*"contains no small holes, not one via, and no switch body of any
+kind"*) left it sitting directly beneath an older claim that the same file makes *"the mic
+port, speaker header, SD mouth, BOOT/RESET positions and rear LED all land correctly by
+construction."* Two adjacent claims in direct conflict, which is worse than either alone: a
+confident assertion followed by a contradiction, with nothing telling the reader which
+governs. They are far enough apart in the markdown to seem unrelated and adjacent enough on
+a rendered page to be obviously wrong. **Render the document you just edited.**
+
 **Ask the hardware, not a model of the hardware.** Three separate audio fixes converged on
 this: guard on `spk->is_running()` rather than a per-call-site flag; hold the DAC muted
 whenever the speaker is stopped rather than at enumerated sites; gate the amp on the

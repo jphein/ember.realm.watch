@@ -3,7 +3,7 @@
 ember-satellite — the hearth-wyrm.
 
 Generates the dragon silhouette for the ESPHome display lambda in
-scratch/ember-satellite.yaml (flame band, y188..263).
+esphome/ember-satellite.yaml (flame band, y188..263).
 
 This is NOT an ESPHome `image:`. It emits per-row RUN-LENGTH SPANS as C tables,
 because:
