@@ -130,3 +130,123 @@ turn are the real levers — not anything in the codec.
 > meant to fix is now handled precisely by `wait_until: speaker.is_stopped` in
 > `talk_begin`, which waits the ~0-500ms actually required instead of losing a
 > blind second to the driver's retry backoff.
+
+---
+
+# Coda — how it was actually resolved
+
+*Added when Ember was extracted. Everything above is the analysis as it stood while
+the question was open; this section is what closed it. The two are kept separate on
+purpose — the reasoning above was correct about the mechanisms and wrong about where
+the protection sat, and that distinction is the transferable lesson.*
+
+## The protection was behind the transient
+
+Everything above assumes the pop happens at a clock restart the config is positioned
+to cover. It wasn't. The pop heard "before the chime" **was the haptic's own driver
+cold start**, and the device log puts it 1.1 seconds ahead of the protection:
+
+```
+08.403  speaker_media_player: ANNOUNCING     (haptic queued)
+08.502  i2s_audio.speaker: Starting          (COLD START — amp live, DAC unmuted)
+08.599  Stopped
+ ...~1.1s later...  talk_begin: audio_dac.mute_on + amp_blank
+```
+
+So **no value of `amp_blank_ms` could ever have reached it.** That is a falsifiable
+prediction, and it explains the one loose thread above: why the `amp_blank` A/B test
+kept coming back inconclusive. It was measuring a knob that acted after the event.
+
+## The correction chain, in order
+
+This file has now been wrong in three distinguishable ways, and each error was found
+by a different method. That progression is worth more than the conclusion.
+
+| # | The claim | Why it was wrong | What found it |
+|---|---|---|---|
+| 1 | REG31 mute "is enforced inside the clock domain" and cannot hold across a restart | Wrong about the **bit** — it is a latched I²C bit and does hold | Reading the driver source |
+| 2 | The correction overshot: the mute therefore *does* suppress the restart pop, and `amp_blank_ms` "defaults to 0" | `amp_blank_ms` was **never** 0 in any commit; that described an intent never applied | Reading the commit history against the file |
+| 3 | "The amp finishes waking before the blank lifts" | **Inverted mental model.** GPIO1 is `inverted: true` on an **active-low** SHUTDOWN, so `output.turn_off: amp_enable` genuinely *disables* the amp — and a disabled amp is not waking. Its ~100 ms wake begins only when the watchdog **re-enables** it | Trying to hoist the blank ahead of the tone, and finding the timeline impossible |
+
+Correcting #3 gives the real timeline: **off at T+0, re-enabled at T+180, usably awake
+at ~T+280.** A 24 ms tone starting ~110 ms in is therefore **silenced, not protected**.
+Amp blanking and a short touch tone are structurally incompatible — which no amount of
+tuning would have revealed, because the two mechanisms were never in the same window.
+
+## The decisive experiment had never been staged
+
+The section above proposes the one test that settles it: set **Amp Blank Width** to `0`
+and tap to talk. An earlier datasheet audit went looking for that result and found
+something more useful — **the experiment had never actually been run in a form that
+could answer the question.** The protection had never once been given a transient it
+was in position to cover, so every "inconclusive" result was correct and uninformative
+at the same time.
+
+Exempting the talk tap from the haptic is what finally staged it. With no tone at tap
+time, the only remaining transient on that path is the mic's own MCLK restart — which
+happens *inside* `talk_begin`, the one place the config was designed to protect. A
+clean binary: no pop ⇒ the protection works; still pops ⇒ amp gating can be retired
+outright.
+
+**It came back clean.** Confirmed by ear: the touch pop is gone. So the mute and
+`amp_blank` in `talk_begin` **do** work — they had simply never been given a transient
+they could reach.
+
+## Which isolated the one nothing covered
+
+The residual is on the **reply** path: its own driver cold start, ~2.8 s after the
+chime, because the 500 ms driver timeout unloads the driver while Piper is still
+synthesising. (That 2.716 s chime→reply gap is measured above — it was the right
+observation attached to the wrong conclusion.)
+
+The fix was to **invert the policy** rather than add a third mute site. The mute had
+been asserted at two specific places, boot and `talk_begin`, which could only ever
+protect transients someone had thought of. The 10 ms watchdog now also does the
+reverse: **hold the DAC muted whenever the speaker is stopped**, so every cold start
+begins muted, including ones nobody has enumerated.
+
+Same principle as guarding the chimes on `spk->is_running()` instead of per-call-site
+flags — *ask the hardware the direct question, and future call sites inherit the
+answer.* It costs no audio, and the proof was already in the file: every playback
+preloads 5 × 10 ms of memset-zero silence before `i2s_channel_enable()`, so the unmute
+lands inside that window.
+
+The re-mute is **deferred 200 ms and cancellable**, which is not belt-and-braces.
+Asserting REG31 mute steps the DAC output while the amp is still enabled — the same
+class of transient this whole subsystem exists to suppress, at the other end of
+playback. Two things argue it's harmless (the last frame is end-of-speech
+near-silence; ES8311 mute is normally a soft step) and one argues it isn't (this
+board's 0.39 µF coupling caps are worst-case for pop per the amp's own datasheet).
+Not worth betting on. Deferring also coalesces bursts, and cancelling on resume means
+a stuttering reply can't be muted mid-sentence.
+
+## ⚠️ Known hazard, quantified and deliberately accepted
+
+The unmute's safety rests on landing inside that 50 ms silence window. But
+`is_running()` flips in the speaker's own `loop()` while the watchdog is an
+`interval:` — **both in the same main loop**, so a long-running frame delays the flip
+and the unmute together.
+
+Measured blocks on this device: **80 ms** (overlay dismiss) and **126 ms**, the latter
+landing 309 ms after speaker start — precisely in the exposure window. 126 > 50, so
+worst case **~76 ms of a reply plays muted**.
+
+> **The symptom is not a pop. It is a quiet or clipped first syllable** — which would
+> be blamed on TTS and debugged in an entirely different subsystem. That is the only
+> reason this paragraph exists. **The mitigation is display-side** (keep any frame at
+> playback start under ~40 ms), not audio-side.
+
+## What generalises
+
+1. **Check whether your protection is positioned to see the event before you tune it.**
+   Three rounds of inconclusive A/B testing were all measuring a knob that fired after
+   the transient it was meant to suppress.
+2. **An inconclusive result is a claim about the experiment, not just the hypothesis.**
+   The audit that found the test had never been properly staged was worth more than any
+   individual measurement.
+3. **Prefer asking the hardware to enumerating call sites.** Both fixes that finally
+   held — `spk->is_running()` for the chimes, muted-while-stopped for the DAC — replaced
+   a list of remembered cases with a direct question, and both then covered cases nobody
+   had listed.
+4. **An active-low signal behind `inverted: true` will invert your mental model too.**
+   Write the real timeline out in milliseconds before trusting any reasoning about it.
