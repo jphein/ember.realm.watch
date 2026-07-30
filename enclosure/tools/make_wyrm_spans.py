@@ -26,10 +26,57 @@ FIELD_W, FIELD_H = 37.0, 24.0
 MIN_FEATURE = 0.90      # mm. Thinner than this and a printed rib is a sliver.
 
 
-def silhouette() -> np.ndarray:
-    """Body + head composited, as the device composites them."""
-    m = D.body_mask().astype(bool) | D.head_mask(0).astype(bool)
-    return m
+def silhouette(k: float = 0.0, jaw: float = 0.0) -> np.ndarray:
+    """Body + NECK + head, composited as the DEVICE actually composites them.
+
+    >>> THIS USED TO BE `body_mask() | head_mask(0)` AND THAT WAS TWO BUGS. <<<
+    The result was a mark in TWO disconnected pieces — a body and a head floating 1.660mm
+    away (1.215mm once scaled onto the bezel), which is far above any print floor, so it
+    printed as a gap. Both causes are in what the one-liner left out:
+
+      1. `head_mask()` returns the head SPRITE IN ITS OWN FRAME, sitting at dragon-local
+         (0,0) — bbox x0..26, y0..13. It is not posed. The device translates it by
+         HEAD_POS_SLEEP..HEAD_POS_ALERT interpolated on wakefulness k. Unioning it raw put
+         the head at (0,0), which is neither pose and is nowhere near the shoulder.
+      2. `dragon.py` draws the neck with its own function, `neck_spans()` (a tapered
+         capsule chain, SHOULDER -> head), and the device composites it at the same time as
+         the body and head. It is not a *_mask() function, so `body|head` misses it
+         entirely. The creature has no neck.
+
+    WHY NOBODY CAUGHT IT: on the device the flame band renders FIRE in the gap, so the wyrm
+    reads as a creature against a glow and the missing neck is invisible. In plastic nothing
+    fills it. And A GAP IS NOT A THIN FEATURE — the minimum-feature test measures how thin
+    the material gets, never how far apart two pieces are, so 1.23mm and 0.19% opening loss
+    were both true and both blind. That is why components are now measured and asserted
+    separately; see components() and the assert in main().
+
+    Composited properly the mark is ONE piece and, at k=0, 5.7% SMALLER than the broken
+    version (193.4 vs 205.0 mm2) — because the head lands tucked against the body instead of
+    floating off in the corner. Joining it by dilation instead would have taken 5px and +43%
+    area, the trade the DILATION IS A TRADE note below explicitly warns against.
+
+    k = wakefulness: 0 asleep (nose tucked to the chest), 1 alert (head raised, neck
+    extended). k=0 for a static mark — it is the most compact of the three and nothing
+    clips the canvas edge, where k=1 puts the head hard against x=0.
+    """
+    hx = D.HEAD_POS_SLEEP[0] + (D.HEAD_POS_ALERT[0] - D.HEAD_POS_SLEEP[0]) * k
+    hy = D.HEAD_POS_SLEEP[1] + (D.HEAD_POS_ALERT[1] - D.HEAD_POS_SLEEP[1]) * k
+    hx, hy = int(round(hx)), int(round(hy))
+
+    lo, hi, _ = D.neck_spans(hx, hy)          # same maths the display lambda uses
+    neck = np.zeros((D.DH, D.DW), dtype=bool)
+    for r in range(D.DH):
+        if hi[r] > lo[r]:
+            neck[r, lo[r]:hi[r]] = True
+
+    sprite = D.head_mask(jaw).astype(bool)    # jaw_drop, NOT wakefulness
+    head = np.zeros((D.DH, D.DW), dtype=bool)
+    ys, xs = np.nonzero(sprite)
+    yy, xx = ys + hy, xs + hx
+    ok = (yy >= 0) & (yy < D.DH) & (xx >= 0) & (xx < D.DW)
+    head[yy[ok], xx[ok]] = True
+
+    return D.body_mask().astype(bool) | neck | head
 
 
 def thicken(m: np.ndarray, px: int) -> np.ndarray:
@@ -49,13 +96,15 @@ def components(m: np.ndarray):
     """(count, nearest_gap_px) for the 8-connected components of the mask.
 
     >>> EXPORTED BECAUSE "IS THIS ONE CREATURE?" IS NOT A SAFE ASSUMPTION. <<<
-    body_mask() | head_mask(0) is a UNION of two sprites, and at k=0 the head is posed
-    nose-tucked with its neck not overlapping the body — so the composite is TWO regions,
-    not one. On the device that is invisible: the flame band renders fire between them and
-    the wyrm reads as a creature against a glow. In PLASTIC there is no fire, so a consumer
-    that debosses this silhouette gets a body and a separate floating blob.
-    The gap is 5.4px here, far above any print floor, so no minimum-feature test can catch
-    it — a gap is not a thin feature. It needs its own number, hence this.
+    It WAS false. `body_mask() | head_mask(0)` unioned an unposed head sprite onto the body
+    and omitted neck_spans() entirely, so the silhouette was TWO regions 5.4px apart — see
+    silhouette() for both causes. It is one region now, and main() asserts that.
+
+    This stays exported and asserted because the failure was invisible to every other check
+    in the file: on the device the flame band renders fire between the pieces, and A GAP IS
+    NOT A THIN FEATURE, so the minimum-feature test — which measures how thin material gets,
+    never how far apart two pieces are — reported 1.23mm and 0.0% loss while the mark was
+    broken. A property no existing metric can express needs its own number.
     """
     from collections import deque
     h, w = m.shape
@@ -161,6 +210,9 @@ def main() -> int:
     with open(out, "w") as f:
         f.write('"""GENERATED by tools/make_wyrm_spans.py — do not edit.\n\n')
         f.write("The hearth-wyrm silhouette as (x, y, w, h) rectangles in mm, origin at the\n")
+        f.write("bottom-left of the canvas. BODY + NECK + POSED HEAD, exactly as the device\n")
+        f.write("composites them -- see silhouette() for the two bugs that made this a\n")
+        f.write("two-piece mark with no neck.\n")
         f.write("bottom-left of the grille field. Traced from esphome/art/dragon.py, the same\n")
         f.write("curves the device and the website draw.\n")
         f.write(f'"""\n\n')
@@ -196,6 +248,12 @@ def main() -> int:
     if ncomp > 1:
         print(f"  !! THE SILHOUETTE IS {ncomp} PIECES. Any consumer that renders it WITHOUT\n"
               f"     the fire behind it (deboss, grille island, sticker) gets a detached head.")
+    # ONE PIECE IS NOW ACHIEVABLE, SO REQUIRE IT. This is not a style rule: a consumer that
+    # cuts this silhouette in plastic has no fire to fill a gap, and no minimum-feature test
+    # can see one. Re-pose the wyrm and this is the assert that tells you the neck let go.
+    assert ncomp == 1, (
+        f"the silhouette is {ncomp} pieces with a {gap_px*scale:.3f}mm gap — the head is "
+        f"detached. Check silhouette(): the head must be POSED and the neck composited.")
     print(f"  -> {os.path.relpath(out, REPO)}")
     assert w * scale <= FIELD_W + 0.01, "wyrm wider than the grille field"
     assert h * scale <= FIELD_H + 0.01, f"wyrm {h*scale:.1f}mm taller than the {FIELD_H}mm field"

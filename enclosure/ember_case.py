@@ -86,6 +86,14 @@ BTN_BOOT_X      = 36.58              # big cap, the only readable switch
 # hostname rule in CLAUDE.md: the literal is the thing that silently goes stale, and a
 # coordinate cannot be mirrored by a camera.
 BTN_TIP_Z       = -4.10             # plunger tip (2.50mm below PCB back face)
+PIP_D           = 3.00              # pip that reaches the plunger. WAS 4.00, and shrinking it
+                                    # is what makes the offset island placeable: the island hex
+                                    # narrows toward its bottom flat, exactly where the pip
+                                    # sits, so a 4.00mm pip left only a 0.40mm window of legal
+                                    # island X. 3.00mm more than doubles it to 0.98mm, and a
+                                    # tact switch plunger is 1.5-3.5mm so 3.00 still covers it.
+                                    # A 0.40mm placement window on a printed part with a 3.5mm
+                                    # pip offset is not a tolerance, it is a hope.
 LED             = (29.00, 45.60)    # WS2812B 5x5, on the BACK, fires rearward
 ANT             = (17.57, 32.21, 80.04, 85.70)  # PCB antenna -- KEEPOUT, no metal
 CONN_R         = [(32.54,40.19),(44.84,54.99),(62.69,72.84)]  # X=50 edge connectors
@@ -119,8 +127,23 @@ SCREW_D    = 3.30    # M3 shank clearance through the shell
 # bottom wall is just outside the board edge and the switches sit only 3.26mm in), and the
 # slot's OUTER boundary must clear the fine hex field at y=11.0. A flat-top hex of
 # circumradius R spans R*sqrt(3) in Y, so R is pinned by those two facts, not chosen.
-BTN_R_BIG   = 5.20   # BOOT/volume. 10.40 across corners, 9.01 across flats.
-BTN_R_SMALL = 3.80   # RESET. "it can be smaller hexagon" — 7.60 across corners.
+# THUMB-SIZED, AND IT IS A STRENGTH FIX AS WELL AS JP'S REQUEST. JP asked for "big
+# thumbsized hexagons" and 9.01mm across flats is not one — a thumb pad is 15-20mm. But the
+# decisive argument is strain: at the old 9.01mm cap the hinge sat 6.55mm from the pip, giving
+# 3.50deg and 2.29% at L=1.20 — over PLA's ~2% YIELD, safe only against fracture. A bigger hex
+# puts the hinge further from the pip, so theta falls and strain falls with it. At 15mm the pip
+# arm is 12.54mm, theta 1.83deg, strain 1.20%. The cap that JP wanted is also the cap that
+# stops the hinge creeping, which is the rare case where the ergonomic and the mechanical
+# answer are the same number.
+BTN_R_BIG   = 8.6603  # BOOT/volume. 17.32 across corners, 15.00 across flats.
+BTN_R_SMALL = 5.7735  # RESET. "it can be smaller hexagon" — 11.55 corners, 10.00 flats.
+# ISLAND CENTRES ARE OFFSET FROM THE SWITCHES, and the countersinks force it. The M3
+# countersinks at (4,4) and (46,4) open to 6.40mm at the outer face, occupying x 0.80..7.20 and
+# 42.80..49.20. A 17.32mm-wide island centred on the switch at 36.58 would span 27.92..45.24
+# and eat into the second one. Shifting the ISLAND inboard is free because the hinge line runs
+# across X and the PIP stays on the switch — only the decorative hex moves.
+CAP_CX_BOOT  = 33.05  # island centre; switch is at BTN_BOOT_X = 36.58
+CAP_CX_RESET = 14.51  # island centre; switch is at BTN_RESET_X = 13.45
 PAD_Y0     = 0.80    # island bottom edge. Any lower cuts the shell's bottom wall.
 # DEBOSSED, NOT RAISED — and the print orientation decides this, not taste.
 #
@@ -165,7 +188,13 @@ HINGE_T    = 0.90    # living-hinge thickness
 # with t, so that fix takes RESET to 6.79% and cracks the hinge on the bench. The feel defect
 # is real and the proposed cure destroys the part.
 #
-# Lengthening the flexure fixes what actually breaks and costs nothing: 2.18% and 1.37%. The
+# Lengthening the flexure fixes what actually breaks and costs nothing. ⚠️ THE SHIPPED PAIR IS
+# 2.29% (BOOT) AND 2.18% (RESET) — an earlier version of this comment said "2.18% and 1.37%",
+# and 1.37% is BOOT at L = 2.00, a flexure length BOOT does not have. Both figures were real
+# and one of them described a configuration that was never built. Same discipline the firmware
+# side arrived at independently: state which configuration you RAN, not which conclusion you
+# reached. Both pass the 2.5% assert, so nothing was broken — which is exactly why it survived.
+# The
 # force ordering stays mildly inverted, and that is the right trade — an easy RESET is an
 # annoyance, a cracked RESET hinge is a dead part, and RESET is the recoverable button anyway.
 # Findability is already differentiated by size and deboss depth, which cost no strain at all.
@@ -228,15 +257,51 @@ def cyl(x,y,z0,z1,d):
 # lands on its own logo. Same trap that killed the raised button caps on the back shell, in
 # the same session, on the opposite face — which is the tell that it is a property of the
 # process rather than a one-off mistake: on a bed face, relief only goes inward.
-BEZEL_DEBOSS = 0.45   # every debossed feature on the front face. Deliberately NOT stated as
-                      # a layer count: PRINT-SHEET specifies 0.16mm layers for this part, so
-                      # 0.45 is 2.8 of them and the recess floor lands mid-layer. That is fine
-                      # — the slicer rounds — but an asserted "3 layers" would be false, and a
-                      # confident wrong number is how the next person mis-tunes it.
+BEZEL_DEBOSS = 0.48   # every debossed feature on the front face. EXACTLY 3 layers at the
+                      # 0.16mm PRINT-SHEET specifies for this part. It was 0.45, which is
+                      # 2.8125 layers — the recess floor landed mid-layer and the comment
+                      # claimed "3 layers at 0.15", a layer height this part does not use. Two
+                      # reviewers flagged it independently. The slicer would have rounded it
+                      # harmlessly, but a depth that is an exact multiple means the floor is a
+                      # real layer boundary rather than wherever the rounding fell.
 BEZ_AFLAT    = 2.60   # hex across flats. Finer than the back's 3.20 — this face is read
                       # from arm's length, and the brow is only 13.69mm tall.
-BEZ_WEB      = 0.70   # material between cells. Two extrusion widths at a 0.4mm nozzle.
-BEZ_MARGIN   = 1.20   # keepout from the screen window, the outer edge and the mic flare
+BEZ_WEB      = 0.70   # material between cells. ⚠️ NOT "two extrusion widths at a 0.4mm
+                      # nozzle", which this comment claimed: two 0.40mm extrusions is 0.80, so
+                      # 0.70 is 1.75 of them. It prints as ONE wide extrusion rather than two
+                      # lines — solid, but the edges round over and the cells read slightly
+                      # larger than drawn. Kept at 0.70 because that is acceptable on a
+                      # decorative face and raising it would shrink the cell counts the region
+                      # asserts are calibrated against; 0.85-0.90 if you ever want two genuine
+                      # lines. The comment is fixed rather than the number precisely because a
+                      # stated-as-fact justification is what licenses a wrong edit later.
+                      # (HEX_WEB = 0.90 on the back face IS 2.25 widths, so that one is two
+                      # lines and its comment is right.)
+MARK_MARGIN  = 1.00   # the MARK's keepout, deliberately tighter than the cells' BEZ_MARGIN.
+                      # Not a fudge to make it fit — the constraint is different. A hex cell
+                      # can land anywhere, including beside the r6.45 corner fillets, so it
+                      # needs the conservative figure. The mark sits at x 7.90..34.90, where
+                      # the outer silhouette is a STRAIGHT edge (fillet influence ends by
+                      # x=3.5) and the lower bound is the screen window. 1.00mm of face
+                      # material beside a 0.48mm-deep cosmetic recess, with 2.52mm of bezel
+                      # still under it, is structurally uninteresting.
+                      #
+                      # It exists because the assert below caught the mark occupying 11.25 of
+                      # 11.29mm of usable brow — 0.04mm of slack, which is a coincidence
+                      # wearing a fit's clothing. The honest options were a tighter margin with
+                      # a stated reason or a smaller mark, and the mark cannot shrink: its
+                      # scale is pinned by the 0.90mm print floor.
+BEZ_MARGIN   = 1.20   # keepout from the outer edge, the screen window, the mic flare AND the
+                      # four screw bosses. ⚠️ An earlier version of this comment named three
+                      # keepouts and the code implemented one and a half: the window was tested
+                      # only on its BOTTOM edge and only in the chin, the mic flare was never
+                      # tested anywhere (it held solely because the brow is excluded), and the
+                      # screw bosses were not considered at all — so 4 chin cells overlapped a
+                      # 2.50mm pilot and 5 more the 5.40mm pad, thinning the roof over a
+                      # fastener from 1.50 to 1.05mm, and the mark overlapped the (4,82) boss
+                      # pad by 1.18mm. The rails' clearance from the window's vertical edges
+                      # was 1.575mm BY LUCK. A comment that lists the keepouts is not a test
+                      # that applies them, and this one was read as if it were for hours.
 
 def _inside_rrect(px, py, x0, x1, y0, y1, r, m=0.0):
     """Is (px,py) inside a rounded rectangle, inset by m? Standard rounded-rect distance.
@@ -282,10 +347,26 @@ def _bezel_cells():
     cnt = {"chin": 0, "rails": 0}
 
     def _fits(x, y):
-        return all(_inside_rrect(x + R*math.cos(math.radians(a+30)),
+        # inside the part's rounded outline...
+        if not all(_inside_rrect(x + R*math.cos(math.radians(a+30)),
                                  y + R*math.sin(math.radians(a+30)),
                                  OX0, OX1, OY0, OY1, OUT_R, BEZ_MARGIN)
-                   for a in range(0, 360, 60))
+                   for a in range(0, 360, 60)):
+            return False
+        # ...clear of the mic flare (2.30 radius)...
+        if math.hypot(x-MIC[0], y-MIC[1]) < 2.30 + BEZ_MARGIN + R:
+            return False
+        # ...clear of all four screw bosses, on the PAD diameter not the pilot. The pad is
+        # what must stay solid: a cell over the 2.50 pilot is a hole into a fastener, and a
+        # cell over the 5.40 pad thins the roof over it to 1.05mm.
+        for (hx, hy) in HOLES:
+            if math.hypot(x-hx, y-hy) < BOSS_D/2 + BEZ_MARGIN + R:
+                return False
+        # ...and clear of the screen window on ALL FOUR edges, not just the bottom one.
+        if not (x + R < win[0]-BEZ_MARGIN or x - R > win[1]+BEZ_MARGIN
+                or y + R < win[2]-BEZ_MARGIN or y - R > win[3]+BEZ_MARGIN):
+            return False
+        return True
 
     def _cell(x, y):
         return Pos(x, y, FRONT_Z - BEZEL_DEBOSS) * extrude(
@@ -296,7 +377,7 @@ def _bezel_cells():
     while y <= win[2]:
         x = OX0 + (px/2 if j % 2 else 0.0)
         while x <= OX1:
-            if _fits(x, y) and y + R < win[2] - BEZ_MARGIN:
+            if _fits(x, y):
                 out = _cell(x, y) if out is None else out + _cell(x, y)
                 cnt["chin"] += 1
             x += px
@@ -332,16 +413,21 @@ def _bezel_mark():
     therefore 0.90/1.23, and the mark is as large as the floor allows rather than as large as
     the brow allows.
     """
-    s = 0.90 / 1.23
+    s = 0.90 / _W.WYRM_MIN_FEATURE
     w, h = _W.WYRM_W * s, _W.WYRM_H * s
-    x0 = 1.00
-    y0 = (VA[3] + WIN_MARGIN) + BEZ_MARGIN
+    # x0 IS DERIVED, NOT CHOSEN. It was 1.00, which put the mark 1.18mm INSIDE the (4,82)
+    # screw boss's 5.40mm pad — thinning the bezel roof over a self-tapper from 1.50 to
+    # 1.05mm, on a fastener that gets driven in. Not a hole, which is exactly why nothing
+    # noticed: the pilot stops at SEAM_Z+1.5 and the front face is 1.5mm above it, so the
+    # boolean clearance check had nothing to intersect. Start clear of the boss instead.
+    x0 = max(1.00, 4.0 + BOSS_D/2 + MARK_MARGIN)
+    y0 = (VA[3] + WIN_MARGIN) + MARK_MARGIN
     out = None
     for (rx, ry, rw, rh) in _W.WYRM:
         b = bx(x0 + rx*s, x0 + (rx+rw)*s, y0 + ry*s, y0 + (ry+rh)*s,
                FRONT_Z - BEZEL_DEBOSS, FRONT_Z + 1)
         out = b if out is None else out + b
-    return out, w, h, 1.23 * s
+    return out, x0, w, h, _W.WYRM_MIN_FEATURE * s
 
 def cap_hex_pts(cx, cy, R):
     """The six corners of a FLAT-top hexagon, in mm, counter-clockwise from +X.
@@ -367,6 +453,16 @@ def cap_hinge_len(cx):
     """Thinned-flexure length for the cap at board x=cx. Keyed on the coordinate, like
     cap_geometry, and for the same reason: sides flip between figures, coordinates do not."""
     return HINGE_L_BOOT if cx == BTN_BOOT_X else HINGE_L_RESET
+
+def cap_center_x(cx):
+    """Island centre X for the cap actuating the switch at board x=cx — NOT the switch's x.
+
+    Added as a separate function rather than a fourth element of cap_geometry()'s tuple
+    deliberately: that tuple has six call sites and two of them are inside a block another
+    agent is editing right now. Widening a shared signature mid-flight breaks their work with a
+    stack trace that looks like their bug. A new function breaks nothing.
+    """
+    return CAP_CX_BOOT if cx == BTN_BOOT_X else CAP_CX_RESET
 
 def cap_geometry(cx):
     """(cy, R, deboss_depth) for the cap at board x=cx. THE single derivation.
@@ -411,7 +507,7 @@ def front_bezel():
     _cells, _cnt = _bezel_cells()
     if _cells is not None:
         p -= _cells
-    _mark, _mw, _mh, _mf = _bezel_mark()
+    _mark, _mx0, _mw, _mh, _mf = _bezel_mark()
     p -= _mark
     # A DEBOSS THAT BREAKS THROUGH IS A HOLE. The bezel is BEZEL_T over the glass and this
     # face is the only thing between a finger and the LCD, so assert the remaining thickness
@@ -421,15 +517,49 @@ def front_bezel():
         f"the glass")
     # PER-REGION, never a total: see _bezel_cells() for the run where 75 >= 60 passed with
     # the rails completely empty.
-    for _rg, _min in (("chin", 60), ("rails", 20)):
+    # THRESHOLDS, AND WHY THEY MOVED. The chin was 75 cells and is now 57: adding the screw
+    # boss keepout removed 9 cells per boss and two of the four bosses are in the chin, so the
+    # 18-cell drop is accounted for rather than tolerated. The floors below are set to catch a
+    # region COLLAPSING — which is the failure this assert exists for, after 75 cells all
+    # landed in the chin and the rails got none — not to track the exact count. Do not simply
+    # lower a floor to make a build pass; work out where the cells went first.
+    for _rg, _min in (("chin", 50), ("rails", 20)):
         assert _cnt[_rg] >= _min, (
             f"only {_cnt[_rg]} hex cells landed on the bezel {_rg} (need >={_min}) — "
             f"a keepout or the grid phase has eaten the region. Counts: {_cnt}")
     assert _mf >= 0.90, f"wyrm mark min feature {_mf:.2f}mm is under the 0.90mm print floor"
-    # the mark must not collide with the mic flare, which lives in the same strip
-    assert 1.00 + _mw < MIC[0] - 2.30 - BEZ_MARGIN, (
-        f"wyrm mark reaches x={1.00+_mw:.2f} and the mic flare starts at "
-        f"x={MIC[0]-2.30-BEZ_MARGIN:.2f}")
+
+    # ⚠️ THE MARK MUST BE ONE PIECE, AND NO MINIMUM-FEATURE TEST CAN CHECK THIS.
+    #
+    # The shipped mark was TWO components: a body, and the head floating 1.215mm above the
+    # shoulders with no neck. Two upstream bugs — head_mask() returns the sprite unposed at
+    # dragon-local (0,0) while the device translates it, and dragon.py's neck_spans() is drawn
+    # by the device and omitted from body|head entirely.
+    #
+    # A GAP IS NOT A THIN FEATURE. Morphological opening measures the narrowest place material
+    # EXISTS; it is structurally blind to material that is absent. So 1.23mm minimum feature
+    # and 0.19% opening loss were both true, both green, and both silent about a logo that had
+    # come apart. The generator now exports the component count precisely so this cannot
+    # recur quietly.
+    assert _W.WYRM_COMPONENTS == 1, (
+        f"the wyrm mark is {_W.WYRM_COMPONENTS} disconnected pieces (largest gap "
+        f"{getattr(_W, 'WYRM_GAP', float('nan')):.3f}mm at generator scale) — it will print as "
+        f"a creature with a detached head. Regenerate with body|neck|posed-head.")
+
+    # the mark must clear the mic flare, which lives in the same strip, with REAL margin
+    _mic_x = MIC[0] - 2.30 - BEZ_MARGIN
+    assert _mx0 + _mw < _mic_x - 0.50, (
+        f"wyrm mark reaches x={_mx0+_mw:.2f}, mic keepout starts x={_mic_x:.2f} — "
+        f"{_mic_x-(_mx0+_mw):.2f}mm apart, want >0.50")
+    # ...and must fit the brow with margin rather than by coincidence. It previously occupied
+    # 11.28 of 11.29mm of usable height and sat 1.21mm from an outer silhouette whose keepout
+    # is 1.20mm: both true, both luck, and neither would survive the mark changing size.
+    # NOTE a bounding-box check cannot substitute for the outer one — the mark's bbox corner
+    # sits INSIDE the r6.45 fillet while the geometry itself does not.
+    _brow = OY1 - (VA[3] + WIN_MARGIN) - 2*MARK_MARGIN
+    assert _mh <= _brow - 0.30, (
+        f"wyrm mark is {_mh:.2f}mm in {_brow:.2f}mm of usable brow — under 0.30mm of slack "
+        f"is a coincidence, not a fit")
     front_bezel.report = (_cnt, _mw, _mh, _mf)
     return p
 
@@ -576,6 +706,11 @@ SLOT_FLOOR = 24.0
 # depth the part no longer has.
 SCALLOP_Z0 = 5.00    # local, from the slab's bottom edge: keeps the lower rear grip intact
 SCALLOP_D  = 12.00   # out from the slot's rear face, leaving ~7mm of wall behind it
+SCALLOP_R  = 3.00    # corner radius IN THE RIM PROFILE — see desk_stand() for both reasons
+SCALLOP_CLR = 1.80   # clearance per side beyond the cap's across-corners width. ONE value
+                     # for both caps, so the width rule is visible in the result.
+SCALLOP_CHAMFER = 0.90  # on the pocket MOUTH, where the rim plane cuts the prism. This is the
+                     # radius you can actually see; SCALLOP_R above is buried 11.5mm down.
 # --- grille: lyra-artist's hearth-wyrm dorsal ridge, RE-DERIVED for this field.
 #
 # An earlier comment here deferred the motif and gave the wrong reason ("changing open
@@ -753,12 +888,72 @@ def desk_stand():
     # it spans board x -2.95..52.95, so quoting zones in one frame and the width in the
     # other invites exactly the arithmetic error this file keeps warning about. On a ~100g slab the raised contact pressure is
     # irrelevant; losing the bearing line entirely would not be.
+    # WIDTHS ARE DERIVED, NOT TYPED. They were 14.0 and 10.0, which are +1.80 and +1.20 per
+    # side of their caps' across-corners width. Two different widths for two different caps is
+    # logical, but because the two margins DISAGREED the pair read as arbitrary — the rule was
+    # not visible in the result. One clearance for both makes it legible: BOOT stays 14.00 and
+    # RESET goes 10.00 -> 11.20. Bearing zones become 7.85 / 10.53 / 6.42 = 24.80mm of 50.0
+    # (50%), against 26.0 before, so the whole change costs 1.2mm of bearing line.
+    #
+    # RESET AT 11.20mm IS NAIL ACCESS, NOT FINGER ACCESS, AND THAT IS THE DECISION. A
+    # fingertip pad is ~15-19mm wide, so BOOT at 14.00 is a snug finger and RESET is a nail or
+    # a tool. That is the right way round rather than a consequence of the cap being smaller:
+    # RESET is hardwired to CHIP_PU and reboots the MCU *and* the LCD, and holding BOOT low
+    # across it enters ROM download mode, which looks like a brick. The awkward one should be
+    # the destructive one.
+    #
+    # TWO RADII, IN TWO DIFFERENT PLACES, FOR TWO DIFFERENT REASONS. Do not conflate them —
+    # I did, and the render caught it.
+    #
+    # SCALLOP_R = 3.00 rounds the pocket FLOOR, via rrect_y's X-Z profile. That is the
+    # STRUCTURAL fix only. Under the leaning slab the rim is the bearing surface and a crack
+    # would start at the floor's inside corner, so the corner a Box left there was a stress
+    # riser. It is also COMPLETELY INVISIBLE: the floor sits at local Z=5.00 and the rim
+    # crosses at ~16.56, so the radius is buried 11.5mm down. A first version of this comment
+    # claimed the profile radius was "the plane you actually see" and the rear elevation
+    # showed the silhouette unchanged — the notch was still square.
+    #
+    # SCALLOP_CHAMFER = 0.90 breaks the mouth's arris — the edge a fingertip drags over on the
+    # way in, and the one that prints as a sharp lip. It has to be an EDGE chamfer because of
+    # what forms the notch: the mouth is the RIM PLANE CUTTING A STRAIGHT-WALLED PRISM, so its
+    # corners are a 90deg dihedral between wall and top face, and no radius anywhere in the
+    # prism's own profile can reach it.
+    #
+    # >>> IT DOES NOT MAKE THE SILHOUETTE STOP READING AS CASTELLATION, AND IT WAS RENDERED
+    # BEFORE THAT WAS WRITTEN DOWN. <<< 0.90mm of chamfer on an 11-14mm notch is a lip detail;
+    # the rear elevation still shows two square bites. The notch is rectangular BY FUNCTION —
+    # the cap sits 3.81mm below the rim so the pocket has to be deep, and the cap sets its
+    # width — so it will read as a service opening rather than as decoration. That is
+    # acceptable for a rear-facing feature, and the honest lever if it ever needs to look
+    # deliberate rather than merely soft is SYMMETRY, not softness: both scallops at 14.00
+    # would cost 4mm more bearing line (22.0mm, 44%) and buy a matched pair, which reads far
+    # more intentional than a derived-but-unequal one. Not taken; recorded so it is a choice.
+    #
+    # The mouth edges are selected by BOTH ENDPOINTS lying inside the pocket's own x span,
+    # not by midpoint: the slot's rear top edge is split into segments by these pockets and
+    # one of those segments has its midpoint inside the BOOT span. Selecting on the midpoint
+    # would have chamfered a 10.5mm stretch of the bearing rim by accident.
     for (cx, cy) in BTN:
         _cyh, _R, _ = cap_geometry(cx)
-        _w = 14.0 if cx == BTN_BOOT_X else 10.0
-        _sc = Box(_w, SCALLOP_D, 70, align=(Align.CENTER, Align.MIN, Align.MIN))
-        p -= Pos(ST_W/2, SLOT_CY, SLOT_FLOOR) * (Rot(-TILT,0,0) * (
-                 Pos(cx - BW/2, SLAB_T/2 + SLOT_CLR, SCALLOP_Z0) * _sc))
+        _w = 2*_R + 2*SCALLOP_CLR          # cap across corners + clearance per side
+        p -= Pos(ST_W/2, SLOT_CY, SLOT_FLOOR) * (Rot(-TILT,0,0) * rrect_y(
+                 cx - BW/2, SCALLOP_Z0 + 35.0, _w, 70.0, SCALLOP_R,
+                 SLAB_T/2 + SLOT_CLR, SCALLOP_D))
+    _mouth = []
+    for (cx, cy) in BTN:
+        _cyh, _R, _ = cap_geometry(cx)
+        _w   = 2*_R + 2*SCALLOP_CLR
+        _cxs = ST_W/2 + (cx - BW/2)
+        for _e in p.edges():
+            _bb = _e.bounding_box()
+            if (abs(_bb.min.Z - ST_H) < 1e-6 and abs(_bb.max.Z - ST_H) < 1e-6
+                    and _bb.min.X >= _cxs - _w/2 - 0.01
+                    and _bb.max.X <= _cxs + _w/2 + 0.01):
+                _mouth.append(_e)
+    assert len(_mouth) == 2*len(BTN) + len(BTN), (
+        f"expected 3 mouth edges per scallop (two side walls + the back wall), got "
+        f"{len(_mouth)} — the selection has drifted and chamfer would cut the wrong rim")
+    p = chamfer(_mouth, length=SCALLOP_CHAMFER)
     # sealed speaker chamber, open at the bottom (closed by the base plate)
     cx0,cx1 = ST_WALL+1, ST_W-ST_WALL-1
     # Rear wall pushed 21.0 -> 22.0. That is as far as it safely goes: the slab slot's
@@ -924,6 +1119,35 @@ def desk_stand():
     # trying to make it wire-tight is deliberate: a press-fit hole that has to be forced
     # abrades the insulation.
     p -= bx(ST_W/2-3, ST_W/2+3, 19.0, 30.0, 6.0, 11.0)
+    # ---- SPEAKER WIRE: A RIM SADDLE AND A GROOVE DOWN THE BACK ----
+    #
+    # THE SADDLE IS NOT COSMETIC — it removes a hazard that would have been misdiagnosed.
+    #
+    # The shell's side channel releases the speaker lead at board y=14, which lands at stand
+    # z = SLOT_FLOOR + (14 + 2.95)*cos(TILT) = 40.37 — and the rim is at ST_H = 40.00. The wire
+    # therefore emerges 0.37mm ABOVE the rim: level with it, for practical purposes. Any
+    # variation in how far the slab is pushed down puts the lead BELOW the rim, where the gap
+    # between the slab's back face and the slot's rear wall is SLOT_CLR = 0.40mm. A 1.2mm lead
+    # in 0.40mm of slot is crushed, and repeated docking can cut through the insulation.
+    #
+    # ⚠️ It would present as INTERMITTENT AUDIO — which is a firmware-shaped symptom. Someone
+    # would go looking at the amp gating, the codec mute, or the media player, because that is
+    # where intermittent audio lives in this system, and the actual fault is a pinched wire
+    # inside a slot nobody can see into. The cost of the wrong diagnosis is far higher than the
+    # cost of this cut, and a 0.37mm margin is not a design — it is a coincidence.
+    #
+    # So the rim is lowered locally to give the lead a defined crossing, and a shallow groove
+    # carries it down the back face to the existing cable route. Neither cut roofs anything, so
+    # neither adds a bridge; both are open to the outside and print unsupported.
+    WIRE_X   = 57.0    # stand x where the shell's side channel exits (board x=50)
+    WIRE_W   = 5.0     # saddle width
+    WIRE_D   = 2.5     # saddle depth below the rim
+    GROOVE_W = 3.0
+    GROOVE_D = 2.0
+    p -= bx(WIRE_X-WIRE_W/2, WIRE_X+WIRE_W/2, 44.0, ST_D+1, ST_H-WIRE_D, ST_H+1)
+    p -= bx(WIRE_X-GROOVE_W/2, WIRE_X+GROOVE_W/2, ST_D-GROOVE_D, ST_D+1,
+            12.0, ST_H-WIRE_D+0.01)
+    p -= bx(ST_W/2-8, WIRE_X+GROOVE_W/2, ST_D-GROOVE_D, ST_D+1, 12.0, 15.0)
     return p
 
 def stand_base():
