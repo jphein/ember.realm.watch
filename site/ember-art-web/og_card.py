@@ -52,6 +52,37 @@ SAFE = 60
 FONT = ("ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,"
         "'Helvetica Neue',Arial,sans-serif")
 
+# ---------------------------------------------------------------- claims -----
+# EVERY factual assertion on the card, with where it came from.
+#
+# The first version of this card said "local Whisper". Ember's pipeline uses
+# vosk. It survived every check I had because the checks tested format and
+# composition — nothing tested whether the words were TRUE, and a plausible
+# wrong engine name is invisible to a renderer. There is also a core_whisper
+# add-on installed on the HA box, which is exactly why it read as correct.
+#
+# This table does not verify anything; there is no oracle for "is this true"
+# short of someone who knows the system reading it. What it does is make the
+# claims enumerable and attributed, and print them at build time, so the review
+# that is the only real check has something to review instead of having to
+# re-read the artwork. `blocked` below is the narrower thing a machine CAN do:
+# refuse to ship a name we know is wrong.
+CLAIMS = [
+    ("speech-to-text is local",  "stt_engine: stt.vosk",   "live Assist pipeline, read by team-lead 2026-07-29"),
+    ("the model is ~35B params", "a 35B model",            "team-lead, 2026-07-29"),
+    ("text-to-speech is local",  "tts_engine: tts.piper",  "live Assist pipeline, read by team-lead 2026-07-29"),
+    ("the device runs ESPHome",  "ember-satellite.yaml",   "the config I merged the wyrm into"),
+    ("orchestrated by HA",       "conversation.extended_openai_conversation_2",
+                                                           "live Assist pipeline, read by team-lead 2026-07-29"),
+    ("no cloud in the pipeline", "all three stages local", "follows from the three engines above"),
+]
+
+# Names that must never appear on the card. Seeded with the error that actually
+# happened; add to it whenever a wrong claim is caught, so each one can only
+# ever ship once.
+BLOCKED = ["whisper", "openai", "google", "alexa", "azure", "cloud api",
+           "chatgpt", "gpt-4", "deepgram", "elevenlabs"]
+
 # The one sentence that has to carry the whole thing. og:image:alt is the
 # accessibility text AND what shows when the image fails to load, so it
 # describes what is depicted first and claims second.
@@ -136,8 +167,8 @@ def card(creature_only=False):
     <text x="{SAFE}" y="384" fill="{t['ink']}" font-size="27">all on hardware you
       own, talking to a $20 board</text>
 
-    <text x="{SAFE}" y="{CH - 74}" fill="#9A8570" font-size="26">local
-      Whisper &#183; local LLM &#183; local Piper &#183; ESPHome</text>
+    <text x="{SAFE}" y="{CH - 74}" fill="#9A8570" font-size="26">vosk
+      &#183; Piper &#183; ESPHome &#183; Home Assistant</text>
     <text x="{SAFE}" y="{CH - 36}" fill="{PAL['gold']}" font-size="26"
           font-weight="700">ember.realm.watch</text>
   </g>
@@ -216,6 +247,13 @@ def verify(path):
         lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
         if lum < 90:
             dark.append("#" + hexv)
+    # claims: the narrow machine-checkable part — no known-wrong engine names,
+    # in the artwork OR in the alt text
+    words = " ".join(_re.findall(r'>([^<>]+)<', block)).lower() + " " + ALT.lower()
+    hits = sorted({b for b in BLOCKED if b in words})
+    out.append(("no known-wrong engine names in card text or alt", not hits,
+                ("found: %s" % hits) if hits else "%d blocked names checked" % len(BLOCKED)))
+
     out.append(("no near-invisible text fills on the dark card",
                 not dark and len(fills) >= 6,
                 ("dark fills: %s" % sorted(set(dark))) if dark
@@ -235,6 +273,11 @@ def main():
     for name, passed, detail in verify(png_path):
         ok &= passed
         print("  %-38s %-4s %s" % (name, "ok" if passed else "FAIL", detail))
+    print()
+    print("claims on this card — the ONLY real check is a human who knows the")
+    print("system reading these, so they are printed rather than asserted:")
+    for what, evidence, source in CLAIMS:
+        print("  %-26s %-44s %s" % (what, evidence, source))
     print()
     print("og:image:alt ->")
     print("  " + ALT)

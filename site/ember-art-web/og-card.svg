@@ -124,8 +124,8 @@
     <text x="60" y="384" fill="#FFE8B4" font-size="27">all on hardware you
       own, talking to a $20 board</text>
 
-    <text x="60" y="556" fill="#9A8570" font-size="26">local
-      Whisper &#183; local LLM &#183; local Piper &#183; ESPHome</text>
+    <text x="60" y="556" fill="#9A8570" font-size="26">vosk
+      &#183; Piper &#183; ESPHome &#183; Home Assistant</text>
     <text x="60" y="594" fill="#FFA81E" font-size="26"
           font-weight="700">ember.realm.watch</text>
   </g>
