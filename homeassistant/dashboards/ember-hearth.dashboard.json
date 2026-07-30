@@ -15,6 +15,12 @@
     },
     {
      "type": "entity",
+     "entity": "switch.ember_satellite_hush",
+     "name": "Hush",
+     "color": "red"
+    },
+    {
+     "type": "entity",
      "entity": "binary_sensor.ember_reachable",
      "name": "Mind",
      "color": "orange"
@@ -54,11 +60,34 @@
        "grid_options": {
         "columns": "full"
        },
-       "content": "{% set na = ['unknown','unavailable','none',''] %}\n{% set local = states('select.ember_satellite_assistant') == 'familiar-ember' %}{% set up = is_state('binary_sensor.ember_reachable', 'on') %}{% set det = (state_attr('binary_sensor.ember_reachable', 'detail') or '\u2014') | trim %}\n{% set st = states('assist_satellite.ember_satellite_assist_satellite') %}\n{% set pl = states('select.ember_satellite_assistant') %}\n{% set chain = {\n  'familiar-ember': ['Ember \u00b7 local Qwen3.6-35B on familiar','vosk','piper','en_GB-cori-medium'],\n  'claude-donkee': ['Claude Opus 4.7 \u00b7 Bedrock','vosk','piper','en_US-hfc_female-medium'],\n  'Chatgpt': ['ChatGPT','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Gemini-vosk-piper-donkee': ['Google Gemini','vosk','piper','en_US-hfc_female-medium'],\n  'yurt-butler': ['Home Assistant','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Home Assistant': ['Home Assistant','\u2014','HA Cloud','JennyNeural'],\n  'preferred': ['Google Gemini \u00b7 HA preferred','vosk','piper','en_US-hfc_female-medium']\n} %}\n{% set glyph = {'idle':'\u25cb','listening':'\u25c9','processing':'\u25d0','responding':'\u25c6','responding_speaking':'\u25c6'}.get(st,'\u00b7') %}\n{% set p = chain.get(pl, ['\u2014','\u2014','\u2014','\u2014']) %}\n# Ember\nthe hearth-spirit \u00b7 **{{ glyph }} {{ st }}**\n\nlistening as **{{ pl }}** \u2192 {{ p[0] }}{% if local %} \u00b7 mind {{ '**' ~ det ~ '**' if up else '`' ~ det ~ '`' }}{% endif %}\n{{ p[1] }} \u27f6 {{ p[2] }} \u00b7 *{{ p[3] }}*\n\nhearth **{% set v = states('number.ember_satellite_speaker_volume') %}{{ (v | float | int) ~ '%' if v not in na else '\u2014' }}** \u00b7 amp **{{ states('switch.ember_satellite_speaker_amplifier') }}** \u00b7 ear **{% set v = states('sensor.ember_satellite_mic_rms') %}{{ (v | float | round(1)) ~ ' dB' if v not in na else '\u2014' }}** \u00b7 coals **{% set v = states('sensor.ember_satellite_battery_voltage') %}{{ (v | float | round(2)) ~ ' V' if v not in na else '\u2014' }}**\n",
+       "content": "{% set na = ['unknown','unavailable','none',''] %}\n{% set local = states('select.ember_satellite_assistant') == 'familiar-ember' %}{% set up = is_state('binary_sensor.ember_reachable', 'on') %}{% set det = (state_attr('binary_sensor.ember_reachable', 'detail') or '\u2014') | trim %}{% set hushed = is_state('switch.ember_satellite_hush', 'on') %}\n{% set st = states('assist_satellite.ember_satellite_assist_satellite') %}\n{% set pl = states('select.ember_satellite_assistant') %}\n{% set chain = {\n  'familiar-ember': ['Ember \u00b7 local Qwen3.6-35B on familiar','vosk','piper','en_GB-cori-medium'],\n  'claude-donkee': ['Claude Opus 4.7 \u00b7 Bedrock','vosk','piper','en_US-hfc_female-medium'],\n  'Chatgpt': ['ChatGPT','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Gemini-vosk-piper-donkee': ['Google Gemini','vosk','piper','en_US-hfc_female-medium'],\n  'yurt-butler': ['Home Assistant','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Home Assistant': ['Home Assistant','\u2014','HA Cloud','JennyNeural'],\n  'preferred': ['Google Gemini \u00b7 HA preferred','vosk','piper','en_US-hfc_female-medium']\n} %}\n{% set glyph = {'idle':'\u25cb','listening':'\u25c9','processing':'\u25d0','responding':'\u25c6','responding_speaking':'\u25c6'}.get(st,'\u00b7') %}\n{% set p = chain.get(pl, ['\u2014','\u2014','\u2014','\u2014']) %}\n# Ember\nthe hearth-spirit \u00b7 **{{ glyph }} {{ st }}**{% if hushed %} \u00b7 `hushed`{% endif %}\n\nlistening as **{{ pl }}** \u2192 {{ p[0] }}{% if local %} \u00b7 mind {{ '**' ~ det ~ '**' if up else '`' ~ det ~ '`' }}{% endif %}\n{{ p[1] }} \u27f6 {{ p[2] }} \u00b7 *{{ p[3] }}*\n\nhearth **{% set v = states('number.ember_satellite_speaker_volume') %}{{ (v | float | int) ~ '%' if v not in na else '\u2014' }}** \u00b7 amp **{{ states('switch.ember_satellite_speaker_amplifier') }}** \u00b7 ear **{% set v = states('sensor.ember_satellite_mic_rms') %}{{ (v | float | round(1)) ~ ' dB' if v not in na else '\u2014' }}** \u00b7 coals **{% set v = states('sensor.ember_satellite_battery_voltage') %}{{ (v | float | round(2)) ~ ' V' if v not in na else '\u2014' }}**\n",
        "card_mod": {
         "style": {
          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:none; box-shadow:none; padding:2px 6px 8px;\n  background:radial-gradient(120% 160% at 8% 118%,\n    color-mix(in srgb, var(--em-coal) 30%, transparent) 0%,\n    color-mix(in srgb, var(--em-bed) 16%, transparent) 42%, transparent 74%); }\n",
          "ha-markdown$": "\nh1 { font-family:'Georgia','IBM Plex Serif',serif; font-size:52px; line-height:.92;\n  margin:0; letter-spacing:1px; color:var(--em-gold);\n  text-shadow:0 0 26px color-mix(in srgb, var(--em-glow) 55%, transparent),\n              0 0 6px color-mix(in srgb, var(--em-tip) 30%, transparent); }\np { margin:6px 0 0; font-size:13px; line-height:1.75;\n  color:var(--secondary-text-color); letter-spacing:.3px; }\nstrong { color:var(--em-glow); font-weight:600; }\nem { color:var(--em-tip); font-style:normal; letter-spacing:.6px; }\ncode { color:var(--em-alarm); background:none; font-family:inherit;\n  font-weight:600; letter-spacing:.3px; }\n"
+        }
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "switch.ember_satellite_hush",
+         "state": "on"
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "\ud83e\udd2b **Ember is hushed.** Tapping the screen will *not* start a conversation \u2014 hush gates the talk gesture, it doesn't mute the microphone or change the audio path, so the device will look and feel entirely healthy while ignoring you.\n\nAnnouncements pushed from HA still play. Turn hush off below to make Ember listen again.",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-alarm); border-radius:10px;\n  background:color-mix(in srgb, var(--em-alarm) 8%, var(--card-background-color)); }\n",
+          "ha-markdown$": "p { margin:0 0 6px; font-size:12.5px; line-height:1.65; }\np:last-child { margin-bottom:0; }\nstrong { color:var(--em-alarm); }\nem { color:var(--em-gold); font-style:normal; }\ncode { color:var(--em-glow); background:none; font-size:11.5px; }\n"
+         }
         }
        }
       },
@@ -78,7 +107,7 @@
        ],
        "card": {
         "type": "markdown",
-        "content": "{% set local = states('select.ember_satellite_assistant') == 'familiar-ember' %}{% set up = is_state('binary_sensor.ember_reachable', 'on') %}{% set det = (state_attr('binary_sensor.ember_reachable', 'detail') or '\u2014') | trim %}\n\u26a0 **Ember's mind is not answering.** `familiar-ember` is the selected pipeline, but the local Qwen lane on `familiar:8091` reports *{{ det }}*. The satellite will hear you and then fall silent \u2014 the failure looks identical to *idle* from the outside.\n\nWake the host with `familiar-wake`, or swap to **Claude Opus \u00b7 Bedrock** on the Voice Pipeline view to keep talking now.",
+        "content": "{% set local = states('select.ember_satellite_assistant') == 'familiar-ember' %}{% set up = is_state('binary_sensor.ember_reachable', 'on') %}{% set det = (state_attr('binary_sensor.ember_reachable', 'detail') or '\u2014') | trim %}{% set hushed = is_state('switch.ember_satellite_hush', 'on') %}\n\u26a0 **Ember's mind is not answering.** `familiar-ember` is the selected pipeline, but the local Qwen lane on `familiar:8091` reports *{{ det }}*. The satellite will hear you and then fall silent \u2014 the failure looks identical to *idle* from the outside.\n\nWake the host with `familiar-wake`, or swap to **Claude Opus \u00b7 Bedrock** on the Voice Pipeline view to keep talking now.",
         "grid_options": {
          "columns": "full"
         },
@@ -175,6 +204,64 @@
        "name": "Frames Spoken",
        "icon": "mdi:waveform",
        "color": "amber"
+      },
+      {
+       "type": "tile",
+       "entity": "media_player.ember_satellite_ember_speaker",
+       "name": "Announce stage",
+       "icon": "mdi:bullhorn-outline",
+       "color": "brown"
+      },
+      {
+       "type": "heading",
+       "heading": "Make Ember speak",
+       "heading_style": "subtitle",
+       "icon": "mdi:bullhorn"
+      },
+      {
+       "type": "button",
+       "name": "Speech test",
+       "icon": "mdi:bullhorn-outline",
+       "show_state": false,
+       "tap_action": {
+        "action": "perform-action",
+        "perform_action": "script.ember_announce",
+        "data": {
+         "message": "The hearth is lit."
+        }
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-gold); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-gold) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-gold); --state-icon-color:var(--em-gold);\n  --paper-item-icon-color:var(--em-gold); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-gold) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-gold); }\n"
+       }
+      },
+      {
+       "type": "button",
+       "name": "Test \u00b7 only if awake",
+       "icon": "mdi:cloud-check-outline",
+       "show_state": false,
+       "tap_action": {
+        "action": "perform-action",
+        "perform_action": "script.ember_announce_if_awake",
+        "data": {
+         "message": "The hearth is lit, and my mind is my own."
+        }
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-coal); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-coal) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-coal); --state-icon-color:var(--em-coal);\n  --paper-item-icon-color:var(--em-coal); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-coal) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-coal); }\n"
+       }
+      },
+      {
+       "type": "markdown",
+       "content": "Both buttons call **`script.ember_announce`**, never `assist_satellite.announce` directly \u2014 the script pins `preannounce: false`, and without it HA prepends its own generic blip so you hear two heralds back to back. The second button routes through `ember_announce_if_awake`, which refuses (and logs) when the local lane is unreachable.\n\n*Arbitrary text isn't possible from a dashboard button* \u2014 Lovelace `perform_action` data is not templated, so the message has to be a literal. For one-off phrases use Developer Tools \u2192 Actions \u2192 `script.ember_announce`.",
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": {
+         ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
+         "ha-markdown$": "p { margin:0; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\ncode { color:var(--em-glow); background:none; font-size:11px; }\nstrong { color:var(--em-glow); }\nem { color:var(--em-gold); font-style:normal; }\n"
+        }
+       }
       }
      ]
     },
@@ -293,6 +380,21 @@
       },
       {
        "type": "tile",
+       "entity": "switch.ember_satellite_hush",
+       "name": "Hush \u00b7 ignore the talk gesture",
+       "icon": "mdi:microphone-off",
+       "color": "red",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
        "entity": "select.ember_satellite_assistant",
        "name": "Pipeline",
        "icon": "mdi:transit-connection-variant",
@@ -370,7 +472,7 @@
        "grid_options": {
         "columns": "full"
        },
-       "content": "{% set na = ['unknown','unavailable','none',''] %}\n{% set local = states('select.ember_satellite_assistant') == 'familiar-ember' %}{% set up = is_state('binary_sensor.ember_reachable', 'on') %}{% set det = (state_attr('binary_sensor.ember_reachable', 'detail') or '\u2014') | trim %}\n{% set pl = states('select.ember_satellite_assistant') %}\n{% set chain = {\n  'familiar-ember': ['Ember \u00b7 local Qwen3.6-35B on familiar','vosk','piper','en_GB-cori-medium'],\n  'claude-donkee': ['Claude Opus 4.7 \u00b7 Bedrock','vosk','piper','en_US-hfc_female-medium'],\n  'Chatgpt': ['ChatGPT','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Gemini-vosk-piper-donkee': ['Google Gemini','vosk','piper','en_US-hfc_female-medium'],\n  'yurt-butler': ['Home Assistant','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Home Assistant': ['Home Assistant','\u2014','HA Cloud','JennyNeural'],\n  'preferred': ['Google Gemini \u00b7 HA preferred','vosk','piper','en_US-hfc_female-medium']\n} %}\n{% set p = chain.get(pl, ['\u2014','\u2014','\u2014','\u2014']) %}\n{% set held = states.select['ember_satellite_assistant'] %}\n{% set since = relative_time(held.last_changed) ~ ' on this pipeline' if held else '\u2014' %}\n{% set mind = (det if up else '`' ~ det ~ '`') if local else 'cloud agent \u00b7 not gated on familiar' %}\n| | stage | engine | reading |\n|:--|:--|:--|:--|\n| \u25cb | **wake** | openwakeword | {{ 'ready' if states('wake_word.openwakeword') not in na else 'idle' }} |\n| \u25d4 | **ear** | {{ p[1] }} | {% set v = states('sensor.ember_satellite_mic_rms') %}{{ (v | float | round(1)) ~ ' dB' if v not in na else '\u2014' }} |\n| {{ '\u25d1' if (up or not local) else '`\u2716`' }} | **mind** | {{ p[0] }} | {{ mind }} \u00b7 {{ since }} |\n| \u25c6 | **voice** | {{ p[2] }} \u00b7 *{{ p[3] }}* | {% set v = states('sensor.ember_satellite_speaker_frames') %}{{ (v | float | int) ~ ' frames' if v not in na else '\u2014' }} |\n",
+       "content": "{% set na = ['unknown','unavailable','none',''] %}\n{% set local = states('select.ember_satellite_assistant') == 'familiar-ember' %}{% set up = is_state('binary_sensor.ember_reachable', 'on') %}{% set det = (state_attr('binary_sensor.ember_reachable', 'detail') or '\u2014') | trim %}{% set hushed = is_state('switch.ember_satellite_hush', 'on') %}\n{% set pl = states('select.ember_satellite_assistant') %}\n{% set chain = {\n  'familiar-ember': ['Ember \u00b7 local Qwen3.6-35B on familiar','vosk','piper','en_GB-cori-medium'],\n  'claude-donkee': ['Claude Opus 4.7 \u00b7 Bedrock','vosk','piper','en_US-hfc_female-medium'],\n  'Chatgpt': ['ChatGPT','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Gemini-vosk-piper-donkee': ['Google Gemini','vosk','piper','en_US-hfc_female-medium'],\n  'yurt-butler': ['Home Assistant','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Home Assistant': ['Home Assistant','\u2014','HA Cloud','JennyNeural'],\n  'preferred': ['Google Gemini \u00b7 HA preferred','vosk','piper','en_US-hfc_female-medium']\n} %}\n{% set p = chain.get(pl, ['\u2014','\u2014','\u2014','\u2014']) %}\n{% set held = states.select['ember_satellite_assistant'] %}\n{% set since = relative_time(held.last_changed) ~ ' on this pipeline' if held else '\u2014' %}\n{% set mind = (det if up else '`' ~ det ~ '`') if local else 'cloud agent \u00b7 not gated on familiar' %}\n| | stage | engine | reading |\n|:--|:--|:--|:--|\n| \u25cb | **wake** | openwakeword | {{ 'ready' if states('wake_word.openwakeword') not in na else 'idle' }} |\n| \u25d4 | **ear** | {{ p[1] }} | {% set v = states('sensor.ember_satellite_mic_rms') %}{{ (v | float | round(1)) ~ ' dB' if v not in na else '\u2014' }} |\n| {{ '\u25d1' if (up or not local) else '`\u2716`' }} | **mind** | {{ p[0] }} | {{ mind }} \u00b7 {{ since }} |\n| \u25c6 | **voice** | {{ p[2] }} \u00b7 *{{ p[3] }}* | {% set v = states('sensor.ember_satellite_speaker_frames') %}{{ (v | float | int) ~ ' frames' if v not in na else '\u2014' }} |\n",
        "card_mod": {
         "style": {
          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--divider-color); border-radius:10px;\n  background:linear-gradient(180deg,\n    color-mix(in srgb, var(--em-bed) 10%, var(--card-background-color)) 0%,\n    var(--card-background-color) 60%); }\n",
@@ -542,6 +644,44 @@
        "name": "openwakeword",
        "icon": "mdi:sleep-off",
        "color": "brown"
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 3,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Persona \u00b7 a live nudge to the prompt",
+       "heading_style": "subtitle",
+       "icon": "mdi:comment-edit-outline"
+      },
+      {
+       "type": "entities",
+       "show_header_toggle": false,
+       "grid_options": {
+        "columns": "full"
+       },
+       "entities": [
+        {
+         "entity": "input_text.ember_persona_extra",
+         "name": "Persona tweak"
+        }
+       ]
+      },
+      {
+       "type": "markdown",
+       "content": "Typed here, appended to the **very end** of Ember's prompt and live on the next turn. Try *\u201cBe even terser today, one sentence only.\u201d*\n\n255 characters \u2014 that's `input_text`'s hard cap, not a choice. Full persona edits live at **Settings \u2192 Devices & Services \u2192 Ember (familiar local) \u2192 the conversation subentry \u2192 Reconfigure**.\n\nThe trailing placement is load-bearing, not arbitrary: the prompt prefix has to stay byte-stable for llama.cpp to reuse its KV cache (~1.7 s warm instead of ~7.6 s), and mid-prompt the model ignored this field outright. Don't move it earlier.",
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": {
+         ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
+         "ha-markdown$": "p { margin:0; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\ncode { color:var(--em-glow); background:none; font-size:11px; }\nstrong { color:var(--em-glow); }\nem { color:var(--em-gold); font-style:normal; }\n"
+        }
+       }
       }
      ]
     },
@@ -846,6 +986,127 @@
     },
     {
      "type": "grid",
+     "column_span": 2,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Levers \u00b7 when something is wrong",
+       "heading_style": "subtitle",
+       "icon": "mdi:wrench-outline"
+      },
+      {
+       "type": "tile",
+       "entity": "button.ember_satellite_rouse_touch_sensor",
+       "name": "Screen not responding? Rouse the touch sensor",
+       "icon": "mdi:gesture-tap",
+       "color": "amber",
+       "hide_state": true,
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "button.ember_satellite_restart",
+       "name": "Restart the satellite",
+       "icon": "mdi:restart",
+       "color": "deep-orange",
+       "hide_state": true,
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "switch.ember_satellite_hush",
+       "name": "Hush \u00b7 gates the talk gesture",
+       "color": "red",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "binary_sensor.ember_satellite_boot_button",
+       "name": "BOOT button (the only one on the PCB)",
+       "icon": "mdi:circle-double",
+       "color": "grey",
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "markdown",
+       "content": "**Rouse** re-pulses the FT6336G's reset line and re-runs its setup \u2014 the recovery for a touchscreen that has stopped answering. It is deliberately reachable from *here* rather than only on the device, because recovering the touchscreen must not require the touchscreen. Takes ~310 ms and will log a *took a long time* warning; that's expected for a manual recovery action.\n\n**BOOT** is the entire hardware input budget of this board (K1/K2 are RESET and BOOT; RESET is wired to CHIP_PU and can't be read). Short-press summons Ember or steps the volume overlay; it also drives the power menu, so it can reach Rouse without touch.",
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": {
+         ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
+         "ha-markdown$": "p { margin:0; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\ncode { color:var(--em-glow); background:none; font-size:11px; }\nstrong { color:var(--em-glow); }\nem { color:var(--em-gold); font-style:normal; }\n"
+        }
+       }
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 1,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Announce path",
+       "heading_style": "subtitle",
+       "icon": "mdi:bullhorn"
+      },
+      {
+       "type": "tile",
+       "entity": "media_player.ember_satellite_ember_speaker",
+       "name": "Ember Speaker",
+       "icon": "mdi:bullhorn-outline",
+       "color": "brown",
+       "features": [
+        {
+         "type": "media-player-volume-slider"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "assist_satellite.ember_satellite_assist_satellite",
+       "name": "Assist satellite",
+       "icon": "mdi:fireplace",
+       "color": "amber",
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "markdown",
+       "content": "The media_player is why HA can push speech at all: `FEATURE_ANNOUNCE` is gated strictly on `voice_assistant` owning one, which is what moved the satellite's `supported_features` **0 \u2192 3**. Announcement pipeline only \u2014 no media pipeline, so no mixer is needed.\n\n\u26a0 *This slider is not the loudness control.* It sets the announcement **pipeline** level, an earlier stage; the es8311 DAC volume on the Hearth view (`Hearth Voice \u00b7 Output Level`) is the one that governs how loud Ember actually is, and it applies to conversational replies too. Reach for that one first.",
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": {
+         ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
+         "ha-markdown$": "p { margin:0; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\ncode { color:var(--em-glow); background:none; font-size:11px; }\nstrong { color:var(--em-glow); }\nem { color:var(--em-gold); font-style:normal; }\n"
+        }
+       }
+      }
+     ]
+    },
+    {
+     "type": "grid",
      "column_span": 3,
      "cards": [
       {
@@ -886,12 +1147,20 @@
          "name": "Wake word"
         },
         {
+         "entity": "switch.ember_satellite_hush",
+         "name": "Hush (gates the talk gesture)"
+        },
+        {
          "type": "section",
          "label": "Audio"
         },
         {
          "entity": "number.ember_satellite_speaker_volume",
-         "name": "Speaker volume (DAC)"
+         "name": "Speaker volume (es8311 DAC)"
+        },
+        {
+         "entity": "media_player.ember_satellite_ember_speaker",
+         "name": "Ember Speaker (announce pipeline)"
         },
         {
          "entity": "switch.ember_satellite_speaker_amplifier",
@@ -908,6 +1177,38 @@
         {
          "entity": "sensor.ember_satellite_mic_peak",
          "name": "Mic peak"
+        },
+        {
+         "type": "section",
+         "label": "Persona & speech"
+        },
+        {
+         "entity": "input_text.ember_persona_extra",
+         "name": "Persona tweak"
+        },
+        {
+         "entity": "script.ember_announce",
+         "name": "Announce (script)"
+        },
+        {
+         "entity": "script.ember_announce_if_awake",
+         "name": "Announce if awake (script)"
+        },
+        {
+         "type": "section",
+         "label": "Recovery"
+        },
+        {
+         "entity": "button.ember_satellite_rouse_touch_sensor",
+         "name": "Rouse touch sensor"
+        },
+        {
+         "entity": "button.ember_satellite_restart",
+         "name": "Restart"
+        },
+        {
+         "entity": "binary_sensor.ember_satellite_boot_button",
+         "name": "BOOT button"
         },
         {
          "type": "section",
@@ -955,6 +1256,7 @@
          "assist_satellite.ember_satellite_assist_satellite",
          "select.ember_satellite_assistant",
          "binary_sensor.ember_reachable",
+         "switch.ember_satellite_hush",
          "number.ember_satellite_speaker_volume",
          "switch.ember_satellite_speaker_amplifier",
          "switch.ember_satellite_daylight_hearth"
@@ -1068,6 +1370,21 @@
          "type": "toggle"
         }
        ]
+      },
+      {
+       "type": "tile",
+       "entity": "switch.ember_satellite_hush",
+       "name": "Hush",
+       "icon": "mdi:microphone-off",
+       "color": "red",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
       },
       {
        "type": "tile",
