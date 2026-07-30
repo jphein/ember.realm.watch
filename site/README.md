@@ -91,10 +91,25 @@ grep -o 'https\?://[^"'"'"')]*' docs/index.html | grep -v w3.org    # must print
 ## Assets
 
 `build.py` **discovers** `art/` and `sounds/` rather than hardcoding a path, because this page
-was written before its repo existed. It tries, in order: `../ember-art-web/` (lyra's web art),
-beside this directory, `~/Projects/ember.realm.watch`, then `~/Projects/ha/esphome`. So it keeps
-building across the extraction with no edit at the moment of the move. If it ever reports the
-wrong pair, that list is the thing to fix — it prints which roots it used on every run.
+was written before its repo existed. `_CANDIDATE_ROOTS`, in the order the code actually uses:
+
+1. `REPO/esphome` — where the extraction put `art/` and `sounds/`. **This must stay first.**
+2. `site/ember-art-web/` — lyra's web art.
+3. `REPO` — assets at the repo root.
+4. `~/Projects/ha/esphome` — pre-extraction, and **behind a hard stop**; see below.
+
+⚠️ **Do not reorder this list from memory, and do not "tidy" entry 4 away.** This README
+previously described a different order, with `ember-art-web` first and the old repo as a
+plain fallback. Restoring that order is the bug: every candidate misses, discovery falls
+through to `~/Projects/ha/esphome`, and the site rebuilds **from the old repo —
+correctly, indefinitely, with nothing in the output to show it.** That is the exact
+failure the extraction existed to end, and it has already been reintroduced once by a
+drop that overwrote `build.py`.
+
+Entry 4 is not a fallback. `_find()` **refuses to build** if discovery reaches it, with
+an explicit message, unless `EMBER_ALLOW_STALE_ASSETS=1` is set by someone who means it.
+A build that succeeds wrongly is worse than one that stops. `build.py` also prints which
+roots it used on every run — that output, not this list, is the authority.
 
 Curation is deliberate; every byte ships to every visitor.
 
@@ -196,7 +211,19 @@ build.
 ## Notes for whoever edits next
 
 - Nothing here reads or writes `~/Projects/ha/scratch/ember-satellite.yaml`.
-- Claims are deliberately hedged where the engineering is unresolved — the pop section says the
-  two candidate mechanisms have not been distinguished, because they haven't. **Please don't
-  tighten that into a victory claim.** Being accurate about what is still open is part of why
-  the page is worth reading.
+- **Hedge where the engineering is open — and tighten when it closes.** This note used to say
+  the pop section's two candidate mechanisms "have not been distinguished, because they
+  haven't," and asked the next editor not to tighten it into a victory claim. **That is no
+  longer true and the instruction is now backwards.** The pop was resolved the same evening:
+  the amp is the mechanism, and the codec mute is *positively excluded* rather than merely
+  doubted. The page was correctly rewritten to match, and anyone obeying the old note would
+  revert a good change.
+
+  The principle it was protecting is still right, so keep it and drop the stale example:
+  being accurate about what is open is part of why the page is worth reading — which cuts
+  both ways. A hedge left standing after the question is answered is as wrong as a victory
+  claim made before it. When a section's engineering settles, the section moves with it.
+- Corollary, and it is cheap: **check a claim against the rendered page, not the source.**
+  Flatten whitespace first — `re.sub(r'\s+', ' ', ...)` — because a per-line `grep` for a
+  phrase that wraps across two lines returns nothing and reads as "absent". That false
+  negative has bitten this project more than once.
