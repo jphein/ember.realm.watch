@@ -60,6 +60,8 @@ intersects:
 | ≥3 mm of stand wall behind the finger scallops | the fix for the above is removing wall, and that is the thing it trades against |
 | **the back shell must be exactly 1 solid** | the only assert here that tests the thing rather than a proxy. If the hinge-tab arithmetic is wrong the slot ring closes and a pad is not a printed-in-place hinge but a loose hexagon that falls out on the bed. A dimension check cannot see that, and neither can the clearance check — **a severed pad collides with nothing** |
 | per-region bezel cell counts, never a total | the first honeycomb run put 75 cells in the chin and **zero** on the rails, and the assert passed because it read `count ≥ 60`. A total absorbed a complete regional absence |
+| the wyrm mark must be **exactly 1 component** | it shipped as **two** — head floating 1.215 mm above the shoulders with no neck — while the minimum-feature check read a healthy 1.23 mm. **A gap is not a thin feature**: morphological opening measures where material *exists* and is blind to material that is *absent*, so every instrument was green about a logo that had come apart |
+| the mark must clear the mic flare and fit the brow with real slack | it previously occupied 11.28 of 11.29 mm of usable brow and sat 1.21 mm from a 1.20 mm keepout. Both true, both luck, and neither would have survived the mark changing size |
 
 **A test that measures interference cannot find occlusion**, and *"does it collide"* and
 *"can you get at it"* are different questions — passing the first says nothing about the

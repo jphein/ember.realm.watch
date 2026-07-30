@@ -1021,6 +1021,15 @@ footer p{margin:.4rem 0}
       using this panel", not "cases for this board". <em>(Its licence is
       <code>NOASSERTION</code>, so it is a data point, not a starting point.)</em>
     </p>
+    <p style="margin:.6rem 0 0">
+      There is a sharper version, and it applies to every search on this page. <strong>A search
+      that proves absence needs a positive control.</strong> The alias sweep above returned
+      nothing, and nothing is exactly what it would have returned had the query been subtly
+      malformed — a zero from an instrument you have never watched produce a one is not
+      evidence. It cost one command to find out, and nobody spent it. The same failure shows up
+      in <code>grep</code>, which is line-oriented and reports a confident <code>0</code> for
+      any phrase that happens to wrap across two lines.
+    </p>
   </div>
 
   <p>
@@ -1270,6 +1279,12 @@ footer p{margin:.4rem 0}
       the screen window, the mic bore, and the hearth-wyrm in the brow, still visibly built out
       of the same run-length spans the device draws it with.
       <br><br>
+      <strong>Two of this page's fixes are visible in it rather than asserted.</strong> The
+      chin's honeycomb steps around the two lower screw bosses — those bites out of the field
+      are the keepout being <em>applied</em> rather than merely described in a comment. And the
+      wyrm is one continuous outline: nose to tail without a break. It was two pieces until
+      recently, and no measurement objected.
+      <br><br>
       This figure exists because the shaded render above <em>cannot</em> do this job, and that
       is not the render's fault. A 0.45&nbsp;mm recess on a 92&nbsp;mm part is sub-pixel depth
       at page scale, and a shaded view has only the recess side-walls to work with, so the
@@ -1279,9 +1294,9 @@ footer p{margin:.4rem 0}
       direction.
       <br><br>
       It is also <em>measured from the part</em> rather than drawn from the parameters, and
-      that is the whole reason to trust it: this is the view that would have shown 75 cells
+      that is the whole reason to trust it: this is the view that would have shown every cell
       sitting in the chin with both rails empty, at a moment when the count said 75 and the
-      assert was happy.
+      assert was happy — and the one that shows a wyrm in one piece rather than two.
       <br><br>
       <strong>Handedness warning, because there are now five figures of this object and three
       of them disagree.</strong> This one is from the front, so board +X runs to the viewer's
@@ -1294,9 +1309,9 @@ footer p{margin:.4rem 0}
   </figure>
 
   <p>
-    The bezel carries a <strong>debossed honeycomb</strong> — 75 cells across the chin and a
+    The bezel carries a <strong>debossed honeycomb</strong> — 57 cells across the chin and a
     16-cell chain up each rail, 2.60&nbsp;mm across the flats on a 0.70&nbsp;mm web — and the
-    <strong>hearth-wyrm</strong> cut into the brow, 27.07 × 11.28&nbsp;mm.
+    <strong>hearth-wyrm</strong> cut into the brow, 27.00 × 11.25&nbsp;mm.
     Everything on this face is <strong>0.45&nbsp;mm deep</strong> — under three layers at the
     0.16&nbsp;mm this part wants, which is the point: deep enough to read and to feel, shallow
     enough that it never comes near the glass.
@@ -1311,24 +1326,51 @@ footer p{margin:.4rem 0}
     0.45 leaves 2.55.
   </p>
   <div class="note">
-    <b>Two things this nearly got wrong, both caught by counting the right thing.</b>
+    <b>Four things this face got wrong before it got right, and each one was green at the
+    time.</b>
     <p style="margin:.6rem 0 0">
-      The first version filtered one global staggered grid and produced 75 cells —
-      <em>all of them in the chin, none on the rails</em>, because the nearest grid column
-      missed the rail's usable band by 0.05&nbsp;mm. That is the worst available outcome: the
-      stand covers most of the chin, so the entire motif landed on the one surface you cannot
-      see while docked. <strong>And the assert passed</strong> — it read
-      <code>count&nbsp;≥&nbsp;60</code>, and 75&nbsp;≥&nbsp;60 is true. A total absorbed a
-      complete regional absence. It now counts each region separately and asserts each
+      <b>1 · A total absorbed a complete absence.</b> The first version filtered one global
+      staggered grid and produced 75 cells — <em>all of them in the chin, none on the
+      rails</em>, because the nearest grid column missed the rail's usable band by
+      0.05&nbsp;mm. That is the worst available outcome: the stand covers most of the chin, so
+      the entire motif landed on the one surface you cannot see while docked. <strong>And the
+      assert passed</strong> — it read <code>count&nbsp;≥&nbsp;60</code>, and
+      75&nbsp;≥&nbsp;60 is true. It now counts each region separately and asserts each
       non-empty, which no single total can satisfy vacuously.
     </p>
     <p style="margin:.6rem 0 0">
-      The wyrm's <em>scale</em> is set by the print floor, not by the available space. The
-      mark is generated from the same source the device draws from, with a verified
-      1.23&nbsp;mm minimum feature; scaling shrinks that linearly, so filling the brow's full
-      height would take the thinnest part of the creature to 0.84&nbsp;mm — under the
-      0.90&nbsp;mm floor. It is therefore as large as the <em>floor</em> allows, not as large
-      as the brow allows, and the assert checks the feature rather than the height.
+      <b>2 · A comment listed three keepouts; the code implemented one and a half.</b> The
+      window was tested only on its bottom edge and only in the chin, the mic flare was never
+      tested anywhere — it held solely because the brow is excluded — and the four screw bosses
+      were not considered at all. So four chin cells sat over a 2.50&nbsp;mm pilot and five
+      more over the 5.40&nbsp;mm pad, thinning the bezel roof over a self-tapper from 1.50 to
+      1.05&nbsp;mm. The rails' clearance from the window's vertical edges was 1.575&nbsp;mm
+      <em>by luck</em>. <strong>A comment that lists the keepouts is not a test that applies
+      them</strong>, and this one was read as if it were. Applying them properly is why the
+      chin is 57 cells now and not 75: nine cells per boss, two bosses in the chin — an
+      18-cell drop that is <em>accounted for</em> rather than tolerated.
+    </p>
+    <p style="margin:.6rem 0 0">
+      <b>3 · The mark itself overlapped a screw boss by 1.18&nbsp;mm</b> — and not as a hole,
+      which is exactly why nothing noticed. Its position is now derived from the boss keepout
+      rather than chosen.
+    </p>
+    <p style="margin:.6rem 0 0">
+      <b>4 · The wyrm shipped in two pieces.</b> The head floated 1.215&nbsp;mm above the
+      shoulders with no neck. The minimum-feature check said 1.23&nbsp;mm and the opening loss
+      said 0.19%, and <em>both numbers were true</em> — because <strong>a gap is not a thin
+      feature</strong>. Morphological opening measures the narrowest place where material
+      <em>exists</em>; it is structurally blind to material that is <em>absent</em>. So every
+      instrument was green about a logo that had come apart. The generator now exports a
+      component count, and the part asserts it is exactly 1.
+    </p>
+    <p style="margin:.6rem 0 0">
+      What survives all four: the wyrm's <em>scale</em> is set by the print floor, not by the
+      available space. It is generated from the same source the device draws from, with a
+      verified 1.2333&nbsp;mm minimum feature, and scaling shrinks that linearly — so filling
+      the brow's full height would take the thinnest part of the creature under the
+      0.90&nbsp;mm floor. It is as large as the <em>floor</em> allows, not as large as the brow
+      allows.
     </p>
   </div>
   <p>

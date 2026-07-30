@@ -63,9 +63,14 @@ clearance check is skipped.
 - **Finger scallops in the stand's rear slot wall.** Both caps were completely buried — BOOT's
   top edge 3.81 mm below the stand's rim, with 0.40 mm between the cap face and solid wall. A
   taller cap could not have helped: the obstruction is *beside* the cap, not above it.
-- **Debossed honeycomb + the hearth-wyrm on the bezel face.** 75 cells in the chin, a 16-cell
-  chain up each rail, the wyrm 27.07 × 11.28 mm in the brow. All 0.45 mm deep, because on a
-  bed face relief can only go inward.
+- **Debossed honeycomb + the hearth-wyrm on the bezel face.** 57 cells in the chin, a 16-cell
+  chain up each rail, the wyrm 27.00 × 11.25 mm in the brow. All 0.45 mm deep, because on a
+  bed face relief can only go inward. The chin was 75 until the screw-boss keepout was
+  actually *applied* rather than merely listed in a comment; nine cells per boss, two bosses
+  in the chin. The wyrm was also shipping as **two disconnected pieces** — head floating
+  1.215 mm above the shoulders — while the minimum-feature check read a healthy 1.23 mm,
+  because **a gap is not a thin feature** and morphological opening cannot see absent
+  material. `WYRM_COMPONENTS == 1` is now asserted.
 - **A new figure, `site/renders/case-docked-rear.svg`**, wired into the site — the slab docked,
   from behind. It exists because a question was asked that no existing figure could answer.
 

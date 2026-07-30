@@ -10,6 +10,8 @@ directory *is* the site. `.nojekyll` keeps the tree served untouched by Jekyll.
 | `home-assistant.md` | The full Home Assistant guide: prerequisites, deploy, verify, pipeline internals, troubleshooting. |
 | `audio-pop.md` | The ES8311/FM8002E pop analysis, verbatim from the original repo, plus a coda on how it was resolved. |
 | `enclosure.md` | Verified board geometry, the vendor STEP model, and the case survey. |
+| `print-sheet.html` | **Generated** by `../site/build_print_sheet.py` (which `build.py` calls) from `../enclosure/PRINT-SHEET.md`. Never hand-edit. See the exception below. |
+| `verification.md` | The running log of claims that outran their evidence. Read it before trusting a green check. |
 | `version.json` | realm-sigil stamp, written by `../build-sigil.sh`. |
 
 ## ⚠️ Outstanding: `assets/og-card.png` is a placeholder
@@ -41,22 +43,19 @@ site build would silently drop the tag, the sigil run would silently re-add it, 
 this project has hit: a stale artifact that renders perfectly. `--html` is now
 deliberately not passed, with the reasoning recorded in `build-sigil.sh` itself.
 
-### If the page should carry the stamp in a meta tag
+### The meta tag, and how it is done now
 
-The site build is the only thing that may write `index.html`, so it should emit the
-tag — reading the stamp that `build-sigil.sh` already produced:
+This section used to propose a fix. **It has been implemented** — `site/build.py` reads the
+stamp that `build-sigil.sh` already produced and injects
+`<meta name="realm-version" content="…">` before `</head>`. One writer per file, the tag
+survives a rebuild, and a **missing `version.json` is a skipped tag rather than a crash**, so
+a fresh clone with no sigil output still builds. Run `./build-sigil.sh` first if you want the
+stamp; the build prints which it did.
 
-```python
-# in site/build.py, after the {{ASSET:…}} substitutions
-import json
-v = json.loads((DOCS / "version.json").read_text())
-tag = f'<meta name="realm-version" content=\'{json.dumps(v)}\'>'
-html = html.replace("</head>", f"  {tag}\n</head>")
-```
-
-That keeps one writer per file and makes the tag survive a rebuild. Run
-`./build-sigil.sh` first so `version.json` exists; a missing file should be a
-skipped tag, not a crash, so the site still builds on a fresh clone.
+*(Left in place rather than deleted because the reasoning is the useful part — but stated as
+what the code does, not as what someone should do. A proposal that has quietly become the
+implementation is one of the easier things to leave lying around, and it reads as work
+outstanding.)*
 
 ## The markdown files are NOT browsable from the site
 

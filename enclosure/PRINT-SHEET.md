@@ -286,15 +286,20 @@ below Fs does nothing and a mistuned one is worse than sealed.
   hexagons with the whole back face 1.2 mm in the air. The bbox growing by exactly the cap
   height is what exposed it. Recessing costs nothing, prints unsupported, and means nothing
   resting on the case can hold BOOT low across a reset.
-- **The bezel face is debossed too, and for the same reason on the opposite face.** 75
+- **The bezel face is debossed too, and for the same reason on the opposite face.** 57
   honeycomb cells across the chin, a 16-cell chain up each rail (2.60 mm across the flats on a
-  0.70 mm web), and the hearth-wyrm 27.07 × 11.28 mm in the brow — all 0.45 mm deep. This part
+  0.70 mm web), and the hearth-wyrm 27.00 × 11.25 mm in the brow — all 0.45 mm deep. This part
   prints front face down, so a raised logo would be the lowest feature and the bezel would land
   on it. **On a bed face, relief only goes inward** — that it bit both shell parts in the same
   session, on opposite faces, is the tell that it is a property of the process, not a mistake.
   The wyrm's *size* is set by the print floor rather than the space available: its verified
-  minimum feature is 1.23 mm at unit scale, and scaling it to fill the brow would take the
-  thinnest part of the creature to 0.84 mm, under the 0.90 mm floor.
+  minimum feature is 1.2333 mm at unit scale, and scaling it to fill the brow would take the
+  thinnest part of the creature under the 0.90 mm floor.
+- **Two of those cells used to sit on a screw boss, and it mattered for printing.** Nine chin
+  cells per boss overlapped the fastener — four over the 2.50 mm pilot, five over the 5.40 mm
+  pad — thinning the bezel roof over a self-tapper from 1.50 mm to **1.05 mm**. It was never a
+  hole, which is why nothing flagged it. If you are checking a printed bezel against this
+  sheet: the chin honeycomb should stop cleanly short of all four boss positions.
 - **The hinges are sized by strain, not by feel — and the intuitive fix cracks them.** Bending
   strain in a flexure is `(t/2)·θ/L`, and **θ is not a free variable**: it is pip travel over
   the pip's distance from the hinge. The *smaller* cap therefore bends *further* — 5.56° on

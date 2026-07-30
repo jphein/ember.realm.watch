@@ -29,7 +29,8 @@ flowchart LR
     T["👆 tap the screen<br/><i>no wake word</i>"] --> E["Ember satellite<br/>ESP32-S3 · ES8311 codec"]
     E -- "16kHz mono mic" --> HA["Home Assistant<br/><i>familiar-ember</i> pipeline"]
     HA -- STT --> V["vosk"]
-    V --> L["Qwen3.6-35B-A3B<br/>llama.cpp on <b>familiar</b>:8091"]
+    V --> X["LiteLLM<br/><b>ubox0</b>:4000<br/><i>not optional</i>"]
+    X --> L["Qwen3.6-35B-A3B<br/>llama.cpp on <b>familiar</b>:8091"]
     L -- TTS --> P["Piper<br/>en_GB-cori-medium"]
     P -- "audio stream" --> E
 ```
@@ -38,8 +39,14 @@ flowchart LR
 |---|---|
 | Wake | **Touch.** No wake word — deliberate, see below |
 | STT | vosk, on the HA host |
-| Conversation agent | Qwen3.6-35B-A3B (UD-Q3_K_XL) under llama.cpp on the `familiar` host, port 8091 |
+| Conversation agent | Qwen3.6-35B-A3B (UD-Q3_K_XL) under llama.cpp on the `familiar` host, port 8091 — reached **through LiteLLM at `ubox0:4000`** |
 | TTS | Piper, voice `en_GB-cori-medium` |
+
+> ⚠️ **LiteLLM in that chain looks like needless indirection and is not.** Home Assistant's
+> conversation integration cannot send `chat_template_kwargs`, and Qwen3.6 needs them. Point HA
+> straight at `familiar:8091` and it connects fine and *behaves wrongly* — the failure lands in
+> the model's **output**, not in the connection, which is about the most expensive place for it
+> to land. `chat_model: ember` is a LiteLLM alias, not an upstream model name.
 
 **Why touch and not a wake word.** The mic and speaker share a single I2S hub on
 this board and there is no AEC. Continuous wake-word listening on shared
@@ -383,10 +390,23 @@ homeassistant/tools/deploy-ha.sh             # deploy all three + reload
   source of truth**; a regen deliberately clobbers UI edits, which is the point.
 
 ```bash
-export HA_WS="wss://your-ha-host:8123/api/websocket"
+export HA_WS="wss://ha.example.com/api/websocket"   # only if the default is wrong for you
 python3 homeassistant/tools/build_ember_dashboard.py --dry   # print, touch nothing
 python3 homeassistant/tools/build_ember_dashboard.py         # create + save
 ```
+
+> ⚠️ **`HA_WS` wants the name on the TLS certificate — usually your edge/proxy host, and
+> usually with no port.** This example used to read `wss://your-ho…:8123/api/websocket`, and
+> that shape fails three ways in a row, each masking the next: `homeassistant.local` often
+> does not resolve at all; the LAN name may resolve but serve **HTTPS** on 8123, so plain
+> `ws://` reports *"did not receive a valid HTTP response"* — which reads as a protocol fault
+> when it is a scheme mismatch; and `wss://<lan-name>:8123` then fails certificate
+> verification, because the cert is issued for the public name. The default in the script is
+> the edge name for exactly this reason, and it is a hostname, never an IP.
+>
+> This is also **not** the SSH host. `deploy-ha.sh` copies files to the VM; this script talks
+> to the API through the proxy. They are different machines and each tool already uses the
+> right one.
 
 Auth resolves in order: `HA_TOKEN` env var → `~/.cache/ha-token-tmp` → a
 password-manager lookup. The script needs `websockets` (`pip install websockets`).

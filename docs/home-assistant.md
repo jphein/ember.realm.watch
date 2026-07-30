@@ -148,6 +148,28 @@ python3 homeassistant/tools/build_ember_dashboard.py --dry   # print, touch noth
 python3 homeassistant/tools/build_ember_dashboard.py         # create-if-absent + push
 ```
 
+> ⚠️ **This one goes to `ha.jphe.in`, not `ha.lan` — the opposite of every other command on
+> this page.** The host table in [§1](#host-names--read-this-before-you-type-a-deploy-command)
+> already says so, and it was still read as "use `ha.lan` for deploys", because that is what
+> the surrounding commands do. So, at the point of use: `HA_WS` defaults to
+> `wss://ha.jphe.in/api/websocket`. **The edge name, and no port.**
+>
+> The old default, `ws://homeassistant.local:8123/api/websocket`, failed **three times in a
+> row, each failure masking the next**:
+>
+> | Attempt | What happens | What it looks like |
+> |:--|:--|:--|
+> | `ws://homeassistant.local:8123` | name does not resolve | `socket.gaierror` |
+> | `ws://ha.lan:8123` | resolves, but 8123 is **HTTPS** | *"did not receive a valid HTTP response"* — reads as a protocol fault; it is a scheme mismatch |
+> | `wss://ha.lan:8123` | scheme now right, name now wrong | cert verification fails — the certificate is for `ha.jphe.in` |
+>
+> Each fix is correct and reveals the next problem, so the sequence rewards giving up two
+> steps in. **Go to the name on the certificate.**
+>
+> This is not cosmetic. The dashboard asserted that Hush gates the talk gesture for hours
+> *after* the repo JSON had been corrected, because the fix was committed and the push never
+> ran. A source of truth that cannot reach the device is not a source of truth.
+
 Pushed over the WebSocket API (`lovelace/config/save`), never by editing `.storage` —
 HA holds `.storage` in memory and silently overwrites direct file edits. Lands at
 `/ember-hearth`, sidebar **Ember**. The repo JSON is authoritative, so re-running after
@@ -503,7 +525,10 @@ They shouldn't any more; if you see it, the dashboard is an older revision — r
 
 The underlying behaviour is correct and not a fault: `sensor.ember_satellite_mic_rms` /
 `_mic_peak` come from ESPHome's `sound_level`, which publishes NAN whenever the mic
-isn't running — during TTS, and any time Ember isn't listening. HA renders that as
+isn't running — during TTS, and any time a turn is not in its listening phase. (Read that as
+"the mic is idle between turns", **not** as a mode: no operating mode disables the microphone.
+The phrase "Ember isn't listening" used to appear here and in the firmware, meaning Hush, and
+it is retired for exactly that reason.) HA renders NAN as
 `unknown`, and a `gauge` on a non-numeric state draws an **error box**, not an empty
 dial. Since the mic is idle most of the time, that error *was* the normal appearance.
 
