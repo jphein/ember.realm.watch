@@ -218,7 +218,21 @@ PAD_PROUD  = 0.80                  # pad stands off the wall so nothing else fou
 LIP_DEPTH  = 0.60                  # alignment only; the tape does the work
 LIP_WIDTH  = 1.20                  # the groove is a thin outline, not a pocket
 SLOT_CY  = 34.0                    # slot centreline Y at the floor
-SLOT_FLOOR = 10.0
+# SLOT_FLOOR 10.0 -> 24.0. Two faults, one cause: the slab sat too deep.
+#
+#   At 10.0 the stand rose 30mm above the slab's bottom edge, which is 31.1mm ALONG the
+#   slab once tilt is accounted for (30 / cos 15deg). The visible area starts only
+#   19.76mm up from that edge, so the stand covered 11.3mm of screen — 19.5% of a
+#   58.05mm-tall display, hidden behind the box. JP spotted it in the render.
+#
+#   The same depth left only 6.0mm between the slab's bottom edge and the stand floor,
+#   and a straight USB-C plug body needs ~18-20mm. There was nowhere for the power lead
+#   to go, which nobody had noticed because no figure showed a cable.
+#
+# At 24.0: engagement 16.6mm along the slab (a captive slot constraining both faces, so
+# ample), the visible area is entirely clear of the stand, and 20.0mm remains below for
+# the plug. See the VA_CLEAR assert below — this must not silently regress.
+SLOT_FLOOR = 24.0
 # --- grille: replace this block with lyra's motif; it is a pure parameter set
 GRILLE_SLOT_W = 2.20
 GRILLE_PITCH  = 3.40
@@ -317,6 +331,13 @@ def desk_stand():
                 z-GRILLE_SLOT_W2/2-GRILLE_FLARE, z+GRILLE_SLOT_W2/2+GRILLE_FLARE)
         bars = (b+fl) if bars is None else bars+(b+fl)
     p -= (field & bars)
+    # USB-C WELL. The plug enters the board's bottom short edge and points down-and-
+    # forward along the slab's own axis, so it needs a cavity UNDER the slot rather than
+    # behind it. Spans the full height between the stand floor and the new slot floor.
+    # Generous on purpose: a moulded plug's strain relief is wider than the connector,
+    # and a cable forced into a tight well takes the bend at the plug rather than in the
+    # lead, which is how USB-C cables die.
+    p -= bx(ST_W/2-11, ST_W/2+11, 24.0, 46.0, ST_WALL, SLOT_FLOOR)
     # cable route: slot floor -> out the back
     p -= bx(ST_W/2-8, ST_W/2+8, 29.0, ST_D+1, ST_WALL, 13.0)
     # SPEAKER WIRE PASS-THROUGH. Caught by JP: the chamber had no exit at all. Its only
@@ -395,3 +416,29 @@ if __name__ == "__main__":
     sv, _ = interference(Pos(0,0,-2.0) * parts["ember-front-bezel"])
     print(f"  [self-test] bezel sunk 2mm -> {sv:9.3f} mm^3 "
           f"({'detector WORKS' if sv > 1.0 else '!!! DETECTOR BLIND !!!'})")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GEOMETRY ASSERTS. These are cheap and they encode the two faults JP found by
+# looking at a render — the kind a boolean clearance check cannot catch, because
+# nothing intersects: the stand was simply in front of the screen.
+# ─────────────────────────────────────────────────────────────────────────────
+def _check_geometry():
+    import math
+    # 1. the stand must not occlude any of the visible area
+    engagement = (ST_H - SLOT_FLOOR) / math.cos(math.radians(TILT))
+    va_start = VA[2] - OY0
+    assert engagement <= va_start, (
+        f"stand occludes {engagement - va_start:.1f}mm of the visible area "
+        f"(engagement {engagement:.1f}mm along the slab, VA starts at {va_start:.1f}mm)")
+    # 2. room under the slab for a USB-C plug
+    below = SLOT_FLOOR - ST_WALL
+    assert below >= 16.0, f"only {below:.1f}mm under the slab for a USB-C plug (need >=16)"
+    # 3. the slot must still hold it
+    assert engagement >= 12.0, f"slot engagement {engagement:.1f}mm is too shallow to retain the slab"
+    return engagement, va_start, below
+
+
+if __name__ == "__main__":
+    _e, _v, _b = _check_geometry()
+    print(f"  [geometry] engagement {_e:.1f}mm | VA starts {_v:.1f}mm | {_b:.1f}mm under for USB-C  OK")

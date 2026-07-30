@@ -1045,6 +1045,27 @@ footer p{margin:.4rem 0}
   </p>
 
   <p>
+    One fault that no clearance check could ever have found: <b>the stand was covering the
+    bottom fifth of the screen.</b> The slot floor sat at <code>z&nbsp;=&nbsp;10</code>, which
+    put the stand 30&nbsp;mm up the slab — <b>31.1&nbsp;mm <em>along</em> it</b> once the 15°
+    tilt is accounted for. The visible area starts only 19.76&nbsp;mm up from the slab's bottom
+    edge, so <b>11.3&nbsp;mm of a 58&nbsp;mm display</b> was hidden behind the box. Nothing
+    intersected; the stand was simply <em>in front of</em> the screen, which is exactly the
+    class of defect a boolean test is blind to. It was caught by looking at a render.
+  </p>
+
+  <p>
+    The same depth left 6&nbsp;mm between the slab's bottom edge and the stand floor, where a
+    straight USB-C plug needs ~18–20&nbsp;mm — so there was nowhere for the power lead to go
+    either. Raising the slot floor to <code>z&nbsp;=&nbsp;24</code> fixes both: the screen is
+    entirely clear, 20&nbsp;mm remains below for the plug, and 16.6&nbsp;mm of captive slot
+    still holds the slab. There is now a 22&nbsp;× 22&nbsp;mm <b>USB-C well</b> beneath the
+    slot opening into the cable route — generous on purpose, because a cable forced into a
+    tight well takes its bend at the plug rather than in the lead.
+    <b>The source asserts all three on every run</b>, so the screen cannot get buried again.
+  </p>
+
+  <p>
     Fasteners: <b>4 × M3×14 countersunk self-tappers, driven from the back</b>, so there are no
     screw heads on the face you look at. Heat-set inserts are ruled out by measurement rather
     than preference — the vendor's ⌀5.60&nbsp;mm pad caps the boss at ⌀5.40, and an M3 insert's

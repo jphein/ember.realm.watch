@@ -155,6 +155,31 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <p>Stand base: press fit. Seal the seam with a bead of silicone or a strip of tape — it needs</p>
 <p>to be <b>airtight, not structural</b>.</p>
 <hr>
+<h2>The slab in the stand</h2>
+<p>The slab drops into a tilted slot, <b>15° back from vertical</b> for a seated viewer.</p>
+<p>⚠️ <b>Revised — it used to bury the screen.</b> The slot floor was at <code>z = 10.0</code>, which put</p>
+<p>the stand <b>30 mm</b> up the slab — <b>31.1 mm along it</b> once tilt is accounted for</p>
+<p>(30 / cos 15°). The visible area starts only 19.76 mm up from the slab's bottom edge, so</p>
+<p>the stand covered <b>11.3 mm of screen: 19.5% of a 58.05 mm display</b>, hidden behind the</p>
+<p>box. Caught by looking at a render; a boolean clearance check can never find this, because</p>
+<p>nothing intersects — the stand was simply <em>in front of</em> the screen.</p>
+<p>The same depth left just 6.0 mm between the slab's bottom edge and the stand floor, and a</p>
+<p>straight USB-C plug body needs <b>~18–20 mm</b>. There was nowhere for the power lead to go.</p>
+<p><b>Slot floor is now <code>z = 24.0</code>:</b></p>
+<div class="tablewrap"><table><thead><tr>
+<th></th>
+<th></th>
+</tr></thead><tbody>
+<tr><td>Engagement</td><td><b>16.6 mm</b> along the slab — a captive slot constraining both faces</td></tr>
+<tr><td>Visible area</td><td><b>entirely clear</b> of the stand</td></tr>
+<tr><td>Room below for USB-C</td><td><b>20.0 mm</b></td></tr>
+</tbody></table></div>
+<p>There is a <b>USB-C well</b> under the slot — 22 × 22 mm, full height from the stand floor to</p>
+<p>the slot floor, opening into the rear cable route. Deliberately generous: a moulded plug's</p>
+<p>strain relief is wider than the connector, and a cable forced into a tight well takes the</p>
+<p>bend at the plug rather than in the lead, which is how USB-C cables die.</p>
+<p><code>ember_case.py</code> asserts all three of these on every run (<code>_check_geometry</code>), so the screen</p>
+<p>cannot get buried again by a later tweak.</p>
 <h2>Speaker</h2>
 <p>It is a <b>sealed-back module</b>, not a bare driver: a plastic box carrying its own rear</p>
 <p>cavity, diaphragm on one face, JST-1.25 2-pin pigtail, <b>double-sided tape on the back</b>.</p>

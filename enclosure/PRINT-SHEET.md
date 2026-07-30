@@ -71,6 +71,36 @@ to be **airtight, not structural**.
 
 ---
 
+## The slab in the stand
+
+The slab drops into a tilted slot, **15° back from vertical** for a seated viewer.
+
+⚠️ **Revised — it used to bury the screen.** The slot floor was at `z = 10.0`, which put
+the stand **30 mm** up the slab — **31.1 mm along it** once tilt is accounted for
+(30 / cos 15°). The visible area starts only 19.76 mm up from the slab's bottom edge, so
+the stand covered **11.3 mm of screen: 19.5% of a 58.05 mm display**, hidden behind the
+box. Caught by looking at a render; a boolean clearance check can never find this, because
+nothing intersects — the stand was simply *in front of* the screen.
+
+The same depth left just 6.0 mm between the slab's bottom edge and the stand floor, and a
+straight USB-C plug body needs **~18–20 mm**. There was nowhere for the power lead to go.
+
+**Slot floor is now `z = 24.0`:**
+
+| | |
+|---|---|
+| Engagement | **16.6 mm** along the slab — a captive slot constraining both faces |
+| Visible area | **entirely clear** of the stand |
+| Room below for USB-C | **20.0 mm** |
+
+There is a **USB-C well** under the slot — 22 × 22 mm, full height from the stand floor to
+the slot floor, opening into the rear cable route. Deliberately generous: a moulded plug's
+strain relief is wider than the connector, and a cable forced into a tight well takes the
+bend at the plug rather than in the lead, which is how USB-C cables die.
+
+`ember_case.py` asserts all three of these on every run (`_check_geometry`), so the screen
+cannot get buried again by a later tweak.
+
 ## Speaker
 
 It is a **sealed-back module**, not a bare driver: a plastic box carrying its own rear
