@@ -1,0 +1,20 @@
+# --- secrets -----------------------------------------------------------------
+# esphome/secrets.yaml holds the API encryption key and WiFi credentials.
+# It has never been committed and must stay that way. See secrets.yaml.example.
+secrets.yaml
+
+# --- ESPHome build artifacts -------------------------------------------------
+.esphome/
+*.bin
+*.elf
+*.map
+
+# --- Python ------------------------------------------------------------------
+__pycache__/
+*.pyc
+*.pyo
+
+# --- editor / OS -------------------------------------------------------------
+*.swp
+*~
+.DS_Store
