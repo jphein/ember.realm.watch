@@ -201,12 +201,39 @@ figcaption{
   border:1px solid var(--edge); border-radius:10px; background:#0A0604;
   padding:1.2rem; box-shadow:var(--shadow);
 }
+/* `var(--flame)` used to sit in the two light-theme rules below and --flame IS DEFINED
+   NOWHERE — not in :root, not in either theme block. An unresolved custom property is
+   invalid at computed-value time, so `color` fell back to INHERITED body ink and the
+   light theme never once drew this line art in the colour it was asking for. It looked
+   fine, which is why it lasted: dark ink on a near-white panel is high contrast by
+   accident. --ember is the real light-theme counterpart to --gold — warm, and 7.1:1 on
+   --panel where --accent/--amber manages only 4.4:1. For 127 hex apertures at a 1.4px
+   stroke that difference is legibility, not taste. */
 @media (prefers-color-scheme:light){
-  .linework{background:var(--panel); color:var(--flame)}
+  .linework{background:var(--panel); color:var(--ember)}
 }
-:root[data-theme="light"] .linework{background:var(--panel); color:var(--flame)}
+:root[data-theme="light"] .linework{background:var(--panel); color:var(--ember)}
 :root[data-theme="dark"]  .linework{background:#0A0604; color:var(--gold)}
 .linework svg{display:block; width:100%; height:auto}
+/* The two button pads, lifted out of the hex field. This is the entire reason the back
+   view is inlined rather than an <img>: the generator emits the pads as their own named
+   group, and one selector turns four line-art rectangles into the obvious controls.
+   Stroke, not fill — the group is a flat outline on the back plane, and filling it would
+   re-introduce the raised-box illusion that flattening it was meant to kill.
+
+   NOT var(--accent): --accent resolves to --gold in dark, which is exactly what .linework
+   already strokes with, so the highlight would have been invisible in the default theme.
+   The rule is "hotter than its surroundings" instead — --hot on coal, --ink on paper — so
+   the pads are the most emphatic thing in the figure whichever way the page is lit. That
+   also happens to be the right semantics: --hot is the top of the ember ramp, and these
+   are the only parts of the device a hand actually touches. Same cascade shape as
+   .linework above: dark default, light media query, then both data-theme overrides. */
+.linework #case-back-btn-vis{stroke:var(--hot); stroke-width:3.2}
+@media (prefers-color-scheme:light){
+  .linework #case-back-btn-vis{stroke:var(--ink)}
+}
+:root[data-theme="light"] .linework #case-back-btn-vis{stroke:var(--ink)}
+:root[data-theme="dark"]  .linework #case-back-btn-vis{stroke:var(--hot)}
 /* The exploded view is portrait — the camera was moved off-axis so the parts read as
    plates rather than edges, and that costs aspect ratio. Cap it so a tall figure
    cannot push the rest of the section off the screen on a laptop. */
@@ -879,7 +906,7 @@ footer p{margin:.4rem 0}
     <li><span class="k">Glass</span><span class="v">The touch panel spans the full 50&nbsp;mm PCB width<small>So the shell cannot clamp the long edges at all — there is no bezel to grip. Only the two ~8.2&nbsp;mm strips at the short ends are available, which is, conveniently, exactly where the screw holes are.</small></span></li>
     <li><span class="k">Screws</span><span class="v">Heat-set inserts are ruled out by measurement, not taste<small>The vendor's 5.60&nbsp;mm pad caps the boss at 5.40, and an M3 insert's 4.1&nbsp;mm bore leaves a 0.6&nbsp;mm wall that splits. So it is 4× M3 self-tappers from the back — no screw heads on the face anyone looks at.</small></span></li>
     <li><span class="k">Stand</span><span class="v">The 15° desk cradle is also the speaker cabinet<small>A sealed ~26&nbsp;cm³ volume behind the driver, which is the difference between a speaker in a box and a speaker in a hole. One part doing two jobs because the geometry allowed it.</small></span></li>
-    <li><span class="k">LED</span><span class="v">The WS2812 fires <em>backwards</em><small>A closed back would hide Ember's status glow completely. So the diffuser is a separate printed part rather than a feature of the shell — the light has to get out of the box it is pointing into.</small></span></li>
+    <li><span class="k">LED</span><span class="v">The WS2812 fires <em>backwards</em><small>A closed back would hide Ember's status glow completely, so the back has to be porous. It was a ⌀12&nbsp;mm window behind a printed translucent disc; it is now a field of 127 hex apertures, and the disc is gone. Many small openings scatter — one big bore just shows you the die.</small></span></li>
   </ul>
 
   <div class="warn">
@@ -945,10 +972,45 @@ footer p{margin:.4rem 0}
   <figure class="fig">
     <div class="linework linework-tall">{{SVG:case_exploded}}</div>
     <figcaption>
-      Bezel, board, back shell, diffuser — separated along the real assembly axis, so the
-      figure is a statement about how it goes together rather than an arrangement. The shell's
-      cutouts are visible from here: USB-C and its cable relief on the near edge, microSD
-      opposite, vents top and bottom, and the boss the diffuser seats into.
+      Bezel, board, back shell — separated along the real assembly axis, so the figure is a
+      statement about how it goes together rather than an arrangement. This looks
+      <em>into</em> the open shell: USB-C and its cable relief on the near edge, the connector
+      and microSD channels down the sides, a screw boss standing off the cavity floor to meet
+      the PCB, and the hex field showing through the back wall from the inside — the next
+      figure is the outside of that same wall.
+    </figcaption>
+  </figure>
+
+  <figure class="fig">
+    <div class="linework linework-tall">{{SVG:case_back}}</div>
+    <figcaption>
+      The other side — and the one that matters in the hand, because
+      <strong>every physical control on this device is here</strong>. The two highlighted pads
+      are printed-in-place pushers over the board's rear-facing SMD tact switches. Each is an
+      11 × 9.5&nbsp;mm patch of the back wall, cut free on three sides by a 0.6&nbsp;mm slot
+      and left attached along the fourth by a 0.9&nbsp;mm living hinge, with a pip on the
+      inside face that reaches the switch plunger. It prints as part of the shell — no
+      separate part, no fastener, nothing to lose. They are flush rather than proud: you find
+      them by feel at the bottom edge, where a thumb already is.
+      <br><br>
+      <strong>The pushers are symmetric; the switches underneath are not.</strong> They are
+      the board's <code>K1</code> and <code>K2</code> — RESET and BOOT — and that is the whole
+      hardware input budget. RESET is hardwired to <code>CHIP_PU</code>: it reboots the MCU
+      and the LCD, and firmware cannot read it at all. So <em>one</em> pad is the entire
+      usable input. A short press summons the volume overlay and steps it; a long press opens
+      the power menu and then activates the highlighted item. That is also why volume
+      <em>wraps</em> from 100% back to 0% — a single button cannot express two directions, so
+      wrapping is the only way down. The remaining free pins are GPIO 2, 14 and 21, and
+      reaching them means soldering.
+      <br><br>
+      The field above is 127 hexagons, 3.2&nbsp;mm across the flats on a 0.8&nbsp;mm web —
+      55% open. It replaced two rows of straight slot vents and does three jobs at once: it
+      vents, it passes the rear-firing WS2812's light, and at that pitch it reads as a texture
+      rather than as holes. The web is 0.8&nbsp;mm because that is two extrusion widths at a
+      0.4&nbsp;mm nozzle, and every hexagon sits wholly inside the patch — one clipped by the
+      boundary would leave a sliver that prints as stringing. Note what the patch steps around:
+      the four countersunk screw bosses, the microphone relief at the top, the USB-C relief
+      below, and the PCB antenna, which must stay clear of metal.
     </figcaption>
   </figure>
 
@@ -966,7 +1028,7 @@ footer p{margin:.4rem 0}
 
   <h3>Print it</h3>
   <p>
-    Five parts, <b>none needing supports</b>. The orientation column is the load-bearing one —
+    Four parts, <b>none needing supports</b>. The orientation column is the load-bearing one —
     every part has a face that wants to be on the bed, and the overhangs are chamfered to
     self-support in that orientation only.
   </p>
@@ -999,11 +1061,6 @@ footer p{margin:.4rem 0}
         <td><a href="https://github.com/jphein/ember.realm.watch/raw/main/enclosure/ember-stand-base.stl" download>ember-stand-base.stl</a></td>
         <td>flat</td>
         <td>Closes the speaker chamber. Press fit.</td>
-      </tr>
-      <tr>
-        <td><a href="https://github.com/jphein/ember.realm.watch/raw/main/enclosure/ember-diffuser.stl" download>ember-diffuser.stl</a></td>
-        <td>flat</td>
-        <td>Print in <b>translucent or natural</b> filament — this is the window the rear-firing LED has to get through.</td>
       </tr>
     </tbody>
   </table>

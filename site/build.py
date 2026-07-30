@@ -103,6 +103,11 @@ INLINE_SVG = {
     "wyrm_startle": WEBART / "wyrm-startle.svg",
     # Enclosure line art — inlined so `currentColor` resolves against the page.
     "case_exploded":     Path(__file__).resolve().parent / "renders" / "case-exploded.svg",
+    # The back view earns inlining TWICE over: currentColor for the theme, and a named
+    # group id (`case-back-btn-vis`) that the stylesheet paints in the accent colour so
+    # the two button pads stand out from ~130 hex apertures. Both need CSS to reach
+    # inside the SVG, which is precisely what an <img> forbids.
+    "case_back":         Path(__file__).resolve().parent / "renders" / "case-back.svg",
     "case_print_layout": Path(__file__).resolve().parent / "renders" / "case-print-layout.svg",
 }
 

@@ -5,12 +5,24 @@ PNG hero            -> shaded, coal background, 16:9.
 from build123d import *
 import ember_case as E
 import numpy as np, os, math
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "renders")
+# Write STRAIGHT into site/renders — the directory site/build.py actually reads.
+#
+# This used to emit into tools/renders and a human was expected to copy the files across.
+# Both directories were committed, byte-identical, with nothing documenting the copy: so
+# every figure existed twice and the failure mode was silent. Regenerate, forget to copy,
+# and the site keeps serving the OLD figure while the repo shows the new one — you would
+# be looking at a correct file and a wrong page. Nothing consumed tools/renders, so it was
+# pure duplication with a trap attached. One directory, one copy, no manual step.
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                   "..", "..", "site", "renders")
+OUT = os.path.abspath(OUT)
 os.makedirs(OUT, exist_ok=True)
 
 bezel, shell = E.front_bezel(), E.back_shell()
 stand, base  = E.desk_stand(), E.stand_base()
-diff         = E.diffuser()
+# There is no diffuser any more. The LED window and the printed translucent disc that
+# seated in it were both deleted when the back gained its fine hex field — the WS2812's
+# light leaves through the hexes now. Four printable parts, not five.
 _raw  = Pos(52.750,-6.000,0.0) * import_step("../ES3C28P_3D/ES3C28P_3D.step")
 board = _raw                                     # full 1238-solid assembly
 # For line art, the full board projects ~thousands of edges (87 KB of SVG for one
@@ -37,15 +49,30 @@ def project(shape, eye, up=(0,0,1), target=(0,0,0), hidden=False):
     polys, kinds = [], []
     for e in edges:
         gt = str(e.geom_type).upper()
-        n = 2 if "LINE" in gt else 9
+        # Curves were sampled at a flat 9 points regardless of size, which made the M3
+        # countersinks read as visible OCTAGONS at figure scale — a chamfer a reader
+        # could count the facets of. Sample by ARC LENGTH instead so the chord error is
+        # what's bounded, not the segment count: ~0.55mm per segment is well under a
+        # pixel-pair at the widths these figures are displayed at. Straight lines still
+        # cost two points, which is why this stays cheap.
+        n = 2 if "LINE" in gt else max(6, min(48, int(e.length / 0.55) + 3))
         p = sample(e, n)
         if len(p) >= 2:
             polys.append(p); kinds.append("hidden" if (hidden and e in hid) else "vis")
     return polys, kinds
 
 def write_svg(path, groups, prefix, pad=6.0, target_w=1200, hidden_dash=True):
-    """groups: list of (polys, kinds). All share one coordinate space."""
-    allp = [pt for g,_ in groups for poly in g for pt in poly]
+    """groups: list of (polys, kinds) or (polys, kinds, name). One coordinate space.
+
+    A third element names the group, so the emitted path id is stable and MEANINGFUL
+    (`case-back-btn-vis`) rather than positional (`case-back-g1-vis`). The site inlines
+    these SVGs, so a named id is a CSS handle: the back view uses one to paint the two
+    button pads in the accent colour. A positional id would silently re-point at a
+    different feature the moment a group is inserted above it.
+    """
+    groups = [(g[0], g[1], g[2] if len(g) > 2 else f"g{i}")
+              for i, g in enumerate(groups)]
+    allp = [pt for g in groups for poly in g[0] for pt in poly]
     xs = [p[0] for p in allp]; ys = [p[1] for p in allp]
     x0,x1,y0,y1 = min(xs)-pad, max(xs)+pad, min(ys)-pad, max(ys)+pad
     w,h = x1-x0, y1-y0
@@ -61,17 +88,17 @@ def write_svg(path, groups, prefix, pad=6.0, target_w=1200, hidden_dash=True):
             if q != last: d += f"L{q[0]} {q[1]}"
             last = q
         return d
-    for gi,(polys,kinds) in enumerate(groups):
+    for polys,kinds,name in groups:
         vis = [p for p,k in zip(polys,kinds) if k=="vis"]
         hid = [p for p,k in zip(polys,kinds) if k=="hidden"]
         if hid:
             d = " ".join(path_of(p) for p in hid)
-            out.append(f'<path id="{prefix}-g{gi}-hidden" d="{d}" stroke-width="0.7" '
+            out.append(f'<path id="{prefix}-{name}-hidden" d="{d}" stroke-width="0.7" '
                        f'stroke-opacity="0.35" stroke-dasharray="4 3" '
                        f'vector-effect="non-scaling-stroke"/>')
         if vis:
             d = " ".join(path_of(p) for p in vis)
-            out.append(f'<path id="{prefix}-g{gi}-vis" d="{d}" stroke-width="1.4" '
+            out.append(f'<path id="{prefix}-{name}-vis" d="{d}" stroke-width="1.4" '
                        f'vector-effect="non-scaling-stroke"/>')
     out.append("</svg>")
     open(path,"w").write("\n".join(out))
@@ -96,11 +123,12 @@ def tri_of(shape, tol=0.06):
 
 # ============================== 1. EXPLODED (svg, fans horizontally) =========
 print("exploded:")
-# explode along the true assembly axis (board Z); the eye is placed so that axis
-# projects HORIZONTALLY -> wide landscape figure, per luna's height budget.
+# Explode along the true assembly axis (board Z). This comment used to claim the eye was
+# placed so that axis projects HORIZONTALLY for a wide landscape figure — that was the
+# rationale for the camera the block below REPLACED, and it survived the fix it was
+# invalidated by. The figure is portrait now, on purpose. See CAMERA CORRECTED.
 EX = [(Pos(0,0, 92)*bezel, "bezel"), (Pos(0,0, 34)*board_lite, "board"),
-      (Pos(0,0,-26)*shell, "shell"),
-      (Pos(0,0,-86)*diff, "diffuser")]
+      (Pos(0,0,-26)*shell, "shell")]
 # CAMERA CORRECTED. The previous eye was (1500,-150,120) with up=(0,1,0) — almost
 # pure +X, chosen so the Z explode-axis would project HORIZONTALLY and give luna the
 # wide figure she asked for. But every part in this stack is FLAT IN XY, so an eye on
@@ -115,26 +143,56 @@ EX = [(Pos(0,0, 92)*bezel, "bezel"), (Pos(0,0, 34)*board_lite, "board"),
 # a true statement about assembly rather than a pleasing arrangement.
 eye, tgt = (760, -1020, 560), (25, 43, -5)
 groups=[]
-for s,_ in EX:
+for s,nm in EX:
     # up is +Z now, not +Y: the camera moved off the X axis (see above), so world-up
     # is the natural up and the parts read as plates rather than as edges.
-    p,k = project(s, eye, up=(0,0,1), target=tgt); groups.append((p,k))
+    p,k = project(s, eye, up=(0,0,1), target=tgt); groups.append((p,k,nm))
 write_svg(os.path.join(OUT,"case-exploded.svg"), groups, "case-exploded")
 
-# ============================== 2. SECTION (svg) =============================
-print("section:")
-SEC_X = 47.0            # stand coords; == board x=40, the mic-port axis
-asm = [to_stand(bezel), to_stand(shell), to_stand(board_lite), stand, base]
-knife = E.bx(SEC_X-0.5, SEC_X+0.5, -20, 120, -20, 130)
-groups=[]
-for s in asm:
-    try:
-        cut = s & knife
-        if cut.volume < 0.01: continue
-        p,k = project(cut, (600, 30, 30), up=(0,0,1), target=(47,32,25))
-        if p: groups.append((p,k))
-    except Exception as e: print("   skip:", e)
-write_svg(os.path.join(OUT,"case-section.svg"), groups, "case-section")
+# ============================== 2. BACK THREE-QUARTER (svg) ==================
+# Nothing on the site showed the back EXTERIOR. The hero is a front three-quarter and
+# the exploded view looks INTO the open shell, so between them they render the back
+# face exactly never — and the back face is where every physical control on this device
+# lives (volume up/down, long-press for the power menu) plus the hex field that now
+# carries the WS2812's light. A reader could not see the only controls they get.
+print("back 3/4:")
+# The back face is at BACK_Z with its outward normal along -Z, so the eye has to sit
+# BELOW the part in Z. up=+Y keeps the device upright, the way it sits in the stand.
+#
+# The tilt is deliberately MODEST, and that is a considered choice rather than a timid
+# one. Everything this figure exists to show — the two pad outlines, the extent of the
+# hex patch — is a marking ON the back plane, so foreshortening that plane to buy a
+# more dramatic angle spends exactly the information the figure is for. There is just
+# enough obliquity to read the 14.4mm wall depth and to prove the pads are flush with
+# the wall rather than proud of it.
+BACK_TGT = (25.0, 43.0, E.BACK_Z)
+BACK_EYE = (BACK_TGT[0] + 240.0, BACK_TGT[1] - 300.0, E.BACK_Z - 760.0)
+groups = [(*project(shell, BACK_EYE, up=(0,1,0), target=BACK_TGT), "shell")]
+# The two button pads, as their own named group so the stylesheet can paint them in the
+# accent colour. Against ~130 hexes a pad outline drawn in the same stroke as everything
+# else is just four more lines in a busy field; the whole point of this figure is that a
+# reader picks the controls out instantly.
+#
+# These are FLAT FACES on the back plane, not thin solids. A solid plate was tried
+# first and was actively misleading: its own thickness edges landed a few pixels off the
+# real slot edges, and with no shading to disambiguate, the doubled outline made each
+# pad read as a box standing PROUD of the shell. The pads are flush — they are the wall,
+# on a living hinge — so the figure was contradicting the caption. A zero-thickness face
+# projects to exactly the four boundary lines and cannot imply a height it doesn't have.
+#
+# The pads are printed in place and boolean-joined to the shell through their hinge, so
+# there is no separable solid to project even if one were wanted. Sitting 0.04mm outside
+# the back face avoids z-fighting with the shell's own edges; each group is HLR'd
+# independently (no inter-part occlusion) so the overlay always draws.
+_pw = E.BUTTON_PAD_W
+pads = Compound(children=[
+    Face(Wire.make_polygon([
+        (cx - _pw/2, E.PAD_Y0, E.BACK_Z - 0.04), (cx + _pw/2, E.PAD_Y0, E.BACK_Z - 0.04),
+        (cx + _pw/2, E.PAD_Y1, E.BACK_Z - 0.04), (cx - _pw/2, E.PAD_Y1, E.BACK_Z - 0.04),
+    ], close=True))
+    for (cx, _cy) in E.BTN])
+groups.append((*project(pads, BACK_EYE, up=(0,1,0), target=BACK_TGT), "btn"))
+write_svg(os.path.join(OUT,"case-back.svg"), groups, "case-back")
 
 # ============================== 3. PRINT LAYOUT (svg) ========================
 print("print layout:")
@@ -143,7 +201,7 @@ print("print layout:")
 # projection. Pack from measured bounding boxes instead, and assert the result — a layout
 # figure whose parts overlap teaches the wrong assembly.
 _parts = [("bezel", Rot(180,0,0)*bezel), ("shell", shell), ("stand", stand),
-          ("base", base), ("diffuser", diff)]
+          ("base", base)]
 GAP = 14.0
 LAY = []; _boxes = []; _x = 0.0
 for _name, _p in _parts:
@@ -159,8 +217,9 @@ for _name, _p in _parts:
     _x = _nb.max.X + GAP
 print(f"  packed {len(LAY)} parts across {_x-GAP:.0f}mm, no overlaps")
 groups=[]
-for s_ in LAY:
-    p,k = project(s_, (60,-150,300), up=(0,1,0), target=((_x-GAP)/2,45,0)); groups.append((p,k))
+for (_nm,_), s_ in zip(_parts, LAY):
+    p,k = project(s_, (60,-150,300), up=(0,1,0), target=((_x-GAP)/2,45,0))
+    groups.append((p,k,_nm))
 write_svg(os.path.join(OUT,"case-print-layout.svg"), groups, "case-print")
 
 # ============================== 4. HERO (png) ================================
