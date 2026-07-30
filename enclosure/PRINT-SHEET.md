@@ -18,16 +18,17 @@ cd scratch/hosyond-s3/ember-case && ../cadenv/bin/python ember_case.py
 | `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** | Button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Countersinks widen downward onto the bed. |
 | `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | Chamber ceiling is a **17 mm bridge** and the cable channel a **16 mm bridge** — leave bridging on (slicer default) and they're fine. |
 | `ember-stand-base.stl` | 1 | flat | none | Closes the speaker chamber. Press fit. |
-| `ember-diffuser.stl` | 1 | flat | none | Print in **translucent / natural / ember-orange** filament — this is the WS2812 glow window. |
 
 Outer sizes: slab (bezel + shell assembled) **55.9 × 91.9 × 17.4 mm**; stand **64 × 64 × 40 mm**.
-Material use ≈ 122 cm³ total (~150 g).
+Material use ≈ **128 cm³** total (~158 g in PLA), measured from the current STLs by
+signed-tetrahedron volume — not an estimate. Was 122 cm³ before the diffuser was deleted,
+the back became a hex field and the USB-C well was cut; those changes roughly cancelled.
 
 ---
 
 ## Slicer settings
 
-| | Bezel | Shell | Stand | Base / diffuser |
+| | Bezel | Shell | Stand | Base |
 |---|---|---|---|---|
 | Layer height | **0.16 mm** | 0.20 mm | 0.20 mm | 0.20 mm |
 | Perimeters | 3 | 3 | **4** | 3 |
@@ -45,7 +46,10 @@ Heavier is better here.
 **Filament:** matte **charcoal/coal PLA** for bezel + shell — best surface finish and the
 tightest dimensional accuracy, which matters because the board pocket is a 0.35 mm fit.
 Use **PETG** instead only if it will sit in direct sun (PLA creeps at ~50 °C).
-Diffuser in translucent or ember-orange so the glow reads warm.
+**Print the whole case in WHITE if you want it to glow.** JP's choice, and it changes the
+lighting design: white PLA is translucent, so the WS2812 lights the shell itself rather than
+only escaping through holes. That is why there is no diffuser part — see the LED note under
+*Speaker* / the hex back below.
 
 ---
 
@@ -233,7 +237,12 @@ below Fs does nothing and a mistuned one is worse than sealed.
 4. Drop the back shell on. Check the five 1.25 mm connectors and the microSD sit in the
    side channels before pulling anything tight.
 5. Four M3 × 14 countersunk from the back. Snug, not hard — you are clamping a PCB.
-6. Optional: press `ember-diffuser` into the ⌀16 seat around the rear glow window.
+6. ~~Press `ember-diffuser` into the ⌀16 seat around the rear glow window.~~
+   **REMOVED.** There is no diffuser and no seat. The ⌀12 rear glow window and its ⌀16
+   diffuser seat were both deleted when the back shell became a fine hex field: the LED's
+   light now leaves through the apertures over it — 8 within r6, 23 within r10, 32 within
+   r12 — plus straight through the wall if you print in white. Many small apertures in a
+   translucent panel scatter; one large bore behind a printed disc just shows you the die.
 7. Slide the slab into the stand slot; route the USB-C cable down the channel and out the back.
 
 ---

@@ -103,9 +103,8 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <tr><td><code>ember-back-shell.stl</code></td><td>1</td><td><b>back face DOWN</b>, open side up</td><td><b>none</b></td><td>Button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Countersinks widen downward onto the bed.</td></tr>
 <tr><td><code>ember-stand.stl</code></td><td>1</td><td><b>bottom face DOWN</b></td><td><b>none</b></td><td>Chamber ceiling is a <b>17 mm bridge</b> and the cable channel a <b>16 mm bridge</b> — leave bridging on (slicer default) and they're fine.</td></tr>
 <tr><td><code>ember-stand-base.stl</code></td><td>1</td><td>flat</td><td>none</td><td>Closes the speaker chamber. Press fit.</td></tr>
-<tr><td><code>ember-diffuser.stl</code></td><td>1</td><td>flat</td><td>none</td><td>Print in <b>translucent / natural / ember-orange</b> filament — this is the WS2812 glow window.</td></tr>
 </tbody></table></div>
-<p>Outer sizes: slab (bezel + shell assembled) <b>55.9 × 91.9 × 17.4 mm</b>; stand <b>64 × 64 × 40 mm</b>. Material use ≈ 122 cm³ total (~150 g).</p>
+<p>Outer sizes: slab (bezel + shell assembled) <b>55.9 × 91.9 × 17.4 mm</b>; stand <b>64 × 64 × 40 mm</b>. Material use ≈ <b>128 cm³</b> total (~158 g in PLA), measured from the current STLs by signed-tetrahedron volume — not an estimate. Was 122 cm³ before the diffuser was deleted, the back became a hex field and the USB-C well was cut; those changes roughly cancelled.</p>
 <hr>
 <h2>Slicer settings</h2>
 <div class="tablewrap"><table><thead><tr>
@@ -113,7 +112,7 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <th>Bezel</th>
 <th>Shell</th>
 <th>Stand</th>
-<th>Base / diffuser</th>
+<th>Base</th>
 </tr></thead><tbody>
 <tr><td>Layer height</td><td><b>0.16 mm</b></td><td>0.20 mm</td><td>0.20 mm</td><td>0.20 mm</td></tr>
 <tr><td>Perimeters</td><td>3</td><td>3</td><td><b>4</b></td><td>3</td></tr>
@@ -123,7 +122,7 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 </tbody></table></div>
 <p>The bezel gets the fine layer height because its front face is the one you look at, and because the mic bore is only ⌀2.40 mm — at 0.2 mm layers it starts to close up.</p>
 <p>The stand wants <b>more walls and more infill than feels necessary</b>: it is a speaker enclosure, and cabinet stiffness/mass is what stops a 2 W driver sounding like a rattle. Heavier is better here.</p>
-<p><b>Filament:</b> matte <b>charcoal/coal PLA</b> for bezel + shell — best surface finish and the tightest dimensional accuracy, which matters because the board pocket is a 0.35 mm fit. Use <b>PETG</b> instead only if it will sit in direct sun (PLA creeps at ~50 °C). Diffuser in translucent or ember-orange so the glow reads warm.</p>
+<p><b>Filament:</b> matte <b>charcoal/coal PLA</b> for bezel + shell — best surface finish and the tightest dimensional accuracy, which matters because the board pocket is a 0.35 mm fit. Use <b>PETG</b> instead only if it will sit in direct sun (PLA creeps at ~50 °C). <b>Print the whole case in WHITE if you want it to glow.</b> JP's choice, and it changes the lighting design: white PLA is translucent, so the WS2812 lights the shell itself rather than only escaping through holes. That is why there is no diffuser part — see the LED note under <em>Speaker</em> / the hex back below.</p>
 <hr>
 <h2>Fasteners</h2>
 <p><b>4 × M3 × 14 mm countersunk (flat-head) self-tapping</b>, driven <b>from the back</b>, so no screw heads appear on the front face.</p>
@@ -215,7 +214,7 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <p>It is a speaker cabinet; stiffness is what stops a 2 W driver exciting a 64 mm panel.</p>
 <p><b>Not done, deliberately:</b> a bass-reflex port. At this volume a printable port tunes to ~390–460 Hz, useful only if it lands just below the driver's Fs — unknown. A port tuned below Fs does nothing and a mistuned one is worse than sealed. <code>Fb = (c/2π)·√(A / (V·Leff))</code>, <code>Leff = L + 0.85·d</code>.</p>
 <h2>Assembly order</h2>
-<p>1. Plug the speaker pigtail into the board's <b>SPEAKER</b> 1.25 mm 2P header (long edge). 2. Seat the driver in the stand, wires out through the cable channel, press on <code>ember-stand-base</code>, seal the seam. 3. Lay the board <b>face down into the bezel</b>. The glass does <b>not</b> touch the bezel — there is a deliberate 0.40 mm gap. The four bosses land on the PCB's top face. 4. Drop the back shell on. Check the five 1.25 mm connectors and the microSD sit in the side channels before pulling anything tight. 5. Four M3 × 14 countersunk from the back. Snug, not hard — you are clamping a PCB. 6. Optional: press <code>ember-diffuser</code> into the ⌀16 seat around the rear glow window. 7. Slide the slab into the stand slot; route the USB-C cable down the channel and out the back.</p>
+<p>1. Plug the speaker pigtail into the board's <b>SPEAKER</b> 1.25 mm 2P header (long edge). 2. Seat the driver in the stand, wires out through the cable channel, press on <code>ember-stand-base</code>, seal the seam. 3. Lay the board <b>face down into the bezel</b>. The glass does <b>not</b> touch the bezel — there is a deliberate 0.40 mm gap. The four bosses land on the PCB's top face. 4. Drop the back shell on. Check the five 1.25 mm connectors and the microSD sit in the side channels before pulling anything tight. 5. Four M3 × 14 countersunk from the back. Snug, not hard — you are clamping a PCB. 6. ~~Press <code>ember-diffuser</code> into the ⌀16 seat around the rear glow window.~~ <b>REMOVED.</b> There is no diffuser and no seat. The ⌀12 rear glow window and its ⌀16 diffuser seat were both deleted when the back shell became a fine hex field: the LED's light now leaves through the apertures over it — 8 within r6, 23 within r10, 32 within r12 — plus straight through the wall if you print in white. Many small apertures in a translucent panel scatter; one large bore behind a printed disc just shows you the die. 7. Slide the slab into the stand slot; route the USB-C cable down the channel and out the back.</p>
 <hr>
 <h2>Tunables (edit + re-run)</h2>
 <div class="tablewrap"><table><thead><tr>
