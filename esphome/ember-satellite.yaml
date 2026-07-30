@@ -1918,8 +1918,15 @@ display:
     # 50ms = the fastest band's tick. At most ONE band paints per frame, so the
     # dirty box never spans two bands.
     # >>> If audio hiccups during a conversation, the knobs in preference
-    #     order are: FLAM_H 76->60, then the flame tick 50->70ms, then
-    #     NC 60->40 with CW 4->6. Raise this interval last. <<<
+    #     order are: FLAM_H 76->60, then the flame tick 50->70ms. Raise this
+    #     interval last.
+    #
+    #     DO NOT TOUCH NC OR CW. This line used to recommend "NC 60->40 with
+    #     CW 4->6" as the third knob. Both halves are wrong: CW does nothing
+    #     (the column index hardcodes it) and NC=40 makes the band render from
+    #     uninitialised stack while the harness still passes. NC>60 is worse —
+    #     an out-of-bounds WRITE, unprotected on this device. Both are now
+    #     static_asserts at their declaration; read the note there. <<<
     update_interval: 50ms
 
     lambda: |-
@@ -3342,6 +3349,40 @@ display:
 
       // ---- fire: unchanged from the shipped design ----
       const int NC = 60, CW = 4;
+      // >>> NEITHER OF THESE IS A KNOB. Both are asserted because the file's own
+      //     tuning advice used to recommend changing them, and both directions
+      //     corrupt something. <<<
+      //
+      // CW is a lie by omission: the column index at the hot loop is `x >> 2`, so
+      // the 4 is hardcoded there and setting CW to anything else changes NOTHING.
+      // The -Wunused-variable this produces is a TRUE signal and was previously
+      // documented as expected noise.
+      static_assert(CW == 4,
+          "CW is not a knob: the column index is `x >> 2`, which hardcodes CW == 4. "
+          "Changing CW silently does nothing. Change the shift too, or neither.");
+      // NC has two failure directions at different severities, which is why this is
+      // an equality rather than a range:
+      //   NC < 60  the per-column arrays are literal [60] but filled `for (i < NC)`,
+      //            while the read index runs 0..59 for any NC. At NC=40, entries
+      //            [40..59] are never written and ARE READ EVERY FRAME. Verified: the
+      //            right third of the band renders from stack garbage, idle runs/frame
+      //            660 -> 1519, and the harness still reports ALL CHECKS PASSED —
+      //            every pixel is written exactly once, with rubbish.
+      //   NC > 60  writes PAST the end of four stack arrays inside the per-frame
+      //            render function. AddressSanitizer on the host: stack-buffer-overflow,
+      //            WRITE of size 1. The host also aborts on gcc's default
+      //            -fstack-protector-strong, and warns at compile time
+      //            (-Waggressive-loop-optimizations). THE DEVICE HAS NONE OF THAT:
+      //            CONFIG_COMPILER_STACK_CHECK_MODE_NONE is set and no
+      //            -fstack-protector appears in the ESP-IDF flags. Three signals on
+      //            the host, zero on the device — silent corruption up to 20x/second.
+      //
+      // NC * CW == 240 is the assertion to reach for first and it does NOT catch this:
+      // 40 * 6 == 240 as well.
+      static_assert(NC == 60,
+          "NC is not a knob: the per-column arrays are literal [60] and the read index "
+          "runs 0..59 regardless. Below 60 reads uninitialised stack; above 60 writes "
+          "past the arrays. Resize the arrays too, or leave NC alone.");
       const int GRATE = 3;
       const int base_row = FLAM_H - GRATE;
       const int MAXH = FLAM_H - 8;
