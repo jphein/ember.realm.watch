@@ -42,3 +42,30 @@ cd "$(dirname "$0")"
   --realm forge \
   --repo https://github.com/jphein/ember.realm.watch \
   --dir docs
+
+# ---------------------------------------------------------------- dirty, corrected
+# Sigil derives `dirty` from `git diff --quiet`, which has a bootstrapping paradox
+# here: docs/version.json is TRACKED, so the previous run's output leaves the tree
+# modified, and the next run then reports dirty:true purely because of its own
+# artifact. The published stamp ends up claiming the build came from a modified tree
+# when the only modification was the stamp.
+#
+# So recompute it ignoring version.json — the one file whose churn is self-inflicted —
+# and correct the field. Any OTHER modification still reports dirty:true, which is the
+# signal worth keeping.
+python3 - <<'PY'
+import json, pathlib, subprocess
+vj = pathlib.Path("docs/version.json")
+changed = subprocess.run(
+    ["git", "status", "--porcelain", "--untracked-files=no"],
+    capture_output=True, text=True).stdout.splitlines()
+real = [l for l in changed if l[3:].strip() not in ("docs/version.json",)]
+d = json.loads(vj.read_text())
+was, d["dirty"] = d["dirty"], bool(real)
+vj.write_text(json.dumps(d, indent=2) + "\n")
+if was != d["dirty"]:
+    print(f"  \033[2;37m✓ dirty corrected {was} -> {d['dirty']} "
+          f"(version.json's own churn ignored)\033[0m")
+if real:
+    print("  \033[2;37m! tree has other uncommitted changes; stamp says dirty\033[0m")
+PY
