@@ -121,6 +121,45 @@ detector *still* said `0.000`.
 
 ---
 
+---
+
+## The one variant no tool can catch
+
+Every fault above yields to mechanism — a compile step, an assertion, a sanitizer, a
+byte-comparison of rendered output. **One does not, and it is worth separating for exactly
+that reason:** a list of failures that all submit to tooling invites the belief that tooling
+is sufficient.
+
+A report stated that `NC = 80` *"compiles clean and the harness reports ALL CHECKS PASSED."*
+It was wrong. `NC = 80` had been run **only under AddressSanitizer**, and `NC = 40` **only
+plain** — two real experiments, neither of them the configuration described. The claim
+carried the authority of both and the coverage of neither.
+
+**No tool can distinguish "I ran this configuration" from "I ran two adjacent ones and
+described a third", because the artifact of a claim is prose.** There is nothing to compile,
+nothing to diff, no assertion to add.
+
+The two defences are procedural, and both were used the same afternoon:
+
+> **Reproduce a teammate's result before building on it.** It cost one rebuild and caught
+> this. The same discipline caught an issue about to be opened against already-finished work.
+>
+> **Say which configuration you ran, not which conclusion you reached.** A conclusion is
+> compressed and its compression is where the coverage goes missing.
+
+A related instance from the same session, self-audited: a twelve-row truth table reported as
+verifying the audio gate in fact checked **a transcription of the watchdog, not the
+watchdog** — so it proved the design coherent over its input space and said nothing about
+whether the firmware implements it. It also hardcoded one input to its default, and that
+input was the documented A/B knob for disabling amp gating entirely — precisely the case
+where the other half of the gate carries it alone. True about what was run; overstated about
+what it covered.
+
+**Both failures share a shape: a claim one step wider than its evidence.** Neither author was
+careless and neither claim was false — each was assembled from true parts.
+
+---
+
 ## Corollaries earned the hard way
 
 **A test that cannot fail is not a test** — and the refinement: a test that cannot fail *for
