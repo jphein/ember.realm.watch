@@ -3345,6 +3345,30 @@ display:
       const int GRATE = 3;
       const int base_row = FLAM_H - GRATE;
       const int MAXH = FLAM_H - 8;
+      // >>> IF YOU TUNE GRATE OR MAXH, READ THIS. <<<
+      // Flames rise from base_row, so the tallest reaches row base_row-MAXH. Rows below
+      // FUSE_H belong to the progress fuse, which is painted by an EARLIER branch that
+      // `continue`s. So an over-tall MAXH does not overflow the band and does not fail
+      // any check — the fire is silently CLIPPED FLAT against the fuse and you get
+      // square-topped tallest flames, on the device, with nothing said.
+      //
+      // The host harness cannot catch it either, and that is the interesting part: its
+      // write-once check still passes, because every pixel really is covered exactly
+      // once — by the fuse. The invariant is satisfied by the very mechanism that
+      // conceals the defect, so a green harness run is not evidence here.
+      //
+      // Hence a compile-time assertion, which cannot be skipped or absorbed. It needs
+      // nothing hoisted out of this lambda: reading a const int's value in a constant
+      // expression is not an odr-use, so the enclosing FUSE_H is usable without being
+      // captured. That matters because esphome/art/dragon_harness.cpp mirrors this body
+      // line for line and carries the identical assertion — the harness is only worth
+      // running while it is the same code, so this change had to avoid restructuring.
+      //
+      // Slack at GRATE=3 is one row (68+4 <= 73). Raise GRATE to 8 and MAXH must drop
+      // to 64 — about 6% shorter flames, which is the real cost of a deeper grate.
+      static_assert(MAXH + FUSE_H <= base_row,
+                    "MAXH is too tall for GRATE: the tallest flame reaches into the fuse "
+                    "rows and will be silently clipped flat. Lower MAXH or lower GRATE.");
       const float syl = 0.55f + 0.45f * powf(fabsf(sinf(ph * 0.83f)), 1.6f);
       const float breath = 0.5f * (1.0f + sinf((float) now * 0.001047f));
       const float orbit = fmodf((float) now * 0.00042f, 1.0f) * (float) NC;

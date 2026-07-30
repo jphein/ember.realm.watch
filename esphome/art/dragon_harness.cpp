@@ -426,6 +426,23 @@ static void paint_flame_frame() {
   const int GRATE = 3;
   const int base_row = FLAM_H - GRATE;
   const int MAXH = FLAM_H - 8;
+  // Flames rise from base_row and the tallest reaches row base_row-MAXH. Rows below
+  // FUSE_H belong to the progress fuse, which is painted by an EARLIER branch that
+  // `continue`s — so if MAXH is too tall the fire does not overflow, it is silently
+  // CLIPPED FLAT and you get square-topped tallest flames.
+  //
+  // check_tiling cannot catch that: every pixel is still covered exactly once, by the
+  // fuse. The invariant is satisfied by the very mechanism that hides the defect, which
+  // is why this needs its own assertion rather than trusting a green run.
+  //
+  // static_assert rather than a runtime check, deliberately: it needs nothing hoisted out
+  // of this body, so the harness stays structurally identical to the lambda in
+  // ember-satellite.yaml — the only property that makes it worth running — and a
+  // compile-time failure cannot be skipped, absorbed or ignored. At GRATE=3 there is one
+  // row of slack (68+4 <= 73). At GRATE=8, MAXH must be <= 64.
+  static_assert(MAXH + FUSE_H <= base_row,
+                "MAXH is too tall for GRATE: the tallest flame reaches into the fuse "
+                "rows and will be silently clipped flat. Lower MAXH or lower GRATE.");
   const float syl = 0.55f + 0.45f * powf(fabsf(sinf(ph * 0.83f)), 1.6f);
   const float breath = 0.5f * (1.0f + sinf((float) now * 0.001047f));
   const float orbit = fmodf((float) now * 0.00042f, 1.0f) * (float) NC;
