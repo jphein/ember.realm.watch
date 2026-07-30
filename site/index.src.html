@@ -543,7 +543,8 @@ footer p{margin:.4rem 0}
       through a single decoder — chimes, announcements and speech alike. A second item arriving
       does not mix with the first; <strong>it destroys it, deliberately</strong>: the playlist is
       cleared and the new file started. That is the documented behaviour of the flag, working as
-      designed.
+      designed — and <strong>all seven chimes carried it</strong>. This was never one careless
+      call site; it was the shape of every audio trigger on the device.
     </p>
     <p>
       And "conversation finished" fires <em>before</em> the reply is spoken. So the device queued
@@ -580,6 +581,11 @@ footer p{margin:.4rem 0}
       <dd>Tapping the screen while Ember answered killed the reply mid-sentence. The guard was
       not merely weak, it was <em>structurally blind</em> to the only condition it existed to
       detect.</dd>
+      <dt>The reach</dt>
+      <dd>The guard went in at all seven chime sites and was blind at every one. So the first fix
+      was <em>correct</em> and closed one seventh of the problem — which is its own kind of
+      dangerous, because a correct fix that makes the symptom rarer buys silence rather than a
+      solution.</dd>
       <dt>The lesson</dt>
       <dd>The display had already stopped trusting that variable — it derives "is speaking" from
       the speaker hardware, because a pushed announcement reports idle the whole time it talks.
@@ -602,6 +608,12 @@ footer p{margin:.4rem 0}
       <dd>Any press held for 400&nbsp;ms or more started a conversation and then immediately
       cancelled it. A deliberate, firm press — exactly what a new user does — was the one gesture
       guaranteed to fail. A quick tap worked.</dd>
+      <dt>The tell</dt>
+      <dd>The pipeline logged transitions to <code>IDLE</code> — the <em>cancel</em> path — rather
+      than to <code>AWAITING_RESPONSE</code>, which is what the end of real speech looks like.
+      That one distinction says the conversation was not failing; something was
+      <strong>deliberately stopping it</strong>. Which turns the question from "why is the
+      microphone broken" into "who is calling stop", and that question has an answer.</dd>
       <dt>The fix</dt>
       <dd><code>on_release</code>, which was the right primitive from the start. A press is a
       down <em>and</em> an up; only one of those is an event.</dd>
@@ -739,7 +751,7 @@ footer p{margin:.4rem 0}
 
 <section class="wrap">
   <p class="kicker">Still open</p>
-  <h2>A pop we can explain two ways</h2>
+  <h2>Two clicks, one closed</h2>
   <p class="lede">
     Some audio starts with a click. The cause is architectural, and it's worth writing down
     because the fix that works isn't the fix that sounds right.
@@ -757,12 +769,37 @@ footer p{margin:.4rem 0}
     coupling capacitors sit at the top of the range the datasheet warns about. So it may trade
     one click for another rather than removing it.
   </p>
+  <p>
+    <strong>One of the two is now closed.</strong> There were two separate clock restarts, not
+    one: tapping to talk restarts it (the microphone opens) and speaking restarts it again. The
+    tap-side click is gone — and the way it went is the informative part. It disappeared when a
+    145&nbsp;ms feedback tone was removed from the tap, because the protection had been in place
+    the whole time and had simply never been given a transient it was in position to cover.
+  </p>
+  <p>
+    That distinction is worth being careful about, because there are two readings and only one
+    of them is a result. If the tone had been the <em>only</em> thing making noise, removing it
+    would prove nothing. But tapping still opens the microphone, which still restarts the clock —
+    and it no longer clicks. So the protection genuinely works on that transient. What remains
+    unknown is <em>which half</em> of it works: the codec mute and the amplifier blank have never
+    been tested apart.
+  </p>
+  <p>
+    The residual click is on the reply path, and its cause is not in the audio chain at all.
+    Speech synthesis takes about <strong>2.8&nbsp;seconds</strong> to return the first audio —
+    longer than the driver's idle timeout — so the driver unloads and reloads <em>mid-turn</em>,
+    before every single reply. That is a clock restart nobody asked for, and no amount of codec
+    tuning addresses it. The levers are the timeout and holding the driver open across a turn.
+  </p>
   <div class="note">
-    <b>We have not distinguished the two mechanisms, and we say so.</b> Both a lingering
-    analog settle and a digital transient in the first clock cycles predict every observation
-    we have. The project notes record which claims are measured, which are inferred, and which
-    two earlier explanations were wrong — in opposite directions — rather than quietly
-    settling on whichever story the last fix supported.
+    <b>The mechanism question is still open, and we say so.</b> Both a lingering analog settle
+    and a digital transient in the first clock cycles predict every observation we have, and a
+    datasheet review confirms the available evidence cannot separate them. Every documented
+    anti-pop mechanism in this codec is counted in clock periods, which is exactly the resource
+    that stops. So: one transient explained and fixed, one located and understood, the mechanism
+    behind them still undecided. The project notes record which claims are measured, which are
+    inferred, and which two earlier explanations were wrong — in opposite directions — rather
+    than quietly settling on whichever story the last fix happened to support.
   </div>
 </section>
 
@@ -777,7 +814,7 @@ footer p{margin:.4rem 0}
 
   <div class="buy">
     <a class="btn-buy" href="https://a.co/d/043Uyaej" target="_blank" rel="noopener">
-      <svg viewBox="0 0 24 24"><path d="M7 4h10l1 2h3v2h-2l-1.4 9.3A2 2 0 0 1 15.6 19H8.4a2 2 0 0 1-2-1.7L5 8H3V6h3l1-2zm2 6v6h2v-6H9zm4 0v6h2v-6h-2z"/></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7V6a4 4 0 0 1 8 0v1h2.4l1 13.1A1.9 1.9 0 0 1 17.5 22H6.5a1.9 1.9 0 0 1-1.9-1.9L5.6 7H8zm2 0h4V6a2 2 0 0 0-4 0v1z"/></svg>
       Buy the board — Amazon</a>
     <span class="aside">LCDWIKI / QDtech <b>ES3C28P</b> · ~$20</span>
   </div>
@@ -836,26 +873,26 @@ footer p{margin:.4rem 0}
   <div class="share-row">
     <a class="btn-share" target="_blank" rel="noopener"
        href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fjphein.github.io%2Fember.realm.watch%2F">
-      <svg viewBox="0 0 24 24"><path d="M13.4 21v-8.2h2.7l.4-3.2h-3.1V7.6c0-.9.3-1.6 1.6-1.6h1.7V3.2c-.3 0-1.3-.2-2.5-.2-2.5 0-4.2 1.5-4.2 4.3v2.3H7.3v3.2H10V21h3.4z"/></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.4 21v-8.2h2.7l.4-3.2h-3.1V7.6c0-.9.3-1.6 1.6-1.6h1.7V3.2c-.3 0-1.3-.2-2.5-.2-2.5 0-4.2 1.5-4.2 4.3v2.3H7.3v3.2H10V21h3.4z"/></svg>
       Facebook</a>
     <a class="btn-share" target="_blank" rel="noopener"
        href="https://news.ycombinator.com/submitlink?u=https%3A%2F%2Fjphein.github.io%2Fember.realm.watch%2F&t=Show%20HN%3A%20A%20%2420%20voice%20assistant%20with%20no%20cloud%20%E2%80%94%20local%20STT%2C%20a%2035B%20LLM%2C%20and%20a%20dragon">
-      <svg viewBox="0 0 24 24"><path d="M3 3h18v18H3V3zm8.2 10.4L7.4 6.8h1.9l2.7 4.9 2.7-4.9h1.9l-3.8 6.6v4.6h-1.6v-4.6z"/></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h18v18H3V3zm8.2 10.4L7.4 6.8h1.9l2.7 4.9 2.7-4.9h1.9l-3.8 6.6v4.6h-1.6v-4.6z"/></svg>
       Hacker News</a>
     <a class="btn-share" target="_blank" rel="noopener"
        href="https://www.reddit.com/submit?url=https%3A%2F%2Fjphein.github.io%2Fember.realm.watch%2F&title=A%20voice%20assistant%20with%20no%20cloud%20in%20it%20%E2%80%94%20local%20speech-to-text%2C%20a%2035B-parameter%20LLM%20and%20local%20TTS%2C%20all%20on%20my%20own%20hardware%2C%20on%20a%20%2420%20ESP32%20touchscreen%20with%20a%20dragon%20in%20the%20fire">
-      <svg viewBox="0 0 24 24"><path d="M14.5 4l1 3.6c1.6.1 3.1.6 4.2 1.4a2 2 0 112.2 3.3c.1.4.1.7.1 1.1 0 3.4-4 6.1-9 6.1s-9-2.7-9-6.1c0-.4 0-.7.1-1.1a2 2 0 112.2-3.3c1.2-.9 2.9-1.4 4.7-1.5l1.2-4.4 3.3.9zM9 12.8a1.3 1.3 0 100 2.6 1.3 1.3 0 000-2.6zm6 0a1.3 1.3 0 100 2.6 1.3 1.3 0 000-2.6zm-6.3 4.5c.9.7 2 1 3.3 1s2.4-.3 3.3-1l.7.8c-1.1.9-2.5 1.3-4 1.3s-2.9-.4-4-1.3l.7-.8z"/></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4l1 3.6c1.6.1 3.1.6 4.2 1.4a2 2 0 112.2 3.3c.1.4.1.7.1 1.1 0 3.4-4 6.1-9 6.1s-9-2.7-9-6.1c0-.4 0-.7.1-1.1a2 2 0 112.2-3.3c1.2-.9 2.9-1.4 4.7-1.5l1.2-4.4 3.3.9zM9 12.8a1.3 1.3 0 100 2.6 1.3 1.3 0 000-2.6zm6 0a1.3 1.3 0 100 2.6 1.3 1.3 0 000-2.6zm-6.3 4.5c.9.7 2 1 3.3 1s2.4-.3 3.3-1l.7.8c-1.1.9-2.5 1.3-4 1.3s-2.9-.4-4-1.3l.7-.8z"/></svg>
       Reddit</a>
     <button type="button" class="btn-share" onclick="copyThenOpen(this,'https://hackaday.com/submit-a-tip/')"
             title="Copies the project link, then opens the Hackaday tips line — paste it there.">
-      <svg viewBox="0 0 24 24"><path d="M21.7 6.3l-3.1 3.1-3-.5-.5-3 3.1-3.1a5 5 0 00-6.5 6.5L4 17l-1 4 4-1 7.7-7.7a5 5 0 006.5-6.5l.5.5z"/></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.7 6.3l-3.1 3.1-3-.5-.5-3 3.1-3.1a5 5 0 00-6.5 6.5L4 17l-1 4 4-1 7.7-7.7a5 5 0 006.5-6.5l.5.5z"/></svg>
       <span class="lbl">Hackaday tip</span></button>
     <button type="button" class="btn-share" onclick="copyOnly(this)"
             title="Instagram has no web share — this copies the link to paste into a story or bio.">
-      <svg viewBox="0 0 24 24"><path d="M7.5 2h9A5.5 5.5 0 0122 7.5v9A5.5 5.5 0 0116.5 22h-9A5.5 5.5 0 012 16.5v-9A5.5 5.5 0 017.5 2zm0 2A3.5 3.5 0 004 7.5v9A3.5 3.5 0 007.5 20h9a3.5 3.5 0 003.5-3.5v-9A3.5 3.5 0 0016.5 4h-9zM12 7a5 5 0 110 10 5 5 0 010-10zm0 2a3 3 0 100 6 3 3 0 000-6zm5.3-3.1a1.1 1.1 0 110 2.2 1.1 1.1 0 010-2.2z"/></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 2h9A5.5 5.5 0 0122 7.5v9A5.5 5.5 0 0116.5 22h-9A5.5 5.5 0 012 16.5v-9A5.5 5.5 0 017.5 2zm0 2A3.5 3.5 0 004 7.5v9A3.5 3.5 0 007.5 20h9a3.5 3.5 0 003.5-3.5v-9A3.5 3.5 0 0016.5 4h-9zM12 7a5 5 0 110 10 5 5 0 010-10zm0 2a3 3 0 100 6 3 3 0 000-6zm5.3-3.1a1.1 1.1 0 110 2.2 1.1 1.1 0 010-2.2z"/></svg>
       <span class="lbl">Instagram</span></button>
     <button type="button" class="btn-share native" onclick="nativeShare()">
-      <svg viewBox="0 0 24 24"><path d="M18 16a3 3 0 00-2.2 1L8.9 13a3 3 0 000-2l6.9-4a3 3 0 10-1-1.7L7.9 9.2a3 3 0 100 5.6l6.9 3.9A3 3 0 1018 16z"/></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 16a3 3 0 00-2.2 1L8.9 13a3 3 0 000-2l6.9-4a3 3 0 10-1-1.7L7.9 9.2a3 3 0 100 5.6l6.9 3.9A3 3 0 1018 16z"/></svg>
       Share…</button>
   </div>
   <p class="share-sub">

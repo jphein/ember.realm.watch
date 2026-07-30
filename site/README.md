@@ -5,11 +5,26 @@ Mirrors the repo layout morpheus confirmed: **`docs/` is the Pages root.**
 ```
 index.src.html      ← EDIT THIS
 build.py            ← then run this
+make_og_card.py     ← regenerates the social preview image
 docs/               ← the deliverable; stage this whole directory
-  index.html          95 KB · HTML + inline <style> + inline art
+  index.html          110 KB · HTML + inline <style> + inline art
   assets/*.wav        191 KB · the six chimes, fetched on click
+  assets/og-card.png   33 KB · 1200x630 social preview (PLACEHOLDER)
   .nojekyll           serve the tree untouched by Jekyll
 ```
+
+## ⚠️ Two things that need confirming before this goes live
+
+1. **The canonical URL is assumed.** Every `og:`/`twitter:` tag and all six share links
+   hardcode `https://jphein.github.io/ember.realm.watch/`. **Confirm with morpheus-extract**,
+   who owns the repo. If it differs, it appears in `index.src.html` (meta block + share hrefs)
+   and in `build.py`'s printed outbound-link list — one `sed` fixes all of them, and `build.py`
+   prints every outbound link on each run so a wrong one is visible rather than discovered by a
+   reader clicking it.
+2. **`assets/og-card.png` is a placeholder.** `make_og_card.py` composes it from the shipped
+   device art so the Open Graph tags are never pointing at a 404 — a broken `og:image` degrades
+   to *no preview at all*, not to a plain link. lyra-artist is composing the real one. When it
+   lands, drop it in and update `og:image:alt`, which currently describes the placeholder.
 
 **Never edit `docs/index.html`** — it is generated and will be overwritten.
 
@@ -120,6 +135,27 @@ Expected in `../ember-art-web/`. Swap the paths at the top of `build.py` and reb
   everything: `wyrm-hero-fire`, `wyrm-states-fire`.
 - Startle triggers on the hero *container's* `:hover`/`:focus-visible`/`:active`, not the SVG,
   so the whole card is the target.
+
+## The share kit
+
+Lifted from `~/Projects/moyoung-watch/docs/index.html` — JP's established pattern for a project
+page — so the two sites behave the same way. Full Open Graph + Twitter card set, then six
+buttons: Facebook, Hacker News and Reddit as real submit intents with pre-written titles;
+Hackaday as copy-then-open (they take tips by paste, not by intent); Instagram as copy-only
+(no web share exists); and `Share…`, hidden by CSS and revealed by JS only where
+`navigator.share` actually exists.
+
+Pre-written titles are in `index.src.html`. The hook is deliberately *no cloud at all* rather
+than *dragon*, because the dragon is the reason people stay and the privacy claim is the reason
+they click:
+
+- **HN**: `Show HN: A $20 voice assistant with no cloud — local STT, a 35B LLM, and a dragon`
+- **Reddit**: the same claim, spelled out, since Reddit tolerates length
+
+`build.py` distinguishes **fetched resources** from **outbound links**. Self-containment means
+nothing is *fetched* off-box; an `<a href>` to Amazon or Hacker News is a navigation and is the
+whole point of those sections. The old check flagged both and would have cried wolf on every
+build.
 
 ## Notes for whoever edits next
 
