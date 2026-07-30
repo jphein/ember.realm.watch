@@ -417,11 +417,28 @@ static void paint_flame_frame() {
   static uint8_t drow[144];
 
   // ---- fire: unchanged from the shipped design ----
-  // `CW` is unused and -Wunused-variable WILL warn on it. Left in deliberately: it is
-  // identical to esphome/ember-satellite.yaml:3344, and the yaml documents it at :1922
-  // as a paired tuning knob ("NC 60->40 with CW 4->6"). Deleting it here would silence
-  // one warning by making this file diverge from the lambda it mirrors, which is the
-  // only property that makes the harness worth running. Fix it in both or neither.
+  // `CW` is unused and -Wunused-variable WILL warn on it. It is identical to
+  // esphome/ember-satellite.yaml:3344, so do not delete it here alone — that would
+  // silence a warning by making this file diverge from the lambda it mirrors, which is
+  // the only property that makes the harness worth running. Fix it in both or neither.
+  //
+  // >>> BUT DO NOT FILE THIS WARNING AS COSMETIC. An earlier version of this comment
+  // did, and the compiler was telling the truth. <<<
+  //
+  // CW is unused because the column index below is `x >> 2`, which HARDCODES CW == 4.
+  // The arrays are fixed `[60]` and filled `for (i < NC)`, while the read index runs
+  // 0..59 for any NC. So yaml:1922's operator advice — "if audio hiccups, NC 60->40 with
+  // CW 4->6" — does not do what it says: setting CW has no effect at all, and setting
+  // NC=40 leaves ch/csa/csb/chot[40..59] UNINITIALISED and read every frame.
+  //
+  // Verified, not reasoned: built with NC=40/CW=6, the right third of the band renders
+  // from stack garbage — a full-height bar, a detached rectangle, a stray rule — and this
+  // harness still reports `tiling ok` and ALL CHECKS PASSED, because every pixel really
+  // is written exactly once. It is written with rubbish. Same family as the MAXH clip.
+  //
+  // The knob is genuinely decoupled; a fix belongs in the yaml (guard CW == 4, or index
+  // by `x / CW` and size the arrays by NC, and reword :1922 either way). Flagged to the
+  // firmware owner rather than changed here.
   const int NC = 60, CW = 4;
   const int GRATE = 3;
   const int base_row = FLAM_H - GRATE;
