@@ -1166,6 +1166,33 @@ script:
             # The timeout is a backstop, not an expectation: if the speaker is somehow
             # stuck we proceed anyway and accept the mic's own retry rather than
             # hanging the tap forever.
+            # >>> ORDER IS LOAD-BEARING. Two waits, and the FIRST one is the fix. <<<
+            #
+            # `script.execute` is non-blocking, and the media_player needs ~110ms to
+            # read and decode a WAV before it claims the speaker (measured: ANNOUNCING
+            # at 44.947, speaker start attempted at 45.055). So when ui_dispatch fires
+            # the haptic and immediately runs this script, `speaker.is_stopped` is still
+            # TRUE — the chime has not started yet — and the wait below passed
+            # instantly. The microphone then took the shared I2S lock, and the chime's
+            # decode finished into a bus it could never get:
+            #
+            #   Parent bus is busy / Driver failed to start; retrying in 1 second
+            #
+            # repeating for the whole utterance. Worse than a lost tone: the
+            # media_player had already entered ANNOUNCING and reported PLAYING, so when
+            # the TTS response URL arrived it was queued behind an item that could
+            # never drain, and the reply was never spoken. Short utterances sometimes
+            # survived — the mic released early enough for the chime to drain and free
+            # the player — which is exactly why this presented as "it only worked on
+            # the very short one".
+            #
+            # Waiting for is_playing FIRST closes the gap: we do not test for release
+            # until the thing we are waiting on has actually acquired. Its timeout is a
+            # backstop for the case where no audio was queued at all.
+            - wait_until:
+                condition:
+                  speaker.is_playing: spk
+                timeout: 250ms
             - wait_until:
                 condition:
                   speaker.is_stopped: spk
@@ -1538,6 +1565,13 @@ globals:
 
   # True when the current speech was PUSHED by HA (assist_satellite.announce /
   # tts.speak) rather than being a reply to something we heard. Set in on_tts_start.
+  # Did this conversation produce spoken audio? Set in on_tts_start, cleared in
+  # on_start. Exists because on_end fires BEFORE the reply audio plays, so on_end
+  # cannot ask the media_player — it has to remember. See the on_end guard.
+  - id: had_tts
+    type: bool
+    restore_value: false
+    initial_value: 'false'
   - id: is_announce
     type: bool
     restore_value: false
@@ -3600,6 +3634,7 @@ voice_assistant:
         // it at the start of every conversation makes the flag mean exactly
         // "the speech currently in flight was pushed".
         id(is_announce) = false;
+        id(had_tts) = false;
         id(scroll_gen)++;
 
   on_listening:
@@ -3634,6 +3669,7 @@ voice_assistant:
   on_tts_start:
     - lambda: |-
         id(is_announce) = (id(va_state) == 0);
+        id(had_tts) = true;
         id(said_text) = x;
         id(tts_est_ms) = ${tts_lead_ms}u + (uint32_t) x.size() * ${tts_ms_per_char}u;
         if (id(is_announce)) id(heard_text).clear();
@@ -3670,8 +3706,31 @@ voice_assistant:
     # the audio plays (voice_assistant.cpp:1056-1080) — chiming "done" there would
     # ring over the announcement it is supposedly closing, and the herald already
     # bracketed it.
+    #
+    # ALSO suppressed whenever the reply actually SPOKE, and this one is not a
+    # matter of taste — it was silencing every spoken reply.
+    #
+    # on_end fires when voice_assistant has handed the response URL to the media
+    # player and gone IDLE, which is BEFORE the audio plays. Measured on device:
+    #
+    #   53.288  RESPONSE_FINISHED -> IDLE      (on_end fires -> `done` chime queued)
+    #   53.947  Reading FLAC file type         (the reply audio starts)
+    #   54.032  Reading WAV file type          (the chime lands on top of it)
+    #   55.009  Failed to parse the file's header / FLAC decoder failed: -2
+    #
+    # There is ONE announcement pipeline (single_pipeline_() mode, since only
+    # announcement_pipeline is declared), so the chime and the reply are not two
+    # streams that mix — the second one entering clobbers the first one's decoder.
+    # The reply was lost every time. Short replies occasionally survived on timing
+    # alone, which is why this presented as "it only worked on the very short one".
+    #
+    # Suppressing it is also the better design: when Ember speaks, the speech IS
+    # the closure. A bell after every sentence would be noise. The chime still
+    # fires for a conversation that ends WITHOUT speech — a command that acted
+    # silently, or a pipeline that heard nothing — which is exactly the case where
+    # you need to be told the mic closed.
     - if:
-        condition: { lambda: 'return !id(is_announce);' }
+        condition: { lambda: 'return !id(is_announce) && !id(had_tts);' }
         then:
           - script.execute: { id: chime, which: 0 }
 
