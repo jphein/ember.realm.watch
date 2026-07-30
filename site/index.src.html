@@ -21,7 +21,7 @@
 <meta name="twitter:title" content="A voice assistant with no cloud in it">
 <meta name="twitter:description" content="Local speech-to-text, a 35B-parameter LLM, and local TTS — all in the house. On a $20 ESP32-S3 touchscreen with a dragon in the fire.">
 <meta name="twitter:image" content="https://jphein.github.io/ember.realm.watch/assets/og-card.png">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230A0604'/%3E%3Cpath d='M16 4c1.6 5.2-3.4 7-3.4 11.6 0 2 1.3 3.4 3.4 3.4s3.6-1.5 3.6-3.8c0-1.4-.6-2.4-1.2-3.4 3 1.6 5 4.6 5 8C23.4 24 20 27.6 16 27.6S8.6 24 8.6 19.8C8.6 12.6 15 11.4 16 4z' fill='%23E05A08'/%3E%3Cpath d='M16 12.6c1.9 2.6-.9 3.9-.9 6.4 0 1.3.6 2.2 1.7 2.2 1.4 0 2.3-1 2.3-2.4 0-2.5-2-3.4-3.1-6.2z' fill='%23FFE8B4'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="{{ASSET:favicon}}">
 <style>
 /* ─────────────────────────────────────────────────────────────
    Ember — the palette is the firmware's own fire-temperature ramp:
@@ -37,7 +37,7 @@
   --shadow:0 1px 0 rgba(255,168,30,.08), 0 18px 46px -22px rgba(0,0,0,.9);
   --grain:rgba(255,168,30,.035);
   /* The five-state sprite, inlined by build.py. One image, six consumers. */
-  --states-img:url("{{ASSET:wyrm_states_shipped}}");
+  --states-img:url("{{ASSET:wyrm_states}}");
   --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
 }
@@ -110,26 +110,21 @@ code{color:var(--gold); background:color-mix(in srgb, var(--gold) 9%, transparen
 
 /* the wyrm, at the resolution it actually ships at */
 .wyrm-hero{
-  margin:clamp(2rem,6vw,3.2rem) auto 0; max-width:440px;
-  border:1px solid var(--edge); border-radius:12px; overflow:hidden;
+  margin:clamp(2rem,6vw,3.2rem) auto 0;
+  border:1px solid var(--edge); border-radius:14px; overflow:hidden;
   background:#0A0604; box-shadow:var(--shadow); position:relative;
 }
-.wyrm-hero .hero-art{
-  display:block; width:100%; aspect-ratio:720/267;
-  background-image:var(--states-img);
-  background-size:100% 500%; background-position:0 25%;   /* the listening frame */
-  background-repeat:no-repeat; background-color:#0A0604;
-  image-rendering:pixelated;
-}
-.wyrm-hero::after{
-  content:""; position:absolute; inset:0; pointer-events:none;
-  background:radial-gradient(120% 60% at 50% 108%, rgba(255,168,30,.28), transparent 62%);
-  animation:breathe 5.5s ease-in-out infinite;
-}
-@keyframes breathe{0%,100%{opacity:.5}50%{opacity:1}}
+/* lyra's hero is inlined, not <img>-ed, because its keyframes live inside it and CSS
+   cannot cross an <img> boundary. It wakes on :hover / :focus-visible / :active and
+   carries its own idle breath, so this page deliberately adds NO overlay of its own —
+   two breathing animations would fight, and an overlay would sit between the pointer
+   and the thing it is meant to wake. */
+.wyrm-hero svg{display:block; width:100%; height:auto}
+.wyrm-hero svg:focus-visible{outline:2px solid var(--gold); outline-offset:-3px}
 .caption{
   font-family:var(--mono); font-size:.74rem; color:var(--faint);
-  text-align:center; margin:.7rem auto 0; max-width:48ch; line-height:1.5;
+  text-align:center; margin:.8rem auto 0; max-width:66ch; line-height:1.6;
+  text-wrap:pretty;
 }
 
 .badges{display:flex; flex-wrap:wrap; gap:.5rem; justify-content:center; margin:2rem 0 0; padding:0; list-style:none}
@@ -163,7 +158,7 @@ p{margin:1rem 0}
   background:var(--panel); box-shadow:var(--shadow);
 }
 .state-art{
-  aspect-ratio:720/267; background-image:var(--states-img);
+  aspect-ratio:1136/604; background-image:var(--states-img);
   background-size:100% 500%; background-repeat:no-repeat;
   image-rendering:pixelated; background-color:#0A0604;
 }
@@ -354,11 +349,11 @@ footer p{margin:.4rem 0}
   </p>
 
   <div class="wyrm-hero">
-    <div class="hero-art" role="img"
-         aria-label="A pixel-art dragon lying in tall bright flames, alert, listening."></div>
+{{SVG:wyrm_startle}}
   </div>
-  <p class="caption">The hearth while it listens — 240&nbsp;px wide, exactly as the panel draws it.
-  Scaled up, never redrawn.</p>
+  <p class="caption">Point at the wyrm, or tab to it — it startles the way the device does.
+  Traced from the same curves that generate the sprite on the hardware, so this is the same
+  animal, not a matching illustration.</p>
 
   <ul class="badges">
     <li><b>ESP32-S3</b> · 240×320 touch</li>
@@ -800,6 +795,71 @@ footer p{margin:.4rem 0}
     behind them still undecided. The project notes record which claims are measured, which are
     inferred, and which two earlier explanations were wrong — in opposite directions — rather
     than quietly settling on whichever story the last fix happened to support.
+  </div>
+</section>
+
+<section class="wrap">
+  <p class="kicker">The enclosure</p>
+  <h2>The case you want is inside a project about something else</h2>
+  <p class="lede">
+    There is no printable case for this board. Not under <code>ES3C28P</code>, not under any
+    reseller alias, not on any of the model sites. For a board this common that seems unlikely
+    until you look at why.
+  </p>
+  <p>
+    The outline is a drop-in match for the <strong>Cheap Yellow Display</strong> — identical
+    86×50&nbsp;mm board, identical 78×42&nbsp;mm hole pattern — so CYD shells physically
+    <em>fit</em>. They are also useless here, and for one reason:
+    <strong>the ES3C28P vents its microphone through the front face</strong>, and no CYD-derived
+    case has a port there, because the CYD has no microphone. For a voice satellite that is
+    decisive, and it is not a cutout you can add to somebody else's STL from the outside.
+  </p>
+
+  <div class="note">
+    <b>And then JP found one that fits.</b> Not a case for this board — a
+    <a href="https://github.com/setha-maker/Reevo-Hubless-E-Bike-Screen" target="_blank" rel="noopener">dashboard
+    enclosure for a Beno Reevo e-bike</a>, whose STLs measure 89.40 × 53.40&nbsp;mm external,
+    i.e. ~86 × 50 internal — our outline exactly. No alias sweep could have found it: the
+    repository is named after a bicycle, the STLs are an incidental subdirectory of a firmware
+    project, and nothing in its title, description or topics mentions this board under any name.
+    <p style="margin:.6rem 0 0">
+      <strong>The lesson generalises.</strong> For a commodity module, the case you want is
+      often inside a project about something else entirely — so the search axis is "projects
+      using this panel", not "cases for this board". <em>(Its licence is
+      <code>NOASSERTION</code>, so it is a data point, not a starting point.)</em>
+    </p>
+  </div>
+
+  <p>
+    It also confirms the diagnosis rather than undermining it: that firmware has no audio at
+    all, so the enclosure has no mic port and no speaker cavity. The one case in the world with
+    the right outline is missing the one feature that matters. Hence designing rather than
+    remixing.
+  </p>
+
+  <h3 style="margin-top:2rem">Two constraints the geometry imposes</h3>
+  <ul class="spec">
+    <li><span class="k">Glass</span><span class="v">The touch panel spans the full 50&nbsp;mm PCB width<small>So the shell cannot clamp the long edges at all — there is no bezel to grip. Only the two ~8.2&nbsp;mm strips at the short ends are available, which is, conveniently, exactly where the screw holes are.</small></span></li>
+    <li><span class="k">LED</span><span class="v">The WS2812 fires <em>backwards</em><small>A closed back would hide Ember's status glow completely. So the diffuser is a separate printed part rather than a feature of the shell — the light has to get out of the box it is pointing into.</small></span></li>
+  </ul>
+
+  <div class="warn">
+    <p><b>⚠️ A trap for anyone searching by keyword.</b></p>
+    <p>
+      The most obvious match — a Waveshare 2.8&nbsp;inch case that even has the speaker grille
+      everyone wants — is for a board <strong>13&nbsp;mm shorter</strong>. It will look right in
+      every photograph and fit nothing.
+    </p>
+  </div>
+
+  <div class="note">
+    <b>Status: designed against the vendor STEP, first print pending.</b> The clearance check is
+    not confirmed, and the front mic-port position is inferred from the vendor drawing rather
+    than measured from the STEP. So nothing on this page is claimed as a fitted result — if the
+    first print reveals an interference, that is a thing that can happen, not a thing that
+    contradicts anything said here. Full geometry, wall thicknesses and print settings are in
+    <a href="https://github.com/jphein/ember.realm.watch/blob/main/docs/enclosure.md"
+       target="_blank" rel="noopener">the enclosure notes</a>.
   </div>
 </section>
 

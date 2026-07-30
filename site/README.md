@@ -7,7 +7,8 @@ index.src.html      ← EDIT THIS
 build.py            ← then run this
 make_og_card.py     ← regenerates the social preview image
 docs/               ← the deliverable; stage this whole directory
-  index.html          110 KB · HTML + inline <style> + inline art
+  index.html          138 KB · HTML + inline <style> + the inlined hero SVG
+                              (31 KB gzipped, which is what Pages serves)
   assets/*.wav        191 KB · the six chimes, fetched on click
   assets/og-card.png   33 KB · 1200x630 social preview (PLACEHOLDER)
   .nojekyll           serve the tree untouched by Jekyll
@@ -122,19 +123,44 @@ xdg-open /tmp/l.html
   keyframes — that is intended, but it means you don't need your own media query.
 - `:focus-visible` styled; mono type ≥ .68rem; contrast holds in both themes.
 
-## Incoming art (lyra-artist)
+## Lyra's art — integrated
 
-Expected in `../ember-art-web/`. Swap the paths at the top of `build.py` and rebuild.
+From `../ember-art-web/`, located by `_WEBART` in `build.py` (it is a *flat* directory, not an
+`art/` subdir, so it is discovered separately from the device art).
 
-- **Hero is 2.4:1** and should stay that way — it is the device's own proportion. A squarer
-  hero would misrepresent the hardware.
-- **The state sprite must stay five panels stacked vertically in one file**, or the CSS slicing
-  (`background-size:100% 500%`, positions at 0/25/50/75/100%) needs new stops.
-- **Inline SVG must namespace its IDs.** Multiple inlined SVGs share one document ID space, so
-  unprefixed `<linearGradient id="fire">` in two files will silently cross-wire. Prefix
-  everything: `wyrm-hero-fire`, `wyrm-states-fire`.
-- Startle triggers on the hero *container's* `:hover`/`:focus-visible`/`:active`, not the SVG,
-  so the whole card is the target.
+| asset | how it is used | why |
+|---|---|---|
+| `wyrm-startle.svg` | **inlined** as markup | Its keyframes live inside it and CSS cannot cross an `<img>` boundary. This is the only asset that earns inlining. |
+| `wyrm-states.svg` | file, CSS `background` | CSS never reaches *inside* a background image, so inlining would buy nothing and cost 33% base64 plus a worse gzip ratio. |
+| `favicon.svg` | file, `<link rel="icon">` | 2.8 KB inline in every page load is worse than one cached fetch, and a favicon is a separate request regardless. |
+
+**The inlining rule, stated once:** inline only what CSS must reach inside. That rule took the
+page from 345 KB to 138 KB (31 KB gzipped) and it applies to art exactly as it applied to audio.
+
+### Geometry that the CSS depends on
+
+- Hero viewBox is **1136×528** (2.15:1). It fills the content column; nothing depends on the
+  exact ratio, so a re-pose is safe.
+- States viewBox is **1136×3020 — five exact panels of 1136×604.** The card CSS slices it with
+  `background-size:100% 500%` at positions 0/25/50/75/100%. **If the panel count or the equal
+  spacing changes, those stops need recomputing.** Card `aspect-ratio` is `1136/604`.
+
+### Two things worth knowing before editing the hero
+
+- **Do not add an overlay on top of the inline SVG.** It carries its own idle breath, so a second
+  animation fights it — and an overlay sits between the pointer and the thing it is meant to wake.
+  An earlier version of this page had exactly that and it was removed.
+- **Her `<style>` block leaks to the whole document**, as every inline SVG's does. Its selectors
+  are `.wyrm`, `.hearth`, `.is-awake` — verified against every class token on this page, no
+  collisions. Her IDs (`belly`, `eyeglow`, `hearthglow`, `rim`, `skull`, `tongue`) are unprefixed
+  but do not overlap `wyrm-states.svg`, so nothing cross-wires *while only the hero is inlined*.
+  **If anyone ever inlines the states sheet as well, prefix both first.**
+
+### Labels
+
+Her art carries the state *name* ("1 · listening"); the HTML `.rung` line carries its position
+on the fire *ramp*. Different information on purpose — and the HTML one matters because her
+label is set in the artwork, so it shrinks with the two-column cards while the HTML does not.
 
 ## The share kit
 
