@@ -9,6 +9,17 @@ curves the device and the website draw.
 # Opening at k=2 loses 0.0% -> every feature >= 1.23 mm, printable.
 WYRM_W, WYRM_H = 37.0000, 15.4167
 WYRM_AREA = 204.9475
+# MIN FEATURE, verified by opening — import this, never transcribe the
+# number above. A consumer that scales this silhouette must divide its own
+# print floor by THIS, or its min-feature assert is arithmetic, not a test.
+WYRM_MIN_FEATURE = 1.2333
+# CONNECTED COMPONENTS of the silhouette. 2 means the mark is NOT one
+# piece: body_mask()|head_mask(0) unions two sprites and the k=0 head pose
+# leaves the neck clear of the body. On screen the fire fills the gap; in
+# plastic nothing does. A gap is not a thin feature, so no minimum-feature
+# test can see it.
+WYRM_COMPONENTS = 2
+WYRM_COMPONENT_GAP = 1.6604   # mm, largest two components
 WYRM = [
     (5.2417, 15.1083, 3.3917, 0.3083),
     (34.5333, 15.1083, 0.3083, 0.3083),

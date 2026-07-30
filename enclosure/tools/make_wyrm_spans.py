@@ -10,6 +10,7 @@ Run:  ../cadenv/bin/python tools/make_wyrm_spans.py   (writes wyrm_spans.py besi
 """
 from __future__ import annotations
 
+import math
 import os
 import sys
 
@@ -42,6 +43,45 @@ def thicken(m: np.ndarray, px: int) -> np.ndarray:
         g[:, :-1] |= out[:, 1:]
         out = g
     return out
+
+
+def components(m: np.ndarray):
+    """(count, nearest_gap_px) for the 8-connected components of the mask.
+
+    >>> EXPORTED BECAUSE "IS THIS ONE CREATURE?" IS NOT A SAFE ASSUMPTION. <<<
+    body_mask() | head_mask(0) is a UNION of two sprites, and at k=0 the head is posed
+    nose-tucked with its neck not overlapping the body — so the composite is TWO regions,
+    not one. On the device that is invisible: the flame band renders fire between them and
+    the wyrm reads as a creature against a glow. In PLASTIC there is no fire, so a consumer
+    that debosses this silhouette gets a body and a separate floating blob.
+    The gap is 5.4px here, far above any print floor, so no minimum-feature test can catch
+    it — a gap is not a thin feature. It needs its own number, hence this.
+    """
+    from collections import deque
+    h, w = m.shape
+    seen = np.zeros_like(m)
+    comps = []
+    for (sy, sx) in np.argwhere(m):
+        if seen[sy, sx]:
+            continue
+        q, P = deque([(sy, sx)]), []
+        seen[sy, sx] = True
+        while q:
+            y, x = q.popleft()
+            P.append((y, x))
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    ny, nx = y + dy, x + dx
+                    if 0 <= ny < h and 0 <= nx < w and m[ny, nx] and not seen[ny, nx]:
+                        seen[ny, nx] = True
+                        q.append((ny, nx))
+        comps.append(np.array(P))
+    comps.sort(key=len, reverse=True)
+    gap = 0.0
+    if len(comps) > 1:
+        A, B = comps[0], comps[1]
+        gap = min(math.dist(a, b) for a in A for b in B)
+    return len(comps), gap
 
 
 def runs(row: np.ndarray):
@@ -107,6 +147,7 @@ def main() -> int:
     # Opening is the honest test: a feature thinner than 2k does not survive erode-then-
     # dilate by k. At 2px dilation the loss at k=2 is 0.0%, so every feature is >= 1.23mm.
     k2_loss = opening_loss(m, 2)
+    ncomp, gap_px = components(m)
 
     rects = []
     for y in range(h):
@@ -128,6 +169,17 @@ def main() -> int:
                 f"{4*scale:.2f} mm, printable.\n")
         f.write(f"WYRM_W, WYRM_H = {w*scale:.4f}, {h*scale:.4f}\n")
         f.write(f"WYRM_AREA = {area:.4f}\n")
+        f.write(f"# MIN FEATURE, verified by opening — import this, never transcribe the\n")
+        f.write(f"# number above. A consumer that scales this silhouette must divide its own\n")
+        f.write(f"# print floor by THIS, or its min-feature assert is arithmetic, not a test.\n")
+        f.write(f"WYRM_MIN_FEATURE = {4*scale:.4f}\n")
+        f.write(f"# CONNECTED COMPONENTS of the silhouette. {ncomp} means the mark is NOT one\n")
+        f.write(f"# piece: body_mask()|head_mask(0) unions two sprites and the k=0 head pose\n")
+        f.write(f"# leaves the neck clear of the body. On screen the fire fills the gap; in\n")
+        f.write(f"# plastic nothing does. A gap is not a thin feature, so no minimum-feature\n")
+        f.write(f"# test can see it.\n")
+        f.write(f"WYRM_COMPONENTS = {ncomp}\n")
+        f.write(f"WYRM_COMPONENT_GAP = {gap_px*scale:.4f}   # mm, largest two components\n")
         f.write("WYRM = [\n")
         for r in rects:
             f.write(f"    {r},\n")
@@ -139,6 +191,11 @@ def main() -> int:
     assert k2_loss < 0.005, (
         f"{100*k2_loss:.1f}% of the silhouette is thinner than {4*scale:.2f}mm — "
         f"increase the dilation")
+    print(f"  min feature {4*scale:.4f} mm | {ncomp} connected component(s)"
+          + (f" | body<->head gap {gap_px*scale:.3f} mm" if ncomp > 1 else ""))
+    if ncomp > 1:
+        print(f"  !! THE SILHOUETTE IS {ncomp} PIECES. Any consumer that renders it WITHOUT\n"
+              f"     the fire behind it (deboss, grille island, sticker) gets a detached head.")
     print(f"  -> {os.path.relpath(out, REPO)}")
     assert w * scale <= FIELD_W + 0.01, "wyrm wider than the grille field"
     assert h * scale <= FIELD_H + 0.01, f"wyrm {h*scale:.1f}mm taller than the {FIELD_H}mm field"

@@ -122,6 +122,20 @@ def render(T, path, tilt=22.0, yaw=14.0, ppm=26.0, light=(-0.55, 0.45, 0.70)):
 
 
 def main() -> int:
+    # >>> STALE-TEST GUARD. <<<
+    # ember_case.front_bezel() now cuts its OWN motif (_bezel_cells/_bezel_mark), so applying
+    # this one on top would deboss the face twice and every number below would be measuring a
+    # part that does not exist. `front_bezel.report` is set only by the in-file implementation,
+    # so it is the reliable tell. A verification script that silently checks the wrong solid is
+    # worse than no verification script, which is the whole lesson of docs/verification.md.
+    E.front_bezel()
+    if hasattr(E.front_bezel, "report"):
+        print("REFUSING TO RUN: ember_case.front_bezel() already debosses the front face "
+              f"(report={E.front_bezel.report}).")
+        print("This script predates that and would cut a SECOND motif on top. Either delete\n"
+              "tools/{make_,}bezel_face.py + this file, or repoint it at the landed geometry.\n"
+              "tris() and render() below are still good and are used by the review scripts.")
+        return 2
     print("building the bezel with the front-face deboss ...")
     plain = E.front_bezel()
     v0 = plain.volume
