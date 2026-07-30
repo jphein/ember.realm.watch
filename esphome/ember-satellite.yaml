@@ -412,7 +412,15 @@ logger:
   #   i2s_audio: INFO
   #
   # Expected on a SPEAKING frame:  "x_low 0, y_low 188, x_high 239, y_high 263"
-  #                                "Total update took 7..10ms"
+  #                                "Total update took 10..13ms"
+  #
+  # That upper figure was 7..10ms before the hearth-wyrm landed in this band. The
+  # wyrm covers ~25% of the band's area and its per-pixel shading is the added cost,
+  # so 10..13ms IS the healthy reading now. Anyone comparing against the old number
+  # would report the wyrm as a performance regression — which is why it is corrected
+  # here rather than left for the reader to reconcile. If it exceeds ~16ms, the two
+  # documented flame-loop optimisations (cache the neck; restrict the per-pixel loop
+  # to the stage columns) are the levers, in that order.
   # Expected between ticks:        nothing at all (empty box -> flush skipped,
   #                                mipi_spi.h:573).
   # If a flame frame logs y_low 0, band isolation is broken.
@@ -1051,12 +1059,26 @@ script:
   #   explains the surviving pop precisely: tapping to talk starts the MICROPHONE,
   #   which restarts MCLK on the shared port while the DAC is muted and pops anyway.
   #
-  # SO THE ONLY REMAINING SOFTWARE LEVER IS THE AMPLIFIER. GPIO1 is a real hardware
-  # disconnect on the SC8002B (identified from the schematic, "Audio power amplifier
-  # circuit"), downstream of everything the codec does, so it suppresses clock clicks
-  # that no codec register can reach.
+  # ── ONE PART, TWO NAMES ───────────────────────────────────────────────────────
+  # This file used to call the amplifier SC8002B here and FM8002E above, which read
+  # as two different chips. Settled on FM8002E, because that is where the numbers we
+  # actually depend on come from: Ci 0.1-0.39uF and TD = 100ms typical are read off
+  # the FM8002E datasheet specifically, and the ~100ms wake sets the floor under
+  # amp_blank_ms.
   #
-  # THE COST IS UNMEASURED AND MIGHT EXCEED THE BENEFIT. The SC8002B is bridge-tied,
+  # They are very likely the same part — FM8002E's vendor is 深圳市富满电子 /
+  # superchip.cn, i.e. SC = SuperChip — and SC8002B is what the board schematic
+  # prints. But pin-for-pin equivalence is UNCONFIRMED, so this is a naming decision
+  # made for traceability, not an identification. If a measurement ever disagrees
+  # with the datasheet, that gap is the first thing to suspect.
+  # ──────────────────────────────────────────────────────────────────────────────
+  #
+  # SO THE ONLY REMAINING SOFTWARE LEVER IS THE AMPLIFIER. GPIO1 is a real hardware
+  # disconnect on the FM8002E (schematic silkscreen says SC8002B — see above;
+  # "Audio power amplifier circuit"), downstream of everything the codec does, so it
+  # suppresses clock clicks that no codec register can reach.
+  #
+  # THE COST IS UNMEASURED AND MIGHT EXCEED THE BENEFIT. The FM8002E is bridge-tied,
   # so on enable both outputs slew together and the DIFFERENTIAL the speaker sees
   # should stay small — that is the argument for expecting a quiet enable. But it is
   # an argument, not a measurement, and a permanently-enabled amp is also the reason
