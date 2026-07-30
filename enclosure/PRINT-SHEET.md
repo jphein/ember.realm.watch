@@ -4,9 +4,11 @@ Board: **LCDWIKI/QDtech ES3C28P** (Hosyond 2.8" ESP32-S3).
 Source of truth: `ember_case.py` (build123d). The STLs are output, not the artifact.
 
 Rebuild with:
+```bash
+cd enclosure && ./cadenv/bin/python ember_case.py
 ```
-cd scratch/hosyond-s3/ember-case && ../cadenv/bin/python ember_case.py
-```
+(That path was wrong here for a while — it still named the pre-extraction scratch directory
+and a `../cadenv` that does not exist. See [`README.md`](README.md) for first-time setup.)
 
 ---
 
@@ -14,15 +16,16 @@ cd scratch/hosyond-s3/ember-case && ../cadenv/bin/python ember_case.py
 
 | File | Qty | Print orientation | Supports | Notes |
 |---|---|---|---|---|
-| `ember-front-bezel.stl` | 1 | **front face DOWN** on the bed | **none** | The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are all bed-side chamfers, so they self-support. |
+| `ember-front-bezel.stl` | 1 | **front face DOWN** on the bed | **none** | The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are bed-side chamfers, so they self-support. **The debossed honeycomb and the wyrm mark are bed-side recesses**, 0.45 mm deep, and print as bridged voids — which is *why* they are recesses: on a bed face, relief only goes inward. |
 | `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** | Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Countersinks widen downward onto the bed. **The debossed cap faces are bed-side recesses** — a few layers bridge over each, no supports. |
-| `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | Chamber ceiling is a **17 mm bridge** and the cable channel a **16 mm bridge** — leave bridging on (slicer default) and they're fine. |
+| `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | Chamber ceiling is a **17 mm bridge** and the cable channel a **16 mm bridge** — leave bridging on (slicer default) and they're fine. The two **finger scallops** in the rear slot wall open *upward*, so every wall is near-vertical and the pocket floor is solid: no bridge at all. |
 | `ember-stand-base.stl` | 1 | flat | none | Closes the speaker chamber. Press fit. |
 
 Outer sizes: slab (bezel + shell assembled) **55.9 × 91.9 × 17.4 mm**; stand **64 × 64 × 40 mm**.
-Material use ≈ **128 cm³** total (~158 g in PLA), measured from the current STLs by
-signed-tetrahedron volume — not an estimate. Was 122 cm³ before the diffuser was deleted,
-the back became a hex field and the USB-C well was cut; those changes roughly cancelled.
+Material use ≈ **124 cm³** total (~154 g in PLA), measured from the current STLs by
+signed-tetrahedron volume — not an estimate. Per part: stand 95.9, back shell 17.5, bezel
+7.5, base 3.2 cm³. The stand is three quarters of the print because it is a speaker cabinet,
+and cabinets want mass.
 
 ---
 
@@ -244,6 +247,11 @@ below Fs does nothing and a mistuned one is worse than sealed.
    r12 — plus straight through the wall if you print in white. Many small apertures in a
    translucent panel scatter; one large bore behind a printed disc just shows you the die.
 7. Slide the slab into the stand slot; route the USB-C cable down the channel and out the back.
+   **The two button caps end up inside the slot**, well below the stand's rim — reach them
+   through the **finger scallops** in the rear wall, coming down the back of the slab from
+   above. If a finger does not fit, that is the fault this feature exists to fix and something
+   has regressed: `_check_geometry()` drives a 6 × 4 mm fingertip probe at each cap and fails
+   if the stand blocks more than 1 mm³ of it.
 
 ---
 
@@ -256,7 +264,9 @@ below Fs does nothing and a mistuned one is worse than sealed.
 | `GLASS_GAP` | 0.40 | never reduce below 0.25 — see below |
 | `SLOT_CLR` | 0.40 | slab loose/tight in the stand |
 | `TILT` | 15° | viewing angle |
-| `GRILLE_SLOT_W` / `GRILLE_PITCH` / `GRILLE_FIELD` | 2.2 / 3.4 / 30 | the grille is a clean parameter block, ready for a motif to replace it |
+| `GRILLE_STYLE` | `"hex"` | `"ridge"` swaps the 33-hex field for lyra's raked dorsal-spine motif. **Both are solved to the same 673 mm² open area**, so this is aesthetic, not acoustic — the rake never did acoustic work, since these are straight-through bores raked *in the plane* of the wall, not louvered vanes angled through its thickness |
+| `SCALLOP_D` / `SCALLOP_Z0` | 12.0 / 5.0 | the finger pockets over the button caps. Deeper reaches further behind the slab and eats the stand's rear wall — there is an assert holding 3 mm of wall at the rim. Raising `SCALLOP_Z0` keeps more of the lower rear grip and gives the finger less room |
+| `BEZEL_DEBOSS` | 0.45 | how deep the honeycomb and wyrm cut into the front face. An assert holds ≥2.00 mm of bezel over the glass, so there is headroom — but this is the face you look at, and deeper is not automatically better on a 0.16 mm layer height |
 
 ---
 
@@ -275,6 +285,24 @@ below Fs does nothing and a mistuned one is worse than sealed.
   hexagons with the whole back face 1.2 mm in the air. The bbox growing by exactly the cap
   height is what exposed it. Recessing costs nothing, prints unsupported, and means nothing
   resting on the case can hold BOOT low across a reset.
+- **The bezel face is debossed too, and for the same reason on the opposite face.** 75
+  honeycomb cells across the chin, a 16-cell chain up each rail (2.60 mm across the flats on a
+  0.70 mm web), and the hearth-wyrm 27.07 × 11.28 mm in the brow — all 0.45 mm deep. This part
+  prints front face down, so a raised logo would be the lowest feature and the bezel would land
+  on it. **On a bed face, relief only goes inward** — that it bit both shell parts in the same
+  session, on opposite faces, is the tell that it is a property of the process, not a mistake.
+  The wyrm's *size* is set by the print floor rather than the space available: its verified
+  minimum feature is 1.23 mm at unit scale, and scaling it to fill the brow would take the
+  thinnest part of the creature to 0.84 mm, under the 0.90 mm floor.
+- **The stand has finger scallops, and a taller cap would not have worked.** Docked, the stand
+  swallows the first 16.56 mm of the slab, so BOOT's cap sat 3.81 mm *below* the rim and
+  RESET's 6.23 — with 0.40 mm between the cap face and a solid wall. A finger does not fit in
+  0.40 mm, so **the obstruction is beside the cap, not above it**, and no amount of cap height
+  reaches past material that is alongside it. A scallop rather than a through-window because
+  the rear wall is ~19 mm thick there — a window would be a tunnel, not an access port. And a
+  bottom-hinged lever with a thumb tab, which is the other obvious fix, is unbuildable here:
+  the hinge angle is fixed at 0.40/2.46 = 9.3° by pip travel and does not improve with a longer
+  lever, and holding PLA through 9.3° needs ~4 mm of thinned flexure where there are 2.46 mm.
 - **Side channels are deliberately generous.** See the open question below.
 - **Shrinkage:** PLA ≈0.3 % over 86 mm = 0.13 mm/side, PETG ≈0.5 % = 0.22 mm/side — both
   inside the 0.35 mm pocket fit, so **no scaling compensation is needed**.

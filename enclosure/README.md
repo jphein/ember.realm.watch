@@ -48,7 +48,7 @@ deliberately sunk 2 mm into the board and the detector **still** said `0.000`. T
 permanent self-test doing exactly that, and it must report **1467.842 mm³**. If it ever
 reports zero, the checker is broken — not the parts.
 
-**`[geometry]`** asserts three things a boolean is structurally blind to, because nothing
+**`[geometry]`** asserts the things a boolean is structurally blind to, because nothing
 intersects:
 
 | assert | why it exists |
@@ -56,10 +56,15 @@ intersects:
 | stand must not occlude the visible area | it once covered **19.5% of the screen** — the stand wasn't colliding with it, just in front of it |
 | ≥16 mm under the slab | there was 6 mm, and a USB-C plug needs ~18–20. Missed because no figure ever showed a cable |
 | ≥12 mm slot engagement | the fix for the first two is raising the slot floor, and that trades away retention |
+| a fingertip must reach each button cap while docked | both caps were **completely buried** by the stand. Probed as a 6 × 6 × 4 mm patch, not a centreline sample — a point would pass straight through a slot a finger cannot enter |
+| ≥3 mm of stand wall behind the finger scallops | the fix for the above is removing wall, and that is the thing it trades against |
+| **the back shell must be exactly 1 solid** | the only assert here that tests the thing rather than a proxy. If the hinge-tab arithmetic is wrong the slot ring closes and a pad is not a printed-in-place hinge but a loose hexagon that falls out on the bed. A dimension check cannot see that, and neither can the clearance check — **a severed pad collides with nothing** |
+| per-region bezel cell counts, never a total | the first honeycomb run put 75 cells in the chin and **zero** on the rails, and the assert passed because it read `count ≥ 60`. A total absorbed a complete regional absence |
 
-**A test that measures interference cannot find occlusion.** Both faults were caught by
-rendering the thing and looking at it — which is four for four in this project on defects
-invisible in correct-looking source.
+**A test that measures interference cannot find occlusion**, and *"does it collide"* and
+*"can you get at it"* are different questions — passing the first says nothing about the
+second. Every fault above was caught by rendering the thing and looking at it, which is five
+for five in this project on defects invisible in correct-looking source.
 
 ## Parameters most likely to need changing
 
@@ -67,5 +72,8 @@ invisible in correct-looking source.
 |---|---|
 | `DRIVER_W/H/R/T` | the speaker. Currently a 40 × 27 × 10 mm **sealed-back module** with tape on its back |
 | `HINGE_T = 0.90` | the button pads must flex ~0.40 mm. **Most likely to need a second print** — if the buttons feel dead, drop to 0.70 |
-| `GRILLE_SLOT_W2 / GRILLE_PITCH / GRILLE_FIELD` | a pure parameter block, so a motif can replace it without touching structure |
+| `BTN_R_BIG / BTN_R_SMALL` | the hex caps, 5.20 and 3.80 mm circumradius. **Not free choices**: pinned between the island's bottom edge (below y=0.80 it cuts the shell's bottom wall) and the slot's outer edge (must clear the hex field at y=11.0), and a flat-top hex spans `R·√3` in Y |
+| `DEBOSS_BIG / DEBOSS_SMALL` | 0.90 / 0.50. Deliberately **unequal**, so a thumb has two discriminators in the dark — size and depth — on a case with no lettering |
+| `GRILLE_STYLE` | `"hex"` or `"ridge"`. Both solved to the same 673 mm² open area, so it is aesthetic rather than acoustic |
+| `SCALLOP_D / SCALLOP_Z0` | the finger pockets that make the docked buttons reachable at all. Module scope on purpose: `_check_geometry()` asserts against them, and a second hand-typed `12.00` in the assert is exactly the duplicate-constant trap this file has been bitten by |
 | `SLOT_FLOOR` | guarded by the asserts above — raising it clears the screen, lowering it buries it |

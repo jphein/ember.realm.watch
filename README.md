@@ -61,6 +61,30 @@ explains a genuinely counter-intuitive constraint.
 
 ---
 
+## Three operating modes
+
+**Normal** (speech + chimes) → **No talking** (chimes only) → **Hush** (silent). Monotonic:
+progressively quieter, and nothing else varies. Conversation works fully in all three and the
+reply still displays on screen — only what leaves the speaker changes.
+
+The gate is the existing 10 ms audio watchdog declining to lift protection it already asserts,
+using the display's own speech predicate — so the thing silenced is exactly what the screen
+calls speech, and the two cannot drift apart.
+
+> ⚠️ **Hush changed meaning.** It used to mean *"do not listen to me"* and gated the talk
+> gesture; it now means *"do not make noise"*. The microphone is unaffected in every mode. If
+> you find a dashboard tile, icon or doc implying otherwise — `mdi:microphone-off` is the tell
+> — it is stale, and it was true once. The mode select belongs beside Hush wherever Hush
+> appears, because Hush as a view can only reach Normal and Hush, so "No talking" would
+> otherwise be unreachable from Home Assistant.
+
+`op_mode` is the value that persists; the select and the Hush switch are lambda views over it,
+republished at boot. Before that, a device rebooted while quiet came back genuinely Hush with
+the select cheerfully reporting "Normal" — found by power-cycling the real device, not by
+reading the config.
+
+---
+
 ## Hardware
 
 An **LCDWIKI/QDtech ES3C28P**, sold as a "Hosyond 2.8in ESP32-S3 Touchscreen".
@@ -109,9 +133,9 @@ Deeper write-ups live alongside this table:
   the conclusion. Includes one **accepted** hazard whose symptom is a clipped first
   syllable, not a pop, and which would therefore be blamed on TTS.
 - **[docs/enclosure.md](docs/enclosure.md)** — verified board geometry off the vendor
-  drawing, the official STEP model, and why **no printable case exists for this board
-  anywhere**. The constraint that catches everyone: the touch glass is the full 50 mm
-  PCB width, so you cannot clamp the long edges.
+  drawing, the official STEP model, and why **no printable case existed for this board
+  anywhere** before this one. The constraint that catches everyone: the touch glass is the
+  full 50 mm PCB width, so you cannot clamp the long edges.
 - **The YAML's own header** — four architecture notes on why there is no LVGL,
   how the banded partial redraw works, and why the fire renders row-major.
   `>>> Do not "simplify" the fire back into per-column filled_rectangle calls.
@@ -195,6 +219,52 @@ only worth running while it is the same code.
 
 ---
 
+## The enclosure
+
+**There was no printable case for this board.** Not under `ES3C28P`, not under any reseller
+alias, not on any model site — because the ES3C28P vents its microphone through the *front*
+face, and every CYD-derived shell that physically fits has no port there. For a voice
+satellite that is decisive, and it is not a cutout you can add to somebody else's STL from
+the outside.
+
+So there is one now. **Four parts, none needing supports**, in [`enclosure/`](enclosure/):
+
+| | |
+|---|---|
+| `ember-front-bezel.stl` | front face down. Carries the ⌀2.40 mm mic port, the screen window, a debossed honeycomb and the hearth-wyrm |
+| `ember-back-shell.stl` | back face down. Two printed-in-place hexagonal button pads on living hinges |
+| `ember-stand.stl` | bottom face down. A 15° cradle that **is** the speaker cabinet, with finger scallops reaching the buttons |
+| `ember-stand-base.stl` | flat. Closes the chamber |
+
+**`ember_case.py` is the artifact; the STLs are output** — regenerate them, don't hand-edit
+them. It is build123d on OpenCASCADE, which is the point: the vendor's STEP model can be
+*imported* and every part checked against it by boolean subtraction, so every board dimension
+is measured rather than transcribed from a datasheet table.
+
+```bash
+cd enclosure
+python3 -m venv cadenv && ./cadenv/bin/pip install -r tools/requirements.txt
+./cadenv/bin/python ember_case.py            # STLs + clearance check + geometry asserts
+./cadenv/bin/python tools/make_renders.py    # the site figures
+```
+
+- **[`enclosure/README.md`](enclosure/README.md)** — building from a fresh clone, what the two
+  kinds of check actually do, and the parameters most likely to need a second print.
+- **[`enclosure/PRINT-SHEET.md`](enclosure/PRINT-SHEET.md)** — orientations, slicer settings,
+  fasteners, assembly order. Also served as a page at
+  [`docs/print-sheet.html`](docs/print-sheet.html), because that is the one document you read
+  while a printer is running.
+
+> **The two lessons this part of the project keeps teaching.** *A test that cannot fail is not
+> a test* — the clearance checker returned a confident `CLEAR` for a while because the vendor
+> solid and the parts were in disjoint coordinate frames, so every boolean returned empty.
+> There is now a permanent self-test that deliberately sinks a bezel into the board and must
+> report **1467.842 mm³**. And *a boolean cannot see occlusion* — the stand covered a fifth of
+> the screen, then buried both buttons, without ever intersecting anything. Both were found by
+> rendering the thing and looking at it.
+
+---
+
 ## Repository layout
 
 ```
@@ -214,17 +284,28 @@ homeassistant/
   tools/
     build_ember_dashboard.py     authoritative regen path for the dashboard
     deploy-ha.sh                 push packages to the HA VM + reload
+enclosure/
+  ember_case.py                THE ARTIFACT — build123d; the STLs are its output
+  ember-*.stl                  four printable parts, regenerated not hand-edited
+  PRINT-SHEET.md               orientations, slicer settings, assembly order
+  README.md                    building from a fresh clone; what the checks do
+  tools/make_renders.py        the site figures -> site/renders/
+  cadenv/                      the whole CAD toolchain, gitignored AND stignored
 site/                        SOURCES for the project site
   index.src.html               hand-edit this
   build.py                     -> docs/, inlining art and copying chimes
+  build_print_sheet.py         enclosure/PRINT-SHEET.md -> docs/print-sheet.html
+  renders/                     enclosure figures, GENERATED by make_renders.py
   ember-art-web/og_card.py     regenerates the social preview card, and refuses
                                to ship a known-wrong engine name
 docs/                        the GitHub Pages root
   index.html                   GENERATED by site/build.py; do NOT hand-edit
+  print-sheet.html             GENERATED from enclosure/PRINT-SHEET.md
   assets/                      chimes + og card
   home-assistant.md            the full HA-side guide
   audio-pop.md                 the pop analysis + how it was resolved
-  enclosure.md                 board geometry; no case exists yet
+  enclosure.md                 board geometry, and the case survey that found none
+  verification.md              the running log of claims that outran their evidence
   version.json                 realm-sigil stamp
 ```
 

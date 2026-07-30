@@ -1,8 +1,13 @@
-# Enclosure — board geometry, and why no case exists yet
+# Enclosure — board geometry, and why no case existed
 
 Mechanical findings for the **LCDWIKI/QDtech ES3C28P**. Every dimension below is read
 off the vendor's own outline drawing (`ES3C28P_ES2N28P_Specification_V1.0.pdf` §5.1,
 Figure 5.1, rev V1.0, 2025-06-11), not calipered and not taken from a community table.
+
+> **This is the survey, not the answer.** It records why nothing off the shelf fits. The case
+> that came out of it lives in [`enclosure/`](../enclosure/) — four printable parts, with
+> [`enclosure/PRINT-SHEET.md`](../enclosure/PRINT-SHEET.md) for orientations and assembly and
+> [`print-sheet.html`](print-sheet.html) for the version you read at the printer.
 
 For the electrical side — pinout, codec, display — see the comments in
 [`esphome/ember-satellite.yaml`](../esphome/ember-satellite.yaml) and

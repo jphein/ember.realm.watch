@@ -236,6 +236,30 @@ for _name, _cx in (("btn-boot", E.BTN_BOOT_X), ("btn-reset", E.BTN_RESET_X)):
                        _name if _i == 0 else f"{_name}-cap"))
 write_svg(os.path.join(OUT,"case-back.svg"), groups, "case-back")
 
+# ------------------------------------------------------- docked, from behind
+# THIS FIGURE EXISTS BECAUSE A QUESTION WAS ASKED THAT NO EXISTING FIGURE COULD ANSWER.
+# JP: "are those new hexagon buttons tall enough? seems like there should be a tab to bring
+# them taller to be more accessible when in the stand." Every figure we had showed the parts
+# either separated (exploded, print layout) or from the front (hero) or the shell alone
+# (back 3/4) — so not one of them showed a button and the stand wall in the same frame, which
+# is the only place the answer lives. The buttons were in fact COMPLETELY buried, both of
+# them, and the burial was invisible in four correct figures.
+#
+# The lesson is the reason this view is now permanent rather than a one-off check: a figure
+# set can be individually accurate and collectively blind. Ask what each figure CANNOT show,
+# and add the view that closes the gap — the same discipline as asking what an assert would
+# still pass on.
+print("docked rear:")
+DOCK_TGT = (E.ST_W/2, E.ST_D/2, 30.0)
+DOCK_EYE = (DOCK_TGT[0] - 300.0, DOCK_TGT[1] + 620.0, DOCK_TGT[2] + 330.0)
+groups = [(*project(stand, DOCK_EYE, up=(0,0,1), target=DOCK_TGT), "stand")]
+groups.append((*project(to_stand(shell), DOCK_EYE, up=(0,0,1), target=DOCK_TGT), "shell"))
+for _name, _cx in (("btn-boot", E.BTN_BOOT_X), ("btn-reset", E.BTN_RESET_X)):
+    for _i, _f in enumerate(_cap_rings(_cx)):
+        groups.append((*project(to_stand(_f), DOCK_EYE, up=(0,0,1), target=DOCK_TGT),
+                       _name if _i == 0 else f"{_name}-cap"))
+write_svg(os.path.join(OUT,"case-docked-rear.svg"), groups, "case-dock")
+
 # ============================== 3. PRINT LAYOUT (svg) ========================
 print("print layout:")
 # Hand-placed offsets overlapped: the bezel was flipped with Rot(180,0,0), which puts it

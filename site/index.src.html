@@ -215,20 +215,50 @@ figcaption{
 :root[data-theme="light"] .linework{background:var(--panel); color:var(--ember)}
 :root[data-theme="dark"]  .linework{background:#0A0604; color:var(--gold)}
 .linework svg{display:block; width:100%; height:auto}
-/* The two button pads, marked as a DEFECT rather than as a feature.
+/* The two button pads, BACK TO AN ACCENT — the previous rule said, in this comment, that
+   they would be when the geometry was fixed, and it is.
 
-   This selector first painted them in --hot/--ink: the most emphatic thing in the figure,
-   on the reasoning that they were the only parts a hand touches. They are not touchable at
-   all. Both pads sit 100% inside the desk stand — the stand encloses the slab from board-Y
-   -3 upward and the pads span 0.80..10.30, so a 6mm finger-access probe over each one comes
-   back 93% consumed by the stand. Accent styling on an unreachable control is the worst
-   thing this figure could do: it asserts, in the most legible way available, something that
-   is false. So --alarm and dashed, which reads as "flagged" in any theme and matches the
-   page's other caveats. It goes back to an accent when the geometry is actually fixed. */
+   The history is worth keeping because the rule changed twice for reasons that were both
+   correct at the time. It painted them --hot/--ink first: the most emphatic thing in the
+   figure, on the reasoning that they are the only parts a hand touches. They then turned out
+   not to be touchable at all — both pads sat 100% inside the desk stand, and a 6mm
+   finger-access probe over each came back 93% consumed. So they went --alarm and dashed,
+   which reads as "flagged" in any theme, because accent styling on an unreachable control
+   asserts something false in the most legible way available.
+
+   The stand now carries a finger scallop over each cap and the probe assert passes at
+   <1mm3 blocked, so the flag has to come off — a caveat left in place after its cause is
+   gone is the same defect as the caveat being missing, just pointing the other way. Same
+   rule now serves both figures: the shell alone (case-back) and the slab docked
+   (case-dock), where these are the only marks that matter against ~130 hex apertures. */
 .linework #case-back-btn-boot-vis,
-.linework #case-back-btn-reset-vis{
-  stroke:var(--alarm); stroke-dasharray:7 5;
+.linework #case-back-btn-reset-vis,
+.linework #case-dock-btn-boot-vis,
+.linework #case-dock-btn-reset-vis,
+.linework #case-dock-btn-boot-cap-vis,
+.linework #case-dock-btn-reset-cap-vis{
+  stroke:var(--hot);
 }
+@media (prefers-color-scheme:light){
+  .linework #case-back-btn-boot-vis,
+  .linework #case-back-btn-reset-vis,
+  .linework #case-dock-btn-boot-vis,
+  .linework #case-dock-btn-reset-vis,
+  .linework #case-dock-btn-boot-cap-vis,
+  .linework #case-dock-btn-reset-cap-vis{stroke:var(--ink)}
+}
+:root[data-theme="light"] .linework #case-back-btn-boot-vis,
+:root[data-theme="light"] .linework #case-back-btn-reset-vis,
+:root[data-theme="light"] .linework #case-dock-btn-boot-vis,
+:root[data-theme="light"] .linework #case-dock-btn-reset-vis,
+:root[data-theme="light"] .linework #case-dock-btn-boot-cap-vis,
+:root[data-theme="light"] .linework #case-dock-btn-reset-cap-vis{stroke:var(--ink)}
+:root[data-theme="dark"] .linework #case-back-btn-boot-vis,
+:root[data-theme="dark"] .linework #case-back-btn-reset-vis,
+:root[data-theme="dark"] .linework #case-dock-btn-boot-vis,
+:root[data-theme="dark"] .linework #case-dock-btn-reset-vis,
+:root[data-theme="dark"] .linework #case-dock-btn-boot-cap-vis,
+:root[data-theme="dark"] .linework #case-dock-btn-reset-cap-vis{stroke:var(--hot)}
 /* The two pads are drawn at DIFFERENT WEIGHTS, and the caption refers to them that way.
    BOOT is GPIO0 and the whole usable input; RESET is hardwired to CHIP_PU and firmware
    cannot read it. Drawing them identically asserted that they are the same kind of thing.
@@ -238,21 +268,40 @@ figcaption{
    another. "The heavier outline" is a property of the drawing and cannot be mirrored. It
    also pre-figures the real asymmetry: a big thumb cap over BOOT, a smaller one over
    RESET. */
-.linework #case-back-btn-boot-vis {stroke-width:3.4}
-.linework #case-back-btn-reset-vis{stroke-width:1.9}
-/* In light, --alarm (#B3200A) sits almost on top of the --ember the linework uses
-   (#A32A08) — the same hue collision that ruled --alarm out as the accent. The dash
-   pattern separates them but colour contributes nothing, so both weights step up to
-   clear the linework's 1.4 while keeping the boot/reset ratio legible. This is why the
-   caption says "dashed" rather than "red": a caption that names a colour can be wrong. */
+.linework #case-back-btn-boot-vis,
+.linework #case-dock-btn-boot-vis,
+.linework #case-dock-btn-boot-cap-vis {stroke-width:3.4}
+.linework #case-back-btn-reset-vis,
+.linework #case-dock-btn-reset-vis,
+.linework #case-dock-btn-reset-cap-vis{stroke-width:1.9}
+/* Both themes step the weights up over the linework's 1.4 rather than relying on colour,
+   and light steps them further. This started as a workaround for --alarm sitting almost on
+   top of --ember in light (#B3200A vs #A32A08 — the same hue collision that ruled --alarm
+   out as the accent). The colour changed; the reasoning survives it, which is the argument
+   for having done it this way. Weight is what carries the boot/reset ratio, so the caption
+   says "the heavier outline" and never names a colour or a side — a caption that names a
+   colour can be wrong, and a caption that names a side is wrong in half the figures, since
+   a back view mirrors the board and the print-layout figure mirrors it back. */
 @media (prefers-color-scheme:light){
-  .linework #case-back-btn-boot-vis {stroke-width:4.2}
-  .linework #case-back-btn-reset-vis{stroke-width:2.4}
+  .linework #case-back-btn-boot-vis,
+  .linework #case-dock-btn-boot-vis,
+  .linework #case-dock-btn-boot-cap-vis {stroke-width:4.2}
+  .linework #case-back-btn-reset-vis,
+  .linework #case-dock-btn-reset-vis,
+  .linework #case-dock-btn-reset-cap-vis{stroke-width:2.4}
 }
-:root[data-theme="light"] .linework #case-back-btn-boot-vis {stroke-width:4.2}
-:root[data-theme="light"] .linework #case-back-btn-reset-vis{stroke-width:2.4}
-:root[data-theme="dark"]  .linework #case-back-btn-boot-vis {stroke-width:3.4}
-:root[data-theme="dark"]  .linework #case-back-btn-reset-vis{stroke-width:1.9}
+:root[data-theme="light"] .linework #case-back-btn-boot-vis,
+:root[data-theme="light"] .linework #case-dock-btn-boot-vis,
+:root[data-theme="light"] .linework #case-dock-btn-boot-cap-vis {stroke-width:4.2}
+:root[data-theme="light"] .linework #case-back-btn-reset-vis,
+:root[data-theme="light"] .linework #case-dock-btn-reset-vis,
+:root[data-theme="light"] .linework #case-dock-btn-reset-cap-vis{stroke-width:2.4}
+:root[data-theme="dark"]  .linework #case-back-btn-boot-vis,
+:root[data-theme="dark"]  .linework #case-dock-btn-boot-vis,
+:root[data-theme="dark"]  .linework #case-dock-btn-boot-cap-vis {stroke-width:3.4}
+:root[data-theme="dark"]  .linework #case-back-btn-reset-vis,
+:root[data-theme="dark"]  .linework #case-dock-btn-reset-vis,
+:root[data-theme="dark"]  .linework #case-dock-btn-reset-cap-vis{stroke-width:1.9}
 /* The exploded view is portrait — the camera was moved off-axis so the parts read as
    plates rather than edges, and that costs aspect ratio. Cap it so a tall figure
    cannot push the rest of the section off the screen on a laptop. */
@@ -1003,25 +1052,37 @@ footer p{margin:.4rem 0}
   <figure class="fig">
     <div class="linework linework-tall">{{SVG:case_back}}</div>
     <figcaption>
-      The other side. The two pads picked out with a dashed outline are printed-in-place
-      pushers over the board's rear-facing tact switches — each an 11 × 9.5&nbsp;mm patch of
-      the back wall, cut
-      free on three sides by a 0.6&nbsp;mm slot and held along the fourth by a 0.9&nbsp;mm
-      living hinge, with a pip on the inside face reaching the switch plunger. They print as
-      part of the shell: no separate part, no fastener, nothing to lose.
+      The other side. The two marked outlines are printed-in-place pushers over the board's
+      rear-facing tact switches — <strong>hexagons</strong>, because every other aperture on
+      this case is one. Each is a hexagonal island in the back wall, cut free by a
+      0.6&nbsp;mm slot ring with a hinge tab declined at the top edge, held by a
+      0.9&nbsp;mm living hinge, with a pip on the inside face reaching the switch plunger.
+      They print as part of the shell: no separate part, no fastener, nothing to lose.
       <br><br>
-      <strong>They are also, as drawn, completely unreachable — and that is why they are
-      marked rather than highlighted.</strong> The desk stand encloses the bottom of the slab
-      from board-Y&nbsp;−3 upward; the pads span 0.80 to 10.30. That is
-      <strong>100% of the pad length buried</strong>, and a 6&nbsp;mm finger-access probe over
-      each pad comes back 93% consumed by the stand — not merely flush with the lip, but
-      sealed, with no finger room at all. A redesign is in progress: flipping the hinge to the
-      bottom and running the paddle up past the stand's lip turns it into a class-2 lever, at
-      a lever ratio thin enough that the pip travel has to be measured rather than assumed.
-      Until that lands, this figure shows a control that does not work, and says so.
+      <strong>They are the one place on the case where the hexes are flat-top, and that is
+      structural rather than decorative.</strong> Everything else here is pointy-top, because
+      that is the honeycomb pitch. A pad cannot be: it is a living hinge, so it must stay
+      attached along its top edge — and a pointy-top hexagon puts a <em>vertex</em> there. A
+      hinge of zero width is not a hinge, it is a tear. Flat-top puts a full edge of length
+      <i>R</i> at the top. <i>R</i> is not a taste choice either: the island cannot drop below
+      y&nbsp;0.80 without cutting the shell's bottom wall, and the slot's outer edge has to
+      clear the hex field at y&nbsp;11.0, which pins it. BOOT is 10.40&nbsp;mm across corners,
+      RESET 7.60.
       <br><br>
-      There is a second correction underneath the first. The pushers are symmetric; the
-      switches are not. They are the board's <code>K1</code> and <code>K2</code> —
+      <strong>The cap faces are debossed, not raised — and the first version had it
+      backwards.</strong> "Buttons you can feel" reads as a boss, so they stood 1.20&nbsp;mm
+      proud. That is incompatible with the part's own print orientation: this shell prints
+      back face down with no supports, so a proud cap becomes the <em>lowest</em> feature and
+      a 55 × 92&nbsp;mm part balances on two hexagons with the whole back face in the air.
+      Recessed costs nothing — a few layers bridge an 8&nbsp;mm void — and it removes a hazard
+      rather than mitigating one, because holding BOOT low across a reset enters ROM download
+      mode and nothing resting on a case can press a recess. The depths are deliberately
+      <em>unequal</em>, 0.90&nbsp;mm on BOOT and 0.50 on RESET, so a thumb has two independent
+      discriminators in the dark — size and depth — on a case that carries no lettering.
+      <br><br>
+      The sizes are unequal because the switches are not the same kind of thing, and the
+      pushers used to pretend otherwise. They are the board's <code>K1</code> and
+      <code>K2</code> —
       <strong>RESET and BOOT</strong> — and that is the entire hardware input budget. RESET is
       hardwired to <code>CHIP_PU</code>: it reboots the MCU and the LCD, and firmware cannot
       read it at all. So only <em>one</em> of these two pads was ever going to be an input,
@@ -1032,21 +1093,22 @@ footer p{margin:.4rem 0}
       bare board raises the volume overlay from the switch on the microSD side, and the
       microSD cage sits at board x&nbsp;33.7–44.8, so <strong>BOOT is the one at
       x&nbsp;36.58</strong> and RESET is at x&nbsp;13.45. In this figure the
-      <strong>heavier dashed outline is BOOT</strong>. That is deliberately a statement about
+      <strong>heavier outline is BOOT</strong>. That is deliberately a statement about
       the drawing and not about which side it is on — a back view mirrors the board, and the
       print-orientation figure further down mirrors it back again, so "the left one" is true
       in one figure and false in another. Get it backwards when you cut the caps and the big
       inviting thumb button ends up over the one that reboots the device.
       <br><br>
-      <strong>Worth naming how this survived.</strong> Both shell parts are checked against
-      the vendor board solid by boolean intersection, and the geometry asserts screen
-      occlusion, plug clearance and slot retention. Nothing intersected here: the stand is
-      simply <em>in front of</em> the buttons, and a clearance check cannot fail on empty
-      space. It is the third fault on this part with that shape — the stand also covered a
-      fifth of the screen, and the USB-C well was cut flat where the slot's floor tilts. All
-      three were found by a person looking at a picture, and this one was found by noticing
-      that the buttons were <em>absent</em> from every figure. Which is a reasonable argument
-      for drawing things even when the drawing is incomplete.
+      <strong>Worth naming how this part nearly shipped a control nobody could press.</strong>
+      Both shell parts are checked against the vendor board solid by boolean intersection, and
+      the geometry asserts screen occlusion, plug clearance and slot retention. None of that
+      could see it: nothing <em>intersected</em>. The stand was simply <em>in front of</em>
+      the buttons, and a clearance check cannot fail on empty space. That is the third fault
+      on this case with exactly that shape — the stand also covered a fifth of the screen, and
+      the USB-C well was cut flat where the slot's floor tilts. All three were found by a
+      person looking at a picture. <strong>The next figure is the one that shows it</strong>,
+      and it exists because this one cannot: a figure of the shell alone can never answer a
+      question about the shell in the stand.
       <br><br>
       The field above is 127 hexagons, 3.2&nbsp;mm across the flats on a 0.8&nbsp;mm web —
       55% open. It replaced two rows of straight slot vents and does three jobs at once: it
@@ -1060,16 +1122,108 @@ footer p{margin:.4rem 0}
   </figure>
 
   <figure class="fig">
+    <div class="linework linework-tall">{{SVG:case_docked_rear}}</div>
+    <figcaption>
+      <strong>The figure that had to be drawn.</strong> The slab docked, from behind — the
+      only view on this page that puts a button and a stand wall in the same frame. Every
+      other one shows the parts separated, or the slab from the front, or the shell on its
+      own, and each of those is individually accurate. Collectively they were blind: a
+      question was asked that not one of them could answer, and the answer turned out to be
+      that <em>both</em> buttons were completely buried.
+      <br><br>
+      The question was whether the caps were <em>tall enough</em> to reach past the stand. It
+      is the natural reading and the geometry says no cap could have been. The stand swallows
+      the first <strong>16.56&nbsp;mm</strong> of the slab and the switches sit 3.26&nbsp;mm
+      from the board's bottom edge, so BOOT's top edge sat <strong>3.81&nbsp;mm below the
+      stand's rim</strong> and RESET's 6.23 — with <strong>0.40&nbsp;mm</strong> between the
+      cap face and a solid wall. A finger does not fit in 0.40&nbsp;mm.
+      <strong>The obstruction was beside the cap, not above it</strong>, and adding material
+      cannot fix a problem caused by surrounding material. The wall had to go, not the cap
+      grow.
+      <br><br>
+      Hence the two <strong>finger scallops</strong> visible in the stand's rear rim: pockets
+      12&nbsp;mm out from the slot's rear face, opening <em>upward</em> from 5&nbsp;mm above
+      the slab's bottom edge, 14&nbsp;mm wide over BOOT and 10 over RESET. A scallop rather
+      than a window because the rear wall is ~19&nbsp;mm thick at that height — a
+      through-window would be a tunnel, not an access port — and opening upward means the
+      finger comes down the back of the slab and the pocket prints with no bridge at all.
+      The rear rim is the loaded surface, since the slab leans back into it, so the scallops
+      are sized to leave three well-spaced bearing zones across the width rather than
+      swallowing the bearing line.
+      <br><br>
+      <strong>And the check is now a fingertip, not a point.</strong> A centreline sample
+      would pass straight through a slot a finger cannot enter, so the assert drives a
+      6 × 6 × 4&nbsp;mm probe at each cap and demands under 1&nbsp;mm³ of stand in the way.
+      It passes. The generalisation is the part worth stealing: <em>"does it collide"</em> and
+      <em>"can you get at it"</em> are different questions, and passing the first says nothing
+      about the second — so every feature a human has to reach needs its own reachability
+      check, enumerated rather than assumed to fall out of a neighbouring assert.
+    </figcaption>
+  </figure>
+
+  <figure class="fig">
     <img src="{{ASSET:case_hero}}" width="1400" height="788" loading="lazy"
          alt="The assembled case seated in its stand at a 15-degree tilt, seen from the front:
               the screen fills the bezel window, the microphone port sits at the top corner,
-              and the speaker grille is in the stand below.">
+              a honeycomb of shallow hexagonal recesses runs across the chin and up both
+              rails, the hearth-wyrm is debossed into the brow at top-left, and the speaker
+              grille is in the stand below.">
     <figcaption>
       What it looks like on a desk: the slab seated in the stand at 15°, screen and mic port
       forward, the speaker grille below. The stand is not a stand with a speaker in it — it
       <em>is</em> the enclosure, and the base plate is its lid rather than a foot.
+      <br><br>
+      <em>Read this render for proportion, not for detail.</em> The bezel's honeycomb and the
+      wyrm mark are 0.45&nbsp;mm recesses in a shaded view at this scale, so they register as
+      a faint texture along the chin and a smudge on the brow rather than as the motif they
+      are. The section below has the numbers; the part has the geometry.
     </figcaption>
   </figure>
+
+  <h3 style="margin-top:2rem">The front face is not blank</h3>
+  <p>
+    The bezel carries a <strong>debossed honeycomb</strong> — 75 cells across the chin and a
+    16-cell chain up each rail, 2.60&nbsp;mm across the flats on a 0.70&nbsp;mm web — and the
+    <strong>hearth-wyrm</strong> cut into the brow at top-left, 27.07 × 11.28&nbsp;mm.
+    Everything on this face is <strong>0.45&nbsp;mm deep</strong> — under three layers at the
+    0.16&nbsp;mm this part wants, which is the point: deep enough to read and to feel, shallow
+    enough that it never comes near the glass.
+  </p>
+  <p>
+    <b>Every feature here is a recess, and that is forced rather than chosen.</b> The bezel
+    prints front face down, so any raised feature on this face becomes the lowest point of the
+    part and the bezel lands on its own logo. It is the same trap that killed the raised
+    button caps — opposite face, same session, same part of the process. On a bed face,
+    relief only goes inward. A deboss that breaks through is a hole, so the remaining
+    thickness over the glass is asserted rather than eyeballed: 3.00&nbsp;mm of bezel minus
+    0.45 leaves 2.55.
+  </p>
+  <div class="note">
+    <b>Two things this nearly got wrong, both caught by counting the right thing.</b>
+    <p style="margin:.6rem 0 0">
+      The first version filtered one global staggered grid and produced 75 cells —
+      <em>all of them in the chin, none on the rails</em>, because the nearest grid column
+      missed the rail's usable band by 0.05&nbsp;mm. That is the worst available outcome: the
+      stand covers most of the chin, so the entire motif landed on the one surface you cannot
+      see while docked. <strong>And the assert passed</strong> — it read
+      <code>count&nbsp;≥&nbsp;60</code>, and 75&nbsp;≥&nbsp;60 is true. A total absorbed a
+      complete regional absence. It now counts each region separately and asserts each
+      non-empty, which no single total can satisfy vacuously.
+    </p>
+    <p style="margin:.6rem 0 0">
+      The wyrm's <em>scale</em> is set by the print floor, not by the available space. The
+      mark is generated from the same source the device draws from, with a verified
+      1.23&nbsp;mm minimum feature; scaling shrinks that linearly, so filling the brow's full
+      height would take the thinnest part of the creature to 0.84&nbsp;mm — under the
+      0.90&nbsp;mm floor. It is therefore as large as the <em>floor</em> allows, not as large
+      as the brow allows, and the assert checks the feature rather than the height.
+    </p>
+  </div>
+  <p>
+    One creature, now rendered four ways: the device draws it as run-length spans, this page
+    traces it to SVG, the stand's grille is cut from it, and the bezel debosses it. All four
+    read <code>esphome/art/dragon.py</code>, so re-posing the wyrm moves all four at once.
+  </p>
 
   <h3>Print it</h3>
   <p>
@@ -1090,12 +1244,12 @@ footer p{margin:.4rem 0}
       <tr>
         <td><a href="https://github.com/jphein/ember.realm.watch/raw/main/enclosure/ember-front-bezel.stl" download>ember-front-bezel.stl</a></td>
         <td><b>front face down</b></td>
-        <td>The visible face is the bed face — use a smooth sheet. The mic flare and screen window are bed-side chamfers, so they self-support.</td>
+        <td>The visible face is the bed face — use a smooth sheet. The mic flare and screen window are bed-side chamfers, so they self-support, and the honeycomb and wyrm are bed-side <em>recesses</em> for the same reason: on this face relief only goes inward.</td>
       </tr>
       <tr>
         <td><a href="https://github.com/jphein/ember.realm.watch/raw/main/enclosure/ember-back-shell.stl" download>ember-back-shell.stl</a></td>
         <td><b>back face down</b>, open side up</td>
-        <td>The button pads and their living hinges print in the first ~8 layers; countersinks widen downward onto the bed.</td>
+        <td>The hexagonal button pads and their living hinges print in the first ~8 layers; countersinks widen downward onto the bed. The debossed cap faces are bed-side recesses — a few layers bridge each one, no supports.</td>
       </tr>
       <tr>
         <td><a href="https://github.com/jphein/ember.realm.watch/raw/main/enclosure/ember-stand.stl" download>ember-stand.stl</a></td>

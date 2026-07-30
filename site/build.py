@@ -108,6 +108,12 @@ INLINE_SVG = {
     # the two button pads stand out from ~130 hex apertures. Both need CSS to reach
     # inside the SVG, which is precisely what an <img> forbids.
     "case_back":         Path(__file__).resolve().parent / "renders" / "case-back.svg",
+    # The docked-rear view. It exists because a question was asked that NO existing figure
+    # could answer — every other one shows the parts separated, or the slab from the front,
+    # or the shell alone, so not one put a button and a stand wall in the same frame. Inlined
+    # for the same two reasons as case-back: currentColor, and named ids the stylesheet
+    # reaches (`case-dock-btn-vis`, `case-dock-scallop-vis`).
+    "case_docked_rear":  Path(__file__).resolve().parent / "renders" / "case-docked-rear.svg",
     "case_print_layout": Path(__file__).resolve().parent / "renders" / "case-print-layout.svg",
 }
 

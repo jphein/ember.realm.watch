@@ -88,8 +88,9 @@ tbody tr:last-child td{border-bottom:0}
 <p>Board: <b>LCDWIKI/QDtech ES3C28P</b> (Hosyond 2.8" ESP32-S3). Source of truth: <code>ember_case.py</code> (build123d). The STLs are output, not the artifact.</p>
 <p>Rebuild with:</p>
 <pre>
-cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
+cd enclosure &amp;&amp; ./cadenv/bin/python ember_case.py
 </pre>
+<p>(That path was wrong here for a while — it still named the pre-extraction scratch directory and a <code>../cadenv</code> that does not exist. See <a href="README.md"><code>README.md</code></a> for first-time setup.)</p>
 <hr>
 <h2>Parts</h2>
 <div class="tablewrap"><table><thead><tr>
@@ -99,12 +100,12 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <th>Supports</th>
 <th>Notes</th>
 </tr></thead><tbody>
-<tr><td><code>ember-front-bezel.stl</code></td><td>1</td><td><b>front face DOWN</b> on the bed</td><td><b>none</b></td><td>The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are all bed-side chamfers, so they self-support.</td></tr>
+<tr><td><code>ember-front-bezel.stl</code></td><td>1</td><td><b>front face DOWN</b> on the bed</td><td><b>none</b></td><td>The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are bed-side chamfers, so they self-support. <b>The debossed honeycomb and the wyrm mark are bed-side recesses</b>, 0.45 mm deep, and print as bridged voids — which is <em>why</em> they are recesses: on a bed face, relief only goes inward.</td></tr>
 <tr><td><code>ember-back-shell.stl</code></td><td>1</td><td><b>back face DOWN</b>, open side up</td><td><b>none</b></td><td>Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Countersinks widen downward onto the bed. <b>The debossed cap faces are bed-side recesses</b> — a few layers bridge over each, no supports.</td></tr>
-<tr><td><code>ember-stand.stl</code></td><td>1</td><td><b>bottom face DOWN</b></td><td><b>none</b></td><td>Chamber ceiling is a <b>17 mm bridge</b> and the cable channel a <b>16 mm bridge</b> — leave bridging on (slicer default) and they're fine.</td></tr>
+<tr><td><code>ember-stand.stl</code></td><td>1</td><td><b>bottom face DOWN</b></td><td><b>none</b></td><td>Chamber ceiling is a <b>17 mm bridge</b> and the cable channel a <b>16 mm bridge</b> — leave bridging on (slicer default) and they're fine. The two <b>finger scallops</b> in the rear slot wall open <em>upward</em>, so every wall is near-vertical and the pocket floor is solid: no bridge at all.</td></tr>
 <tr><td><code>ember-stand-base.stl</code></td><td>1</td><td>flat</td><td>none</td><td>Closes the speaker chamber. Press fit.</td></tr>
 </tbody></table></div>
-<p>Outer sizes: slab (bezel + shell assembled) <b>55.9 × 91.9 × 17.4 mm</b>; stand <b>64 × 64 × 40 mm</b>. Material use ≈ <b>128 cm³</b> total (~158 g in PLA), measured from the current STLs by signed-tetrahedron volume — not an estimate. Was 122 cm³ before the diffuser was deleted, the back became a hex field and the USB-C well was cut; those changes roughly cancelled.</p>
+<p>Outer sizes: slab (bezel + shell assembled) <b>55.9 × 91.9 × 17.4 mm</b>; stand <b>64 × 64 × 40 mm</b>. Material use ≈ <b>124 cm³</b> total (~154 g in PLA), measured from the current STLs by signed-tetrahedron volume — not an estimate. Per part: stand 95.9, back shell 17.5, bezel 7.5, base 3.2 cm³. The stand is three quarters of the print because it is a speaker cabinet, and cabinets want mass.</p>
 <hr>
 <h2>Slicer settings</h2>
 <div class="tablewrap"><table><thead><tr>
@@ -214,7 +215,7 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <p>It is a speaker cabinet; stiffness is what stops a 2 W driver exciting a 64 mm panel.</p>
 <p><b>Not done, deliberately:</b> a bass-reflex port. At this volume a printable port tunes to ~390–460 Hz, useful only if it lands just below the driver's Fs — unknown. A port tuned below Fs does nothing and a mistuned one is worse than sealed. <code>Fb = (c/2π)·√(A / (V·Leff))</code>, <code>Leff = L + 0.85·d</code>.</p>
 <h2>Assembly order</h2>
-<p>1. Plug the speaker pigtail into the board's <b>SPEAKER</b> 1.25 mm 2P header (long edge). 2. Seat the driver in the stand, wires out through the cable channel, press on <code>ember-stand-base</code>, seal the seam. 3. Lay the board <b>face down into the bezel</b>. The glass does <b>not</b> touch the bezel — there is a deliberate 0.40 mm gap. The four bosses land on the PCB's top face. 4. Drop the back shell on. Check the five 1.25 mm connectors and the microSD sit in the side channels before pulling anything tight. 5. Four M3 × 14 countersunk from the back. Snug, not hard — you are clamping a PCB. 6. ~~Press <code>ember-diffuser</code> into the ⌀16 seat around the rear glow window.~~ <b>REMOVED.</b> There is no diffuser and no seat. The ⌀12 rear glow window and its ⌀16 diffuser seat were both deleted when the back shell became a fine hex field: the LED's light now leaves through the apertures over it — 8 within r6, 23 within r10, 32 within r12 — plus straight through the wall if you print in white. Many small apertures in a translucent panel scatter; one large bore behind a printed disc just shows you the die. 7. Slide the slab into the stand slot; route the USB-C cable down the channel and out the back.</p>
+<p>1. Plug the speaker pigtail into the board's <b>SPEAKER</b> 1.25 mm 2P header (long edge). 2. Seat the driver in the stand, wires out through the cable channel, press on <code>ember-stand-base</code>, seal the seam. 3. Lay the board <b>face down into the bezel</b>. The glass does <b>not</b> touch the bezel — there is a deliberate 0.40 mm gap. The four bosses land on the PCB's top face. 4. Drop the back shell on. Check the five 1.25 mm connectors and the microSD sit in the side channels before pulling anything tight. 5. Four M3 × 14 countersunk from the back. Snug, not hard — you are clamping a PCB. 6. ~~Press <code>ember-diffuser</code> into the ⌀16 seat around the rear glow window.~~ <b>REMOVED.</b> There is no diffuser and no seat. The ⌀12 rear glow window and its ⌀16 diffuser seat were both deleted when the back shell became a fine hex field: the LED's light now leaves through the apertures over it — 8 within r6, 23 within r10, 32 within r12 — plus straight through the wall if you print in white. Many small apertures in a translucent panel scatter; one large bore behind a printed disc just shows you the die. 7. Slide the slab into the stand slot; route the USB-C cable down the channel and out the back. <b>The two button caps end up inside the slot</b>, well below the stand's rim — reach them through the <b>finger scallops</b> in the rear wall, coming down the back of the slab from above. If a finger does not fit, that is the fault this feature exists to fix and something has regressed: <code>_check_geometry()</code> drives a 6 × 4 mm fingertip probe at each cap and fails if the stand blocks more than 1 mm³ of it.</p>
 <hr>
 <h2>Tunables (edit + re-run)</h2>
 <div class="tablewrap"><table><thead><tr>
@@ -227,7 +228,9 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <tr><td><code>GLASS_GAP</code></td><td>0.40</td><td>never reduce below 0.25 — see below</td></tr>
 <tr><td><code>SLOT_CLR</code></td><td>0.40</td><td>slab loose/tight in the stand</td></tr>
 <tr><td><code>TILT</code></td><td>15°</td><td>viewing angle</td></tr>
-<tr><td><code>GRILLE_SLOT_W</code> / <code>GRILLE_PITCH</code> / <code>GRILLE_FIELD</code></td><td>2.2 / 3.4 / 30</td><td>the grille is a clean parameter block, ready for a motif to replace it</td></tr>
+<tr><td><code>GRILLE_STYLE</code></td><td><code>"hex"</code></td><td><code>"ridge"</code> swaps the 33-hex field for lyra's raked dorsal-spine motif. <b>Both are solved to the same 673 mm² open area</b>, so this is aesthetic, not acoustic — the rake never did acoustic work, since these are straight-through bores raked <em>in the plane</em> of the wall, not louvered vanes angled through its thickness</td></tr>
+<tr><td><code>SCALLOP_D</code> / <code>SCALLOP_Z0</code></td><td>12.0 / 5.0</td><td>the finger pockets over the button caps. Deeper reaches further behind the slab and eats the stand's rear wall — there is an assert holding 3 mm of wall at the rim. Raising <code>SCALLOP_Z0</code> keeps more of the lower rear grip and gives the finger less room</td></tr>
+<tr><td><code>BEZEL_DEBOSS</code></td><td>0.45</td><td>how deep the honeycomb and wyrm cut into the front face. An assert holds ≥2.00 mm of bezel over the glass, so there is headroom — but this is the face you look at, and deeper is not automatically better on a 0.16 mm layer height</td></tr>
 </tbody></table></div>
 <hr>
 <h2>Why some numbers are what they are</h2>
@@ -243,6 +246,14 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <li><b>The caps are debossed, not raised.</b> They were raised first, which is the obvious reading</li>
 </ul>
 <p>of "buttons you can feel" and is incompatible with this part's own print orientation: a proud cap on a bed face is the <em>lowest</em> feature, so the shell would balance on two hexagons with the whole back face 1.2 mm in the air. The bbox growing by exactly the cap height is what exposed it. Recessing costs nothing, prints unsupported, and means nothing resting on the case can hold BOOT low across a reset.</p>
+<ul>
+<li><b>The bezel face is debossed too, and for the same reason on the opposite face.</b> 75</li>
+</ul>
+<p>honeycomb cells across the chin, a 16-cell chain up each rail (2.60 mm across the flats on a 0.70 mm web), and the hearth-wyrm 27.07 × 11.28 mm in the brow — all 0.45 mm deep. This part prints front face down, so a raised logo would be the lowest feature and the bezel would land on it. <b>On a bed face, relief only goes inward</b> — that it bit both shell parts in the same session, on opposite faces, is the tell that it is a property of the process, not a mistake. The wyrm's <em>size</em> is set by the print floor rather than the space available: its verified minimum feature is 1.23 mm at unit scale, and scaling it to fill the brow would take the thinnest part of the creature to 0.84 mm, under the 0.90 mm floor.</p>
+<ul>
+<li><b>The stand has finger scallops, and a taller cap would not have worked.</b> Docked, the stand</li>
+</ul>
+<p>swallows the first 16.56 mm of the slab, so BOOT's cap sat 3.81 mm <em>below</em> the rim and RESET's 6.23 — with 0.40 mm between the cap face and a solid wall. A finger does not fit in 0.40 mm, so <b>the obstruction is beside the cap, not above it</b>, and no amount of cap height reaches past material that is alongside it. A scallop rather than a through-window because the rear wall is ~19 mm thick there — a window would be a tunnel, not an access port. And a bottom-hinged lever with a thumb tab, which is the other obvious fix, is unbuildable here: the hinge angle is fixed at 0.40/2.46 = 9.3° by pip travel and does not improve with a longer lever, and holding PLA through 9.3° needs ~4 mm of thinned flexure where there are 2.46 mm.</p>
 <ul>
 <li><b>Side channels are deliberately generous.</b> See the open question below.</li>
 <li><b>Shrinkage:</b> PLA ≈0.3 % over 86 mm = 0.13 mm/side, PETG ≈0.5 % = 0.22 mm/side — both</li>
