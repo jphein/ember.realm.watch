@@ -288,7 +288,15 @@ endpoint and does not need one.
 ## Provenance
 
 Ember started life inside a Home Assistant configuration repo and was extracted
-into this one with `git filter-repo`, preserving all 13 commits that touched it.
+into this one with `git filter-repo`, preserving all 15 commits that touched it.
 Those commit messages are load-bearing — several are the only record of *why* a
-non-obvious setting is what it is, and at least one documents a conclusion that a
-later commit overturned. `git log --follow` works across the extraction.
+non-obvious setting is what it is, and more than one documents a conclusion that a
+later commit overturned. `git log --follow` works across the extraction, including
+through `esphome/README.md` → `README.md`.
+
+Read them in order if you are about to change the touch or audio paths. The last
+four in particular are a chain of corrections, each one fixing a bug the previous
+fix revealed — a debounce that re-armed and cancelled deliberate presses, a
+completion chime that destroyed the reply it was announcing, a 250ms timeout
+measured off a single fast sample. The final shape (dispatch on release, never
+preempt audio that is playing) only makes sense against that history.
