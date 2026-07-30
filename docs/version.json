@@ -1,12 +1,12 @@
 {
   "name": "ember",
   "description": "Local-first voice assistant satellite with a hearth for a face",
-  "version": "Bellowed Kiln \u00b7 df0b2d4",
-  "hash": "df0b2d4",
+  "version": "Forged Ingot \u00b7 4d3fcdd",
+  "hash": "4d3fcdd",
   "branch": "main",
-  "dirty": true,
-  "built": "2026-07-30T02:35:43Z",
+  "dirty": false,
+  "built": "2026-07-30T02:37:07Z",
   "realm": "forge",
   "repo": "https://github.com/jphein/ember.realm.watch",
-  "commit_url": "https://github.com/jphein/ember.realm.watch/commit/df0b2d4"
+  "commit_url": "https://github.com/jphein/ember.realm.watch/commit/4d3fcdd"
 }
