@@ -1,17 +1,36 @@
 # The audible pop on audio start
 
-Hard-won analysis of the ES8311 + FM8002E audio path on the ES3C28P, moved
-verbatim out of the original `esphome/README.md` when Ember was extracted into
-its own repository. Nothing here has been edited or summarised — several of the
-paragraphs exist specifically to correct earlier wrong claims, and that record
-is the point.
+Hard-won analysis of the ES8311 + FM8002E audio path on the ES3C28P, moved out of the
+original `esphome/README.md` when Ember was extracted into its own repository.
+
+**The original prose is unchanged.** Nothing has been edited away or summarised —
+several paragraphs exist specifically to correct earlier wrong claims, and that record
+is the point. What has been *added* is signposting: banners marking which conclusions
+were later superseded, and a coda documenting how the question was finally settled.
+Additions are always marked; nothing was quietly revised to look prescient.
 
 Start at [the gotcha table in the README](../README.md#settings-that-look-like-mistakes-and-arent)
 for the settings this analysis justifies.
 
+> ## ✅ RESOLVED — read this before the analysis below
+>
+> **The pop is gone, and the mechanism is the amplifier.** Gating the amp on the speaker
+> fixed it; the codec mute is positively excluded. Jump to
+> **[The answer](#the-answer-the-amp-is-the-mechanism)**.
+>
+> **Everything between here and the coda is the analysis as it stood while the question
+> was still open.** It is kept because it is the most instructive part of this project —
+> it reaches the right mechanisms, argues itself into two opposite errors, and states
+> honestly that the evidence available to it could not decide. Sections below marked
+> *"partly fixed"*, *"we have not distinguished the two"*, or proposing an experiment as
+> future work are **superseded**, not current. They are history, deliberately not
+> rewritten.
+
 ---
 
 #### ⚠️ Partly fixed: an audible pop on some audio starts
+
+*(Historical heading. This was true when written; see [The answer](#the-answer-the-amp-is-the-mechanism).)*
 
 `use_mclk: true`, and MCLK is only driven while an I2S channel is loaded — so
 when *both* the speaker and the microphone are unloaded, MCLK stops entirely.
@@ -85,6 +104,15 @@ that codec mute is insufficient *with* it. Set the **Amp Blank Width** number to
 `0` and tap to talk. Pop returns ⇒ codec mute is insufficient and the transient
 is downstream of the digital mute. Pop stays away ⇒ blanking is redundant and the
 subsystem can be deleted.
+
+> **✅ ANSWERED — this paragraph is history.** The experiment ran, in a form nobody
+> designed: two reports on one build gave the comparison directly. **Pop returns.**
+> Codec mute is insufficient, the transient is downstream of the digital mute, and the
+> amp is the mechanism — so the subsystem stays. See
+> [The answer](#the-answer-the-amp-is-the-mechanism). Note the second branch above
+> ("blanking is redundant and the subsystem can be deleted") is the reasoning that later
+> became **wrong claim #4** — it was proposed after the reply-side pop and refuted by
+> tabulation. Left in place; the trap is instructive.
 
 **Part-number provenance:** the two hard numbers cited above (Ci 0.1–0.39µF,
 TD = 100ms typ) come from the **FM8002E** datasheet specifically. Comments in the
@@ -167,6 +195,7 @@ by a different method. That progression is worth more than the conclusion.
 | 1 | REG31 mute "is enforced inside the clock domain" and cannot hold across a restart | Wrong about the **bit** — it is a latched I²C bit and does hold | Reading the driver source |
 | 2 | The correction overshot: the mute therefore *does* suppress the restart pop, and `amp_blank_ms` "defaults to 0" | `amp_blank_ms` was **never** 0 in any commit; that described an intent never applied | Reading the commit history against the file |
 | 3 | "The amp finishes waking before the blank lifts" | **Inverted mental model.** GPIO1 is `inverted: true` on an **active-low** SHUTDOWN, so `output.turn_off: amp_enable` genuinely *disables* the amp — and a disabled amp is not waking. Its ~100 ms wake begins only when the watchdog **re-enables** it | Trying to hoist the blank ahead of the tone, and finding the timeline impossible |
+| 4 | "It still pops with the DAC muted, so amp gating can be retired too" | **Exactly backwards.** Tabulating the evidence shows amp gating was the *only* mechanism ever observed **in position** at a transient that did **not** pop. The muted-DAC pop is evidence against the *codec mute*, not against the *amp* | Tabulating every observation instead of reasoning forward from the newest datapoint. Refuted within minutes of being proposed |
 
 Correcting #3 gives the real timeline: **off at T+0, re-enabled at T+180, usably awake
 at ~T+280.** A 24 ms tone starting ~110 ms in is therefore **silenced, not protected**.
@@ -220,6 +249,60 @@ board's 0.39 µF coupling caps are worst-case for pop per the amp's own datashee
 Not worth betting on. Deferring also coalesces bursts, and cancelling on resume means
 a stuttering reply can't be muted mid-sentence.
 
+---
+
+# The answer: the amp is the mechanism
+
+**The pop is gone.** Confirmed by ear on the shipped build: tap-to-talk, conversation,
+and multi-turn all clean.
+
+What settled it was **not a datasheet.** Everything above is a datasheet argument, and
+the datasheets could not discriminate — they specify what the mute *bit* does and are
+silent on what OUTP/OUTN do while the DAC is powered but unclocked. What settled it was
+**two reports on the same build**, which happened to constitute a controlled experiment:
+
+| transient | protection in place | result |
+|---|---|---|
+| **mic** cold start (inside `talk_begin`) | DAC muted **+ amp blanked** | **no pop** |
+| **reply** cold start (after the synthesis gap) | DAC muted, **amp not** | **pop** |
+
+Same clock domain, same codec, same build. **One variable: the amp.** Gating the amp on
+the speaker removed the remaining pop.
+
+And the codec mute is now **positively excluded**, not merely doubted. That's a stronger
+claim than anything above, and it's only available because of the muted-while-stopped
+policy: the watchdog holds REG31 asserted whenever the speaker is stopped, so the DAC
+was **provably muted** before the reply's cold start — and it popped anyway. A mute that
+is demonstrably in force and demonstrably doesn't help is excluded, not suspected.
+
+## The two audits were both right
+
+This is the part most worth keeping, because the instinct is to declare a winner and
+there isn't one.
+
+- **Audit A** held that the REG31 mute is a **latched I²C bit** and therefore survives
+  an MCLK stop. **True** — confirmed from the driver source.
+- **Audit B** held that every documented ES8311 anti-pop mechanism is **counted in LRCK
+  periods**, and so cannot act while the clock is stopped. **Also true** — the staged
+  power-up timers are specified in LRCK periods and the soft ramp is disabled outright.
+
+Both are correct, and together they give the actual answer: **the bit persists *and* has
+no effect.** Neither audit was wrong; the question was **underdetermined**, and the two
+findings only look contradictory if you assume "the mute is asserted" and "the mute is
+working" are the same proposition. They are not, and this file spent three revisions
+conflating them.
+
+## The accepted trade
+
+Amp gating is not free. The FM8002E wakes in **~100 ms** typical, while playback preloads
+only **~50 ms** of silence — so roughly **50 ms of every reply is a soft start.** That is
+a deliberate trade: a slightly soft first fraction of a syllable in exchange for no pop,
+on a device whose whole job is to be pleasant to talk to in a quiet room.
+
+It is **live-adjustable** without a reflash via the **Amp Blank Width** number. Setting
+it to **0 restores the amp immediately — and brings the pop back.** That is also the
+cheapest way for anyone to re-confirm the conclusion above for themselves.
+
 ## ⚠️ Known hazard, quantified and deliberately accepted
 
 The unmute's safety rests on landing inside that 50 ms silence window. But
@@ -238,15 +321,42 @@ worst case **~76 ms of a reply plays muted**.
 
 ## What generalises
 
+The resolution method is more instructive than the answer, so this is the part to take
+away.
+
 1. **Check whether your protection is positioned to see the event before you tune it.**
-   Three rounds of inconclusive A/B testing were all measuring a knob that fired after
-   the transient it was meant to suppress.
-2. **An inconclusive result is a claim about the experiment, not just the hypothesis.**
-   The audit that found the test had never been properly staged was worth more than any
-   individual measurement.
-3. **Prefer asking the hardware to enumerating call sites.** Both fixes that finally
-   held — `spk->is_running()` for the chimes, muted-while-stopped for the DAC — replaced
-   a list of remembered cases with a direct question, and both then covered cases nobody
-   had listed.
-4. **An active-low signal behind `inverted: true` will invert your mental model too.**
+   Three rounds of inconclusive A/B testing were all measuring a knob that fired *after*
+   the transient it was meant to suppress. No amount of tuning could have worked, and
+   the inconclusiveness was the clue.
+2. **An inconclusive result is a claim about the experiment, not only about the
+   hypothesis.** Three explanations were published before anyone checked whether the
+   test could discriminate between them. The audit that found the decisive experiment
+   **had never been staged** was worth more than any individual measurement — until then
+   every result was simultaneously correct and uninformative.
+3. **Two contradictory audits can both be right.** "The mute bit persists" and "no
+   documented anti-pop mechanism can act without a clock" only look incompatible if you
+   assume *asserted* and *working* are the same proposition. They aren't, and conflating
+   them cost three revisions. When two careful investigations disagree, suspect the
+   question is underdetermined before you suspect one of them.
+4. **A controlled experiment can fall out of ordinary use.** What finally settled it was
+   two reports on one build — mic start protected by mute *and* amp, reply start
+   protected by mute alone. One variable. No instrumentation, no reflash. Look for the
+   comparison you already have before building one.
+5. **Excluding a mechanism beats doubting it.** The muted-while-stopped policy was a fix,
+   but its real value was epistemic: it made the DAC *provably* muted at a transient that
+   popped anyway, which converts "the mute probably doesn't help" into "the mute
+   demonstrably doesn't."
+6. **Tabulate before you reason forward from the newest datapoint.** Wrong claim #4 —
+   that amp gating could also be retired — followed plausibly from the latest
+   observation and collapsed instantly against the whole table, which showed amp gating
+   was the only mechanism ever observed *in position* at a transient that didn't pop.
+7. **Prefer asking the hardware to enumerating call sites.** Both fixes that held —
+   `spk->is_running()` for the chimes, muted-while-stopped for the DAC — replaced a list
+   of remembered cases with a direct question, and both then covered cases nobody had
+   listed.
+8. **An active-low signal behind `inverted: true` will invert your mental model too.**
    Write the real timeline out in milliseconds before trusting any reasoning about it.
+9. **A fix that succeeds wrongly is worse than one that stops.** The accepted ~50 ms soft
+   start is disclosed and adjustable; the hazard whose symptom is a clipped syllable is
+   written down precisely *because* it would present as a TTS bug. Silence about a
+   known cost is how the next person loses a week.
