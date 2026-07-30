@@ -117,6 +117,20 @@ substitutions:
   said_lines: "4"              # visible lines of Ember's reply per page
   scroll_page_ms_len: "3500"   # how long each page is held before advancing
 
+  # ---- the hearth-wyrm ----
+  # Placement of the creature inside the flame band. Up here rather than buried
+  # in a 400-line lambda for the same reason the ui_ block below is: these are
+  # the numbers someone will actually want to nudge.
+  #
+  # NOTE dgn_y is relative to the TOP OF THE FLAME BAND (FLAM_Y), not the panel.
+  # The whole point is that the wyrm cannot be moved out of its band by editing
+  # this: the renderer clips every span to 0..dgn_h and the band owns rows
+  # FLAM_Y..FLAM_Y+FLAM_H-1 regardless.
+  dgn_x: "60"           # wyrm bbox, screen x
+  dgn_y: "22"           # wyrm bbox, offset from the TOP OF THE FLAME BAND
+  dgn_w: "120"
+  dgn_h: "50"
+
   # ---- overlay geometry ----
   # SHARED between the display lambda (which draws the targets) and the
   # touchscreen hit-test (which must land on them). Defined once here because a
@@ -522,6 +536,35 @@ number:
       - audio_dac.set_volume:
           id: es8311_dac
           volume: !lambda 'return x / 100.0f;'
+
+  # THE OPEN EXPERIMENT, made turnable. Oracle's adjudication (2026-07-29) found the
+  # decisive test had never actually been run: the "pop returned with blanking off"
+  # result predates talk_begin's audio_dac.mute_on, so it shows blanking works
+  # WITHOUT codec mute — not that codec mute is insufficient WITH it.
+  #
+  #   0   -> codec mute alone. If the pop returns, the transient is downstream of the
+  #          digital mute and amp gating is the primary fix, not a redundant one.
+  #   180 -> default. Clears the FM8002E's ~100ms typical wake (TD), the only hard
+  #          number in the whole fix.
+  #   300 -> headroom, if 180 proves marginal.
+  #
+  # Changing this cannot strand the amp: amp_blank sets a DEADLINE that the 10ms
+  # interval restores, so no value and no re-entry leaves the output muted.
+  - platform: template
+    id: amp_blank_num
+    name: Amp Blank Width
+    icon: mdi:flash-off
+    entity_category: diagnostic
+    optimistic: true
+    restore_value: false
+    initial_value: ${amp_blank_ms}
+    min_value: 0
+    max_value: 400
+    step: 20
+    unit_of_measurement: "ms"
+    mode: box
+    set_action:
+      - lambda: 'id(amp_blank_ms_g) = (uint32_t) x;'
 
 ########################  announce path  ########################
 # WHY THIS EXISTS: `assist_satellite.announce` returned HTTP 500 because
@@ -931,10 +974,10 @@ script:
     mode: single
     then:
       - if:
-          condition: { lambda: 'return ${amp_blank_ms} > 0;' }
+          condition: { lambda: 'return id(amp_blank_ms_g) > 0;' }
           then:
             - output.turn_off: amp_enable
-            - lambda: 'id(amp_unblank_at) = millis() + ${amp_blank_ms}u;'
+            - lambda: 'id(amp_unblank_at) = millis() + id(amp_blank_ms_g);'
 
   # Unmute the DAC. Called from three independent triggers (on_announcement,
   # on_play, and the watchdog interval) because the dangerous failure here is
@@ -1145,9 +1188,13 @@ script:
             # opposite; that claim was refuted from the datasheet.)
             - audio_dac.mute_on: es8311_dac
             - lambda: 'id(dac_muted) = true;'
-            # amp_blank is now redundant IF the above is sufficient — this is the
-            # experiment. amp_blank_ms: 0 disables it; if the pop stays away we
-            # delete a subsystem and avoid the SC8002B's own enable click, which
+            # Whether amp_blank is redundant given the mute above is UNSETTLED and is
+            # now testable by ear: set the "Amp Blank Width" number to 0 and tap to
+            # talk. Pop returns => codec mute is insufficient, amp gating is primary.
+            # Pop stays away => blanking really is redundant and can be deleted.
+            # (An earlier revision of this comment claimed amp_blank_ms was already 0.
+            # It never was, in any commit — a doc describing an unapplied intent.)
+            # The amp's own enable click, which
             # matters because this board's 0.39uF coupling caps are at the top of
             # the range the amp datasheet recommends (i.e. worst-case pop).
             - script.execute: amp_blank
@@ -1470,6 +1517,20 @@ globals:
 
   # Deadline for restoring the amp after a blank. 0 = nothing pending. Lives here
   # rather than in a script `delay:` so it cannot be aborted mid-flight — see amp_blank.
+  # Runtime-adjustable blank width. A SUBSTITUTION forced one flash per datapoint,
+  # and the open question here is a listening comparison (0 / 180 / 300ms) that only
+  # JP's ear can settle — so the knob has to be turnable while listening.
+  #
+  # restore_value is deliberately FALSE on the number that drives this: 0 is a
+  # diagnostic state, not a preference, and a persisted 0 would silently reinstate
+  # the pop weeks later with no trace of why. Every boot starts at the safe default.
+  # (This board already has one persisted-audio-state landmine: SpeakerMediaPlayer
+  # persists is_muted and restores it at boot, so one stray volume_mute would come
+  # back muted forever. Not repeating that shape.)
+  - id: amp_blank_ms_g
+    type: uint32_t
+    restore_value: false
+    initial_value: '${amp_blank_ms}'
   - id: amp_unblank_at
     type: uint32_t
     restore_value: false
@@ -1520,6 +1581,12 @@ globals:
     initial_value: '0'
 
   # Last interaction, for auto-dismiss.
+  # Debounce deadline for on_touch. See the gate at the top of the on_touch lambda
+  # for why this is load-bearing rather than a nicety.
+  - id: touch_gate_until
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
   - id: ui_last_ms
     type: uint32_t
     restore_value: false
@@ -1712,6 +1779,15 @@ display:
         }
       }
       const bool spark_live = spark_k > 0.0f;
+
+      // ---- wyrm animation smoothers ----
+      // These live HERE rather than with the scheduler statics further down for a
+      // hard reason: paint_flame reads them, and a lambda body cannot name a
+      // variable declared after it. They are only stepped on frames where the
+      // flame band actually paints, which is what makes waking from IDLE (200ms
+      // tick) slow and alerting mid-conversation (50ms tick) quick, for free.
+      static float wake_s = 0.0f;   // 0 asleep .. 1 alert, one-pole smoothed
+      static float lvl_s  = 0.0f;   // smoothed mic level: the head leans in on it
 
       int st = id(va_state);
       if (audio_live && !chiming && (st == 0 || st == 2)) st = 3;   // -> SPEAKING
@@ -2091,166 +2167,1153 @@ display:
         }
       };
 
-      // ---------------------------- THE FIRE ----------------------------
+      // ---------------------------- THE FIRE, AND WHAT SLEEPS IN IT -------
+      // Generated from dragon_harness.cpp by make_paste_block.py — the same
+      // text that compiles clean under -Wall -Wextra and passes the tiling
+      // invariant in every state. Do not hand-edit this copy; edit the
+      // harness, re-run it, and regenerate.
       auto paint_flame = [&]() {
-        const int NC = 60, CW = 4;               // 60 x 4 = 240 exactly
-        const int GRATE = 3;
-        const int base_row = FLAM_H - GRATE;     // rows >= this are the grate
-        const int MAXH = FLAM_H - 8;             // headroom above the tallest flame
+      // =====================  THE HEARTH-WYRM  =====================
+      // ===== generated by esphome/art/dragon.py - DO NOT HAND-EDIT =====
+      // hearth-wyrm 120x50 at flame-band (60,22); head 28x19
+      // neck attaches at head-local (21, 13), eye at (8, 7),
+      // muzzle at (1, 9); shoulder at dragon-local (29, 28)
+      // head pos: asleep (4, 30) -> alert (0, 0)
+      // total table bytes: 3660
 
-        // ---- pass 1: column geometry. 60 iterations of float maths, once. ----
-        // Terms that don't depend on the column are hoisted out so the
-        // transcendentals run ONCE per frame, not 60 times.
-        const float syl    = 0.55f + 0.45f * powf(fabsf(sinf(ph * 0.83f)), 1.6f);
-        const float breath = 0.5f * (1.0f + sinf((float) now * 0.001047f));   // 6.0s
-        const float orbit  = fmodf((float) now * 0.00042f, 1.0f) * (float) NC; // 2.4s
+      // hearth-wyrm body: per-row [x0,x1) runs in dragon-local x
+      //   50 rows x 6 spans, stride 12
+      static const uint8_t DGN_B[] = {
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r00
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r01
+        112,113,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r02
+        112,114,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r03
+        112,114,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r04
+        112,114,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r05
+        112,114,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r06
+        109,110,111,114,  0,  0,  0,  0,  0,  0,  0,  0,   // r07
+        109,110,111,114,  0,  0,  0,  0,  0,  0,  0,  0,   // r08
+        109,114,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r09
+        110,114,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r10
+        109,114,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r11
+        104,105,108,113,  0,  0,  0,  0,  0,  0,  0,  0,   // r12
+        104,105,107,113,  0,  0,  0,  0,  0,  0,  0,  0,   // r13
+        104,113,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r14
+        104,112,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r15
+        103,111,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r16
+         97, 98,102,111,  0,  0,  0,  0,  0,  0,  0,  0,   // r17
+         97, 98,100,110,  0,  0,  0,  0,  0,  0,  0,  0,   // r18
+         30, 31, 96, 98, 99,109,  0,  0,  0,  0,  0,  0,   // r19
+         30, 31, 96,108,  0,  0,  0,  0,  0,  0,  0,  0,   // r20
+         29, 32, 38, 39, 89, 91, 95,107,  0,  0,  0,  0,   // r21
+         24, 32, 37, 39, 89, 91, 93,106,  0,  0,  0,  0,   // r22
+         23, 32, 37, 39, 89,105,  0,  0,  0,  0,  0,  0,   // r23
+         23, 32, 36, 39, 81, 82, 88,104,  0,  0,  0,  0,   // r24
+         22, 34, 36, 40, 46, 47, 81, 82, 85,103,  0,  0,   // r25
+         22, 40, 45, 47, 72, 73, 80,102,  0,  0,  0,  0,   // r26
+         22, 40, 45, 47, 54, 55, 63, 64, 72, 73, 79,101,   // r27
+         23, 42, 44, 47, 54, 56, 63, 64, 71, 74, 75,100,   // r28
+         23, 48, 53, 56, 62, 64, 70, 98,  0,  0,  0,  0,   // r29
+         24, 56, 62, 97,  0,  0,  0,  0,  0,  0,  0,  0,   // r30
+         25, 95,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r31
+         26, 94,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r32
+         27, 92,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r33
+         26, 92,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r34
+         26, 91,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r35
+         25, 31, 33, 91,  0,  0,  0,  0,  0,  0,  0,  0,   // r36
+         25, 31, 36, 82, 83, 92,  0,  0,  0,  0,  0,  0,   // r37
+         25, 30, 40, 78, 86, 92,  0,  0,  0,  0,  0,  0,   // r38
+         24, 29, 45, 72, 87, 93,  0,  0,  0,  0,  0,  0,   // r39
+         24, 29, 52, 64, 87, 93,  0,  0,  0,  0,  0,  0,   // r40
+         24, 29, 88, 93,  0,  0,  0,  0,  0,  0,  0,  0,   // r41
+         24, 28, 88, 93,  0,  0,  0,  0,  0,  0,  0,  0,   // r42
+         24, 28, 88, 93,  0,  0,  0,  0,  0,  0,  0,  0,   // r43
+         23, 29, 87, 93,  0,  0,  0,  0,  0,  0,  0,  0,   // r44
+         19, 30, 83, 94,  0,  0,  0,  0,  0,  0,  0,  0,   // r45
+         19, 30, 83, 94,  0,  0,  0,  0,  0,  0,  0,  0,   // r46
+         19, 29, 83, 93,  0,  0,  0,  0,  0,  0,  0,  0,   // r47
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r48
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r49
+      };
+      static const int DGN_B_N = 6;   // spans per row
 
-        uint8_t ch[60], csa[60], csb[60];
-        bool chot[60];
-        for (int i = 0; i < NC; i++) {
-          const float fx = (float) i;
-          float f;
+      // same, dilated 1px — the shadow gap that lifts it off the fire
+      //   50 rows x 6 spans, stride 12
+      static const uint8_t DGN_D[] = {
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r00
+        111,114,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r01
+        111,115,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r02
+        111,115,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r03
+        111,115,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r04
+        111,115,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r05
+        108,115,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r06
+        108,115,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r07
+        108,115,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r08
+        108,115,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r09
+        108,115,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r10
+        103,106,107,115,  0,  0,  0,  0,  0,  0,  0,  0,   // r11
+        103,115,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r12
+        103,114,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r13
+        103,114,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r14
+        102,114,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r15
+         96, 99,101,113,  0,  0,  0,  0,  0,  0,  0,  0,   // r16
+         96,112,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r17
+         29, 32, 95,112,  0,  0,  0,  0,  0,  0,  0,  0,   // r18
+         29, 32, 95,111,  0,  0,  0,  0,  0,  0,  0,  0,   // r19
+         28, 33, 37, 40, 88, 92, 94,110,  0,  0,  0,  0,   // r20
+         23, 33, 36, 40, 88,109,  0,  0,  0,  0,  0,  0,   // r21
+         22, 33, 36, 40, 88,108,  0,  0,  0,  0,  0,  0,   // r22
+         22, 33, 35, 40, 80, 83, 87,107,  0,  0,  0,  0,   // r23
+         21, 41, 45, 48, 80, 83, 84,106,  0,  0,  0,  0,   // r24
+         21, 41, 44, 48, 71, 74, 79,105,  0,  0,  0,  0,   // r25
+         21, 41, 44, 48, 53, 56, 62, 65, 71, 74, 78,104,   // r26
+         21, 48, 53, 57, 62, 65, 70,103,  0,  0,  0,  0,   // r27
+         21, 49, 52, 57, 61, 65, 69,102,  0,  0,  0,  0,   // r28
+         22, 57, 61,101,  0,  0,  0,  0,  0,  0,  0,  0,   // r29
+         22, 99,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r30
+         23, 98,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r31
+         24, 96,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r32
+         25, 95,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r33
+         25, 93,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r34
+         24, 93,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r35
+         24, 93,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r36
+         24, 93,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r37
+         23, 32, 35, 94,  0,  0,  0,  0,  0,  0,  0,  0,   // r38
+         23, 31, 39, 79, 85, 94,  0,  0,  0,  0,  0,  0,   // r39
+         23, 30, 44, 73, 86, 94,  0,  0,  0,  0,  0,  0,   // r40
+         23, 30, 51, 65, 86, 94,  0,  0,  0,  0,  0,  0,   // r41
+         23, 30, 87, 94,  0,  0,  0,  0,  0,  0,  0,  0,   // r42
+         22, 30, 86, 94,  0,  0,  0,  0,  0,  0,  0,  0,   // r43
+         18, 31, 82, 95,  0,  0,  0,  0,  0,  0,  0,  0,   // r44
+         18, 31, 82, 95,  0,  0,  0,  0,  0,  0,  0,  0,   // r45
+         18, 31, 82, 95,  0,  0,  0,  0,  0,  0,  0,  0,   // r46
+         18, 31, 82, 95,  0,  0,  0,  0,  0,  0,  0,  0,   // r47
+         18, 30, 82, 94,  0,  0,  0,  0,  0,  0,  0,  0,   // r48
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   // r49
+      };
+      static const int DGN_D_N = 6;   // spans per row
 
-          if (st == 1) {
-            // LISTENING: real mic history AS the fire — the waveform and the
-            // flames are the same object. Average the sample pair so all 120
-            // samples contribute across 60 columns.
-            int a = (id(hist_idx) + i * 2) % ${hist_len};
-            int b = (a + 1) % ${hist_len};
-            f = 0.10f + 0.86f * (0.5f * (id(level_hist)[a] + id(level_hist)[b]));
+      // topmost body row per column (255 = none) -> rim light
+      static const uint8_t DGN_TOPY[] = {
+        255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255, 45,
+         45, 45, 25, 23, 22, 22, 22, 22, 22, 21, 19, 21, 25, 25, 26, 26, 24, 22, 21, 25,
+         28, 28, 29, 29, 28, 26, 25, 29, 30, 30, 30, 30, 30, 29, 27, 28, 31, 31, 31, 31,
+         31, 31, 29, 27, 30, 30, 30, 30, 30, 30, 29, 28, 26, 28, 29, 28, 28, 28, 28, 27,
+         26, 24, 26, 26, 26, 25, 25, 25, 24, 21, 21, 23, 23, 22, 22, 21, 19, 17, 20, 19,
+         18, 18, 17, 16, 12, 14, 14, 13, 12,  7,  9,  7,  2,  3,255,255,255,255,255,255,
+      };
 
-          } else if (st == 3) {
-            // SPEAKING: two travelling waves at INCOMMENSURATE spatial
-            // frequencies (0.27 vs 0.11 rad/col) moving in OPPOSITE directions,
-            // so the product never visibly repeats — which is the giveaway that
-            // makes frame-cycled animimg prior art read as fake.
-            float w1 = 0.5f * (1.0f + sinf(0.27f * fx - ph * 2.3f));
-            float w2 = 0.5f * (1.0f + sinf(0.11f * fx + ph * 1.4f + 1.7f));
-            // Crackle: deterministic hash of (column, frames). 3 ops, no random().
-            uint32_t h = ((uint32_t) i * 2654435761u) ^ (frames * 1013904223u);
-            float crackle = (float) ((h >> 24) & 0xFFu) * (0.14f / 255.0f);
-            // syl's |sin|^1.6 gives speech's fast attack and slower decay rather
-            // than a sine's symmetry.
-            f = 0.22f + 0.62f * w1 * w2 * syl + crackle;
-            if (guttering) f *= 0.35f;           // collapse rather than lie
+      // bottom-most body row per column (0 = none) -> belly furnace
+      static const uint8_t DGN_BOTY[] = {
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 47,
+         47, 47, 47, 47, 47, 47, 47, 47, 47, 46, 37, 35, 35, 36, 36, 36, 37, 37, 37, 37,
+         38, 38, 38, 38, 38, 39, 39, 39, 39, 39, 39, 39, 40, 40, 40, 40, 40, 40, 40, 40,
+         40, 40, 40, 40, 39, 39, 39, 39, 39, 39, 39, 39, 38, 38, 38, 38, 38, 38, 37, 37,
+         37, 37, 36, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 46, 31, 30, 30, 29, 28, 28,
+         27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 15, 14, 11,  0,  0,  0,  0,  0,  0,
+      };
 
-          } else if (st == 2) {
-            // THINKING: still bed, one hot cell orbiting and wrapping, like a
-            // coal being stirred. Hottest colour, least motion — concentration
-            // reads as stillness, not busyness.
-            float d = fabsf(fx - orbit);
-            if (d > (float) NC * 0.5f) d = (float) NC - d;
-            f = 0.10f + 0.72f * expf(-(d * d) / 18.0f);
+      // head silhouette, jaw drop 0px
+      //   50 rows x 2 spans, stride 4
+      static const uint8_t HED_B0[] = {
+         25, 26,  0,  0,   // r00
+         21, 25,  0,  0,   // r01
+         17, 23,  0,  0,   // r02
+         10, 13, 15, 22,   // r03
+          8, 20,  0,  0,   // r04
+          5, 20, 22, 27,   // r05
+          3, 25,  0,  0,   // r06
+          1, 23,  0,  0,   // r07
+          0, 23,  0,  0,   // r08
+          0, 24,  0,  0,   // r09
+          0, 24,  0,  0,   // r10
+          3, 24,  0,  0,   // r11
+          7, 24,  0,  0,   // r12
+         13, 23,  0,  0,   // r13
+          0,  0,  0,  0,   // r14
+          0,  0,  0,  0,   // r15
+          0,  0,  0,  0,   // r16
+          0,  0,  0,  0,   // r17
+          0,  0,  0,  0,   // r18
+          0,  0,  0,  0,   // r19
+          0,  0,  0,  0,   // r20
+          0,  0,  0,  0,   // r21
+          0,  0,  0,  0,   // r22
+          0,  0,  0,  0,   // r23
+          0,  0,  0,  0,   // r24
+          0,  0,  0,  0,   // r25
+          0,  0,  0,  0,   // r26
+          0,  0,  0,  0,   // r27
+          0,  0,  0,  0,   // r28
+          0,  0,  0,  0,   // r29
+          0,  0,  0,  0,   // r30
+          0,  0,  0,  0,   // r31
+          0,  0,  0,  0,   // r32
+          0,  0,  0,  0,   // r33
+          0,  0,  0,  0,   // r34
+          0,  0,  0,  0,   // r35
+          0,  0,  0,  0,   // r36
+          0,  0,  0,  0,   // r37
+          0,  0,  0,  0,   // r38
+          0,  0,  0,  0,   // r39
+          0,  0,  0,  0,   // r40
+          0,  0,  0,  0,   // r41
+          0,  0,  0,  0,   // r42
+          0,  0,  0,  0,   // r43
+          0,  0,  0,  0,   // r44
+          0,  0,  0,  0,   // r45
+          0,  0,  0,  0,   // r46
+          0,  0,  0,  0,   // r47
+          0,  0,  0,  0,   // r48
+          0,  0,  0,  0,   // r49
+      };
+      static const int HED_B0_N = 2;   // spans per row
 
-          } else if (st == 4) {
-            // ERROR: a flat ash bed. Deliberately MOTIONLESS — after everything
-            // else has been alive, stillness is the loudest thing on the screen,
-            // and it costs zero SPI once painted.
-            f = 0.16f;
+      // head dilated 1px, jaw drop 0px
+      //   50 rows x 2 spans, stride 4
+      static const uint8_t HED_D0[] = {
+         20, 27,  0,  0,   // r00
+         16, 27,  0,  0,   // r01
+          9, 26,  0,  0,   // r02
+          7, 24,  0,  0,   // r03
+          4, 28,  0,  0,   // r04
+          2, 28,  0,  0,   // r05
+          0, 28,  0,  0,   // r06
+          0, 26,119,120,   // r07
+          0, 25,119,120,   // r08
+          0, 25,119,120,   // r09
+          0, 25,119,120,   // r10
+          0, 25,119,120,   // r11
+          2, 25,  0,  0,   // r12
+          6, 25,  0,  0,   // r13
+         12, 24,  0,  0,   // r14
+          0,  0,  0,  0,   // r15
+          0,  0,  0,  0,   // r16
+          0,  0,  0,  0,   // r17
+          0,  0,  0,  0,   // r18
+          0,  0,  0,  0,   // r19
+          0,  0,  0,  0,   // r20
+          0,  0,  0,  0,   // r21
+          0,  0,  0,  0,   // r22
+          0,  0,  0,  0,   // r23
+          0,  0,  0,  0,   // r24
+          0,  0,  0,  0,   // r25
+          0,  0,  0,  0,   // r26
+          0,  0,  0,  0,   // r27
+          0,  0,  0,  0,   // r28
+          0,  0,  0,  0,   // r29
+          0,  0,  0,  0,   // r30
+          0,  0,  0,  0,   // r31
+          0,  0,  0,  0,   // r32
+          0,  0,  0,  0,   // r33
+          0,  0,  0,  0,   // r34
+          0,  0,  0,  0,   // r35
+          0,  0,  0,  0,   // r36
+          0,  0,  0,  0,   // r37
+          0,  0,  0,  0,   // r38
+          0,  0,  0,  0,   // r39
+          0,  0,  0,  0,   // r40
+          0,  0,  0,  0,   // r41
+          0,  0,  0,  0,   // r42
+          0,  0,  0,  0,   // r43
+          0,  0,  0,  0,   // r44
+          0,  0,  0,  0,   // r45
+          0,  0,  0,  0,   // r46
+          0,  0,  0,  0,   // r47
+          0,  0,  0,  0,   // r48
+         24, 27,  0,  0,   // r49
+      };
+      static const int HED_D0_N = 2;   // spans per row
 
-          } else {
-            // IDLE: banked coals. One slow breath, barely alive.
-            float w = 0.5f * (1.0f + sinf(0.19f * fx + (float) now * 0.0004f));
-            f = 0.06f + 0.16f * breath * (0.55f + 0.45f * w);
-          }
+      // lit maw (empty when shut), jaw drop 0px
+      //   50 rows x 1 spans, stride 2
+      static const uint8_t HED_M0[] = {
+          0,  0,   // r00
+          0,  0,   // r01
+          0,  0,   // r02
+          0,  0,   // r03
+          0,  0,   // r04
+          0,  0,   // r05
+          0,  0,   // r06
+          0,  0,   // r07
+          0,  0,   // r08
+          0,  0,   // r09
+          0,  0,   // r10
+          0,  0,   // r11
+          0,  0,   // r12
+          0,  0,   // r13
+          0,  0,   // r14
+          0,  0,   // r15
+          0,  0,   // r16
+          0,  0,   // r17
+          0,  0,   // r18
+          0,  0,   // r19
+          0,  0,   // r20
+          0,  0,   // r21
+          0,  0,   // r22
+          0,  0,   // r23
+          0,  0,   // r24
+          0,  0,   // r25
+          0,  0,   // r26
+          0,  0,   // r27
+          0,  0,   // r28
+          0,  0,   // r29
+          0,  0,   // r30
+          0,  0,   // r31
+          0,  0,   // r32
+          0,  0,   // r33
+          0,  0,   // r34
+          0,  0,   // r35
+          0,  0,   // r36
+          0,  0,   // r37
+          0,  0,   // r38
+          0,  0,   // r39
+          0,  0,   // r40
+          0,  0,   // r41
+          0,  0,   // r42
+          0,  0,   // r43
+          0,  0,   // r44
+          0,  0,   // r45
+          0,  0,   // r46
+          0,  0,   // r47
+          0,  0,   // r48
+          0,  0,   // r49
+      };
+      static const int HED_M0_N = 1;   // spans per row
 
-          // ---- the struck coal: touch acknowledgement, on any state ----
-          // Two terms, because a tap is both local and global: the coal you struck
-          // flares hard, and the whole hearth quickens as if breathed on. k*k gives
-          // a fast attack and a softer settle, which reads as struck rather than
-          // faded. Costs one expf per column for ~10 frames.
-          if (spark_k > 0.0f) {
-            const float d = fabsf(fx - (float) id(spark_col));
-            f += 0.85f * spark_k * expf(-(d * d) / 6.0f);   // the struck column
-            f += 0.16f * spark_k;                           // the hearth quickens
-          }
+      // head topmost row per column, jaw drop 0px
+      static const uint8_t HED_T0[] = {
+          8,  7,  7,  6,  6,  5,  5,  5,  4,  4,  3,  3,  3,  4,  4,  3,  3,  2,  2,  2,
+          2,  1,  1,  1,  1,  0,  5,255,255,255,255,255,255,255,255,255,255,255,255,255,
+        255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+        255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+        255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+        255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+      };
 
-          if (f < 0.0f) f = 0.0f;
-          if (f > 1.0f) f = 1.0f;
-          int hgt = (int) (f * (float) MAXH);
-          if (hgt < 1) hgt = 1;
-          ch[i]   = (uint8_t) hgt;
-          csa[i]  = (uint8_t) (hgt * 50 / 100);   // bed   0-50% of the column
-          csb[i]  = (uint8_t) (hgt * 82 / 100);   // body 50-82%
-          chot[i] = (f > 0.72f);                  // tall tongues go white-hot
+      // head bottom row per column, jaw drop 0px
+      static const uint8_t HED_Y0[] = {
+         10, 10, 10, 11, 11, 11, 11, 12, 12, 12, 12, 12, 12, 13, 13, 13, 13, 13, 13, 13,
+         13, 13, 13, 12,  6,  5,  5,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+      };
+
+      // head silhouette, jaw drop 2px
+      //   50 rows x 2 spans, stride 4
+      static const uint8_t HED_B1[] = {
+         25, 26,  0,  0,   // r00
+         21, 25,  0,  0,   // r01
+         17, 23,  0,  0,   // r02
+         10, 13, 15, 22,   // r03
+          8, 20,  0,  0,   // r04
+          5, 20, 22, 27,   // r05
+          3, 25,  0,  0,   // r06
+          1, 23,  0,  0,   // r07
+          0, 23,  0,  0,   // r08
+          0, 24,  0,  0,   // r09
+          3, 24,  0,  0,   // r10
+          0, 24,  0,  0,   // r11
+          0, 24,  0,  0,   // r12
+          4, 23,  0,  0,   // r13
+          0,  0,  0,  0,   // r14
+          0,  0,  0,  0,   // r15
+          0,  0,  0,  0,   // r16
+          0,  0,  0,  0,   // r17
+          0,  0,  0,  0,   // r18
+          0,  0,  0,  0,   // r19
+          0,  0,  0,  0,   // r20
+          0,  0,  0,  0,   // r21
+          0,  0,  0,  0,   // r22
+          0,  0,  0,  0,   // r23
+          0,  0,  0,  0,   // r24
+          0,  0,  0,  0,   // r25
+          0,  0,  0,  0,   // r26
+          0,  0,  0,  0,   // r27
+          0,  0,  0,  0,   // r28
+          0,  0,  0,  0,   // r29
+          0,  0,  0,  0,   // r30
+          0,  0,  0,  0,   // r31
+          0,  0,  0,  0,   // r32
+          0,  0,  0,  0,   // r33
+          0,  0,  0,  0,   // r34
+          0,  0,  0,  0,   // r35
+          0,  0,  0,  0,   // r36
+          0,  0,  0,  0,   // r37
+          0,  0,  0,  0,   // r38
+          0,  0,  0,  0,   // r39
+          0,  0,  0,  0,   // r40
+          0,  0,  0,  0,   // r41
+          0,  0,  0,  0,   // r42
+          0,  0,  0,  0,   // r43
+          0,  0,  0,  0,   // r44
+          0,  0,  0,  0,   // r45
+          0,  0,  0,  0,   // r46
+          0,  0,  0,  0,   // r47
+          0,  0,  0,  0,   // r48
+          0,  0,  0,  0,   // r49
+      };
+      static const int HED_B1_N = 2;   // spans per row
+
+      // head dilated 1px, jaw drop 2px
+      //   50 rows x 2 spans, stride 4
+      static const uint8_t HED_D1[] = {
+         20, 27,  0,  0,   // r00
+         16, 27,  0,  0,   // r01
+          9, 26,  0,  0,   // r02
+          7, 24,  0,  0,   // r03
+          4, 28,  0,  0,   // r04
+          2, 28,  0,  0,   // r05
+          0, 28,  0,  0,   // r06
+          0, 26,119,120,   // r07
+          0, 25,119,120,   // r08
+          0, 25,119,120,   // r09
+          0, 25,119,120,   // r10
+          0, 25,119,120,   // r11
+          0, 25,119,120,   // r12
+          0, 25,119,120,   // r13
+          3, 24,  0,  0,   // r14
+          0,  0,  0,  0,   // r15
+          0,  0,  0,  0,   // r16
+          0,  0,  0,  0,   // r17
+          0,  0,  0,  0,   // r18
+          0,  0,  0,  0,   // r19
+          0,  0,  0,  0,   // r20
+          0,  0,  0,  0,   // r21
+          0,  0,  0,  0,   // r22
+          0,  0,  0,  0,   // r23
+          0,  0,  0,  0,   // r24
+          0,  0,  0,  0,   // r25
+          0,  0,  0,  0,   // r26
+          0,  0,  0,  0,   // r27
+          0,  0,  0,  0,   // r28
+          0,  0,  0,  0,   // r29
+          0,  0,  0,  0,   // r30
+          0,  0,  0,  0,   // r31
+          0,  0,  0,  0,   // r32
+          0,  0,  0,  0,   // r33
+          0,  0,  0,  0,   // r34
+          0,  0,  0,  0,   // r35
+          0,  0,  0,  0,   // r36
+          0,  0,  0,  0,   // r37
+          0,  0,  0,  0,   // r38
+          0,  0,  0,  0,   // r39
+          0,  0,  0,  0,   // r40
+          0,  0,  0,  0,   // r41
+          0,  0,  0,  0,   // r42
+          0,  0,  0,  0,   // r43
+          0,  0,  0,  0,   // r44
+          0,  0,  0,  0,   // r45
+          0,  0,  0,  0,   // r46
+          0,  0,  0,  0,   // r47
+          0,  0,  0,  0,   // r48
+         24, 27,  0,  0,   // r49
+      };
+      static const int HED_D1_N = 2;   // spans per row
+
+      // lit maw (empty when shut), jaw drop 2px
+      //   50 rows x 1 spans, stride 2
+      static const uint8_t HED_M1[] = {
+          0,  0,   // r00
+          0,  0,   // r01
+          0,  0,   // r02
+          0,  0,   // r03
+          0,  0,   // r04
+          0,  0,   // r05
+          0,  0,   // r06
+          0,  0,   // r07
+          0,  0,   // r08
+          2,  3,   // r09
+          2, 12,   // r10
+          2, 17,   // r11
+          0,  0,   // r12
+          0,  0,   // r13
+          0,  0,   // r14
+          0,  0,   // r15
+          0,  0,   // r16
+          0,  0,   // r17
+          0,  0,   // r18
+          0,  0,   // r19
+          0,  0,   // r20
+          0,  0,   // r21
+          0,  0,   // r22
+          0,  0,   // r23
+          0,  0,   // r24
+          0,  0,   // r25
+          0,  0,   // r26
+          0,  0,   // r27
+          0,  0,   // r28
+          0,  0,   // r29
+          0,  0,   // r30
+          0,  0,   // r31
+          0,  0,   // r32
+          0,  0,   // r33
+          0,  0,   // r34
+          0,  0,   // r35
+          0,  0,   // r36
+          0,  0,   // r37
+          0,  0,   // r38
+          0,  0,   // r39
+          0,  0,   // r40
+          0,  0,   // r41
+          0,  0,   // r42
+          0,  0,   // r43
+          0,  0,   // r44
+          0,  0,   // r45
+          0,  0,   // r46
+          0,  0,   // r47
+          0,  0,   // r48
+          0,  0,   // r49
+      };
+      static const int HED_M1_N = 1;   // spans per row
+
+      // head topmost row per column, jaw drop 2px
+      static const uint8_t HED_T1[] = {
+          8,  7,  7,  6,  6,  5,  5,  5,  4,  4,  3,  3,  3,  4,  4,  3,  3,  2,  2,  2,
+          2,  1,  1,  1,  1,  0,  5,255,255,255,255,255,255,255,255,255,255,255,255,255,
+        255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+        255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+        255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+        255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+      };
+
+      // head bottom row per column, jaw drop 2px
+      static const uint8_t HED_Y1[] = {
+         12, 12, 12, 12, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,
+         13, 13, 13, 12,  6,  5,  5,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+      };
+
+      // head silhouette, jaw drop 4px
+      //   50 rows x 2 spans, stride 4
+      static const uint8_t HED_B2[] = {
+         25, 26,  0,  0,   // r00
+         21, 25,  0,  0,   // r01
+         17, 23,  0,  0,   // r02
+         10, 13, 15, 22,   // r03
+          8, 20,  0,  0,   // r04
+          5, 20, 22, 27,   // r05
+          3, 25,  0,  0,   // r06
+          1, 23,  0,  0,   // r07
+          0, 23,  0,  0,   // r08
+          0, 24,  0,  0,   // r09
+          9, 24,  0,  0,   // r10
+          7, 24,  0,  0,   // r11
+          3, 24,  0,  0,   // r12
+          0, 23,  0,  0,   // r13
+          0, 17,  0,  0,   // r14
+          0,  0,  0,  0,   // r15
+          0,  0,  0,  0,   // r16
+          0,  0,  0,  0,   // r17
+          0,  0,  0,  0,   // r18
+          0,  0,  0,  0,   // r19
+          0,  0,  0,  0,   // r20
+          0,  0,  0,  0,   // r21
+          0,  0,  0,  0,   // r22
+          0,  0,  0,  0,   // r23
+          0,  0,  0,  0,   // r24
+          0,  0,  0,  0,   // r25
+          0,  0,  0,  0,   // r26
+          0,  0,  0,  0,   // r27
+          0,  0,  0,  0,   // r28
+          0,  0,  0,  0,   // r29
+          0,  0,  0,  0,   // r30
+          0,  0,  0,  0,   // r31
+          0,  0,  0,  0,   // r32
+          0,  0,  0,  0,   // r33
+          0,  0,  0,  0,   // r34
+          0,  0,  0,  0,   // r35
+          0,  0,  0,  0,   // r36
+          0,  0,  0,  0,   // r37
+          0,  0,  0,  0,   // r38
+          0,  0,  0,  0,   // r39
+          0,  0,  0,  0,   // r40
+          0,  0,  0,  0,   // r41
+          0,  0,  0,  0,   // r42
+          0,  0,  0,  0,   // r43
+          0,  0,  0,  0,   // r44
+          0,  0,  0,  0,   // r45
+          0,  0,  0,  0,   // r46
+          0,  0,  0,  0,   // r47
+          0,  0,  0,  0,   // r48
+          0,  0,  0,  0,   // r49
+      };
+      static const int HED_B2_N = 2;   // spans per row
+
+      // head dilated 1px, jaw drop 4px
+      //   50 rows x 2 spans, stride 4
+      static const uint8_t HED_D2[] = {
+         20, 27,  0,  0,   // r00
+         16, 27,  0,  0,   // r01
+          9, 26,  0,  0,   // r02
+          7, 24,  0,  0,   // r03
+          4, 28,  0,  0,   // r04
+          2, 28,  0,  0,   // r05
+          0, 28,  0,  0,   // r06
+          0, 26,119,120,   // r07
+          0, 25,119,120,   // r08
+          0, 25,119,120,   // r09
+          0, 25,119,120,   // r10
+          2, 25,  0,  0,   // r11
+          0, 25,119,120,   // r12
+          0, 25,119,120,   // r13
+          0, 24,119,120,   // r14
+          0, 18,119,120,   // r15
+          0,  0,  0,  0,   // r16
+          0,  0,  0,  0,   // r17
+          0,  0,  0,  0,   // r18
+          0,  0,  0,  0,   // r19
+          0,  0,  0,  0,   // r20
+          0,  0,  0,  0,   // r21
+          0,  0,  0,  0,   // r22
+          0,  0,  0,  0,   // r23
+          0,  0,  0,  0,   // r24
+          0,  0,  0,  0,   // r25
+          0,  0,  0,  0,   // r26
+          0,  0,  0,  0,   // r27
+          0,  0,  0,  0,   // r28
+          0,  0,  0,  0,   // r29
+          0,  0,  0,  0,   // r30
+          0,  0,  0,  0,   // r31
+          0,  0,  0,  0,   // r32
+          0,  0,  0,  0,   // r33
+          0,  0,  0,  0,   // r34
+          0,  0,  0,  0,   // r35
+          0,  0,  0,  0,   // r36
+          0,  0,  0,  0,   // r37
+          0,  0,  0,  0,   // r38
+          0,  0,  0,  0,   // r39
+          0,  0,  0,  0,   // r40
+          0,  0,  0,  0,   // r41
+          0,  0,  0,  0,   // r42
+          0,  0,  0,  0,   // r43
+          0,  0,  0,  0,   // r44
+          0,  0,  0,  0,   // r45
+          0,  0,  0,  0,   // r46
+          0,  0,  0,  0,   // r47
+          0,  0,  0,  0,   // r48
+         24, 27,  0,  0,   // r49
+      };
+      static const int HED_D2_N = 2;   // spans per row
+
+      // lit maw (empty when shut), jaw drop 4px
+      //   50 rows x 1 spans, stride 2
+      static const uint8_t HED_M2[] = {
+          0,  0,   // r00
+          0,  0,   // r01
+          0,  0,   // r02
+          0,  0,   // r03
+          0,  0,   // r04
+          0,  0,   // r05
+          0,  0,   // r06
+          0,  0,   // r07
+          0,  0,   // r08
+          2,  3,   // r09
+          2, 12,   // r10
+          2, 17,   // r11
+          2, 13,   // r12
+          2,  6,   // r13
+          0,  0,   // r14
+          0,  0,   // r15
+          0,  0,   // r16
+          0,  0,   // r17
+          0,  0,   // r18
+          0,  0,   // r19
+          0,  0,   // r20
+          0,  0,   // r21
+          0,  0,   // r22
+          0,  0,   // r23
+          0,  0,   // r24
+          0,  0,   // r25
+          0,  0,   // r26
+          0,  0,   // r27
+          0,  0,   // r28
+          0,  0,   // r29
+          0,  0,   // r30
+          0,  0,   // r31
+          0,  0,   // r32
+          0,  0,   // r33
+          0,  0,   // r34
+          0,  0,   // r35
+          0,  0,   // r36
+          0,  0,   // r37
+          0,  0,   // r38
+          0,  0,   // r39
+          0,  0,   // r40
+          0,  0,   // r41
+          0,  0,   // r42
+          0,  0,   // r43
+          0,  0,   // r44
+          0,  0,   // r45
+          0,  0,   // r46
+          0,  0,   // r47
+          0,  0,   // r48
+          0,  0,   // r49
+      };
+      static const int HED_M2_N = 1;   // spans per row
+
+      // head topmost row per column, jaw drop 4px
+      static const uint8_t HED_T2[] = {
+          8,  7,  7,  6,  6,  5,  5,  5,  4,  4,  3,  3,  3,  4,  4,  3,  3,  2,  2,  2,
+          2,  1,  1,  1,  1,  0,  5,255,255,255,255,255,255,255,255,255,255,255,255,255,
+        255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+        255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+        255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+        255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+      };
+
+      // head bottom row per column, jaw drop 4px
+      static const uint8_t HED_Y2[] = {
+         14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 13, 13, 13,
+         13, 13, 13, 12,  6,  5,  5,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+          0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+      };
+
+      // Geometry. DGN_X/Y/W/H MUST agree with the dgn_ substitutions the touch
+      // hit-test uses, or "where it's drawn" and "where it's tappable" drift apart.
+      //
+      // TRAP: do NOT write a substitution token inside a comment in this block. The
+      // lambda is run through ESPHome's substitution pass before it is ever C++, so
+      // a dollar-brace in a COMMENT is still expanded — and a wildcard one is a
+      // TemplateSyntaxError pointing at the whole 400-line lambda, which tells you
+      // nothing about where it is. Cost me one confusing validation failure.
+      // Three mouth shapes, indexed by `jaw`. Indexing rather than branching keeps
+      // the row builder a single loop, and it is what makes the unused-variable
+      // warning the check that the variants are actually wired up.
+      const uint8_t *HB[3]  = {HED_B0, HED_B1, HED_B2};
+      const int      HBN[3] = {HED_B0_N, HED_B1_N, HED_B2_N};
+      const uint8_t *HD[3]  = {HED_D0, HED_D1, HED_D2};
+      const int      HDN[3] = {HED_D0_N, HED_D1_N, HED_D2_N};
+      const uint8_t *HM[3]  = {HED_M0, HED_M1, HED_M2};
+      const int      HMN[3] = {HED_M0_N, HED_M1_N, HED_M2_N};
+      const uint8_t *HT[3]  = {HED_T0, HED_T1, HED_T2};
+      const uint8_t *HY[3]  = {HED_Y0, HED_Y1, HED_Y2};
+      const int DGN_X = ${dgn_x}, DGN_Y = ${dgn_y};
+      const int DGN_W = ${dgn_w}, DGN_H = ${dgn_h};
+      const int HED_W = 28, HED_H = 19;
+      const int HED_ATX = 21, HED_ATY = 13;      // neck attach, head-local
+      const int HED_EYX = 8,  HED_EYY = 7;       // eye centre, head-local
+      const int SHX = 29, SHY = 28;              // shoulder, dragon-local
+      const int HSX = 4, HSY = 30;               // head pos asleep
+      const int HAX = 0, HAY = 0;                // head pos alert
+      // The "stage" is the dragon plus 16px of clear air in front of its muzzle, so
+      // the breath sparks have somewhere to go. Only the dragon's own 120 columns
+      // are ever occluded; the extra 24 hold sparks and nothing else.
+      const int STG_X = DGN_X - 16, STG_W = DGN_W + 24;
+      const int DOFF = DGN_X - STG_X;            // dragon-local x -> stage x
+      // Rows at or below this are IN the coals: tall flames are drawn in FRONT of
+      // the dragon there, so its feet dissolve into the fire instead of sitting on
+      // a hard line. This is the one place the fire wins the depth test.
+      const int SUBMERGE_R = FLAM_H - 11;
+
+      // ---- wakefulness: one scalar, 0 asleep .. 1 alert. Everything the creature
+      // does is a function of it, so there are no per-state poses to keep in sync. --
+      float wake_t;
+      int jaw = 0;
+      switch (st) {
+        case 1:
+          // LISTENING leans in with your actual voice: the head height IS the
+          // level, smoothed. Same principle as the fire being the waveform.
+          lvl_s += 0.22f * (db_to_frac(id(db_rms)) - lvl_s);
+          wake_t = 0.74f + 0.26f * lvl_s;
+          break;
+        case 2:
+          wake_t = 0.60f;            // held still — concentration reads as stillness
+          break;
+        case 3: {
+          // SPEAKING: the head rocks and the jaw works on the SYLLABLE ENVELOPE,
+          // whose phase comes from frames clocked to the DAC. The mouth cannot move
+          // unless sound is genuinely leaving the speaker.
+          const float syl = 0.55f + 0.45f * powf(fabsf(sinf(ph * 0.83f)), 1.6f);
+          wake_t = 0.82f + 0.14f * syl;
+          if (guttering) { wake_t = 0.30f; jaw = 0; }
+          else jaw = (syl > 0.90f) ? 2 : (syl > 0.72f ? 1 : 0);
+          break;
         }
+        case 4:
+          wake_t = 0.02f;            // guttered: head down in the ash
+          break;
+        default:
+          wake_t = 0.03f;            // asleep
+          break;
+      }
+      // The startle, on ANY touch.
+      //
+      // An earlier draft graded this: hard startle if the tap landed ON the wyrm, a
+      // smaller stir if it landed elsewhere. Dropped deliberately. The gesture that
+      // shipped is "anywhere means talk", and the whole hearth is the creature's —
+      // so the whole hearth wakes it, at full strength, and the touch lambda needs
+      // no dragon-specific hit test at all. One less global, ZERO lines changed in
+      // the input path, and it cannot drift into a second input meaning later.
+      //
+      // WHERE you touched is still honoured: spark_col already flares the struck
+      // coal under your finger, so the hearth answers locally and the creature
+      // answers bodily. Luna's rule holds — feedback comes from what you touched.
+      if (spark_k > 0.0f) {
+        wake_t += 0.95f * spark_k;
+        if (spark_k > 0.45f && st != 4) jaw = 1;
+      }
+      if (wake_t > 1.0f) wake_t = 1.0f;
+      wake_s += 0.30f * (wake_t - wake_s);       // ~150ms settle at 18fps
+      const float wake = wake_s;
+      const int hx = (int) (HSX + (HAX - HSX) * wake + 0.5f);
+      const int hy = (int) (HSY + (HAY - HSY) * wake + 0.5f);
 
-        // Peak-hold survives from the previous design as the fire's reach. It is
-        // drawn only where the fire ISN'T, so it reads as a high-water mark.
-        int pk_row = -1;
+      // ---- per-column top row (for the rim light) and who owns it ----
+      static uint8_t topy[${dgn_w} + 24], boty[${dgn_w} + 24];
+      static bool rim_hd[${dgn_w} + 24];
+      for (int i = 0; i < STG_W; i++) { topy[i] = 255; boty[i] = 0; rim_hd[i] = false; }
+      for (int x = 0; x < DGN_W; x++) {
+        topy[x + DOFF] = DGN_TOPY[x];
+        boty[x + DOFF] = DGN_BOTY[x];
+      }
+      for (int x = 0; x < HED_W; x++) {
+        const int sx = x + hx + DOFF;
+        if (sx < 0 || sx >= STG_W || HT[jaw][x] == 255) continue;
+        const int t = HT[jaw][x] + hy, b = HY[jaw][x] + hy;
+        if (t < topy[sx] || topy[sx] == 255) { topy[sx] = (uint8_t) t; rim_hd[sx] = true; }
+        if (b > boty[sx]) boty[sx] = (uint8_t) b;
+      }
+
+      // ---- the neck: a tapered capsule chain, shoulder -> skull, resolved to
+      // per-row spans. Procedural rather than tabled precisely so that when the
+      // head lifts the neck follows instead of tearing away from it. ----
+      static uint8_t nk0[${dgn_h}], nk1[${dgn_h}];
+      for (int r = 0; r < DGN_H; r++) { nk0[r] = 255; nk1[r] = 0; }
+      {
+        const float ax = (float) (hx + HED_ATX), ay = (float) (hy + HED_ATY);
+        const float cxp = (float) SHX - 5.5f, cyp = ((float) SHY + ay) * 0.5f - 2.0f;
+        for (int i = 0; i < 26; i++) {
+          const float t = (float) i / 25.0f, u = 1.0f - t;
+          const float cx = u * u * (float) SHX + 2.0f * u * t * cxp + t * t * ax;
+          const float cy = u * u * (float) SHY + 2.0f * u * t * cyp + t * t * ay;
+          const float rr = 4.6f * u + 2.9f * t;
+          const int r0 = (int) (cy - rr), r1 = (int) (cy + rr);
+          for (int r = r0; r <= r1; r++) {
+            if (r < 0 || r >= DGN_H) continue;
+            const float dv = (float) r + 0.5f - cy;
+            if (fabsf(dv) > rr) continue;
+            const float hw = sqrtf(rr * rr - dv * dv);
+            int x0 = (int) (cx - hw), x1 = (int) (cx + hw) + 1;
+            if (x0 < 0) x0 = 0;
+            if (x1 > DGN_W) x1 = DGN_W;
+            if (x1 <= x0) continue;
+            if (x0 < nk0[r] || nk0[r] == 255) nk0[r] = (uint8_t) x0;
+            if (x1 > nk1[r]) nk1[r] = (uint8_t) x1;
+          }
+          const int cx0 = (int) (cx - rr), cx1 = (int) (cx + rr);
+          for (int x = cx0; x <= cx1; x++) {
+            if (x < 0 || x >= DGN_W) continue;
+            const float dh = (float) x + 0.5f - cx;
+            if (fabsf(dh) > rr) continue;
+            int t0 = (int) (cy - sqrtf(rr * rr - dh * dh));
+            if (t0 < 0) t0 = 0;
+            if (t0 < topy[x + DOFF] || topy[x + DOFF] == 255) {
+              topy[x + DOFF] = (uint8_t) t0; rim_hd[x + DOFF] = false;
+            }
+            int b0 = (int) (cy + sqrtf(rr * rr - dh * dh));
+            if (b0 >= DGN_H) b0 = DGN_H - 1;
+            if (b0 > boty[x + DOFF]) boty[x + DOFF] = (uint8_t) b0;
+          }
+        }
+      }
+
+      // ---- interior colour is a function of the ROW ONLY, which is the whole
+      // reason this is cheap: the belly furnace, the travelling swallow and the
+      // state temperature all resolve to one Color per row, and the pixel loop stays
+      // a membership test. ----
+      float glow, rimf;
+      switch (st) {
+        case 1:  glow = 0.80f; rimf = 0.95f; break;
+        case 2:  glow = 0.95f; rimf = 0.50f; break;
+        case 3:  glow = guttering ? 0.10f : 1.05f; rimf = guttering ? 0.05f : 1.00f; break;
+        case 4:  glow = 0.00f; rimf = 0.00f; break;
+        default: glow = 0.30f + 0.10f * (0.5f * (1.0f + sinf((float) now * 0.001047f)));
+                 rimf = 0.35f; break;
+      }
+      if (spark_k > 0.0f) { glow += 0.45f * spark_k; rimf += 0.40f * spark_k; }
+
+      // The swallow: on each syllable a hot band runs belly -> throat -> muzzle. It
+      // is just a row window, so it costs one compare per row.
+      int swal_r = -99;
+      if (st == 3 && !guttering) {
+        const float sw = fmodf(ph * 0.159f, 1.0f);
+        swal_r = (int) (40.0f - 42.0f * sw);
+      } else if (st == 2) {
+        swal_r = (int) (44.0f - 46.0f * fmodf((float) now * 0.00042f, 1.0f));
+      }
+
+      // k_up[h] is the interior colour h pixels ABOVE this column's own underside.
+      // Light comes from the coals, so the furnace is brightest at the belly and dies
+      // out toward the spine — and because it is indexed by height-above-bottom
+      // rather than by absolute row, a thin leg glows like a thin leg instead of
+      // inheriting whatever the belly happened to be doing at that row.
+      static Color k_up[32];
+      const bool err = (st == 4);
+      for (int h = 0; h < 32; h++) {
+        if (err) { k_up[h] = c_ash; continue; }
+        float v = 1.0f - (float) h / 11.0f;
+        if (v < 0.0f) v = 0.0f;
+        float g = glow * v * v;
+        k_up[h] = (g > 0.62f) ? c_gold : (g > 0.34f) ? c_amber
+                                       : (g > 0.13f) ? c_ember : c_bed;
+      }
+      // The swallow rides on top of it: one hot ROW window travelling belly -> throat
+      // -> muzzle, so it costs a single compare per row rather than per pixel.
+      static Color k_row[${dgn_h}];
+      static bool k_row_hot[${dgn_h}];
+      for (int r = 0; r < DGN_H; r++) {
+        k_row_hot[r] = false;
+        k_row[r] = c_bg;
+        if (err || swal_r <= -99) continue;
+        const int d = r - swal_r;
+        if (d > -3 && d < 3) {
+          k_row_hot[r] = true;
+          k_row[r] = (d == 0) ? c_tip : c_gold;
+        }
+      }
+      // In ERROR the dragon and the grate are BOTH c_ash, so without a lighter top
+      // edge the body merges into the grate line and loses its silhouette.
+      const Color c_rim  = err ? c_dim : (rimf > 0.86f) ? c_tip
+                                       : (rimf > 0.55f) ? c_gold : c_ember;
+      const Color c_rimh = err ? c_dim : (rimf > 0.86f) ? c_tip
+                                       : (rimf > 0.55f) ? c_tip : c_amber;
+      const Color c_maw  = (rimf > 0.6f) ? c_tip : c_gold;
+      const Color c_eye  = err ? c_alarm
+                        : (spark_k > 0.3f || st == 1 || st == 3) ? c_tip
+                        : (st == 2) ? c_gold : c_bg;   // c_bg == a shut lid
+
+      // ---- classes. 0 is background AND the shadow gap: identical colour, so
+      // sharing the class makes the runs longer instead of splitting them. ----
+      enum : uint8_t { D_NONE = 0, D_GAP = 1, D_SOLID = 2, D_MAW = 3, D_EYE = 4,
+                       D_SPK_H = 5, D_SPK_C = 6 };
+      static uint8_t drow[${dgn_w} + 24];
+
+      // ---- fire: unchanged from the shipped design ----
+      const int NC = 60, CW = 4;
+      const int GRATE = 3;
+      const int base_row = FLAM_H - GRATE;
+      const int MAXH = FLAM_H - 8;
+      const float syl = 0.55f + 0.45f * powf(fabsf(sinf(ph * 0.83f)), 1.6f);
+      const float breath = 0.5f * (1.0f + sinf((float) now * 0.001047f));
+      const float orbit = fmodf((float) now * 0.00042f, 1.0f) * (float) NC;
+
+      uint8_t ch[60], csa[60], csb[60];
+      bool chot[60];
+      for (int i = 0; i < NC; i++) {
+        const float fx = (float) i;
+        float f;
         if (st == 1) {
-          int pk = (int) (db_to_frac(id(db_peak_hold)) * (float) MAXH);
-          if (pk > 1) pk_row = pk;
+          int a = (id(hist_idx) + i * 2) % ${hist_len};
+          int b = (a + 1) % ${hist_len};
+          f = 0.10f + 0.86f * (0.5f * (id(level_hist)[a] + id(level_hist)[b]));
+        } else if (st == 3) {
+          float w1 = 0.5f * (1.0f + sinf(0.27f * fx - ph * 2.3f));
+          float w2 = 0.5f * (1.0f + sinf(0.11f * fx + ph * 1.4f + 1.7f));
+          uint32_t h = ((uint32_t) i * 2654435761u) ^ (frames * 1013904223u);
+          float crackle = (float) ((h >> 24) & 0xFFu) * (0.14f / 255.0f);
+          f = 0.22f + 0.62f * w1 * w2 * syl + crackle;
+          if (guttering) f *= 0.35f;
+        } else if (st == 2) {
+          float d = fabsf(fx - orbit);
+          if (d > (float) NC * 0.5f) d = (float) NC - d;
+          f = 0.10f + 0.72f * expf(-(d * d) / 18.0f);
+        } else if (st == 4) {
+          f = 0.16f;
+        } else {
+          float w = 0.5f * (1.0f + sinf(0.19f * fx + (float) now * 0.0004f));
+          f = 0.06f + 0.16f * breath * (0.55f + 0.45f * w);
+        }
+        if (spark_k > 0.0f) {
+          const float d = fabsf(fx - (float) id(spark_col));
+          f += 0.85f * spark_k * expf(-(d * d) / 6.0f);
+          f += 0.16f * spark_k;
+        }
+        if (f < 0.0f) f = 0.0f;
+        if (f > 1.0f) f = 1.0f;
+        int hgt = (int) (f * (float) MAXH);
+        if (hgt < 1) hgt = 1;
+        ch[i] = (uint8_t) hgt;
+        csa[i] = (uint8_t) (hgt * 50 / 100);
+        csb[i] = (uint8_t) (hgt * 82 / 100);
+        chot[i] = (f > 0.72f);
+      }
+      int pk_row = -1;
+      if (st == 1) {
+        int pk = (int) (db_to_frac(id(db_peak_hold)) * (float) MAXH);
+        if (pk > 1) pk_row = pk;
+      }
+
+      Color k_bed, k_body, k_tipg, k_tipw;
+      if (st == 4)        { k_bed = c_ash; k_body = c_ash; k_tipg = c_ash; k_tipw = c_ash; }
+      else if (st == 0)   { k_bed = c_bed; k_body = c_ember; k_tipg = c_amber; k_tipw = c_amber; }
+      else if (guttering) { k_bed = c_ash; k_body = c_bed; k_tipg = c_ember; k_tipw = c_ember; }
+      else                { k_bed = c_ember; k_body = c_amber; k_tipg = c_gold; k_tipw = c_tip; }
+
+      // ---- pass 2: ROW-MAJOR render ----
+      for (int r = 0; r < FLAM_H; r++) {
+        const int y = FLAM_Y + r;
+        if (r < FUSE_H) {
+          if (st == 3 && id(tts_est_ms) > 0) {
+            int wpx = (int) (prog * (float) W);
+            if (wpx > 3) {
+              it.horizontal_line(0, y, wpx - 3, c_amber);
+              it.horizontal_line(wpx - 3, y, 3, guttering ? c_ash : c_tip);
+            } else if (wpx > 0) {
+              it.horizontal_line(0, y, wpx, c_amber);
+            }
+            if (wpx < W) it.horizontal_line(wpx, y, W - wpx, c_ash);
+          } else if (st == 4) {
+            it.horizontal_line(0, y, W, c_alarm);
+          } else {
+            it.horizontal_line(0, y, W, c_bg);
+          }
+          continue;
+        }
+        if (r >= base_row) { it.horizontal_line(0, y, W, c_ash); continue; }
+        const int hup = base_row - r;
+        const int dr = r - DGN_Y;
+        const bool drow_live = (dr >= 0 && dr < DGN_H);
+
+        // ---- build the stage row: span memsets, in depth order. Doing it this way
+        // rather than testing ~18 intervals per pixel is what keeps the added cost
+        // near half a millisecond: the pixel loop below does ONE array load. ----
+        if (drow_live) {
+          memset(drow, D_NONE, (size_t) STG_W);
+          auto put = [&](int x0, int x1, uint8_t v) {
+            if (x1 > STG_W) x1 = STG_W;
+            if (x0 < 0) x0 = 0;
+            if (x1 > x0) { memset(drow + x0, v, (size_t) (x1 - x0)); }
+          };
+          for (int s = 0; s < DGN_D_N; s++) {
+            const int a = DGN_D[dr * DGN_D_N * 2 + s * 2], b = DGN_D[dr * DGN_D_N * 2 + s * 2 + 1];
+            if (b > a) put(a + DOFF, b + DOFF, D_GAP);
+          }
+          const int hr = dr - hy;
+          if (hr >= 0 && hr < HED_H) {
+            for (int s = 0; s < HDN[jaw]; s++) {
+              const int a = HD[jaw][hr * HDN[jaw] * 2 + s * 2];
+              const int b = HD[jaw][hr * HDN[jaw] * 2 + s * 2 + 1];
+              if (b > a) put(a + hx + DOFF, b + hx + DOFF, D_GAP);
+            }
+          }
+          if (nk1[dr] > nk0[dr] && nk0[dr] != 255)
+            put(nk0[dr] + DOFF, nk1[dr] + DOFF, D_SOLID);
+          for (int s = 0; s < DGN_B_N; s++) {
+            const int a = DGN_B[dr * DGN_B_N * 2 + s * 2], b = DGN_B[dr * DGN_B_N * 2 + s * 2 + 1];
+            if (b > a) put(a + DOFF, b + DOFF, D_SOLID);
+          }
+          if (hr >= 0 && hr < HED_H) {
+            for (int s = 0; s < HBN[jaw]; s++) {
+              const int a = HB[jaw][hr * HBN[jaw] * 2 + s * 2];
+              const int b = HB[jaw][hr * HBN[jaw] * 2 + s * 2 + 1];
+              if (b > a) put(a + hx + DOFF, b + hx + DOFF, D_SOLID);
+            }
+            for (int s = 0; s < HMN[jaw]; s++) {
+              const int a = HM[jaw][hr * HMN[jaw] * 2 + s * 2];
+              const int b = HM[jaw][hr * HMN[jaw] * 2 + s * 2 + 1];
+              if (b > a) put(a + hx + DOFF, b + hx + DOFF, D_MAW);
+            }
+            // the eye. Awake it is 3x2; asleep it is a 3x1 line in c_bg, which reads
+            // as a shut lid rather than as a missing eye.
+            if (hr == HED_EYY || (wake > 0.35f && hr == HED_EYY + 1))
+              put(HED_EYX + hx + DOFF - 1, HED_EYX + hx + DOFF + 2, D_EYE);
+          }
+          // breath: three embers leaving the muzzle, phase-locked to real audio.
+          if (st == 3 && !guttering) {
+            for (int s = 0; s < 3; s++) {
+              const float t = fmodf(ph * 0.159f + (float) s * 0.3333f, 1.0f);
+              const int sx = hx + 1 + DOFF - 3 - (int) (t * 12.0f);
+              const int sy = hy + 9 - (int) (t * 8.0f);
+              const int sz = (t < 0.55f) ? 2 : 1;
+              if (dr >= sy && dr < sy + sz)
+                put(sx, sx + sz, (t < 0.40f) ? D_SPK_H : D_SPK_C);
+            }
+          }
         }
 
-        // Temperature BY HEIGHT: a fire's own depth cue, for one Color pick per run.
-        Color k_bed, k_body, k_tipg, k_tipw;
-        if (st == 4)        { k_bed = c_ash;   k_body = c_ash;   k_tipg = c_ash;   k_tipw = c_ash; }
-        else if (st == 0)   { k_bed = c_bed;   k_body = c_ember; k_tipg = c_amber; k_tipw = c_amber; }
-        else if (guttering) { k_bed = c_ash;   k_body = c_bed;   k_tipg = c_ember; k_tipw = c_ember; }
-        else                { k_bed = c_ember; k_body = c_amber; k_tipg = c_gold;  k_tipw = c_tip; }
+        // ---- one pass, left to right, coalescing runs. Exactly W px, once. ----
+        int run_x = 0, run_k = -1, run_up = 0;
+        int kin_up = 0;
+        for (int x = 0; x <= W; x++) {
 
-        // ---- pass 2: ROW-MAJOR render (see the header note) ----
-        // Walks the band top-to-bottom emitting one horizontal_line per run of
-        // adjacent same-colour columns. Every pixel is written EXACTLY ONCE —
-        // background included — so there is no fill-then-overdraw, and every
-        // write is sequential in x so PSRAM cache lines are fully consumed.
-        for (int r = 0; r < FLAM_H; r++) {
-          const int y = FLAM_Y + r;
-
-          // ---- the burning fuse: top FUSE_H rows, grounded in frames played ----
-          // Emitted as exact runs so the row still tiles to precisely W px.
-          if (r < FUSE_H) {
-            if (st == 3 && id(tts_est_ms) > 0) {
-              int wpx = (int) (prog * (float) W);
-              if (wpx > 3) {
-                it.horizontal_line(0, y, wpx - 3, c_amber);
-                it.horizontal_line(wpx - 3, y, 3, guttering ? c_ash : c_tip);
-              } else if (wpx > 0) {
-                it.horizontal_line(0, y, wpx, c_amber);
-              }
-              if (wpx < W) it.horizontal_line(wpx, y, W - wpx, c_ash);
-            } else if (st == 4) {
-              it.horizontal_line(0, y, W, c_alarm);
-            } else {
-              it.horizontal_line(0, y, W, c_bg);
-            }
-            continue;
-          }
-
-          if (r >= base_row) { it.horizontal_line(0, y, W, c_ash); continue; }  // grate
-          const int hup = base_row - r;          // px above the grate at this row
-          int run_i = 0, run_k = -1;
-          for (int i = 0; i <= NC; i++) {
-            int k;
-            if (i == NC) {
-              k = -2;                                       // sentinel: final flush
-            } else if (hup > (int) ch[i]) {
-              k = (hup == pk_row) ? 5 : 0;                  // background / high-water
-            } else if (hup <= (int) csa[i]) {
-              k = 1;                                        // bed
-            } else if (hup <= (int) csb[i]) {
-              k = 2;                                        // body
-            } else {
-              k = chot[i] ? 4 : 3;                          // tip
-            }
-            if (k != run_k) {
-              if (run_k >= 0) {
-                Color rc;
-                switch (run_k) {
-                  case 1:  rc = k_bed;  break;
-                  case 2:  rc = k_body; break;
-                  case 3:  rc = k_tipg; break;
-                  case 4:  rc = k_tipw; break;
-                  case 5:  rc = c_dim;  break;
-                  default: rc = c_bg;   break;
+          kin_up = 0;
+          int k;
+          if (x == W) {
+            k = -2;
+          } else {
+            const int i = x >> 2;
+            if (hup > (int) ch[i])       k = (hup == pk_row) ? 5 : 0;
+            else if (hup <= (int) csa[i]) k = 1;
+            else if (hup <= (int) csb[i]) k = 2;
+            else                          k = chot[i] ? 4 : 3;
+            if (drow_live) {
+              const unsigned sx = (unsigned) (x - STG_X);
+              if (sx < (unsigned) STG_W) {
+                const uint8_t d = drow[sx];
+                // the coals win below the submerge line, so the feet dissolve into
+                // the fire instead of standing on a hard edge
+                const bool fire_here = (k >= 1 && k <= 4);
+                if (d != D_NONE && !(r >= SUBMERGE_R && fire_here)) {
+                  switch (d) {
+                    case D_SOLID:
+                      if (topy[sx] != 255 && dr - (int) topy[sx] < 2) {
+                        k = rim_hd[sx] ? 8 : 7;          // fire-lit back edge
+                      } else if (k_row_hot[dr]) {
+                        k = 13;                          // the swallow passing
+                      } else {
+                        int up = (int) boty[sx] - dr;
+                        if (up < 0) up = 0;
+                        if (up > 31) up = 31;
+                        k = 6;
+                        kin_up = up;
+                      }
+                      break;
+                    case D_MAW:   k = 9;  break;
+                    case D_EYE:   k = 10; break;
+                    case D_SPK_H: k = 11; break;
+                    case D_SPK_C: k = 12; break;
+                    default:      k = 0;  break;   // shadow gap == background
+                  }
                 }
-                it.horizontal_line(run_i * CW, y, (i - run_i) * CW, rc);
               }
-              run_k = k; run_i = i;
             }
           }
+          // class 6 carries a payload (which rung of the furnace), so a change of
+          // rung has to break the run as surely as a change of class does.
+          if (k != run_k || (k == 6 && kin_up != run_up)) {
+            if (run_k >= 0) {
+              Color rc;
+              switch (run_k) {
+                case 1:  rc = k_bed;   break;
+                case 2:  rc = k_body;  break;
+                case 3:  rc = k_tipg;  break;
+                case 4:  rc = k_tipw;  break;
+                case 5:  rc = c_dim;   break;
+                case 6:  rc = k_up[run_up]; break;
+                case 7:  rc = c_rim;   break;
+                case 8:  rc = c_rimh;  break;
+                case 9:  rc = c_maw;   break;
+                case 10: rc = c_eye;   break;
+                case 11: rc = c_tip;   break;
+                case 12: rc = c_amber; break;
+                case 13: rc = k_row[dr]; break;
+                default: rc = c_bg;    break;
+              }
+              it.horizontal_line(run_x, y, x - run_x, rc);
+            }
+            run_k = k; run_x = x; run_up = kin_up;
+          }
         }
+      }
       };
 
       // ================= band scheduler =================
@@ -2405,9 +3468,43 @@ touchscreen:
       # Geometry comes from ${ui_*} substitutions shared with the display lambda,
       # so "where it's drawn" and "where it's tappable" cannot drift apart.
       - lambda: |-
+          // ---- DEBOUNCE. This is a correctness gate, not polish. ----
+          //
+          // ESPHome's `on_touch` is not a press event — it fires once per touch
+          // REPORT, and the FT6336G reports continuously while a finger is down. One
+          // physical tap therefore produced FOUR dispatches (device log 18:47:15:
+          // four `Reading WAV file type` plus `Script 'talk_begin' is already
+          // running!`).
+          //
+          // That was silently fatal, because the talk action is a TOGGLE: start when
+          // va_state is idle, `voice_assistant.stop` otherwise. So dispatch #1 started
+          // the conversation and dispatch #2, a few ms later, CANCELLED it. The
+          // pipeline died 223ms after `STT started` having heard nothing, every single
+          // time. Announcements were unaffected because they never go through touch —
+          // which is exactly why "announce works, conversation doesn't" was the clue
+          // that mattered.
+          //
+          // It also explains two symptoms that looked unrelated: the `chime` script is
+          // `mode: restart`, so a burst of dispatches kept killing each tone before it
+          // was audible ("no audio when touching volume up/down"), and each dispatch
+          // stepped the volume again. And every extra dispatch was one more speaker
+          // load/unload racing the mic for the shared I2S lock — the `Parent bus is
+          // busy` errors in the same log window.
+          //
+          // 400ms: longer than a finger-down burst, comfortably shorter than two
+          // deliberate taps. A rejected report must NOT fall through — it has to clear
+          // ui_action, or the stale value from the accepted touch would be re-executed.
+          const uint32_t tnow = millis();
+          if (id(touch_gate_until) != 0 &&
+              (int32_t) (tnow - id(touch_gate_until)) < 0) {
+            id(ui_action) = 0;
+            return;
+          }
+          id(touch_gate_until) = tnow + 400u;
+
           const int ty = touch.y;
           const int tx = touch.x;
-          id(ui_last_ms) = millis();
+          id(ui_last_ms) = tnow;
           id(ui_action) = 0;
 
           // Banked screen: the first touch only wakes the backlight. Consuming it
