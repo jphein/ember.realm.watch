@@ -1,12 +1,12 @@
 {
   "name": "ember",
   "description": "Local-first voice assistant satellite with a hearth for a face",
-  "version": "Forged Ingot \u00b7 4d3fcdd",
-  "hash": "4d3fcdd",
+  "version": "Hammered Ironheart \u00b7 8829d9b",
+  "hash": "8829d9b",
   "branch": "main",
-  "dirty": false,
-  "built": "2026-07-30T02:37:07Z",
+  "dirty": true,
+  "built": "2026-07-30T02:51:33Z",
   "realm": "forge",
   "repo": "https://github.com/jphein/ember.realm.watch",
-  "commit_url": "https://github.com/jphein/ember.realm.watch/commit/4d3fcdd"
+  "commit_url": "https://github.com/jphein/ember.realm.watch/commit/8829d9b"
 }
