@@ -1,52 +1,90 @@
-# ESPHome device configs
+# Ember
 
-Version-controlled copies of the ESPHome configs that run on the HA VM at
-`/config/esphome/`. Until now those existed as a single copy on the VM with no
-history — this directory is the backup.
+A local-first voice assistant satellite whose screen is a hearth.
 
-## Workflow
+Ember is an ESPHome device on a cheap 2.8" ESP32-S3 touchscreen, wired to a Home
+Assistant Assist pipeline that never leaves the LAN. You tap the screen, speak,
+and a dragon lying in the coals answers you. The fire's temperature *is* the
+state machine — there is no status text, no spinner, no "listening…" label. When
+Ember is thinking, the fire draws up into a column. When it speaks, the flames
+chase the words. When the backend is unreachable, the coals go grey and the wyrm
+goes to sleep.
 
-Compile locally (about 5x faster than building on the HA VM):
+![The hearth-wyrm across assistant states](esphome/art/wyrm_states_shipped.png)
 
-```bash
-cd ~/Projects/ha/scratch
-cp ~/Projects/ha/esphome/<device>.yaml .
-esphome compile <device>.yaml
-esphome upload <device>.yaml --device <device>.lan     # OTA
-esphome logs   <device>.yaml --device <device>.lan
+*Top to bottom in the file: idle, listening, thinking, speaking, error. The wyrm
+is shaded at render time from the live fire palette, so it rides the
+ember → amber → gold → white-hot ramp rather than being a baked sprite.
+`esphome/art/dragon_in_fire.png` additionally shows the `guttering` and
+`daylight` variants.*
+
+---
+
+## The pipeline
+
+Everything runs on the home network. No cloud STT, no cloud LLM, no cloud TTS.
+
+```mermaid
+flowchart LR
+    T["👆 tap the screen<br/><i>no wake word</i>"] --> E["Ember satellite<br/>ESP32-S3 · ES8311 codec"]
+    E -- "16kHz mono mic" --> HA["Home Assistant<br/><i>familiar-ember</i> pipeline"]
+    HA -- STT --> V["vosk"]
+    V --> L["Qwen3.6-35B-A3B<br/>llama.cpp on <b>familiar</b>:8091"]
+    L -- TTS --> P["Piper<br/>en_GB-cori-medium"]
+    P -- "audio stream" --> E
 ```
 
-`secrets.yaml` is deliberately not tracked. Refresh it with:
+| Stage | What serves it |
+|---|---|
+| Wake | **Touch.** No wake word — deliberate, see below |
+| STT | vosk, on the HA host |
+| Conversation agent | Qwen3.6-35B-A3B (UD-Q3_K_XL) under llama.cpp on the `familiar` host, port 8091 |
+| TTS | Piper, voice `en_GB-cori-medium` |
 
-```bash
-ssh jp@10.0.6.108 "cat /config/esphome/secrets.yaml" > ~/Projects/ha/scratch/secrets.yaml
-```
+**Why touch and not a wake word.** The mic and speaker share a single I2S hub on
+this board and there is no AEC. Continuous wake-word listening on shared
+hardware fights the playback path for the same peripheral; tap-to-talk sidesteps
+the whole class of problem. It also means Ember cannot be triggered from across
+the room by the television.
 
-> **`esphome upload` does NOT compile.** It ships whatever is already in
-> `.esphome/build/`, silently. Always run `esphome compile` first, or use
-> `esphome run`. Two debugging rounds were lost to flashing a stale binary
-> whose symptoms reproduced to the millisecond.
+**Warm replies land in ~1.7s**, but only because the prompt prefix is
+byte-stable so llama.cpp can reuse its KV cache (516 tokens re-prefilled instead
+of 7,559). Anything volatile early in the prompt costs ~6.5s per turn. This is
+measured, not theorised, and it is why `ember_persona.yaml` injects live persona
+tweaks at the very *end* of the prompt — see the comment block in that file, it
+explains a genuinely counter-intuitive constraint.
 
-## Devices
+> ⚠️ **The prompt-cache fix lives in Home Assistant's `.storage`, not in this
+> repo.** The conversation subentry holds the full ~1000-char persona. This
+> repo's `ember_persona.yaml` only supplies the 255-char live-tweak field that
+> HA's `input_text` helper can express.
 
-### `ember-satellite.yaml`
+---
 
-Voice satellite on an **LCDWIKI/QDtech ES3C28P** (sold as "Hosyond 2.8in
-ESP32-S3 Touchscreen"): ESP32-S3 N16R8, 240x320 ILI9341V, FT6336G capacitive
-touch, ES8311 codec with analog mic and external speaker, microSD, WS2812.
+## Hardware
 
-Talks to the `familiar-ember` Assist pipeline — vosk STT, a local
-Qwen3.6-35B-A3B conversation agent, and Piper `en_GB-cori-medium` TTS.
-Activation is by touching the screen; there is no wake word.
+An **LCDWIKI/QDtech ES3C28P**, sold as a "Hosyond 2.8in ESP32-S3 Touchscreen".
 
-The screen is a hearth: one fire whose temperature tracks the assistant state,
-drawn with a banded partial-redraw scheduler so the animation runs at ~18fps
-without starving the voice stream.
+| | |
+|---|---|
+| MCU | ESP32-S3 N16R8 — 16MB flash, 8MB octal PSRAM @ 80MHz |
+| Display | 240×320 ILI9341V over SPI, driven by `mipi_spi` at 40MHz |
+| Touch | FT6336G capacitive |
+| Audio | ES8311 codec — analog differential mic, FM8002E BTL amp to an external speaker |
+| Extras | microSD slot, WS2812 |
 
-**The pinout is traced to the manufacturer's schematic, not to community
-tables.** Several published tables for this board are wrong, and the file
-carries comments explaining each non-obvious choice. The ones that cost real
-debugging time:
+**The pinout in this repo is traced to the manufacturer's schematic, not copied
+from community tables.** Several published tables for this board are wrong. The
+YAML carries a comment at every non-obvious choice explaining what it is and why
+the obvious value fails — those comments are the real documentation for this
+project and should not be stripped.
+
+---
+
+## Settings that look like mistakes (and aren't)
+
+Every row here cost real debugging time. Change one only after reading the
+comment at its point of use in the YAML.
 
 | Setting | Why it looks wrong but isn't |
 |---|---|
@@ -56,146 +94,201 @@ debugging time:
 | GPIO18 left unconfigured | It's CTP_RST. Both a `reset_pin:` and a gpio `output:` broke touch init — ESPHome's `ft63x6` asserts reset then reads the chip ID with zero delay, ignoring the datasheet's `Trsi >= 300ms`. The FT6336G has a 3k internal pull-up, so leaving it alone is correct. |
 | `bits_per_sample: 16bit` on the mic | ESPHome's default is **32bit**, which silently mismatches the 16-bit codec and produces a dead mic. This is the actual bug in the only other published config for this board. |
 | `channel: left` | Cosmetic. ES8311 REG 0x44 defaults to "ADC + ADC", duplicating the mono ADC into both slots, and no driver writes that register — so left and right are equivalent here. |
+| `auto_clear_enabled: false` | Required by the banded partial redraw. `clear()` would dirty every pixel before the lambda even runs, throwing away the whole optimisation. |
+| `buffer_duration: 500ms` | The measured fix for choppy playback — a 16s utterance went 45.8% → 100.7% delivered. **Do not lower it.** Not to be confused with `timeout: 500ms`, which is a different knob entirely. |
+| `logger: level: DEBUG` | The i2c bus scan prints at CONFIG level, and in ESPHome's ordering CONFIG is *more* verbose than INFO — so `level: INFO` silently hides the scan results. |
 
-Calibration knobs that are guesses until measured on your hardware are marked
-in-file: `db_floor`/`db_ceil`, `tts_ms_per_char`, `cpl_body`/`cpl_sm`.
+Two deeper write-ups live alongside this table:
 
-#### Chimes
+- **[docs/audio-pop.md](docs/audio-pop.md)** — the audible pop on audio start.
+  Partly fixed, root cause still ambiguous between an analog and a digital
+  mechanism, with the one experiment that would settle it (it needs no reflash).
+  Also documents two earlier claims that were wrong in opposite directions.
+- **The YAML's own header** — four architecture notes on why there is no LVGL,
+  how the banded partial redraw works, and why the fire renders row-major.
+  `>>> Do not "simplify" the fire back into per-column filled_rectangle calls.
+  It looks identical and costs several times more. <<<`
 
-`sounds/` holds six 16kHz mono tones plus `generate_chimes.py`, which produced
-them. Struck-glass synthesis — inharmonic partials, exponential decay, 4ms
-raised-cosine attack, warm F-pentatonic so any two are consonant. `error` is the
-one deliberate dissonance. 16kHz keeps every partial under Nyquist, so nothing
-resamples on the way to the codec.
+### Calibration knobs
 
-Four fire: `announce`, `error`, `done`, `timer`. `thinking` is a switch, default
-off. **`chime_listening` is generated but deliberately never declared** — 1.4s of
-tone out of a speaker sharing one I2S hub with the mic, no AEC, would make HA's
-VAD end the utterance before you spoke. The symptom would read as an STT bug.
-Don't wire it; the reasoning is at the point of use in the YAML.
+These are guesses until measured on *your* hardware, and are marked in-file:
 
-#### ⚠️ Partly fixed: an audible pop on some audio starts
-
-`use_mclk: true`, and MCLK is only driven while an I2S channel is loaded — so
-when *both* the speaker and the microphone are unloaded, MCLK stops entirely.
-Every start therefore restarts the codec's clock, and that restart is when the
-pop happens.
-
-**Why a clock restart pops, and why the amp is the fix.** REG31's `DAC_DSMMUTE`
-(bit 6) and `DAC_DEMMUTE` (bit 5) are latched I²C bits, written over CCLK/CDATA
-(ES8311 rev 8.0 §5). ESPHome's only writer is `set_mute_state_()`
-(`es8311.cpp:207-223`, a read-modify-write of just those two bits) and `setup()`
-never re-runs, so a mute asserted before an MCLK stop is **still asserted** when
-the clock returns. That much is confirmed from the driver source.
-
-What does *not* follow is that the mute is therefore **in force at the analog
-output** across the gap. Both bits act on the DAC's digital blocks — the
-datasheet expresses the mute target as a modulator *code* (`DAC_DSMMUTE_TO`,
-"mute to 8" / "mute to 7/9"), and the same register's bit 3 `DAC_RAMCLR` is
-explicitly qualified *"when lrck/dac_mclk active"* — while everything after them
-in the block diagram (§1: DAC → **HP Driver** → OUTP/OUTN, biased from VMID) is
-analog and stays powered continuously, because ESPHome writes REG0D=0x01,
-REG0E=0x02, REG12=0x00, REG13=0x10 once at boot and never revisits them.
-
-**The ES8311 datasheet does not specify what OUTP/OUTN do while the DAC is
-powered but unclocked**, gives no power-up/power-down sequence, and mentions "pop
-and click noise suppression" exactly once — a page-1 feature bullet with no
-application section behind it. The mechanisms that *are* documented as
-clock-counted are the staged power-up timers (REG0x0B/0x0C, specified in LRCK
-periods: "0~31: 21us~232ms (LRCK=48KHz)") and the volume/DRC soft ramp
-(REG0x37[7:4], "0.25dB/N LRCK") — and **the ramp is off**: ESPHome writes
-REG37=0x08 for `DAC_EQBYPASS`, which leaves `DAC_RAMPRATE=0` = "disable soft
-ramp" as an incidental side effect, not a choice.
-
-So the restart transient is either **analog** — the FM8002E's own datasheet names
-one: a large input coupling cap Ci lengthens its feedback network's settling and
-*causes* pop; Ci recommended 0.1–0.39µF, this board reported at 0.39µF
-(**unconfirmed, from pdftotext of the schematic**; and note these are the amp's
-*input* caps — its outputs need none, it is BTL) — **or** it is digital but
-arrives in the first LRCK cycles before the muted modulator has converged, with
-no soft ramp to cover them. **We have not distinguished the two, and the
-available evidence cannot:** both predict every observation we have.
-
-What both agree on is the fix. Gating the amp on GPIO1 (SHUTDOWN high = off;
-TD = 100ms typ wake, hence a 180ms default) interrupts the path **downstream of
-every transient the codec can produce**, digital or analog. That makes it the
-**primary** mitigation, not the second choice. Codec mute is still worth
-asserting — it demonstrably suppresses the speaker-side discontinuity inside the
-50ms preloaded-silence window when MCLK is already up — but it acts upstream of
-the analog output stage and **has never been shown, on its own, to suppress a
-clock-restart transient.**
-
-> **Two earlier claims in this file were wrong, in opposite directions.** The
-> first said REG31 mute "is enforced inside the clock domain" and so could not
-> hold across a restart — wrong about the *bit*, which is latched. The
-> correction then overshot: it said the mute therefore *does* suppress the
-> restart pop, and that `amp_blank_ms` "defaults to 0". **`amp_blank_ms` was
-> never 0 in any commit** — that described an intent that was never applied. Two
-> commit messages (`feat(ember): blank the amp…`, `feat(ember): haptic touch
-> feedback…`) carry one or other wrong version; this section supersedes both.
-
-| transient | suppressed? |
+| Knob | What to do |
 |---|---|
-| Speaker start, MCLK already up | **Yes** — REG31 inside the 50ms preloaded-silence window |
-| Mic-side start (tap to talk) | **Yes** — but by `amp_blank` *and* `audio_dac.mute_on` together; the two have never been separated |
-| Failed starts (`Parent bus is busy`) | **Nothing to suppress** — see below |
-| The amp's own enable click | Datasheet claims it is suppressed; 0.39µF Ci would be worst-case. Unmeasured — but blanking was a net win by ear |
+| `db_floor` / `db_ceil` | Speak normally ~40cm away, watch `sensor.mic_rms`, set floor just under room noise and ceiling just over speech. Too narrow and the meter pins; too wide and it looks dead. |
+| `tts_ms_per_char` | Tunes the speaking animation's guess at utterance length. |
+| `cpl_body` / `cpl_sm` | Characters-per-line for the two text sizes. |
 
-**The one experiment that settles it, now runnable without a reflash.** The
-"pop returned with blanking off" listening test predates `talk_begin`'s
-`audio_dac.mute_on`, so it only shows blanking works *without* codec mute — not
-that codec mute is insufficient *with* it. Set the **Amp Blank Width** number to
-`0` and tap to talk. Pop returns ⇒ codec mute is insufficient and the transient
-is downstream of the digital mute. Pop stays away ⇒ blanking is redundant and the
-subsystem can be deleted.
+---
 
-**Part-number provenance:** the two hard numbers cited above (Ci 0.1–0.39µF,
-TD = 100ms typ) come from the **FM8002E** datasheet specifically. Comments in the
-YAML still say SC8002B. These are very likely the same part — FM8002E's vendor is
-深圳市富满电子 / `superchip.cn`, i.e. **SC = SuperChip** — but pin-for-pin
-equivalence is unconfirmed.
+## Chimes
 
-**One unexplained disagreement between driver and datasheet**, recorded because
-it is the only place the two visibly diverge in the analog bias domain: ESPHome
-writes `REG0D = 0x01`, which is `VMIDSEL = 0b01` = *"start up vmid normal speed
-charge"*, and **never advances to `0b10` = "normal vmid operation"**. The codec is
-parked permanently in VMID start-up-charge mode. There is no evidence this
-contributes to the pop and it is not a proposed fix.
+`esphome/sounds/` holds eight 16kHz mono tones plus `generate_chimes.py`, which
+produced them. Struck-glass synthesis — inharmonic partials, exponential decay,
+4ms raised-cosine attack, warm F-pentatonic so any two are consonant. `error` is
+the one deliberate dissonance.
 
-**Failed starts are not a pop source**, despite looking like the obvious suspect.
-`Parent bus is busy` is the `try_lock()` failure at
-`i2s_audio_speaker_standard.cpp:400-403`, which returns `ESP_ERR_INVALID_STATE`
-**before `i2s_new_channel()`** — before any DMA allocation or channel enable. A
-failed start touches zero hardware; it costs latency and log noise only. (An
-earlier revision of this file claimed otherwise. It was wrong.)
+16kHz is not a compromise: the highest partial is 6.79× the fundamental and the
+highest fundamental is C5 (523.25Hz) → 3552Hz, comfortably under the 8kHz
+Nyquist. Rendering at 44.1kHz and letting the device resample would be strictly
+worse — it would put a resampler in an audio path that is deliberately a
+straight line.
 
-**Cheapest falsification if you doubt the trigger:** turn `Hush` on and tap to talk.
-Hush blocks `voice_assistant.start`, so no clock start occurs. If the pop still
-happens, the trigger is not the mic-side start and something else is restarting
-the clock.
+Regenerate with `python3 esphome/sounds/generate_chimes.py`.
 
-**A pop that is not a race, and needs a different fix.** The chime→reply gap
-measures **2.716s** — longer than the speaker's `timeout: 500ms`. So the driver
-unloads and reloads *mid-response*, before every single reply, which is a clock
-restart nobody asked for. The gap is Piper's synthesis latency, not driver
-policy, so raising `timeout` past ~3s or holding the driver loaded across the
-turn are the real levers — not anything in the codec.
+> **`chime_listening` is generated but deliberately never declared.** 1.4s of
+> tone out of a speaker sharing one I2S hub with the mic, with no AEC, would
+> make HA's VAD end the utterance before you finished speaking. The symptom
+> would read as an STT bug and send you looking in entirely the wrong place.
+> Don't wire it. The reasoning is repeated at the point of use in the YAML.
 
-> **Two settings on the speaker look alike and are not.**
-> `buffer_duration: 500ms` is the measured fix for choppy playback (a 16s
-> utterance went 45.8% → 100.7% delivered) — do not lower it.
-> `timeout: 500ms` is how long the driver stays loaded holding the shared I2S
-> lock. It was briefly cut to 100ms to stop the speaker starving the mic, which
-> was **the wrong side of the contention** — the log shows the speaker blocking
-> because the *mic* held the lock, and no `timeout` value affects that direction.
-> Worse, 100ms multiplied driver cycles: six volume taps became six load/unload
-> cycles instead of coalescing into one session. Reverted. The mic-stall it was
-> meant to fix is now handled precisely by `wait_until: speaker.is_stopped` in
-> `talk_begin`, which waits the ~0-500ms actually required instead of losing a
-> blind second to the driver's retry backoff.
+---
 
-### `m5stack-atom-echo-a14320.yaml`
+## The hearth-wyrm
 
-The older voice satellite. Verified to compile clean against ESPHome 2026.7.2
-with no deprecation warnings (RAM 30.5%, Flash 83.2% — note the flash headroom
-is tight).
+`esphome/art/dragon.py` generates the dragon. It is **not** an ESPHome `image:` —
+it emits per-row run-length **spans** as C tables, because:
+
+- The flame band renders row-major and must tile every row exactly once
+  (`auto_clear_enabled: false`). An `it.image()` blit would be a second write
+  over pixels the fire already wrote; spans composite into the existing
+  run-length classifier and preserve write-once.
+- Spans carry no colour, so the wyrm is shaded at render time from the live
+  fire-temperature palette. It rides the heat ramp, honours the daylight theme,
+  and brightens with state. A baked image cannot do any of that.
+- The animation is procedural — head lift, glow, travelling rim light — so it
+  never visibly loops the way frame-cycled art does.
+
+Deterministic, no RNG. Regenerate with `python3 esphome/art/dragon.py`, which
+rewrites `dragon_spans.inc` (pasted into the display lambda) and the preview
+PNGs.
+
+---
+
+## Repository layout
+
+```
+esphome/
+  ember-satellite.yaml       the device. ~3700 lines, and the comments are the docs
+  secrets.yaml.example       copy to secrets.yaml — three keys, never committed
+  sounds/                    8 chime WAVs + generate_chimes.py
+  art/                       dragon.py, dragon_spans.inc, preview PNGs
+homeassistant/
+  packages/
+    ember_backend_health.yaml  is the local LLM actually reachable?
+    ember_persona.yaml         live persona tweak field, editable from HA
+    ember_announce.yaml        script.ember_announce — the right herald
+  dashboards/
+    ember-hearth.dashboard.json  the Ember control panel (lovelace)
+  tools/
+    build_ember_dashboard.py     authoritative regen path for the dashboard
+docs/
+  audio-pop.md               the pop analysis
+  index.html                 project site (GitHub Pages root)
+```
+
+---
+
+## Build and flash
+
+Requires ESPHome. The config declares `min_version: 2025.11.0` and is verified
+against **2026.7.2**.
+
+```bash
+cd esphome
+cp secrets.yaml.example secrets.yaml   # then fill in the three keys
+esphome compile ember-satellite.yaml
+esphome upload  ember-satellite.yaml --device ember-satellite.local   # OTA
+esphome logs    ember-satellite.yaml --device ember-satellite.local
+```
+
+> ⚠️ **`esphome upload` does NOT compile.** It ships whatever is already in
+> `.esphome/build/`, silently. Always `esphome compile` first, or use `esphome
+> run` which does both. Two debugging rounds were lost to flashing a stale
+> binary whose symptoms reproduced to the millisecond.
+
+Compiling on a workstation is roughly 5× faster than building on the HA host.
+
+First flash has to be over USB (`--device /dev/ttyACM0`); everything after that
+can be OTA.
+
+### Verifying the banded redraw
+
+The one test that matters after touching the display code. The YAML's `logger:`
+block carries the exact swap to make — it turns on the per-band frame accounting
+so you can confirm at most one band repaints per frame.
+
+---
+
+## Home Assistant side
+
+The files under `homeassistant/` are not auto-deployed; they are the
+version-controlled source for config that lives on the HA host.
+
+- **`packages/*.yaml`** → drop into your HA `packages/` directory. Reloadable
+  without a full restart via `rest.reload` / `script.reload` where applicable.
+- **`dashboards/ember-hearth.dashboard.json`** → pushed by
+  `tools/build_ember_dashboard.py`, which creates the top-level dashboard if
+  absent and then saves the config over the WebSocket API. **The repo is the
+  source of truth**; a regen deliberately clobbers UI edits, which is the point.
+
+```bash
+export HA_WS="wss://your-ha-host:8123/api/websocket"
+python3 homeassistant/tools/build_ember_dashboard.py --dry   # print, touch nothing
+python3 homeassistant/tools/build_ember_dashboard.py         # create + save
+```
+
+Auth resolves in order: `HA_TOKEN` env var → `~/.cache/ha-token-tmp` → a
+password-manager lookup. The script needs `websockets` (`pip install websockets`).
+
+Notes that will bite otherwise:
+
+- HA requires a custom dashboard `url_path` to contain a hyphen. Hence
+  `ember-hearth`.
+- Hand-edit the JSON, and keep `indent=1, ensure_ascii=True` if you ever rewrite
+  it programmatically. Any other setting re-encodes every non-ASCII glyph and
+  buries a one-tile change in a 300-line diff. This file is ~40% ember-ramp
+  glyphs, so it matters more here than usual.
+- Card inventory is 100% HA-core card types. The only non-core dependency is
+  **card-mod** for the ember palette, and it only injects CSS — if it fails to
+  load the cards still render, just unstyled.
+- The pipeline → agent/stt/tts/voice tables inside the markdown cards are a
+  snapshot taken 2026-07-29. Refresh them if you add or rename pipelines.
+- Address the backend host **by hostname**. `familiar.lan` from the HA VM (HAOS
+  does not resolve the bare name), `familiar` from a workstation. Never the IP:
+  it moved once and the stale literal cost a debugging session.
+- Polling the backend does **not** keep it awake, and does not wake it either.
+  The host's autosuspend decides on whether the inference lane is loaded, not on
+  network traffic. So a failed poll is a true signal, not an artefact of
+  measuring.
+
+### Announcements
+
+Always go through `script.ember_announce`, never `assist_satellite.announce`
+directly. The raw service sends a `preannounce_media_id` unless told not to, and
+Ember *also* plays its own local chime when an announcement arrives — so the
+default gives you HA's generic blip followed by Ember's chime, back to back,
+which sounds exactly like a firmware bug. `preannounce: false` is not optional,
+and the script exists so no future automation has to remember that.
+
+---
+
+## Versioning
+
+The project site carries a [realm-sigil](https://github.com/jphein/realm-sigil)
+version stamp — `docs/version.json` plus a `<meta name="realm-version">` tag in
+the page, generated from the git hash by `build-sigil.sh`.
+
+The firmware itself is versioned by ESPHome and reported to Home Assistant as the
+device's own version. It has no HTTP surface, so it has no `/api/version`
+endpoint and does not need one.
+
+---
+
+## Provenance
+
+Ember started life inside a Home Assistant configuration repo and was extracted
+into this one with `git filter-repo`, preserving all 13 commits that touched it.
+Those commit messages are load-bearing — several are the only record of *why* a
+non-obvious setting is what it is, and at least one documents a conclusion that a
+later commit overturned. `git log --follow` works across the extraction.
