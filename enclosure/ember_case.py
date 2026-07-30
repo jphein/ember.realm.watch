@@ -13,8 +13,17 @@ Every board number below was MEASURED from the vendor STEP solid, not transcribe
 from a datasheet table.  See VERIFIED{} for the provenance of each.
 """
 from build123d import *
+import os, sys, math
+
+# PATH-INDEPENDENT IMPORTS. This file used a bare `import wyrm_spans`, which only resolved
+# when cwd happened to be enclosure/tools/ — so `./cadenv/bin/python ember_case.py` from the
+# enclosure directory died with ModuleNotFoundError, and the README's own build command did
+# not work. "Buildable from a fresh clone" was a claim, not a fact. Resolve relative to THIS
+# FILE instead of the working directory, so it runs from anywhere.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if os.path.join(_HERE, "tools") not in sys.path:
+    sys.path.insert(0, os.path.join(_HERE, "tools"))
 import wyrm_spans as _W
-import os, math
 
 # ============================================================================
 # 1. BOARD FACTS  -- all measured from ES3C28P_3D.step
@@ -30,7 +39,26 @@ VA              = (3.20, 46.80, 16.81, 74.86)   # visible area x0,x1,y0,y1
 MIC             = (40.00, 81.50)    # mic package centre, in the top bare strip
 USB_X           = (20.53, 29.47)    # USB-C body, centred on 25.00
 USB_Z           = (-4.85, -1.60)
-BTN             = [(13.45,3.26),(36.58,3.26)]   # rear-facing tact switches
+# Rear-facing tact switches. WHICH IS WHICH — settled on the bench, 2026-07-30, because
+# nothing in the model could say. The vendor STEP carries designators for plenty of parts
+# (C10, SD_CARD1, MOLEX1.25-…, the WS2812 library part) but contains NO K1/K2 and no switch
+# part at all — the same export suppression that hid the mic hole. Twice that file has been
+# silent on exactly the feature we needed.
+#
+# JP pressed both on the bare board: the one that raises the volume overlay is on the
+# microSD side. SD_PLATE spans x 33.68..44.83, i.e. high-x, so:
+#
+#   x = 36.58  ->  K2 / BOOT / GPIO0  -- the ONLY readable input. Short press = volume
+#                  overlay + step, long press = power menu. Gets the BIG hex cap.
+#   x = 13.45  ->  K1 / RESET         -- hardwired to CHIP_PU, unreadable by firmware,
+#                  reboots the MCU *and* the LCD. Gets the SMALL hex cap.
+#
+# ⚠️ Holding BOOT low ACROSS a reset enters ROM download mode, which looks like a brick.
+# With two pressable caps that is reachable by accident, so neither cap may be able to
+# stick depressed, and one thumb must not span both.
+BTN             = [(13.45,3.26),(36.58,3.26)]
+BTN_RESET_X     = 13.45              # small cap
+BTN_BOOT_X      = 36.58              # big cap, the only readable switch
 BTN_TIP_Z       = -4.10             # plunger tip (2.50mm below PCB back face)
 LED             = (29.00, 45.60)    # WS2812B 5x5, on the BACK, fires rearward
 ANT             = (17.57, 32.21, 80.04, 85.70)  # PCB antenna -- KEEPOUT, no metal
@@ -542,7 +570,12 @@ if __name__ == "__main__":
               f"bbox {bb.size.X:6.2f} x {bb.size.Y:6.2f} x {bb.size.Z:6.2f}")
         export_stl(p, os.path.join(out, n+".stl"))
     print("\n--- BOOLEAN CLEARANCE CHECK vs vendor STEP ---")
-    raw = import_step(os.path.join(out,"..","ES3C28P_3D","ES3C28P_3D.step"))
+    # Also anchored to this file, not to cwd: with `out` derived from the working directory,
+    # `../ES3C28P_3D/` resolved outside the repo and the clearance check silently skipped.
+    _step = os.path.join(_HERE, "..", "ES3C28P_3D", "ES3C28P_3D.step")
+    if not os.path.exists(_step):
+        _step = os.path.join(_HERE, "ES3C28P_3D", "ES3C28P_3D.step")
+    raw = import_step(_step)
     # !! The STEP lives in its own frame (X -52.75..-2.75, Y 6..92).  Move it into
     # !! board coords (X 0..50, Y 0..86) or every boolean silently returns empty.
     board = Pos(52.750, -6.000, 0.0) * raw
