@@ -1025,6 +1025,31 @@ script:
           // File length + 250ms of driver load/unload — measured uniform across all seven.
           static const uint32_t LEN_MS[7] = {1830u, 1300u, 1790u, 620u, 2110u, 395u, 274u};
           if (which < 0 || which > 6) return;
+          // ---- NEVER PREEMPT AUDIO THAT IS ALREADY PLAYING ----
+          //
+          // `enqueue: false` does not "risk corruption" — it DESTROYS the in-flight
+          // item by design: watch_media_commands_() calls announcement_playlist_
+          // .clear() and then start_file() on the running pipeline
+          // (speaker_media_player.cpp:152-164). The preempted item's remaining audio
+          // is discarded and never resumed. All seven of our plays carry that flag.
+          //
+          // And `va_state` cannot detect the case that matters. It is 0 for the ENTIRE
+          // duration of a spoken reply (RESPONSE_FINISHED -> set_state_(IDLE, IDLE),
+          // voice_assistant.cpp:516), so the `va_state != 1` guard is blind to exactly
+          // the condition it needs to see. Consequence, reproducible in ten seconds
+          // before this guard: ask Ember something, tap the screen while it answers,
+          // and the reply dies mid-sentence. A VOLUME tap was worse — it fires the
+          // haptic AND the tick, so it killed the reply and then killed its own tick.
+          //
+          // spk->is_running() asks the direct question, and it covers call sites that
+          // do not exist yet — which is the property a per-site flag like had_tts
+          // lacks. Applied to done/error/touch/haptic only: the announce herald is
+          // enqueued AHEAD of the speech it heralds (verified), and a timer finishing
+          // is the one sound whose whole job is to interrupt.
+          if ((which == 0 || which == 1 || which == 5 || which == 6) &&
+              id(spk)->is_running()) {
+            return;
+          }
           // Do not start audio while the microphone holds the shared I2S lock. The
           // captured log shows what happens otherwise: the speaker fails with
           // "Parent bus is busy" (i2s_audio_speaker_standard.cpp:400-403) and then
@@ -1051,7 +1076,7 @@ script:
             if (id(tts_est_ms) > 0) id(tts_est_ms) += LEN_MS[2];
           }
       - if:
-          condition: { lambda: 'return which == 0 && id(va_state) != 1;' }
+          condition: { lambda: 'return which == 0 && id(va_state) != 1 && !id(spk)->is_running();' }
           then:
             - media_player.speaker.play_on_device_media_file:
                 id: media_out
@@ -1059,7 +1084,7 @@ script:
                 announcement: true
                 enqueue: false
       - if:
-          condition: { lambda: 'return which == 1 && id(va_state) != 1;' }
+          condition: { lambda: 'return which == 1 && id(va_state) != 1 && !id(spk)->is_running();' }
           then:
             - media_player.speaker.play_on_device_media_file:
                 id: media_out
@@ -1091,7 +1116,7 @@ script:
                 announcement: true
                 enqueue: false
       - if:
-          condition: { lambda: 'return which == 5 && id(va_state) != 1;' }
+          condition: { lambda: 'return which == 5 && id(va_state) != 1 && !id(spk)->is_running();' }
           then:
             - media_player.speaker.play_on_device_media_file:
                 id: media_out
@@ -1099,7 +1124,7 @@ script:
                 announcement: true
                 enqueue: false
       - if:
-          condition: { lambda: 'return which == 6 && id(va_state) != 1;' }
+          condition: { lambda: 'return which == 6 && id(va_state) != 1 && !id(spk)->is_running();' }
           then:
             - media_player.speaker.play_on_device_media_file:
                 id: media_out
@@ -1192,7 +1217,13 @@ script:
             - wait_until:
                 condition:
                   speaker.is_playing: spk
-                timeout: 250ms
+                # 250ms was measured off ONE fast sample (~110ms) and is not stable:
+                # observed 99ms, 232ms, 2633ms, 2695ms for the media_player to claim
+                # the speaker. When it blows the timeout, is_playing gives up and
+                # is_stopped then passes instantly BECAUSE IT NEVER STARTED — putting
+                # us straight back in the original race, silently, on the slow path
+                # only. That is the "sometimes it works" signature.
+                timeout: 1500ms
             - wait_until:
                 condition:
                   speaker.is_stopped: spk
@@ -1615,12 +1646,6 @@ globals:
     initial_value: '0'
 
   # Last interaction, for auto-dismiss.
-  # Debounce deadline for on_touch. See the gate at the top of the on_touch lambda
-  # for why this is load-bearing rather than a nicety.
-  - id: touch_gate_until
-    type: uint32_t
-    restore_value: false
-    initial_value: '0'
   - id: ui_last_ms
     type: uint32_t
     restore_value: false
@@ -3502,43 +3527,9 @@ touchscreen:
       # Geometry comes from ${ui_*} substitutions shared with the display lambda,
       # so "where it's drawn" and "where it's tappable" cannot drift apart.
       - lambda: |-
-          // ---- DEBOUNCE. This is a correctness gate, not polish. ----
-          //
-          // ESPHome's `on_touch` is not a press event — it fires once per touch
-          // REPORT, and the FT6336G reports continuously while a finger is down. One
-          // physical tap therefore produced FOUR dispatches (device log 18:47:15:
-          // four `Reading WAV file type` plus `Script 'talk_begin' is already
-          // running!`).
-          //
-          // That was silently fatal, because the talk action is a TOGGLE: start when
-          // va_state is idle, `voice_assistant.stop` otherwise. So dispatch #1 started
-          // the conversation and dispatch #2, a few ms later, CANCELLED it. The
-          // pipeline died 223ms after `STT started` having heard nothing, every single
-          // time. Announcements were unaffected because they never go through touch —
-          // which is exactly why "announce works, conversation doesn't" was the clue
-          // that mattered.
-          //
-          // It also explains two symptoms that looked unrelated: the `chime` script is
-          // `mode: restart`, so a burst of dispatches kept killing each tone before it
-          // was audible ("no audio when touching volume up/down"), and each dispatch
-          // stepped the volume again. And every extra dispatch was one more speaker
-          // load/unload racing the mic for the shared I2S lock — the `Parent bus is
-          // busy` errors in the same log window.
-          //
-          // 400ms: longer than a finger-down burst, comfortably shorter than two
-          // deliberate taps. A rejected report must NOT fall through — it has to clear
-          // ui_action, or the stale value from the accepted touch would be re-executed.
-          const uint32_t tnow = millis();
-          if (id(touch_gate_until) != 0 &&
-              (int32_t) (tnow - id(touch_gate_until)) < 0) {
-            id(ui_action) = 0;
-            return;
-          }
-          id(touch_gate_until) = tnow + 400u;
-
           const int ty = touch.y;
           const int tx = touch.x;
-          id(ui_last_ms) = tnow;
+          id(ui_last_ms) = millis();
           id(ui_action) = 0;
 
           // Banked screen: the first touch only wakes the backlight. Consuming it
@@ -3602,6 +3593,34 @@ touchscreen:
           // object.
           id(spark_col) = tx < 0 ? 0 : (tx > 239 ? 59 : tx / 4);
           id(spark_ms) = millis();
+
+    # ---- DISPATCH ON RELEASE, NOT ON TOUCH ----
+    #
+    # `on_touch` fires once per touch REPORT and the finger-down stream is
+    # UNBOUNDED IN LENGTH, so it is structurally the wrong trigger for "the user
+    # did a thing". `release_trigger_` (touchscreen.cpp:129-139) fires exactly once
+    # per tap, which is the actual event.
+    #
+    # A time-window debounce cannot substitute, and the attempt is instructive: a
+    # fixed 400ms gate RE-ARMS, so it accepted a fresh dispatch every 400ms for as
+    # long as the finger stayed down —
+    #
+    #   t=0    accepted -> talk_begin -> voice_assistant.start
+    #   t=400  ACCEPTED -> va_state != 0 -> voice_assistant.stop
+    #
+    # so any press held >=400ms started a conversation and then cancelled it. That
+    # is an ordinary deliberate press, not a long one. Measured on device: three
+    # kills at 1159ms, exactly 400.0ms, and 2171ms of streaming, all transitioning
+    # to IDLE (the cancel path) rather than to AWAITING_RESPONSE (a real VAD end).
+    # Raising the window only moves the cliff and breaks double-tap cancel.
+    #
+    # The hit-test STAYS in on_touch and still runs per report. That is deliberate:
+    # it is idempotent (it recomputes the same ui_action from the same coordinates),
+    # and `release_trigger_` carries NO coordinates — so latching the decision in
+    # ui_action on touch and consuming it on release is the only shape that works.
+    # The existing hit-test/dispatch split was already correct; only the trigger
+    # was wrong.
+    on_release:
       - script.execute: ui_dispatch
 
 ########################  voice assistant  ########################
