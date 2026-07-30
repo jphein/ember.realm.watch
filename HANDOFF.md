@@ -21,9 +21,10 @@ Five printable parts in [`enclosure/`](enclosure/). **`ember_case.py` is the art
 the STLs are output.** Rebuild:
 
 ```
-cd ~/.claude/projects/-home-jp-Projects-familiar-realm-watch/scratch/hosyond-s3/ember-case
-../cadenv/bin/python ember_case.py      # STLs + clearance check + geometry asserts
-../cadenv/bin/python make_renders.py    # the site figures
+cd enclosure
+python3 -m venv cadenv && ./cadenv/bin/pip install -r tools/requirements.txt
+./cadenv/bin/python ember_case.py            # STLs + clearance check + geometry asserts
+./cadenv/bin/python tools/make_renders.py    # the site figures
 ```
 
 **Buildable from a fresh clone** — see [`enclosure/README.md`](enclosure/README.md).
