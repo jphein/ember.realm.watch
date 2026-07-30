@@ -332,6 +332,34 @@ ramp rate, 0x08". The ramp-rate field is bits 7:4, so `0x08` **disables** soft r
 the codec, is what makes the silence gate work) **by accident, with the mechanism inverted** —
 and it sat precisely where the next person would reason about the audio path.
 
+### 13. A search that proves absence, with no control
+
+An issue was closed with the comment *"zero occurrences … so both stale rationales are gone."*
+Neither clause was true, and it only came out because a colleague happened to be editing the
+very lines that were supposedly already gone.
+
+- `grep -cE "REG37 is the DAC ramp rate"` returned **0 because the sentence spans a line
+  break.** `grep` is line-oriented, so a claim wrapped across two lines matches nothing — and
+  reports it as a confident zero, indistinguishable from real absence.
+- The comment said **"both"** on the strength of checking **one** phrase. The second stale
+  claim was still sitting at line 427, unlooked-for.
+
+**The rule, and it costs one command: a check that proves ABSENCE must be run once against a
+case where the thing is PRESENT.** A negative result from an instrument you have never seen
+produce a positive is not evidence. `check_tiling` in this repo has exactly such a control;
+that grep had none.
+
+This was the **second** search the same day to hand the same person a confidently wrong count.
+The other returned `1` — and the single match was **his own comment asserting there were no
+callers.** A search that finds its own documentation and reports it as a usage is the same
+failure wearing the opposite sign: the instrument answered a question about the text when the
+question was about the code.
+
+Note the shape it shares with §5 and §9: the number was real, the tool worked exactly as
+designed, and the claim built on it was false. **`grep` counts lines matching a pattern. It
+does not tell you whether a thing is true of a program**, and every step between those two
+propositions is yours to justify.
+
 ---
 
 ## The cheapest countermeasure found so far: ask, don't assemble
