@@ -1,12 +1,12 @@
 {
   "name": "ember",
   "description": "Local-first voice assistant satellite with a hearth for a face",
-  "version": "Molten Smelter \u00b7 aa1a8c8",
-  "hash": "aa1a8c8",
+  "version": "Kilned Mold \u00b7 b33e967",
+  "hash": "b33e967",
   "branch": "main",
-  "dirty": false,
-  "built": "2026-07-30T02:19:02Z",
+  "dirty": true,
+  "built": "2026-07-30T02:27:02Z",
   "realm": "forge",
   "repo": "https://github.com/jphein/ember.realm.watch",
-  "commit_url": "https://github.com/jphein/ember.realm.watch/commit/aa1a8c8"
+  "commit_url": "https://github.com/jphein/ember.realm.watch/commit/b33e967"
 }

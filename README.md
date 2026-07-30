@@ -182,10 +182,22 @@ homeassistant/
     ember-hearth.dashboard.json  the Ember control panel (lovelace)
   tools/
     build_ember_dashboard.py     authoritative regen path for the dashboard
-docs/
-  audio-pop.md               the pop analysis
-  index.html                 project site (GitHub Pages root)
+    deploy-ha.sh                 push packages to the HA VM + reload
+site/                        SOURCES for the project site
+  index.src.html               hand-edit this
+  build.py                     -> docs/, inlining art and copying chimes
+  make_og_card.py              regenerates the social preview card
+docs/                        GENERATED — the GitHub Pages root
+  index.html                   built by site/build.py; do NOT hand-edit
+  assets/                      chimes + og card
+  home-assistant.md            the full HA-side guide
+  audio-pop.md                 the pop analysis
+  version.json                 realm-sigil stamp
 ```
+
+> `docs/index.html` is **generated**. Edit `site/index.src.html` and re-run
+> `python3 site/build.py`, then `./build-sigil.sh` to refresh the version stamp.
+> Hand edits to `docs/index.html` are silently destroyed by the next build.
 
 ---
 
@@ -222,8 +234,28 @@ so you can confirm at most one band repaints per frame.
 
 ## Home Assistant side
 
-The files under `homeassistant/` are not auto-deployed; they are the
-version-controlled source for config that lives on the HA host.
+**[docs/home-assistant.md](docs/home-assistant.md) is the full guide** —
+prerequisites, deploy, verification, the pipeline internals, and troubleshooting
+ordered by how much time each fault costs you. Read it before a fresh install;
+roughly half of Ember's HA-side configuration is *not* expressible as a repo file
+(add-ons, the conversation agent entry, the Assist pipeline) and that document
+enumerates every manual step.
+
+The files under `homeassistant/` are the version-controlled source for config that
+lives on the HA host. **This repo is the source of truth**; `deploy-ha.sh` copies
+packages to the VM and reloads only the domains that changed:
+
+```bash
+homeassistant/tools/deploy-ha.sh --check     # validate only, no SSH needed
+homeassistant/tools/deploy-ha.sh --dry-run   # show what would change
+homeassistant/tools/deploy-ha.sh             # deploy all three + reload
+```
+
+> ⚠️ **The API host and the SSH host are different machines.** The public name
+> resolves to the reverse proxy, not the HA VM. SSH there succeeds, `sudo tee`
+> writes the packages onto the *proxy*, reports success, and changes nothing in
+> Home Assistant. `deploy-ha.sh` keeps the two names separate deliberately and says
+> why in a comment — don't "tidy" it. Override with `HA_SSH_HOST` and `HA_API`.
 
 - **`packages/*.yaml`** → drop into your HA `packages/` directory. Reloadable
   without a full restart via `rest.reload` / `script.reload` where applicable.

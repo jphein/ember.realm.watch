@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ember — a hearth-wyrm that listens</title>
+<meta name="description" content="A local-first voice assistant satellite on an ESP32-S3 touchscreen. No cloud. The screen is a hearth, and something lives in the coals.">
+<meta name="color-scheme" content="dark light">
+<!-- Open Graph / Twitter — rich share previews. Same set as moyoung-watch. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Ember">
+<meta property="og:url" content="https://jphein.github.io/ember.realm.watch/">
+<meta property="og:title" content="A voice assistant with no cloud in it">
+<meta property="og:description" content="Speech-to-text, a 35B-parameter language model, and the voice all run on hardware in the same building as you. Nothing is sent anywhere. On a $20 ESP32-S3 touchscreen whose screen is a hearth, with a dragon lying in the coals.">
+<meta property="og:image" content="https://jphein.github.io/ember.realm.watch/assets/og-card.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The Ember hearth display — a pixel-art dragon lying in tall orange flames on a black screen, above the words 'A voice assistant with no cloud in it'.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="A voice assistant with no cloud in it">
+<meta name="twitter:description" content="Local speech-to-text, a 35B-parameter LLM, and local TTS — all in the house. On a $20 ESP32-S3 touchscreen with a dragon in the fire.">
+<meta name="twitter:image" content="https://jphein.github.io/ember.realm.watch/assets/og-card.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230A0604'/%3E%3Cpath d='M16 4c1.6 5.2-3.4 7-3.4 11.6 0 2 1.3 3.4 3.4 3.4s3.6-1.5 3.6-3.8c0-1.4-.6-2.4-1.2-3.4 3 1.6 5 4.6 5 8C23.4 24 20 27.6 16 27.6S8.6 24 8.6 19.8C8.6 12.6 15 11.4 16 4z' fill='%23E05A08'/%3E%3Cpath d='M16 12.6c1.9 2.6-.9 3.9-.9 6.4 0 1.3.6 2.2 1.7 2.2 1.4 0 2.3-1 2.3-2.4 0-2.5-2-3.4-3.1-6.2z' fill='%23FFE8B4'/%3E%3C/svg%3E">
+<style>
+/* ─────────────────────────────────────────────────────────────
+   Ember — the palette is the firmware's own fire-temperature ramp:
+   ember → amber → gold → white-hot, with ash as the one colour off it.
+   Same values the device draws with.
+   ───────────────────────────────────────────────────────────── */
+:root{
+  --coal:#0A0604; --panel:#150D08; --panel-2:#1E1310; --edge:#33231A;
+  --ink:#F2DCB8; --dim:#A5825F; --faint:#6A5240;
+  --ember:#8E2206; --amber:#E05A08; --gold:#FFA81E; --hot:#FFE8B4;
+  --ash:#3A322C; --alarm:#FF3C18;
+  --accent:var(--gold); --link:var(--gold);
+  --shadow:0 1px 0 rgba(255,168,30,.08), 0 18px 46px -22px rgba(0,0,0,.9);
+  --grain:rgba(255,168,30,.035);
+  /* The five-state sprite, inlined by build.py. One image, six consumers. */
+  --states-img:url("data:image/png;base64,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qakDBw782Z/92a5du6anpycnJw8cOHDkyJH+7WdmZjZs2LBmzZpvfetbhw4dSh9k0a9OT0/v3r17zZo1v/jFLzZt2rRt27bwnxgAaIl0htH/4Pvf//7U1NQFF1xw8803p5/cvXv3xRdfnCTJ2rVrH3jggf7tn3zyyWuvvTZJknPOOefhhx9e8GjZr95yyy39kLF58+ann366uZ8QAGjQMhOOvmefffbmm29+8MEH9+3bl35y48aN5513Xv/jVatW9Xq9ubm5Xq/36KOPJknyyiuvrF69esHjZL962WWX3XbbbUmSPPPMMydPnqzjJwIAWqdQ4Lj11ls/+MEPfvrTn962bdutt97a/+RZZ511ww03nDhxotfrbdiwYW5uLkmSt95667XXXuvf4NSpUwseJ/vVycnJ/v/t9XoTExMD/zgAQBstvz396tWr77nnnhdeeGHfvn2XX355kiS9Xq/X6x0+fHjLli1JkmzatGnnzp39G/djx1KyXz18+PAVV1yRJMnmzZsFDgDoqsUnHD/72c927tz5d3/3d0mSvP76688+++x99903MTHx7W9/O0mS559//o477vjLv/zLG2+88eqrrz558uTtt99e7dvfddddN910044dO1544YU33nij8o8BALCkvXv3XnjhhUmSrF+//t577x324QAAIYbcYlx00UWf//zn33zzzcnJya9+9as//vGPh3s8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQGUTUytXDPsYAICO6w37AACA7hM4AIBwAgcAEE7gAADCCRwAQDiBAwAIJ3AAAOEEDgAgnMABAIQTOACAcAIHABBO4AAAwgkcAEA4gQMACCdwAADhBA4AIJzAAQCEEzgAgHACBwAQTuAAAMIJHABAOIEDAAgncAAA4QQOACCcwAEAhBM4AIBwAgcAEE7gAADCCRwAQDiBAwAIJ3AAAOEEDgAgnMABAIQTOACAcAIHABBuxR/+3keGfQwAQMeZcAAA4QQOACDcxNTKFcM+BgCg40w4AIBwAgcAEE7gAADCCRwAQDiBAwAIJ3AAAOEEDgAgnMABAIQTOACAcAIHABBO4AAAwtlIpUWOvfy9ZW9z9vlXhR8H7ePcYCnODZbStnPDhAMACCdwAADhGq1Uiox3ijAe7B7nBktxbrAU58Zo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cAAA4QQOACCcwAEAhBM4AAAAAAAAAAAAAAAAAAAAAAAAYGiuu+66/gezs7MLvrRu3brt27fn3HfBXZa9PQAwptLQkA0cxe8LANC3yKXN/+iP/mhqaurAgQP9//u5z33unnvu+c53vrNly5b+Z86MI/2v/v3f/3361b73vOc93/nOd9atW5d/++np6b/6q7/6m7/5m1tuueXxxx8P+AEBgLZKI8JTTz117bXXJkly/vnnP/zwwwu++uSTT/a/es4555z51cnJybvvvvtDH/rQsre/5ZZbtm3bliTJ5s2bn3766UZ+OACgacts3jYxMfHoo48mSfLyyy+vXr164Z17vf5XX3nllTO/+qUvfenxxx//4Q9/uOztL7vssn/+539OkuSZZ545efLkoD8NANBKywSOt95667XXXut/fOrUqSJfXbly5bp16y655JIijzY5OTl/HL3exMRElZ8AAGi9xQNHr9fr9XpJkszNzeXcedGvnjhx4rOf/ez73ve+T33qU8ve/vDhw1dccUWSJJs3bxY4AKCrFg8czz///B133FH5Qefm5vbu3XvdddetX78+/5Z33XXXjh077r333l/7tV974403Kn9HAIAl7d2798ILL0ySZP369ffee++wDwcACDHkFuOiiy76/Oc//+abb05OTn71q1/98Y9/PNzjAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACqbmFq5YtjHAAB0XG/YBwAAdJ/AAQCEEzgAgHACBwAQTuAAAMIJHABAOIEDAAgncAAA4QQOACCcwAEAhBM4AIBwAgcAEE7gAADCCRwAQDiBAwAIJ3AAAOEEDgAgnMABAIQTOACAcAIHABBO4AAAwgkcAEA4gQMACCdwAADhBA4AIJzAAQCEEzgAgHACBwAQTuAAAMIJHABAOIEDAAgncAAA4QQOACCcwAEAhBM4AIBwAgcAEE7gAADCCRwAQDiBAwAIJ3AAAOEEDgAgnMABAIQTOACAcAIHABBO4AAAwgkcAEA4gQMACCdwAADhBA4AIJzAAQCEEzgAgHACBwAQTuAAAMKtGPYBMBzHXv7esrc5+/yrwo8DgPFgwgEAhBM4AIBwKhWWpHYBoC4mHABAOIEDAAgncAAA4QQOACCcwAEAhBM4AIBwAgcAEE7gAADCufBXBxW5YBcANMmEAwAIJ3AAAOEEDgAgnMABAIQTOACAcFapAJDsP3f+3597js4N90joKhMOACCcwAEAhFOpMJBj979/2ducfd3PGzgSoBa6FYKYcAAA4QQOACCcSgWAZPbVt/sfbJ323wVCmHAAAOEEDgAgnMABAIQTOACAcAIHABDOXyOPqZ9+8Zplb3PBnTMNHAkA48CEAwAIJ3AAAOFUKiypUO1y5XsbOBKgFtl9UtLPzL46/5ntG9+5zYy9VKiTCQcAEE7gAADCqVQAsIUK4Uw4AIBwAgcAEM4MbcQcu//9wz4EYFSle9DvP3fJN//TS89mft7AITE+TDgAgHACBwAQTqXSQUUu2AWMoUPH5/+RuXV64ZfS631BEGcYABBO4AAAwqlUAMbFlql0e5T5f21qUmiMUw0ACCdwAADhVCoM5KeP/OeytylysbKzr2vFJYaOXDP/G7F+5u3hHgkUlN1xPuc2Of/ITK/31ZJfRrrHhAMACCdwAADhVCqMi7QuyaFJoUvOaFIWShennN45BYKZcAAA4QQOACCcSoVhquvv4YvUJVkKFDqgyI7zKZf5YoicfABAOIEDAAinUqE5OQVKTieSLT6qFSjXHzzR/yDdoRvGRLZJyS5Ocb0vonnnBQDCCRwAQDiVCjVbZOnHzMJRbalOpMiN07ok64wCRbymO9KLes2+uuQWKpoUWsVbMAAQTuAAAMKpVEZMke3gm5Rz7axSvUlOJ/LNj68sfuMitkwtOYLOflMXByNakf3lszdObZ1e+ItWpEmB5plwAADhBA4AINzE1EqtSlscu//9y95muJVKXQXKQz9YfnScSreKaIBrgtG8nEolZ3/5rFJNisUpNM/bKwAQTuAAAMLpU6ii2m4m6YD3C1cu/NLXdv/vpe6V/SP8rGq1S6kCpdRSAljWGVfuSs/e3oIvFaFJYVSYcAAA4QQOACCcSoUSqjUpRWTHwqlSS1pgdGWblLRtGfDqXpoU2sCEAwAIJ3AAAOFUKlRRbWuGalcty2lbUrMHKzzw6U1VcparZJcS7D93/rem2nIVq106I9uAlNoMJWdplSaFTjLhAADCCRwAQDiVCiUMuMl1k0VMKbkb1tcTyktdyonOqPa6a1LoJG+CAEA4gQMACKdSoYScUe2x+98f9E0LFTEHjwZ99+xSguzOF1UfUNwfbdlzI13BVOpeObsFaVLoEm95AEA4gQMACKdSaZEGlmOkqm1QknOloyLj3LjapbWKXOWJhg147bUzXtPl7z5ggZLSpNABJhwAQDiBAwAIp1JhIEU2rF8/Mz9Vrjb7bW0RU20rjezd7cnSQtUu2JVTnGlSwIQDAAgncAAA4VQqHVRtBUqcIrVLdnScToyLjY7no3PurijhsnP42henjOGeLHWVR9kVQ0Wu05U14GtarUBJaVIYXWP35gUANE/gAADCqVQYSJH6JmeGnMpe9CxbxKSrXXIcOt5ct1Lqmk65dx/mniy1r3Zp2/KZ2tebVKNJARMOACCcwAEAhFOpNKTI1aua3Eul85rsVlLV5vBFLiDWwJ4sra1CsotK0iMsVZdkn7qhbHBTpEBJaVLoEhMOACCcwAEAhFOp0HG1dyvZpSjDvbpXtSokW1iUWmJT5AGr/XumyM8+YJMyFJaigAkHABBO4AAAwqlURkzb9klpUpGVPjlD6bh1KzllRJF5fpELiBV5nAG3WanrSmKp+o5n4WfS52fAuqSuxxmQJoUxYcIBAIQTOACAcBNTK7UqTajrwl+jWKkU2UuliNr/zr/IizJCvrb7fxe/8Re+sraWx8l5wLoep2MUKIwtEw4AIJzAAQCE06cQrq4t7GuXDre70a20rYxo2/EMlyYFTDgAgHACBwAQTqXSEFvPt9npbuXl7w31QFrhC/867CMYfWeff9WwDwFax4QDAAgncAAA4VQqjIy4Wur0KpVD1wd9C4AxZ8IBAIQTOACAcCqVGozzPilAytW9IIcJBwAQTuAAAMKpVGiFuvZbKVJvpXPvLVPz3/QTnzu67L0eu/fcBXcv9U3rMoZXkLvgyvdGf4siJ0Ax/gkHS/LrAQCEEzgAgHAqFRhUztqE2tuWAfuFJhuZBqqQAZ1RrtXzgGlJd+i4f8vBQn4rAIBwAgcAEE6lUoMxXDgwiga8KFO1uxe5V5OLXNpfc9Sl1OuV04CkLQkwIBMOACCcwAEAhFOpLKOufVJoRpHXotSQvIHlBqWG/032Ly0x3A1K0hOg1GljuQpk+WUAAMIJHABAOJVKQ2w9Ty0G7BeabGTs1Q6cyYQDAAgncAAA4VQqjIy6trDfOl3itD90vFNdmJqjsnS9yf5zS/w7rWPnDwzChAMACCdwAADhxrpScVEvlrLnqEk4QJ1MOACAcAIHABBurCuVurio10g4ck2Js/0LV65d9jZWfIynIiuhUntmvDnAPBMOACCcwAEAhBvJSqWu/SCsQOmeui4OVkRd56FqZiSUquSALBMOACCcwAEAhJs49T/PH/YxDE2RSsUKlO6pq1K54Mr31vI4AOPAhAMACCdwAADhRrJSaXJ1iUplPNVVuxShmgHGgQkHABBO4AAAwk385DPvGvYxDI26hEE0WbsAjDrvmABAOIEDAAg3cee6lcM+BgCg40w4AIBwAgcAEE7gAADCCRwAQDiBAwAIJ3AAAOEEDgAgnMABAIRbMfPuXx32MQAAHWfCAQCEEzgAgHACBwAQTuAAAMIJHABAOIEDAAgncAAA4QQOAAAAAAAAAAAAAAAAAAAAAAAAGFWzs7Nn/t9169Zt3759WAcDAHTTgsABAIy5FdlP7dix45Of/GSSJHffffe//du/zc7OPvzww5dccsmpU6f+/M///LXXXtu1a9f09PTk5OSBAweOHDmybt26L3/5y6tXr/6nf/qnf/iHf0gf5z3vec83vvGNvXv3vvTSS7Ozs1u3bk2SZHZ2dmZmZsOGDWvWrPnWt7516NCh6enp3bt3r1mz5he/+MWmTZu2bdvW2A8PAAzN97///ampqQsuuODmm29OkuSpp57qZ4Xf/d3f/Yu/+Ivdu3dffPHFSZKsXbv2gQceSJLkT//0Ty+99NJf/uVffvTRR/uPMDs7Ozk5effdd3/oQx9KP9P/4Mknn7z22muTJDnnnHMefvjhJEluueWWfsjYvHnz008/3fAPCwA0YJEJx7PPPnvzzTc/+OCD+/btS5Lk1KlTTz75ZJIkTzzxxJ/8yZ+8/fbb5513Xv+Wq1at6vV63/jGN37nd37nwx/+8Nlnn50+yJe+9KXHH3/8hz/84YIH7/V6/VzyyiuvrF69OkmSyy677LbbbkuS5Jlnnjl58mTITwkADNUigePWW2/94Ac/+OlPf3rbtm233nrr3NxcmgNOnDgxOTl5ww03nDhxotfrbdiwYW5u7itf+cq//Mu/fPe73/393//9/s1Wrly5bt26JEkeeeSRBQ/+1ltvvfbaa/2PT506lSTJ5ORk///2er2JiYmAnxEAGLKF29OvXr36nnvueeGFF/bt23f55ZcnSbJixYr+B7/927/93HPPHT58eMuWLUmSbNq0aefOnUmS/Pqv//oTTzyxcuXKNDqcOHHis5/97Pve975PfepTCx5/bm5uwWcOHz58xRVXJEmyefNmgQMAOmnhhOP1119/9tln77vvvomJiW9/+9tJkrz55pu/9Vu/9Qd/8Aevv/76/v37f+mXfunGG2+8+uqrT548efvttydJ8uCDD/7t3/7tj370o9dff31ycvKtt95KkmRubm7v3r333Xffj370oyNHjuQcwV133XXTTTft2LHjhRdeeOONN8J+UgCgxaLXuO7du/fCCy9MkmT9+vX33ntv6PcCAIZikb/haNh3v/vdXbt2vfnmm5OTk3fcccewDwcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACoaOInn3nXsI8BgEFdcOfMUl/68Me/3OSRwKJ6wz4AAKD7BA4AIJzAAQCEEzgAgHACBwAQTuAAAMIJHABAOIEDAAgncAAA4QQOACCcwAEAhJuYWrli2McAAHScCQcAEE7gAADCCRwAQDiBAwAIJ3AAAOEEDgAgnMABAIQTOACAcAIHABBO4AAAwgkcAEA4gQMACCdwAADhBA4AIJzAAQCEEzgAgHACBwAQTuAAAMIJHABAOIEDAAi3YtgHAEUde/l7y97m7POvCj8OAMoz4QAAwgkcAEA4gQMACCdwAADhBA4AIJxVKoSzugQAEw4AIJzAAQCEEzgAgHACBwAQTuAAAMJZpUIrFFnJAsDoMuEAAMIJHABAOIEDAAgncAAA4QQOACCcVSqMnbpWxNj/BaA4Ew4AIJzAAQCEU6nQKS4gBtBOJhwAQDiBAwAIJ3AAAOEEDgAgnMABAISzSoWBWBUCQBEmHABAOIEDAAgncAAA4QQOACCcwAEAhBM4AIBwAgcAEE7gAADCufAXI+OnX7xm2dtccOdMA0cCQFkmHABAOIEDAAinUiFck1XI2edfVfzG6UYw6b1sDcPYyv46QL1MOACAcAIHABBOpcLIWD/zdvEbFylHjI4hS7dCEBMOACCcwAEAhFOpjIYj18y/UqVqhbbJO/iZq4o/TrW1JDnzYYtT4BMXXdn/4LEXHxnukdBVJhwAQDiBAwAIp1IZDaPYpFSrMLL3qtZ3pPPhQ8cXpmoFCuT42uXbh30IdJMJBwAQTuAAAMKpVMbUsfvfX8vjFLk0UKkKo8iN07ok64wCZckwXeSY02VBOYo8h2df9/NlbwMwDkw4AIBwAgcAEE6l0h0NXBwspyAo1ZvkdCLZiw7l3LiILVNzy94m/aY2j6DbsvukpJ9JF6ds3zj/D9E9M8v/7kBxJhwAQDiBAwAIp1LpjtqblAYKlGo33jo9f97OvrrwRy5SoKTSJS1xTYqVLAB9JhwAQDiBAwAIp1IZL4tUIYeur3KvjOz+C1/414f6H2QXntS1WUNOt5KV3VQlVeQyX9ABaWV57OX538rsL+MFV753/qMZZR91MuEAAMIJHABAOJNklpTTpHRjA2tNCuMmp1hMr/cFQZxhAEA4gQMACGekPF5Ob6BQZnv6tEBJF56Uulft0tnvQz8ocZmv9JpgOVNl6Lb9586f/NmdUyCaUw0ACCdwAADhVCosKbvDyBfSD8p0K0X89IvXVLhXOg2ePVjr0cDoyO44n3ObnKIzvd6XzX0IYsIBAIQTOACAcCoVllRqJcuALrhzpsSt39n/5aeP/GfI0UAn5Fy7L60jT++cAsFMOACAcAIHABBOpcKSsn+sfuzl+O/6Tl1SxOlp8MGjxe+VXgEMOiC743yWy3zRBk4+ACCcwAEAhFOpdFCR1SVF1ndUXKVSphMZrusPnuh/8M2Pr6xw9yLPoSUADFFOk5I9M13vi2gmHABAOIEDAAinUqGMdtQl6ey3yUuTVePSZAwiPcMXWzL2vf4HaW+S3SdFk0KrmHAAAOEEDgAgnEqFJY3PrHXA5SqMlSJFXqnfnZz95XOalBxFmhRongkHABBO4AAAwqlUWNKRa9p+etS+BuSCO2fmH/mL1/Q/WD/z9lI3bv/zw6jLKVCqrUlJjU9hSnuYcAAA4QQOACCcmTAsIu1Wkpmr+v+bs5SAkVD76pIBpWdUur98+i9ATQqdZMIBAIQTOACAcCoVRsZDP5hb6ktbp+fP5NlXl1xUUkQ63H7sxUf6H+QMt9MFLEWWq+SsdmnbqJ98ca9F9mTLFiip2psU5yHRTDgAgHACBwAQTqVCuJwqJJWdDw9XtltJP3Ps5fnPFFmukm1Sqq12Me5uoWwDUuQ1XWxxykJNNinQmHa9ywMAnSRwAADhVCotUtfYvPYdRhpQpHYpIt1fPt1xviWK7CrO0MVtPZ8jXWMV16QU+bkgmgkHABBO4AAAwqlUIE92KUF254usnMt8Fbl7NVay5Mv52as9ddlzI13BlCPtTdImJYcmhS4x4QAAwgkcAEC4QpWKUW17FHktRnGVSl3S1S6Hjs+H6S1T9ax/ySpyCa8iV3lKf3cG/EUzPy8o54UrtOdIgdc0ld6mWoGS0qTQASYcAEA4gQMACGeVCgOp64JdI63i9ihl7rXI2LzSN+2qnBKhSEuS8/SWUqRkydKkMCZMOACAcAIHABBOpVIDq3ja7LF7z23sey0yhz90ffHDKLK8aAz3ZKlWHuW1JO+8KBWfzDKvae3impRxXt1GM0w4AIBwAgcAEE6lAlW9M1o/bcs3B7l7zg4shb57JbWvdhnK8pm866EN1pu0RPYHPHJNS9+9Vczt0bbXwoQDAAgncAAA4RodyjU53mnbKKmIIn8lnnMhIBZ1eqeSoazvKFCyHHt54WeyZcQiB3/6kedvXGpPlsUO43tLffdFbvzOtxjwlyjncbI/cvYIK76mRZqvUu1YmOxrUa1JqWsFyjhfW2wU/5tSl7p+dhMOACCcwAEAhCs0nXNBmMHVta18Xa9F5/dA2X/ufJjec/Sdn7Rl6w5Oy0zv85qCzE+RLRpK7bF++gEHKxEWecACCm1ikjnCck1Ka1/3jJwXLqdJGef353GuOUaRCQcAEE7gAADCrahr1N9V4/xX2R0z4CKOQEUuIFagFxh0Gc5gVUhW/ceTbX9Gpy7JMUIX9WJw41wDmXAAAOEEDgAgXG2DuybH1G0bibtgV5tll6uk48otUyWW6mydnv9l2b5xYUwPWPKzfakvzL6a3W/lyv7/PPbiI8W/wScuunKpLx17ucTj5DzgYy9WeJhFHid95s+w5PNTzWLPas3SveyrLUUhVNv+m1LEKB6zCQcAEE7gAADCmeAxLrLdyqHj858p1a1kZUuWVO1ty2L9wryvXb580dBAd5AqcjxZOT9g7dIXbvZg+Pcan6Uo9m1pjyKvRV3Pc5HHMeEAAMIJHABAuEZnek1eQKxtFytr8ng6v0/KgKp1K+n4PbvgKOfFzWlbUk2+XkUKi/ZXIUUUeebjpGdU1kg3KeP8vtq2n71Jda3ENOEAAMIJHABAuBVtGxO17QJibXt+iDDgKpWcWWKR86fU8H8M+7K4cuT0C3fwaNC3GLBAKfJyD7c8qqarK1Dq+m9KV5+f0TtTAYCRI3AAAOFq+3tpfy3MqEgXp5RSbTecIvcqdT4POD9vspEZ7qh/KLsX5SxOyRrDdmwoulqdj+Ixm3AAAOEEDgAg3AhfggYGVG1xSnZTjAH/pLzU8H/AOeoormgYSjkyhtq2ImYUK4NRVNfzXORxRu/dBwAYOQIHABBOpdIibRtpUlC2ZEnVfgGfAfuFJsfU7a9C0hduy1Q9D5iWdOlylQaWoljtwqjwXy8AIJzAAQCEm/jJZ9617I2M+pthNBoqe72vUqtUstd0Sre5L/K9cnR134Thyum5Sqm2lKnU2TJCvM8zCGcPABBO4AAAwlmlUgOV02iJa1JK3SatXUoN/8ewfxmwHKnWZaSvTnoClDptsstVxof3w/Zo22vhVQcAwgkcAEC4RiuVJsc7bRslWYHSHlunS5z2h47Pv3C1rzIo9YDV+pesJhuZutaJpI5cs+QLV/vvV/rqpM98qdMmlZ4/3dC297Fx/m9Kk+r62bv57AAArSJwAADhVtQ1Imty1NbV7wVLGbDQqauRqWbAKqQlY+r0OezGJbw4U9v+m1LknB/F/zb5zQEAwgkcAEA4F/6CRZTaDKX9htICNLk6IE52uQrNGMXKYBQ1+WcVJhwAQDiBAwAIN3HnupXDPgYAoONMOACAcAIHABBO4AAAwgkcAEA4gQMACCdwAADhBA4AIJzAAQCEEzgAgHACBwAQTuAAAMIJHABAOIEDAAgncAAA4QQOACCcwAEAhBM4AIBwAgcAEE7gAADCCRwAQDiBAwAIJ3AAAOEEDgAg3IqZd//qsI8BAOg4Ew4AIJzAAQCEEzgAgHACBwAQTuAAAMIJHABAOIEDAAgncAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABUxkP7VmzZpdu3ZNT09PTk4eOHDgyJEjSZLMzs4++eST//Ef//GP//iP6cdPPPHEnj17Vq1a9cYbb+zfv/+//uu/zrxZ4z8LADA6du/effHFFydJsnbt2gceeKD/yaeeemrjxo0LPt63b9/HPvaxJEk+9rGP7du3b8HNAAD6VmQ/tXHjxvPOO6//8apVq3q93tzc3MmTJ//93/+9/8n049/8zd/cv39/kiSzs7N//Md/fOaXAABSiwSOs84664Ybbjhx4kSv19uwYcPc3FySJCdPnux/sODjBXK+BACMrUW2pz98+PCWLVuSJNm0adPOnTtz7vzcc8999KMfTZLkox/96HPPPRdzhADAyFtkwvH1r3/9xhtvvPrqq0+ePHn77bfn3Pmv//qv9+zZc/XVV//3f/93v1sBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABhZE6c+snbYxwAAdFxv2AcAAHSfwAEAhBM4AIBwAgcAEE7gAADCCRwAQDiBAwAIJ3AAAOEEDgAgnMABAIQTOACAcBNTK1cM+xgAgI4z4QAAwgkcAEA4gQMACCdwAADhBA4AIJzAAQCEEzgAgHACBwAQTuAAAMIJHABAOIEDAAgncAAA4QQOACCcwAEAhBM4AIBwAgcAEE7gAADCCRwAQDiBAwAIJ3AAAOEEDgAgnMABAIQTOACAcAIHABBO4AAAwgkcAEA4gQMACCdwAADhBA4AIJzAAQCEEzgAgHACBwAQTuAAAMIJHABAOIEDAAgncAAA4QQOACCcwAEAhBM4AIBwAgcAEE7gAADCCRwAQDiBAwAIJ3AAAOEEDgAgnMABAIQTOACAcAIHABBO4AAAwgkcAEA4gQMACCdwAADhBA4AIJzAAQCEEzgAgHACBwAQTuAAAMIJHABAOIEDAAi3YtgHAMDw/eHvfaT/wf949JnhHgldZcIBAIQTOACAcCoVAE7TrRDEhAMACCdwAADhVCoAJM//5P/0P7j0A78y3COhq0w4AIBwAgcAEE6lAsBpabcC9TLhAADCCRwAQDiBAwAIJ3AAAOEEDgAgnFUqAOMiu09K+hmLU4hmwgEAhBM4AIBwAgcAEE7gAADCCRwAQDirVADGRboUxeIUmmfCAQCEEzgAgHAqFYBx8fz/erH/waUf+Mhwj4QxZMIBAIQTOACAcCoVgHFx6SUX9T+wOIXmmXAAAOEEDgAgnEoFYIRld5zPuU2RJiVdyQL1MuEAAMIJHABAOJUKQDelTQq0gQkHABBO4AAAwqlUAEZYdsf5nNvAEJlwAADhBA4AIJxKBaCbSjUprvdFNBMOACCcwAEAhJuYWqlVARgxpbZHyaFJoTEmHABAOIEDAAinTwEYpiL7y2dvDCPHhAMACCdwAADhVCoALRW3PYrFKTTPhAMACCdwAADhVCpQSKmlBLCsnCt3aVLoJBMOACCcwAEAhFOpALRCtkkZsEA5/TiaFFrAhAMACCdwAADhbE8PebJLCS79wK/0P6i2XMVql87INiClNkPJ1iXpqaVJoZNMOACAcAIHABBOn8LYGcoG33YVH0+lXndNCt1mwgEAhBM4AIBwKhXGRbVSIzvlHnQzi5rG5gxdqT1Qcu5VF00KLWfCAQCEEzgAgHAqFcZOk6VGzlWeGJYBr71W6jVt4HXXpDAqTDgAgHACBwAQTqVCx8WVGtW20sje3Z4sLVTXmqY4mhRGjgkHABBO4AAAwqlUoDbZOXwDPU7n1VUeZcu19vcmi3x3TQojy4QDAAgncAAA4VQqdFzg1hWZR770A78yyN0H/O7V1L7apW3LZ0axN8nSpNABJhwAQDiBAwAIp1Kh49JZ9KWXXBT+vSrN4YtcQKyBPVlaW4VkF5WkR1iqLsk+dW3rTbI0KXSJCQcAEE7gAADCqVTouAaalNqVagqqVSHZwqLUEpsiDzjg4wx4m1T7e5OUAoVuM+EAAMIJHABAOJUKDFmRC4gV6QUG3Galbdu+5CwqSZ+fEapLcmhSGBMmHABAOIEDAAg3MbVSq0IHNXClrLapayeXastVBtxZJudxOkaBwtgy4QAAwgkcAEA4fQotlbPGIWerkXHWtjKibcczXJoUMOEAAMIJHABAOKtUaIXaOxHzfIZIgQJZJhwAQDiBAwAIp0+hOXXtKl5tqxEAhsiEAwAIJ3AAAOGsUiFKXQUKjAqLUyCHCQcAEE7gAADC6VOoR5ECJdubPDv1zmemFt74w8erbG7egOzY/NJLLhrKkQCMEBMOACCcwAEAhLNKhYHkNCldXXhSaiWCtqXN0pey9pfJchXIMuEAAMIJHABAOH0K9ehqgZKqNiQvci+1S4RSr1fOjb06UBcTDgAgnMABAISzSoWBdH7g3LblBp1/wrNa8hJUe+ZbcvDQBiYcAEA4gQMACKdPYSD+vL9hA47om3xRtAnAmUw4AIBwAgcAEG7i8ssuGfYx0Ckd22okbruNJg233ejYU1fqx+nG+QO1MOEAAMIJHABAOKtUqFmR0XE6Z6426m9gOt2xFRbm+ZWlT13HTglongkHABBO4AAAwlmlAgCEM+EAAMIJHABAOIEDAAgncAAA4QQOACCcwAEAhBM4AIBwAgcAEE7gAADCCRwAQDiBAwAIJ3AAAOEEDgAgnMABAIQTOACAcAIHABBO4AAAwgkcAEA4gQMACCdwAADhBA4AIJzAAQCEEzgAgHACBwAQTuAAAMIJHABAOIEDAAgncAAA4QQOACCcwAEAhBM4AIBwAgcAEO7/ATLiok9/vZ+iAAAAAElFTkSuQmCC");
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme: light){
+  :root{
+    --coal:#F4EBDB; --panel:#FFFCF6; --panel-2:#FBF3E6; --edge:#E0D0B6;
+    --ink:#2A1B10; --dim:#7A6047; --faint:#9C846A;
+    --ember:#A32A08; --amber:#C9500A; --gold:#B4750A; --hot:#8A5A06;
+    --ash:#CFC0A8; --alarm:#B3200A;
+    --accent:var(--amber); --link:var(--ember);
+    --shadow:0 1px 0 rgba(0,0,0,.03), 0 16px 40px -26px rgba(90,50,10,.4);
+    --grain:rgba(163,42,8,.03);
+  }
+}
+:root[data-theme="dark"]{
+  --coal:#0A0604; --panel:#150D08; --panel-2:#1E1310; --edge:#33231A;
+  --ink:#F2DCB8; --dim:#A5825F; --faint:#6A5240;
+  --ember:#8E2206; --amber:#E05A08; --gold:#FFA81E; --hot:#FFE8B4;
+  --ash:#3A322C; --alarm:#FF3C18; --accent:var(--gold); --link:var(--gold);
+  --grain:rgba(255,168,30,.035);
+}
+:root[data-theme="light"]{
+  --coal:#F4EBDB; --panel:#FFFCF6; --panel-2:#FBF3E6; --edge:#E0D0B6;
+  --ink:#2A1B10; --dim:#7A6047; --faint:#9C846A;
+  --ember:#A32A08; --amber:#C9500A; --gold:#B4750A; --hot:#8A5A06;
+  --ash:#CFC0A8; --alarm:#B3200A; --accent:var(--amber); --link:var(--ember);
+  --grain:rgba(163,42,8,.03);
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--coal); color:var(--ink);
+  font-family:var(--sans); font-size:17px; line-height:1.65;
+  overflow-x:hidden;
+}
+body::before{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:
+    radial-gradient(1100px 520px at 50% -12%, var(--grain), transparent 70%),
+    radial-gradient(700px 360px at 12% 108%, var(--grain), transparent 72%);
+}
+.wrap{position:relative; z-index:1; width:100%; max-width:74ch; margin:0 auto; padding:0 20px}
+h1,h2,h3{line-height:1.15; letter-spacing:-.015em; margin:0}
+a{color:var(--link); text-decoration-thickness:1px; text-underline-offset:3px}
+a:hover{color:var(--hot)}
+:focus-visible{outline:2px solid var(--gold); outline-offset:3px; border-radius:3px}
+code,kbd{font-family:var(--mono); font-size:.87em}
+code{color:var(--gold); background:color-mix(in srgb, var(--gold) 9%, transparent);
+  padding:.1em .35em; border-radius:4px}
+@supports not (color: color-mix(in srgb, red, blue)){ code{background:var(--panel-2)} }
+
+/* ── hero ───────────────────────────────────────────────── */
+.hero{padding:clamp(3.5rem,10vw,7rem) 0 clamp(2rem,5vw,3.5rem); text-align:center}
+.eyebrow{
+  font-family:var(--mono); font-size:.72rem; letter-spacing:.22em;
+  text-transform:uppercase; color:var(--dim); margin:0 0 1.4rem;
+}
+.wordmark{
+  font-size:clamp(3.2rem,13vw,6rem); font-weight:800; letter-spacing:-.045em;
+  background:linear-gradient(178deg, var(--hot) 4%, var(--gold) 34%, var(--amber) 68%, var(--ember) 100%);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  margin:0; padding-bottom:.06em;
+}
+.tagline{
+  font-size:clamp(1.06rem,3.1vw,1.35rem); color:var(--ink);
+  max-width:36ch; margin:.9rem auto 0; text-wrap:balance;
+}
+.sub{color:var(--dim); max-width:52ch; margin:1.1rem auto 0; font-size:1rem}
+
+/* the wyrm, at the resolution it actually ships at */
+.wyrm-hero{
+  margin:clamp(2rem,6vw,3.2rem) auto 0; max-width:440px;
+  border:1px solid var(--edge); border-radius:12px; overflow:hidden;
+  background:#0A0604; box-shadow:var(--shadow); position:relative;
+}
+.wyrm-hero .hero-art{
+  display:block; width:100%; aspect-ratio:720/267;
+  background-image:var(--states-img);
+  background-size:100% 500%; background-position:0 25%;   /* the listening frame */
+  background-repeat:no-repeat; background-color:#0A0604;
+  image-rendering:pixelated;
+}
+.wyrm-hero::after{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:radial-gradient(120% 60% at 50% 108%, rgba(255,168,30,.28), transparent 62%);
+  animation:breathe 5.5s ease-in-out infinite;
+}
+@keyframes breathe{0%,100%{opacity:.5}50%{opacity:1}}
+.caption{
+  font-family:var(--mono); font-size:.74rem; color:var(--faint);
+  text-align:center; margin:.7rem auto 0; max-width:48ch; line-height:1.5;
+}
+
+.badges{display:flex; flex-wrap:wrap; gap:.5rem; justify-content:center; margin:2rem 0 0; padding:0; list-style:none}
+.badges li{
+  font-family:var(--mono); font-size:.73rem; letter-spacing:.04em;
+  color:var(--dim); border:1px solid var(--edge); border-radius:999px;
+  padding:.34rem .78rem; background:var(--panel);
+}
+.badges b{color:var(--gold); font-weight:600}
+
+/* ── sections ───────────────────────────────────────────── */
+section{padding:clamp(2.6rem,7vw,4.6rem) 0; border-top:1px solid var(--edge)}
+.kicker{
+  font-family:var(--mono); font-size:.7rem; letter-spacing:.2em;
+  text-transform:uppercase; color:var(--amber); margin:0 0 .7rem;
+}
+h2{font-size:clamp(1.55rem,4.6vw,2.2rem); margin:0 0 .5rem}
+h3{font-size:1.06rem; margin:0 0 .3rem; color:var(--hot)}
+.lede{color:var(--dim); font-size:1.03rem; max-width:60ch; margin:.5rem 0 0}
+p{margin:1rem 0}
+.note{
+  border-left:2px solid var(--amber); padding:.15rem 0 .15rem 1rem;
+  color:var(--dim); font-size:.96rem; margin:1.5rem 0;
+}
+.note b{color:var(--ink)}
+
+/* ── the five states ───────────────────────────────────── */
+.states{display:grid; gap:1.1rem; margin:2rem 0 0}
+.state{
+  border:1px solid var(--edge); border-radius:12px; overflow:hidden;
+  background:var(--panel); box-shadow:var(--shadow);
+}
+.state-art{
+  aspect-ratio:720/267; background-image:var(--states-img);
+  background-size:100% 500%; background-repeat:no-repeat;
+  image-rendering:pixelated; background-color:#0A0604;
+}
+.state-art[data-i="0"]{background-position:0 0}
+.state-art[data-i="1"]{background-position:0 25%}
+.state-art[data-i="2"]{background-position:0 50%}
+.state-art[data-i="3"]{background-position:0 75%}
+.state-art[data-i="4"]{background-position:0 100%}
+.state-body{padding:.85rem 1.05rem 1.05rem}
+.state-body p{margin:.3rem 0 0; color:var(--dim); font-size:.94rem}
+.rung{
+  font-family:var(--mono); font-size:.68rem; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--faint);
+}
+
+/* ── figures ───────────────────────────────────────────── */
+figure{margin:2rem 0 0}
+figure img{
+  display:block; width:100%; height:auto; border:1px solid var(--edge);
+  border-radius:10px; background:#0A0604; image-rendering:pixelated;
+  box-shadow:var(--shadow);
+}
+.strip img{max-height:none}
+figcaption{
+  font-family:var(--mono); font-size:.73rem; color:var(--faint);
+  margin-top:.6rem; line-height:1.55;
+}
+
+/* ── chimes ────────────────────────────────────────────── */
+.chimes{display:grid; grid-template-columns:repeat(auto-fit,minmax(148px,1fr)); gap:.6rem; margin:1.8rem 0 0}
+.chime{
+  font:inherit; text-align:left; cursor:pointer;
+  background:var(--panel); color:var(--ink);
+  border:1px solid var(--edge); border-radius:10px;
+  padding:.7rem .85rem; display:flex; flex-direction:column; gap:.15rem;
+  transition:border-color .18s, transform .18s, background .18s;
+}
+.chime:hover{border-color:var(--amber); transform:translateY(-1px)}
+.chime[aria-pressed="true"]{border-color:var(--gold); background:var(--panel-2)}
+.chime .n{font-weight:600; font-size:.95rem; display:flex; align-items:center; gap:.4rem}
+.chime .d{color:var(--dim); font-size:.78rem; font-family:var(--mono)}
+.chime .dot{width:7px; height:7px; border-radius:50%; background:var(--amber); flex:none}
+.chime[data-kind="dissonant"] .dot{background:var(--alarm)}
+.chime[data-kind="mute"] .dot{background:var(--ash)}
+.chime[data-kind="mute"] .n{color:var(--dim)}
+.demo{display:flex; flex-wrap:wrap; gap:.55rem; margin:1.2rem 0 0}
+.demo button{
+  font:inherit; font-size:.9rem; cursor:pointer; border-radius:999px;
+  padding:.5rem 1.05rem; background:transparent; color:var(--gold);
+  border:1px solid var(--amber); transition:background .18s, color .18s;
+}
+.demo button:hover{background:var(--amber); color:#0A0604}
+.demo button.alt{color:var(--alarm); border-color:var(--alarm)}
+.demo button.alt:hover{background:var(--alarm); color:#0A0604}
+.demo-note{
+  font-family:var(--mono); font-size:.76rem; color:var(--faint);
+  line-height:1.6; max-width:62ch; margin:.9rem 0 0;
+}
+
+/* ── table ─────────────────────────────────────────────── */
+.tablewrap{overflow-x:auto; margin:1.8rem 0 0; border:1px solid var(--edge); border-radius:10px; background:var(--panel)}
+table{border-collapse:collapse; width:100%; min-width:520px; font-size:.92rem}
+th,td{text-align:left; padding:.72rem .9rem; border-bottom:1px solid var(--edge); vertical-align:top}
+thead th{
+  font-family:var(--mono); font-size:.68rem; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--amber); background:var(--panel-2); white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:0}
+td:first-child{font-family:var(--mono); font-size:.83rem; color:var(--gold); white-space:nowrap}
+td:last-child{color:var(--dim)}
+
+/* ── buy / specs ───────────────────────────────────────── */
+.buy{display:flex; flex-wrap:wrap; gap:.6rem; margin:1.7rem 0 0; align-items:center}
+.btn-buy{
+  display:inline-flex; align-items:center; gap:.5rem; font:inherit; font-size:.95rem;
+  font-weight:600; text-decoration:none; padding:.62rem 1.15rem; border-radius:10px;
+  background:linear-gradient(92deg,var(--amber),var(--gold)); color:#20130A;
+  border:1px solid transparent;
+}
+.btn-buy:hover{color:#20130A; filter:brightness(1.08)}
+.btn-buy svg{width:16px; height:16px; fill:currentColor; flex:none}
+.buy .aside{font-family:var(--mono); font-size:.74rem; color:var(--faint)}
+.warn{
+  border:1px solid var(--alarm); border-left-width:3px; border-radius:10px;
+  background:color-mix(in srgb, var(--alarm) 7%, transparent);
+  padding:.9rem 1.1rem; margin:1.7rem 0 0; font-size:.95rem;
+}
+@supports not (color: color-mix(in srgb, red, blue)){ .warn{background:var(--panel)} }
+.warn b{color:var(--alarm)}
+.warn p{margin:.5rem 0 0}
+.warn p:first-of-type{margin-top:.35rem}
+.spec{list-style:none; padding:0; margin:1.7rem 0 0; display:grid; gap:0}
+.spec li{display:flex; gap:.9rem; padding:.62rem 0; border-bottom:1px solid var(--edge); flex-wrap:wrap}
+.spec li:last-child{border-bottom:0}
+.spec .k{
+  font-family:var(--mono); font-size:.72rem; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--amber); min-width:10ch; flex:none; padding-top:.28em;
+}
+.spec .v{flex:1 1 20ch}
+.spec .v small{display:block; color:var(--faint); font-size:.85rem; margin-top:.15rem}
+
+/* ── share ─────────────────────────────────────────────── */
+.share-row{display:flex; gap:.55rem; flex-wrap:wrap; margin:1.7rem 0 0}
+.btn-share{
+  display:inline-flex; align-items:center; gap:.5rem; font:inherit; font-size:.88rem;
+  text-decoration:none; cursor:pointer; padding:.55rem 1rem; border-radius:999px;
+  background:var(--panel); color:var(--ink); border:1px solid var(--edge);
+  transition:border-color .18s, color .18s;
+}
+.btn-share:hover{border-color:var(--amber); color:var(--gold)}
+.btn-share svg{width:16px; height:16px; fill:currentColor; flex:none}
+.btn-share.native{display:none}   /* unhidden by JS when navigator.share exists */
+.share-sub{color:var(--faint); font-size:.86rem; margin:1rem 0 0; max-width:62ch}
+
+/* ── bugs ──────────────────────────────────────────────── */
+.bug{border-top:1px solid var(--edge); padding:1.5rem 0 0; margin:1.5rem 0 0}
+.bug:first-of-type{border-top:0; padding-top:.5rem}
+.bug h3{font-size:1.12rem; color:var(--hot); margin-bottom:.45rem}
+.bug .meta{
+  font-family:var(--mono); font-size:.68rem; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--faint); margin:0 0 .35rem;
+}
+.bug dl{margin:1rem 0 0; display:grid; gap:.5rem}
+.bug dt{
+  font-family:var(--mono); font-size:.68rem; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--amber);
+}
+.bug dd{margin:0 0 .4rem; color:var(--dim); font-size:.94rem}
+pre.log{
+  font-family:var(--mono); font-size:.72rem; line-height:1.75; color:var(--dim);
+  background:var(--panel); border:1px solid var(--edge); border-left:2px solid var(--alarm);
+  border-radius:8px; padding:.85rem 1rem; margin:1.1rem 0 0;
+  overflow-x:auto; white-space:pre;
+}
+pre.log b{color:var(--alarm); font-weight:400}
+pre.log i{color:var(--faint); font-style:normal}
+
+/* ── the trade ─────────────────────────────────────────── */
+.trade{display:grid; gap:.75rem; margin:1.8rem 0 0}
+.bar{
+  border:1px solid var(--edge); border-radius:10px; background:var(--panel);
+  padding:.85rem 1rem; display:grid; gap:.45rem;
+}
+.bar .top{display:flex; justify-content:space-between; align-items:baseline; gap:1rem; flex-wrap:wrap}
+.bar .lab{font-weight:600; font-size:.95rem}
+.bar .val{font-family:var(--mono); font-size:.83rem; color:var(--gold); white-space:nowrap}
+.bar .track{height:8px; border-radius:99px; background:var(--panel-2); overflow:hidden; border:1px solid var(--edge)}
+.bar .fill{height:100%; border-radius:99px; background:linear-gradient(90deg,var(--ember),var(--amber),var(--gold))}
+.bar .why{color:var(--dim); font-size:.86rem}
+.bar.win{border-color:var(--amber)}
+.bar.win .val{color:var(--hot)}
+
+/* ── stack list ────────────────────────────────────────── */
+.stack{list-style:none; padding:0; margin:1.6rem 0 0; display:grid; gap:.15rem}
+.stack li{display:flex; gap:.8rem; padding:.6rem 0; border-bottom:1px solid var(--edge); flex-wrap:wrap}
+.stack li:last-child{border-bottom:0}
+.stack .k{font-family:var(--mono); font-size:.78rem; color:var(--amber); min-width:9.5ch; flex:none; padding-top:.12em}
+.stack .v{flex:1 1 16ch}
+.stack .v small{display:block; color:var(--faint); font-size:.83rem}
+
+footer{
+  border-top:1px solid var(--edge); padding:2.6rem 0 3.4rem;
+  color:var(--faint); font-size:.87rem; text-align:center;
+}
+footer p{margin:.4rem 0}
+.sig{font-family:var(--mono); font-size:.74rem; letter-spacing:.05em}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important}
+  .wyrm-hero::after{opacity:.75}
+}
+@media (min-width:720px){
+  .states{grid-template-columns:repeat(2,1fr)}
+  .states .state:first-child{grid-column:1 / -1}
+}
+</style>
+  <meta name="realm-version" content='{"name": "ember", "description": "Local-first voice assistant satellite with a hearth for a face", "version": "Kilned Mold \u00b7 b33e967", "hash": "b33e967", "branch": "main", "dirty": true, "built": "2026-07-30T02:27:02Z", "realm": "forge", "repo": "https://github.com/jphein/ember.realm.watch", "commit_url": "https://github.com/jphein/ember.realm.watch/commit/b33e967"}'>
+</head>
+<body>
+
+<header class="hero wrap">
+  <p class="eyebrow">ember.realm.watch</p>
+  <h1 class="wordmark">Ember</h1>
+  <p class="tagline">A voice assistant that lives in your house, not in someone else's.</p>
+  <p class="sub">
+    Speech recognition, the language model, and the voice are all running on hardware
+    in the same building as you. Nothing is sent anywhere. The screen is a hearth —
+    and something lives in the coals.
+  </p>
+
+  <div class="wyrm-hero">
+    <div class="hero-art" role="img"
+         aria-label="A pixel-art dragon lying in tall bright flames, alert, listening."></div>
+  </div>
+  <p class="caption">The hearth while it listens — 240&nbsp;px wide, exactly as the panel draws it.
+  Scaled up, never redrawn.</p>
+
+  <ul class="badges">
+    <li><b>ESP32-S3</b> · 240×320 touch</li>
+    <li><b>vosk</b> speech-to-text</li>
+    <li><b>Qwen3.6-35B-A3B</b> agent</li>
+    <li><b>Piper</b> en-GB voice</li>
+    <li><b>no cloud</b>, no account</li>
+  </ul>
+</header>
+
+<main>
+
+<section class="wrap">
+  <p class="kicker">The display</p>
+  <h2>One fire, whose temperature is the state</h2>
+  <p class="lede">
+    Most voice devices give you a light ring with a colour code to memorise. Ember gives you
+    a fire. It banks when idle, catches when it hears you, burns hot while it thinks, and
+    throws flame-tongues while it speaks. There is nothing to learn — you already know what
+    a fire looks like when it's about to do something.
+  </p>
+
+  <p>
+    The five states are one object at five temperatures, on a single ramp from deep ember
+    through amber and gold to white-hot. Only one colour sits off that ramp, and it's the one
+    that means something went wrong: the fire goes out, and the wyrm turns to ash.
+  </p>
+
+  <div class="states">
+    <div class="state">
+      <div class="state-art" data-i="0" role="img" aria-label="Idle: the wyrm asleep on dark banked coals."></div>
+      <div class="state-body"><p class="rung">rung 0 · banked</p><h3>Idle</h3>
+      <p>Coals, not flame. One slow breath on a six-second cycle. Three of every four display
+      frames draw nothing at all, so resting costs almost nothing.</p></div>
+    </div>
+    <div class="state">
+      <div class="state-art" data-i="1" role="img" aria-label="Listening: tall bright flames, the wyrm alert."></div>
+      <div class="state-body"><p class="rung">rung 1 · drawing breath</p><h3>Listening</h3>
+      <p>The only state driven by real audio. Those flame heights <em>are</em> the microphone
+      level — the waveform and the fire are the same object.</p></div>
+    </div>
+    <div class="state">
+      <div class="state-art" data-i="2" role="img" aria-label="Thinking: a single hot column, the wyrm watching it."></div>
+      <div class="state-body"><p class="rung">rung 2 · the crucible</p><h3>Thinking</h3>
+      <p>Hottest colour, least motion. Concentration reads as stillness, not as a busy
+      spinner. One bright coal orbits and wraps, like something being stirred.</p></div>
+    </div>
+    <div class="state">
+      <div class="state-art" data-i="3" role="img" aria-label="Speaking: rippling flame-tongues, the wyrm mouth open, a progress fuse above."></div>
+      <div class="state-body"><p class="rung">rung 3 · flame-tongues</p><h3>Speaking</h3>
+      <p>Two travelling waves at deliberately incommensurate frequencies, so the pattern never
+      visibly repeats. The bar above is a fuse burning through the reply.</p></div>
+    </div>
+    <div class="state">
+      <div class="state-art" data-i="4" role="img" aria-label="Error: a grey ash bed, the wyrm cold with one red eye."></div>
+      <div class="state-body"><p class="rung">off the ramp · guttered</p><h3>Error</h3>
+      <p>The fire is out and the wyrm has gone cold. Deliberately <em>motionless</em> — after
+      everything else has been alive, stillness is the loudest thing on the screen.</p></div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>The animation is honest.</b> While Ember speaks, the wave's phase advances on audio
+    frames actually clocked out to the speaker — not on a wall clock. If the audio stream
+    stalls, the fire freezes and greys. The shape is synthetic; the clock is not, so the
+    screen structurally cannot pretend to be talking when it isn't.
+  </div>
+</section>
+
+<section class="wrap">
+  <p class="kicker">Touch</p>
+  <h2>Tap it and the wyrm startles</h2>
+  <p class="lede">
+    A capacitive panel gives no click, so a tap needs an answer. Ember's answer is that the
+    coal under your finger flares and the whole hearth quickens — the wyrm's head snaps up,
+    then everything settles over half a second.
+  </p>
+  <p>
+    The flare is positional: it happens at the column you actually touched. And it costs
+    nothing extra to draw, because the fire is already the animated part of the screen — the
+    startle is one more term in the arithmetic that was running anyway.
+  </p>
+
+  <figure class="strip">
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAtAAAAkkCAIAAAC6Md8+AABhAklEQVR4nO39f4xl930X/s+40yGZRCjaJOijdokrB0S1QkihFAUncbewKXQTRYllKhGgTZOSBlegJBRVJEurls03KlJshdKVoSKxA65oWS1RJK8VWKqFCGMRJWqQsNqqRQ5YIWrpkqp4BfZm8/1jJu/dznvnzPn1PPfccx+PP9rJ7J07Z+eee/yc13Pf5739qle9agsAIOmuVR8AALB8AgcAECdwAABxAgcAECdwAABxAgcAECdwAABxAgcAECdwAABxAgcAECdwHOm+++7b2dlZ9VFMZGdn541vfOOqjwKAxWobON7znve0f8xTTz3V/4gq999//xe+8IVXvvKV+//z85///D/7Z/+s/On+93rta1976dKlu+46+Ov8y3/5L//YH/tj7Y+89spXvvLs2bM3btxo+Qwvf/nLP/7xjz/22GMf//jHX/7ylx/60z/35/7ck08++YlPfOITn/jE3/pbf+vYxzd405ve9PnPf37c59za2rpx48Zb3/rW8kMGgHFFAse4Tp8+/fjjj7/pTW/a/58vvvjizs7Od3/3d9/+mN/6rd/6zd/8ze/7vu/b2tq67777/sf/+B+/+Zu/OeSo3vGOd/yH//Af2j/De9/73i984Qs/9EM/9MUvfvFHfuRHDv3pq171qk9+8pPvfve73/3ud//cz/3csY8/yste9rL3vve9+zForOcsPve5z73jHe/o+lUA0MaRgeOd73znL//yL//yL//yvffe++CDD+7t7f2Tf/JPXvva1z722GP/+l//67/+1//6/sOeeuqpf/AP/sFf/at/tTymPMMf/sN/+KMf/egv/MIvPProo3/yT/7J8vlXvepVFy5cePTRRy9cuLC/V+1TTz31t//23/7kJz958eLFv/AX/sLth/GSl7zkpS996aVLl+67777yyZ//+Z9/8MEHDx3wI4888t73vveuu+56z3ve88gjj+x/svnIP/jBDz722GOPPvrot3/7tx96tje+8Y1f+tKXbn+G5p/jm970pieffHJra+vJJ5+8/VDLX/l3fud32j/+KO9///v/xb/4F9/4xje6PudTTz31Mz/zM5cvX/6BH/iBj370o08++eT+z+H2V/m//Jf/8oY3vKHlkQBAJ0cGjh/90R/94R/+4Z/4iZ94y1vecuHChevXr//oj/7oX/krf+XjH//4u971rne96137D/vWb/3WJ5988vHHHy+PKc/wwQ9+8Bd/8Rf/xt/4G3/v7/29n/qpnyqf//Ef//Enn3zyXe9615NPPvl3/s7f2X+S//2///cP//APv//97/+Jn/iJ2w/jDW94w3/8j//x2Wef/fZv//Zv/dZv3f/kf/7P/3lra+vP/tk/e/sj/9t/+2+/8Ru/8ZM/+ZNf/epXf+u3fmv/k81H/swzz/zQD/3QxYsX/+7f/buH/vp33333//yf//P2Z9j//Hd8x3d84jbl8a985St/93d/d2tr63/9r/9VFxOvfvWr77vvvscee+znfu7n/ugf/aPHPv6OXve617361a/+7Gc/2+M5d3d3/9W/+lfvec97PvzhDz/++OPvec979n8Ot7/KX/nKV+6+++42RwIAXR35jyI/97nPfeQjH/mlX/qlD3/4w+WTDz/88F/6S3/pe77ne8o/Ebh58+bTTz99x2d4wxve8JrXvGb/45e+9KV33XXXzZs3t7a2vvu7v/snf/Int7a2PvvZz77//e/f2tra3t7+9Kc/vbW19dxzzx36xwff+73f+yf+xJ9485vf/OpXv/rP/Jk/85/+03/a//yFCxd+7Md+bD95FI888sinP/3pt7/97fXB1Ee+tbX17/7dv9va2vo3/+bf7OeeP/Bz2dnZP9pDnn322Xe/+913/Ps2+MY3vvHrv/7rP/3TP33mzJmf+qmf6tF37O7u/viP//j+j6vHc37jG9/4r//1v968efPFF1985plnbt68+dKXvnSrepVLpAOAcR0ZOM6dO/dd3/Vdf+2v/bWzZ8/+/b//9/c/+bGPfezf/tt/+4u/+Is/8AM/sP+Zr3/963f8D/PW1ta3fMu3/M2/+Tf/3//7f3fdddfrXve6ox62tbX14osv/v7v/379+bvuuuvuu+/+y3/5L29tbd1777333XdfCRyf//znv/71rx8acjz77LPXr19/9tln66eqj/zmzZtf//rX9z9+4YUXDj3+937v9172spc9//zzhz7/Hd/xHftpaV8JH7/7u7/7yle+8nd+53de9apX7Y8Zbvf4449/9atf3dra+pVf+ZX9L29+fO3MmTN7e3s/+7M/u7W1tbe395GPfOTnf/7n2z/niy++uP/zf+GFF25/IW5/lX/2Z3/2937v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QJzAAQDECRwAQJzAAQDECRwAQJzAAQDECRwAQJzAAQDECRwAQJzAAQDECRwAQJzAAQDE7XztnlOrPgYAYOFMOACAOIEDAIgTOACAOIEDAIgTOACAOIEDAIgTOACAOIEDAIjb3tvdWfUxAAALZ8IBAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMQJHABAnMABAMTtrPoAAFi98ycPfv8899zN1R4JS2XCAQDECRwAQJxKBYBbdCuEmHAAAHECBwAQp1IBYOvKtRv7H5w54b8LRJhwAABxAgcAEGd0BsAtpVvxGynjcj4BAHECBwAQp1IB4JaySuXqdTf+YkwmHABAnMABAMSpVAA2Rb1PSvnMlWsKFLJMOACAOIEDAIhTqQCdPfPA8ZeOUxdvHPsYYHOYcAAAcQIHABCnUgHYFGWflPMndw59ptzv6/7Xf3Mly0XrVhiTCQcAECdwAABxKhWATXH1+sEvmWdObH3zA/8VYCImHABAnMABAMQZpgFsitN7BwtPys4pKhUmY8IBAMQJHABAnGEa8Ae02SeF+ah3nG94TEOTUu73ZRMcQkw4AIA4gQMAiDM7BSJsYb9ypUkpGpoUSHOqAQBxAgcAEKdSAVhj9Y7zME8mHABAnMABAMQZwcEtZWGF1RMsW704xTlPmgkHABAncAAAcSoVNoX7UI3o0tNHbttRuKNUVL09Slmu0rDjvCaFFXJFAADiBA4AIE6lwhL021HdMJk5aLO/fP3gWqcmBabnLAQA4gQOACBOpcIsNHQidfHRr0B58PIL+x9cvS5nsx4aCpR+a1IKfSLTc+UFAOIEDgAg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cAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcQIHABAncAAAcTurPgAAVu/8yYPfP889d3O1R8JSmXAAAHECBwAQp1IB4BbdCiEmHABAnMABAMSpVADYunLtxv4HZ0747wIRJhwAQJzAAQDEGZ0BcEvpVvxGyricTwBAnMABAMQJHABAnMABAMQJHABAnFUqAJui3ielfObKtYPPlBt/Xb1uLxXGZMIBAMQJHABAnMABAMQJHABAnMABAMRZpQKwKco+KedP7hz6DKSZcAAAcQIHABCnUgHYFFevH/ySeebE4T8q9/u6//XfvDnYRTf+YkwmHABAnMABAMSpVAA2xem9g5ak3jkF0kw4AIA4gQMAiDNMA1hj9Y7zDY8pTUqDUxfdCowIEw4AIE7gAADiVCoAy1SalFq9OMX9vkgz4QAA4gQOACBOpQKwxuod5xse09CkQJpTDQCIEzgAgDiVCsAyNTQpNff7Is2EAwCIEzgAgLjtvV2tCsCauW17lCOrkIYmpSxO0aQwGRMOACBO4AAA4vQpAKvUZn/5+sEN2jQpMD0nHwAQJ3AAAHEqFYCZaihQ6sUpnZoUi1OYngkHABAncAAAcSoVaKXTUgI41p3u3HXXoT+qaVJYXyYcAECcwAEAxKlUAGahblIG7pNSaFKYAxMOACBO4AAA4lQq0KReSnD+5MG7pt9yFatdFqNuQDpthtJQl2hSWCQTDgAgTuAAAOJUKmycNht8L+ObsnKdXndNCsvmIggAxAkcAECcSoVN0a/UqKfc9c4XfZ9Q3F9v9blRVjB1+qoGmhSWxCUPAIgTOACAOJUKi/LMA0ee0peePrgpU6eZ9kBt7vLExAbee+221/T4Lx+rQCk0KawvEw4AIE7gAADiVCrMS0MnUo+OGx5cG73U6LeVRv3l9mSZobHWNLWhSWFDmHAAAHECBwAQ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" width="720" height="2340"
+         alt="Ten frames showing the startle decaying: flame spike and raised head settling back to banked coals over 450 milliseconds.">
+    <figcaption>The startle envelope, 0→450&nbsp;ms. Decay is t², so the attack is fast and the
+    settle is slower — it reads as <em>struck</em> rather than faded.</figcaption>
+  </figure>
+
+  <div class="note">
+    <b>Feedback comes from the thing you touched.</b> Tapping the hearth startles the wyrm.
+    Tapping a volume stone lights the stone and does <em>not</em> disturb the fire, because
+    the fire isn't what you touched. That rule decided every acknowledgement on the device.
+  </div>
+</section>
+
+<section class="wrap">
+  <p class="kicker">The voice</p>
+  <h2>Chimes you can actually hear</h2>
+  <p class="lede">
+    Struck-glass synthesis: inharmonic partials at non-integer ratios, higher partials
+    decaying faster, notes overlapping and ringing through each other. Nothing is ever
+    spliced — hard concatenation is what made the first attempt click.
+  </p>
+  <p>
+    They're tuned to a warm F-pentatonic, which is the point: <strong>every pair is
+    consonant</strong>, so the set is one family and any two can overlap without clashing.
+    Exactly one is deliberately outside it.
+  </p>
+
+  <div class="chimes" id="chimes"></div>
+
+  <div class="demo">
+    <button type="button" data-act="pair">Ring two at once →</button>
+    <button type="button" data-act="triple">Ring three</button>
+    <button type="button" class="alt" data-act="clash">Now add the error tone</button>
+  </div>
+  <p class="demo-note">
+    Two or three together should sound like one instrument. The error tone shouldn't — it's a
+    minor second, and it's meant to be impossible to mistake for a normal event.
+  </p>
+
+  <div class="note">
+    <b>One of these is never played.</b> <code>listening</code> was made, approved, and then
+    deliberately left unwired. It's 1.4&nbsp;s long, and the speaker shares a single I2S bus
+    with the microphone with no echo cancellation — so it would land in the recording, and
+    the voice pipeline's silence detector would end your sentence before you started it. The
+    symptom would look exactly like broken speech recognition. It stays in the repo, silent,
+    with the reasoning written at the point of use so nobody helpfully wires it back in.
+  </div>
+
+  <p>
+    Rendered at 16&nbsp;kHz, which is not a compromise: the highest partial is 6.79× the
+    highest fundamental, so nothing aliases — and it matches the codec exactly, which keeps a
+    resampler out of an audio path that is deliberately a straight line.
+  </p>
+</section>
+
+<section class="wrap">
+  <p class="kicker">Engineering</p>
+  <h2>The settings that look like mistakes</h2>
+  <p class="lede">
+    The pinout is traced to the manufacturer's schematic, not to community tables — several
+    published tables for this board are wrong. These are the ones that cost real debugging
+    time, and every one is commented in the config where someone would otherwise "fix" it.
+  </p>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Setting</th><th>Why it looks wrong and isn't</th></tr></thead>
+      <tbody>
+        <tr><td>i2s_din: 6<br>i2s_dout: 8</td><td>The silkscreen names the I2S data pins from the <em>codec's</em> point of view, so most published tables have them inverted. Confirmed four ways, including the vendor's own shipped source.</td></tr>
+        <tr><td>use_microphone<br>omitted</td><td>In this driver that flag enables a <em>PDM digital</em> mic. This board's microphone is analog-differential. Setting it looks correct and produces silence.</td></tr>
+        <tr><td>data_rate: 40MHz</td><td>The display model declares no data rate, so it silently defaults to 10&nbsp;MHz — which made full frames take 141&nbsp;ms instead of 60.</td></tr>
+        <tr><td>GPIO18 left<br>unconfigured</td><td>It's the touch controller's reset. Driving it <em>breaks</em> touch: the driver asserts reset and reads the chip ID with zero delay, ignoring a 300&nbsp;ms datasheet requirement. The chip has an internal pull-up. Leaving it alone is correct.</td></tr>
+        <tr><td>bits_per_sample:<br>16bit on the mic</td><td>The default is 32-bit, which silently mismatches the 16-bit codec and produces a dead microphone. This is the actual bug in the only other published config for this board.</td></tr>
+        <tr><td>GPIO1 held high<br>at boot</td><td>The amplifier's SHUTDOWN is active-low with a ~100&nbsp;ms wake. It is also the only lever downstream of everything the codec does, which is why it — and not the codec's mute — is what suppresses the clock-restart click.</td></tr>
+        <tr><td>esptool<br>--no-stub</td><td>Only for full-flash <em>reads</em>. Without it a dump fails partway and looks exactly like a bad flash block. It is a bug in the stub flasher, not damaged hardware — don't replace the board over it.</td></tr>
+        <tr><td>buffer_duration:<br>500ms</td><td>Measured, not guessed. A 16-second utterance went from 45.8% delivered to 100.7%. It is <em>not</em> the same as the similarly-named <code>timeout</code> beside it, and conflating them cost a revision.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="wrap">
+  <p class="kicker">What went wrong</p>
+  <h2>Three events whose names lied</h2>
+  <p class="lede">
+    Replies were silent for hours. The audio path had just been rebuilt, so the codec, the
+    amplifier, the mute logic and the network were all plausible suspects — and all innocent.
+    It was three separate bugs of the same species, and the species is the lesson:
+    <strong>an event whose name describes the common case and quietly lies about an
+    edge.</strong>
+  </p>
+
+  <div class="bug">
+    <p class="meta">bug one · the chime ate the reply</p>
+    <h3><code>on_end</code> fires before the audio it ends</h3>
+    <p>
+      The satellite declares one audio pipeline, so the framework routes <em>everything</em>
+      through a single decoder — chimes, announcements and speech alike. A second item arriving
+      does not mix with the first; <strong>it destroys it, deliberately</strong>: the playlist is
+      cleared and the new file started. That is the documented behaviour of the flag, working as
+      designed.
+    </p>
+    <p>
+      And "conversation finished" fires <em>before</em> the reply is spoken. So the device queued
+      its own completion chime directly on top of the reply it was about to speak:
+    </p>
+    <pre class="log">53.288  RESPONSE_FINISHED -&gt; IDLE        <i>done chime queued</i>
+53.947  Reading FLAC file type            <i>reply audio starts</i>
+54.032  Reading WAV file type             <i>the chime lands on it</i>
+55.009  <b>Failed to parse the file's header</b>
+55.009  <b>FLAC decoder failed: -2</b></pre>
+    <dl>
+      <dt>The trap</dt>
+      <dd>The decoder error is a <em>second-order</em> symptom. It looks like a corrupt stream,
+      so it sends you to the audio format. The silence wasn't corruption at all — it was one
+      flag doing exactly what it promises.</dd>
+      <dt>The tell</dt>
+      <dd>Short replies sometimes survived, on timing alone. So it presented as <em>"it only
+      works on the very short one"</em> — vague, intermittent, unreproducible — rather than as a
+      clean failure that would have been found in minutes.</dd>
+    </dl>
+  </div>
+
+  <div class="bug">
+    <p class="meta">bug two · the guard could not see</p>
+    <h3>A state variable that reads <code>idle</code> while the device is talking</h3>
+    <p>
+      The fix for bug one needed a guard: don't start a chime while the pipeline is busy. The
+      guard checked the conversation state — and <strong>that state is
+      <code>idle</code> for the entire duration of a spoken reply</strong>, because it was set
+      back by the very event from bug one.
+    </p>
+    <dl>
+      <dt>The consequence</dt>
+      <dd>Tapping the screen while Ember answered killed the reply mid-sentence. The guard was
+      not merely weak, it was <em>structurally blind</em> to the only condition it existed to
+      detect.</dd>
+      <dt>The lesson</dt>
+      <dd>The display had already stopped trusting that variable — it derives "is speaking" from
+      the speaker hardware, because a pushed announcement reports idle the whole time it talks.
+      The guard should have used the same derivation. Two parts of one program, one of which had
+      already learned the lesson.</dd>
+    </dl>
+  </div>
+
+  <div class="bug">
+    <p class="meta">bug three · the touch that cancelled itself</p>
+    <h3><code>on_touch</code> is a report, not a press</h3>
+    <p>
+      The touch controller does not announce a press once; it reports <em>that a finger is
+      present</em>, repeatedly, for as long as it is there. A 400&nbsp;ms debounce was added to
+      collapse that stream into one event — and it <strong>re-armed</strong> against a stream
+      with no end.
+    </p>
+    <dl>
+      <dt>The consequence</dt>
+      <dd>Any press held for 400&nbsp;ms or more started a conversation and then immediately
+      cancelled it. A deliberate, firm press — exactly what a new user does — was the one gesture
+      guaranteed to fail. A quick tap worked.</dd>
+      <dt>The fix</dt>
+      <dd><code>on_release</code>, which was the right primitive from the start. A press is a
+      down <em>and</em> an up; only one of those is an event.</dd>
+    </dl>
+  </div>
+
+  <div class="note">
+    <b>Three bugs, one shape.</b> <code>on_end</code> named the end of a conversation and meant
+    something earlier. A state variable named the conversation's state and went blank halfway
+    through. <code>on_touch</code> named a touch and meant a sample of an ongoing condition. None
+    was a race, none was a hardware fault, and every one was found by disbelieving a name.
+  </div>
+</section>
+
+<section class="wrap">
+  <p class="kicker">What went wrong</p>
+  <h2>Two numbers nobody measured</h2>
+  <p class="lede">
+    The other species. Both of these were <em>plausible values sitting in place of measurements</em>,
+    and both ran correctly and slowly, or correctly and wrongly, for a long time before anyone
+    looked.
+  </p>
+
+  <div class="bug">
+    <p class="meta">a default nobody set</p>
+    <h3>The display ran at a quarter speed for want of one line</h3>
+    <p>
+      Full-screen redraws took 141&nbsp;ms when the wire time said 31. The obvious suspect was
+      the drawing code, and it was profiled accordingly.
+    </p>
+    <dl>
+      <dt>The tell</dt>
+      <dd>The number was too round to be a rendering cost. Four-and-a-half times too slow is a
+      clock divider, not an inefficiency.</dd>
+      <dt>The cause</dt>
+      <dd>The driver's model for this panel declares no SPI data rate, so it silently fell back
+      to <strong>10&nbsp;MHz</strong> instead of 40. Nothing warns; it just runs slowly and
+      correctly.</dd>
+    </dl>
+  </div>
+
+  <div class="bug">
+    <p class="meta">ours, and the most embarrassing</p>
+    <h3>Text clipped by an average</h3>
+    <p>
+      Long replies were cut off at the right-hand edge. Line breaks were computed from an
+      estimated <em>average</em> character width — a number labelled "not measured" in the source
+      months before it caused this, and then never revisited.
+    </p>
+    <dl>
+      <dt>The tell</dt>
+      <dd>It only clipped <em>some</em> lines. An average under-counts any line with more than
+      its share of wide glyphs, so the failure tracked the letters rather than the length.</dd>
+      <dt>The fix</dt>
+      <dd>Not a better estimate — asking the renderer to measure the actual string. Two tuning
+      knobs were deleted rather than retuned, because the correct number of guesses is zero.</dd>
+    </dl>
+  </div>
+</section>
+
+<section class="wrap">
+  <p class="kicker">A decision worth showing</p>
+  <h2>Why the text pages instead of scrolling</h2>
+  <p class="lede">
+    Long replies were being clipped. The obvious fix is to scroll them. The obvious fix costs
+    twenty to forty percent of the main loop, permanently, to solve a problem that happens
+    rarely.
+  </p>
+  <p>
+    The screen is redrawn in horizontal bands, one per frame, and the text band is the
+    expensive one — 18&nbsp;ms to repaint. Smooth scrolling means repainting it every
+    50–100&nbsp;ms forever. Paging means repainting it once every 3.5&nbsp;seconds, and only
+    while a reply is actually too long to fit:
+  </p>
+
+  <div class="trade">
+    <div class="bar">
+      <div class="top"><span class="lab">Smooth scroll</span><span class="val">20–40% · permanent</span></div>
+      <div class="track"><div class="fill" style="width:100%"></div></div>
+      <p class="why">Competes with the fire on every frame, forever, whether or not there's anything to scroll.</p>
+    </div>
+    <div class="bar win">
+      <div class="top"><span class="lab">Page every 3.5 s, only when it overflows</span><span class="val">~0.6% · sometimes</span></div>
+      <div class="track"><div class="fill" style="width:2%"></div></div>
+      <p class="why">A reply that fits costs exactly what it did before: nothing. On a 240&nbsp;px panel it also simply reads better than a crawl.</p>
+    </div>
+  </div>
+
+  <p>
+    The clipping had a separate cause worth admitting: line breaks were computed from an
+    <em>estimated</em> average character width. Averages under-count wide glyphs, so real
+    lines overran the panel and were cut off. The fix wasn't a better estimate — it was to
+    stop guessing and ask the renderer to measure the string. Two tuning knobs got deleted
+    rather than retuned.
+  </p>
+</section>
+
+<section class="wrap">
+  <p class="kicker">Engineering</p>
+  <h2>Write once, or not at all</h2>
+  <p class="lede">
+    A full 240×320 frame is about 60&nbsp;ms of work on this board, and the same processor is
+    streaming audio. Redrawing everything at a useful frame rate is not available.
+  </p>
+  <p>
+    So the screen is divided into bands — header, text, fire, telemetry — and <strong>at most
+    one band is repainted per frame</strong>. The display driver already tracks the smallest
+    rectangle that changed and sends only that, so the cost of a frame is the height of the
+    band that moved. Frames where nothing moved send nothing at all.
+  </p>
+  <p>
+    The fire is drawn row by row as horizontal runs rather than column by column, which sounds
+    like a detail and is worth about twelve times the speed: the framebuffer lives in external
+    memory, and a tall narrow column touches a new cache line for every pixel it writes. Every
+    pixel in the band is written exactly once — background included — so there's no
+    fill-then-overdraw.
+  </p>
+
+  <figure>
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABuAAAAGwCAIAAADXAzS2AAAU0UlEQVR4nO3aMW7bWp+HYXtAuHA2EASpDC+AtaAlqLqFykC9q7RCygu3qtQLKV1NoSUIrrUAQcXACLQBt8YUaRIM6S8nQ+pHSc9T8vIe/iUf08GLc317U10BAAAAACT8V3oAAAAAAOByCZQAAAAAQIxACQAAAADECJQAAAAAQIxACQAAAADECJQAAAAAQIxACQAAAADECJQAAAAAQIxACQAAAADECJQAAAAAQIxACQAAAADECJQAAAAAQIxACQAAAADECJQAAAAAQIxACQAAAADEVOkBAAAAGJbX758ar3/48uPIk0B/7HMuwanscycoAQAAAIAYgRIAAAAAiBEoAQAAAIAYgRIAAAAAiBEoAQAAAIAYgRIAAAAAiBEoAQAAAICYKj0AAABcXV1dzSbjTtZZrTedrAND9vr9U6/rf/jyo9f14U/Y51wC+/wnJygBAAAAgBiBEgAAAACIESgBAAAAgBiBEgAAAACIESgBAAAAgBiBEgAAAACIESgBAAAAgJgqPQAAALxnOd03Xn94umu8PpuMG6+v1pvOZoL/5PX7p/QIv/nw5Ud6BM6Qfc4lsM+PwwlKAAAAACBGoAQAAAAAYgRKAAAAACBGoAQAAAAAYgRKAAAAACBGoAQAAAAAYgRKAAAAACCmSg8AAAB/YzndN15/eLo78iQc0+v3T52s8+HLj8hzu7KYHxqvf3t5O/Ik9ME+/8k+P2/2+U/2+U9OUAIAAAAAMQIlAAAAABAjUAIAAAAAMQIlAAAAABAjUAIAAAAAMQIlAAAAABAjUAIAAAAAMVV6AAAAeM9ifmi8/vXx45EnoQ+v3z+d5XPb9m2pby9vnaxDln3+Pvv8PNjn77PP3+cEJQAAAAAQI1ACAAAAADECJQAAAAAQI1ACAAAAADECJQAAAAAQI1ACAAAAADECJQAAAAAQU6UHAACAv7GYH5r/Q3133EEu1Ov3T5Hntv7cC319/Bh5bt/+/dzvGZS27+3Dlx+9PjfFPh8m+7xb9vkwXdo+d4ISAAAAAIgRKAEAAACAGIESAAAAAIgRKAEAAACAGIESAAAAAIgRKAEAAACAGIESAAAAAIi5vr2p0jMAAHDCZpNxr+vfb5+L7t/Vo8brq/Wmi3HO1uv3T5HnLuaHyHN537eXt/QIvbDP+ZV93i37fJhOZZ87QQkAAAAAxAiUAAAAAECMQAkAAAAAxAiUAAAAAECMQAkAAAAAxAiUAAAAAECMQAkAAAAAxFTpAQAAOE/L6b7x+sPTXdH9i21XE12W1++fel1/MT/0uj7d+vbylh6hF/Y5v7LP/459flrOdZ87QQkAAAAAxAiUAAAAAECMQAkAAAAAxAiUAAAAAECMQAkAAAAAxAiUAAAAAECMQAkAAAAAxFTpAQAAgL/3+v1TJ+ss5odO1oE+2OdcAvucS+YEJQAAAAAQI1ACAAAAADECJQAAAAAQI1ACAAAAADECJQAAAAAQI1ACAAAAADECJQAAAAAQU6UHAADgPC3mh8bry8ey+/k7vk9+9e/n5rMp317ejjxJt+xzfmWfcwnOdZ87QQkAAAAAxAiUAAAAAECMQAkAAAAAxAiUAAAAAECMQAkAAAAAxAiUAAAAAECMQAkAAAAAxFTpAQAAOE+7etTyX/ZHnePcLeaH9AjQuw9ffhTd//o//914fTH6p4NpoB9d7fOh8XvHn3CCEgAAAACIESgBAAAAgBiBEgAAAACIESgBAAAAgBiBEgAAAACIESgBAAAAgBiBEgAAAACIqdIDAADQjdlk3Mk6q/Wmk/Xvt8+N1xfb0ol4z7eXt07W+fezswsMV+n+XIz+6WkSwO8XffCvEAAAAAAgRqAEAAAAAGIESgAAAAAgRqAEAAAAAGIESgAAAAAgRqAEAAAAAGIESgAAAAAgpkoPAABAv5bTfeP1h6e7xuuzybiT9RfbomWK7epRvw+4MN9e3npd/9/PzkYAHMNi9E96BCjmXwkAAAAAQIxACQAAAADECJQAAAAAQIxACQAAAADECJQAAAAAQIxACQAAAADECJQAAAAAQEyVHgAAgNOwnO7TI/yR1XqTHoEG317e0iP85t/Pl3VWY2jff6m+57+0/XCuTn2fl+7DxeifniZhyE59n7fxFgYAAAAAYgRKAAAAACBGoAQAAAAAYgRKAAAAACBGoAQAAAAAYgRKAAAAACBGoAQAAAAAYqr0AAAA9GsxPzReXz72uz4M2beXt/QIDIj9ALTxfjgOJygBAAAAgBiBEgAAAACIESgBAAAAgBiBEgAAAACIESgBAAAAgBiBEgAAAACIESgBAAAAgJgqPQAAAGVmk3HkuYv5IfLcXT2KPBcAjunby1t6BIhxghIAAAAAiBEoAQAAAIAYgRIAAAAAiBEoAQAAAIAYgRIAAAAAiBEoAQAAAIAYgRIAAAAAiLm+vanSMwAADNpsMu5kndV60+tzl9N94/XF/FC0TsquHhXdX/p9AgAwTE5QAgAAAAAxAiUAAAAAECNQAgAAAAAxAiUAAAAAECNQAgAAAAAxAiUAAAAAECNQAgAAAAAxVXoAAIBTtZzuG68/PN01Xp9Nxr0+91yt1pv0CAAA9MgJSgAAAAAgRqAEAAAAAGIESgAAAAAgRqAEAAAAAGIESgAAAAAgRqAEAAAAAGIESgAAAAAgpkoPAMcwm4w7WWe13nSyDgDD1NXfi1LL6b6TdRbzQyfr9G1Xj9IjAAAwIE5QAgAAAAAxAiUAAAAAECNQAgAAAAAxAiUAAAAAECNQAgAAAAAxAiUAAAAAECNQAgAAAAAxVXoASFpO943XH57ujjwJAEPW9vdiMT80/w9189+RtnVKtT53YHb1qOj+1XrT0yQAAAyZE5QAAAAAQIxACQAAAADECJQAAAAAQIxACQAAAADECJQAAAAAQIxACQAAAADECJQAAAAAQEyVHgC6NJuMI+uv1pvIc0v1PSdAm77fz6Xvt77nWU73Rfcv5oeeJjmOXT0qut/fIwAAfuUEJQAAAAAQI1ACAAAAADECJQAAAAAQI1ACAAAAADECJQAAAAAQI1ACAAAAADECJQAAAAAQU6UH4DzNJuP0CL9ZTveN1xfzQ/P9j83rPDzddTVSo9Lvre1z9T0nQFfa3mNt2t5vXf3dKf17UaqrdVJ29ajo/tV609MkAACcEycoAQAAAIAYgRIAAAAAiBEoAQAAAIAYgRIAAAAAiBEoAQAAAIAYgRIAAAAAiBEoAQAAAICYKj0Ap202GRfdv5zue5rkvPneAP5O6v25mB8iz+3Krh4V3b9ab3qaBACAS+AEJQAAAAAQI1ACAAAAADECJQAAAAAQI1ACAAAAADECJQAAAAAQI1ACAAAAADECJQAAAAAQU6UH4Dwtp/v0CL9ZzA/d3F/fdTDN1dVsMu5knb7nBIajq/fGar3pZJ02pXOWvp+Xj0W3Fyud59Tt6lHR/X3vHwAALpMTlAAAAABAjEAJAAAAAMQIlAAAAABAjEAJAAAAAMQIlAAAAABAjEAJAAAAAMQIlAAAAABATJUegNMwm4w7WWcxP3SyztB09f0sp/vG6119b21zrtabTtYvfW6pvueEU9T23nh4uitap6vf0zat77dtr4892787pXb1qOh+71sAAI7JCUoAAAAAIEagBAAAAABiBEoAAAAAIEagBAAAAABiBEoAAAAAIEagBAAAAABiBEoAAAAAIKZKD8BpW073jdcX88ORJzmOts/b5uHprqdJ3tc2Z9/zzCbjovtTc3LeSvdhm9V608k6pbqav6v1S997fTvXvy9d2dWjovtT+xwAAH7lBCUAAAAAECNQAgAAAAAxAiUAAAAAECNQAgAAAAAxAiUAAAAAECNQAgAAAAAxAiUAAAAAEFOlB4Bztpzui+5fzA89TZJV+j0MzWwy7mSd1XrTyTpdOdfP1aZtHz483R15kp9Kv/+2+dveG8vH4pF6da7vt5RdPSq6/1R+TwEAuExOUAIAAAAAMQIlAAAAABAjUAIAAAAAMQIlAAAAABAjUAIAAAAAMQIlAAAAABAjUAIAAAAAMVV6AE7bYn5Ij3BUpZ/36+PHniZ5X+uc9V3j5dlk3OM07UrnHJrldN94/eGp7HterTedzdSF0s+V0ve+Tf1etH3/KZf2nh+aXT0qun9o7xMAAPgTTlACAAAAADECJQAAAAAQI1ACAAAAADECJQAAAAAQI1ACAAAAADECJQAAAAAQI1ACAAAAADFVegBO264eNV6/3z4feZJhWswP6RF+s5zui+5/eLrrZP2uvofZZNx4fbXe9Lp+qbbvofT77EpXnyuldP7Sfbh8bF6n7edV+nvUldLfo6G9f3hf29/TNl299wAAYAicoAQAAAAAYgRKAAAAACBGoAQAAAAAYgRKAAAAACBGoAQAAAAAYgRKAAAAACBGoAQAAAAAYqr0AJyG1XrTeH02GR95Eo5pOd0P6rkPT3eN1/veh23zLOaHxutfHz/2OU5nSj/XVZ35/tv0vT9T+7/1++ek7OpRJ+u0/f0FAIBz4gQlAAAAABAjUAIAAAAAMQIlAAAAABAjUAIAAAAAMQIlAAAAABAjUAIAAAAAMQIlAAAAABBzfXtTpWfghM0m46L777fPPU1CH74+fiy6fzE/RJ6bUvp5d/Wop0n+znK6b7ze9rnO9efSpu3zdrU+56H093q13vQ0CQAAnC4nKAEAAACAGIESAAAAAIgRKAEAAACAGIESAAAAAIgRKAEAAACAGIESAAAAAIgRKAEAAACAmOvbmyo9A2doNhkX3X+/fe5pEs7J18ePkecu5odO1knN36b0c536/PAndvWok3VW600n6wAAwCVwghIAAAAAiBEoAQAAAIAYgRIAAAAAiBEoAQAAAIAYgRIAAAAAiBEoAQAAAIAYgRIAAAAAiLm+vanSM3BBZpNx0f332+eeJoHj+/r4MT3CbxbzQ3oEiNnVo6L7V+tNT5MAAABOUAIAAAAAMQIlAAAAABAjUAIAAAAAMQIlAAAAABAjUAIAAAAAMQIlAAAAABAjUAIAAAAAMde3N1V6BriaTcZF999vn3uaBIBTtKtHnayzWm86WQcAAPhzTlACAAAAADECJQAAAAAQI1ACAAAAADECJQAAAAAQI1ACAAAAADECJQAAAAAQI1ACAAAAADFVegB4z/32OT0CACdstd6kRwAAAP4DJygBAAAAgBiBEgAAAACIESgBAAAAgBiBEgAAAACIESgBAAAAgBiBEgAAAACIESgBAAAAgJgqPQCXZTYZp0cA4ITt6lF6BAAAoGNOUAIAAAAAMQIlAAAAABAjUAIAAAAAMQIlAAAAABAjUAIAAAAAMQIlAAAAABAjUAIAAAAAMVV6ALi6urq63z6nR/jNrh4V3T+0+QEAAABOhROUAAAAAECMQAkAAAAAxAiUAAAAAECMQAkAAAAAxAiUAAAAAECMQAkAAAAAxAiUAAAAAEBMlR4AzsGuHnWyzv32uZN1ANreS6f+nmmbv6v3MAAAcHxOUAIAAAAAMQIlAAAAABAjUAIAAAAAMQIlAAAAABAjUAIAAAAAMQIlAAAAABAjUAIAAAAAMde3N1V6Bs7QbDIuuv9++9zTJO/b1aOi+1frTSfPLf1+upL6noH/q/T9MzRDe5+k3ucAAMD/nxOUAAAAAECMQAkAAAAAxAiUAAAAAECMQAkAAAAAxAiUAAAAAECMQAkAAAAAxAiUAAAAAEDM9e1NlZ6BMzSbjBuv32+fjzzJT7t6VHT/ar3paZLjaPv+U1I/d/hV6XsgZWjvn9L3ydB+39t+7kP7ngEA4JI5QQkAAAAAxAiUAAAAAECMQAkAAAAAxAiUAAAAAECMQAkAAAAAxAiUAAAAAECMQAkAAAAAxFTpASBptd6kR+hF6nPNJuPG67t6dORJ/s799jk9wqCdys+x1Lm+B7rS9v20/b4DAACUcoISAAAAAIgRKAEAAACAGIESAAAAAIgRKAEAAACAGIESAAAAAIgRKAEAAACAGIESAAAAAIip0gMA52O13qRH+COzybjx+q4eHXmS83AqP3eOo+336H77fORJAACAU+EEJQAAAAAQI1ACAAAAADECJQAAAAAQI1ACAAAAADECJQAAAAAQI1ACAAAAADECJQAAAAAQU6UHgC7t6lF6BE7Aar1JjwAnr+33aDYZH3kSAADg1DlBCQAAAADECJQAAAAAQIxACQAAAADECJQAAAAAQIxACQAAAADECJQAAAAAQIxACQAAAADEVOkBOG2zyTg9AgAB3v8AAEBXnKAEAAAAAGIESgAAAAAgRqAEAAAAAGIESgAAAAAgRqAEAAAAAGIESgAAAAAgRqAEAAAAAGKub2+q9Az0aDYZR557v32OPLfNrh4V3b9ab3qaBOA4vP9/8v4HAIDhc4ISAAAAAIgRKAEAAACAGIESAAAAAIgRKAEAAACAGIESAAAAAIgRKAEAAACAGIESAAAAAIip0gOQsZzuO1lnMT90sk7f7rfPjdd39ejIkwBktb0Pz5X3PwAADJ8TlAAAAABAjEAJAAAAAMQIlAAAAABAjEAJAAAAAMQIlAAAAABAjEAJAAAAAMQIlAAAAABAjEAJAAAAAMQIlAAAAABAjEAJAAAAAMQIlAAAAABAjEAJAAAAAMQIlAAAAABAjEAJAAAAAMQIlAAAAABATJUegIzF/JAe4ah29Sg9AgAB3v8AADB8TlACAAAAADECJQAAAAAQI1ACAAAAADECJQAAAAAQI1ACAAAAADECJQAAAAAQI1ACAAAAADFVegAydvUoPcIgrNab9AgAR+X9/5P3PwAADIcTlAAAAABAjEAJAAAAAMQIlAAAAABAjEAJAAAAAMQIlAAAAABAjEAJAAAAAMQIlAAAAABAzPXtTZWeAQAAAAC4UE5QAgAAAAAxAiUAAAAAECNQAgAAAAAxAiUAAAAAECNQAgAAAAAxAiUAAAAAECNQAgAAAAAxAiUAAAAAECNQAgAAAAAxAiUAAAAAECNQAgAAAAAxAiUAAAAAECNQAgAAAAAxAiUAAAAAECNQAgAAAAAxAiUAAAAAECNQAgAAAAAxAiUAAAAAECNQAgAAAAAxAiUAAAAAECNQAgAAAAAxAiUAAAAAECNQAgAAAAAx/wt4yOQ2Jt8W3gAAAABJRU5ErkJggg==" width="1760" height="432"
+         alt="Sprite sheet: the wyrm's body, and three head variants for mouth closed, eye open, and mouth open.">
+    <figcaption>The wyrm is a body plus three interchangeable heads, composited as run-length
+    spans. Same reason: spans are cheap, shapes are not.</figcaption>
+  </figure>
+
+  <div class="note">
+    <b>An invariant a test can check.</b> Because the framebuffer persists between frames, a
+    gap in the fire leaves stale pixels behind and an overlap silently doubles the cost the
+    whole design exists to avoid. So a host-side harness compiles the real drawing code and
+    asserts that every row of the band is covered exactly once, in every state. It has caught
+    a destructive dead-zone bug, a false-feedback bug, and three of the author's own ordering
+    mistakes.
+  </div>
+</section>
+
+<section class="wrap">
+  <p class="kicker">Still open</p>
+  <h2>A pop we can explain two ways</h2>
+  <p class="lede">
+    Some audio starts with a click. The cause is architectural, and it's worth writing down
+    because the fix that works isn't the fix that sounds right.
+  </p>
+  <p>
+    The microphone and speaker share one bus behind one lock, and the framework tears the
+    audio clock down and rebuilds it on every hand-off between them. Vendor firmware for this
+    family of chips never does that — it opens the bus once, in both directions, and leaves it
+    open. So the clock restarts constantly here, and a restart is when the click happens.
+  </p>
+  <p>
+    Muting the codec across the restart is the obvious answer and it isn't sufficient on its
+    own. Interrupting the amplifier <em>downstream</em> of everything the codec can do is
+    sufficient — but the amplifier has its own enable transient, and on this board the input
+    coupling capacitors sit at the top of the range the datasheet warns about. So it may trade
+    one click for another rather than removing it.
+  </p>
+  <div class="note">
+    <b>We have not distinguished the two mechanisms, and we say so.</b> Both a lingering
+    analog settle and a digital transient in the first clock cycles predict every observation
+    we have. The project notes record which claims are measured, which are inferred, and which
+    two earlier explanations were wrong — in opposite directions — rather than quietly
+    settling on whichever story the last fix supported.
+  </div>
+</section>
+
+<section class="wrap">
+  <p class="kicker">The board</p>
+  <h2>What to buy, and what not to</h2>
+  <p class="lede">
+    One $20 board does all of it — screen, touch, microphone, speaker amplifier, RGB LED, SD
+    slot and a battery input. It is sold under reseller brands, so the part number is the only
+    thing that identifies it reliably.
+  </p>
+
+  <div class="buy">
+    <a class="btn-buy" href="https://a.co/d/043Uyaej" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24"><path d="M7 4h10l1 2h3v2h-2l-1.4 9.3A2 2 0 0 1 15.6 19H8.4a2 2 0 0 1-2-1.7L5 8H3V6h3l1-2zm2 6v6h2v-6H9zm4 0v6h2v-6h-2z"/></svg>
+      Buy the board — Amazon</a>
+    <span class="aside">LCDWIKI / QDtech <b>ES3C28P</b> · ~$20</span>
+  </div>
+
+  <div class="warn">
+    <p><b>⚠️ Two other boards are constantly mistaken for this one and will not fit.</b></p>
+    <p>
+      The part number is <strong>ES3C28P</strong>, from <strong>LCDWIKI / QDtech</strong>.
+      "Hosyond" is a reseller brand, not the manufacturer. The <strong>JC2432W328</strong> and
+      <strong>JC3248W535</strong> (the Guition family) match the same rough description —
+      "ESP32-S3 2.8&nbsp;inch touchscreen" — with a <em>different PCB outline, different pinout
+      and a different touch controller</em>.
+    </p>
+    <p>
+      Many published configs and printed cases for that description are for those boards
+      instead. That confusion is part of why the only other published config for this board has
+      a dead microphone: it inherits a 32-bit sample width that silently mismatches this
+      codec. If a config was written for a Guition board, the pins will look plausible and
+      nothing will work.
+    </p>
+  </div>
+
+  <ul class="spec">
+    <li><span class="k">MCU</span><span class="v">ESP32-S3 N16R8 — 16&nbsp;MB flash, 8&nbsp;MB octal PSRAM<small>The octal PSRAM consumes GPIO33–37; they are not available.</small></span></li>
+    <li><span class="k">Display</span><span class="v">240×320 IPS, ILI9341V, SPI<small>⚠️ <code>data_rate: 40MHz</code> is effectively mandatory — the driver's base model for this panel declares no data rate and falls back to 10&nbsp;MHz, which makes full frames take 141&nbsp;ms instead of ~60.</small></span></li>
+    <li><span class="k">Touch</span><span class="v">FT6336G capacitive, I²C 0x38<small>⚠️ GPIO18 (CTP_RST) must be left <em>unconfigured</em>. Driving it breaks touch initialisation; the chip has a 3&nbsp;kΩ internal pull-up and wants to be left alone.</small></span></li>
+    <li><span class="k">Audio</span><span class="v">ES8311 codec, I²C 0x18 — analog-differential mic, external speaker header<small>⚠️ <code>i2s_din_pin: 6</code> / <code>i2s_dout_pin: 8</code>. The silkscreen names these from the <em>codec's</em> side, so most published tables have them inverted.</small></span></li>
+    <li><span class="k">Amp</span><span class="v">FM8002E / SC8002B, bridge-tied<small>SHUTDOWN on GPIO1, active-low, ~100&nbsp;ms typical wake. The one lever downstream of the codec.</small></span></li>
+    <li><span class="k">Storage</span><span class="v">microSD</span></li>
+    <li><span class="k">LED</span><span class="v">WS2812 on GPIO42<small>Driven from the same derived state as the fire, so the light and the screen cannot disagree.</small></span></li>
+    <li><span class="k">Battery</span><span class="v">ADC on GPIO9, via an onboard 2:1 divider</span></li>
+    <li><span class="k">USB</span><span class="v">USB-C<small>⚠️ Full-flash <em>reads</em> need <code>--no-stub</code>. Without it a dump fails partway and looks exactly like a bad block — it's a stub-flasher bug, not dead hardware.</small></span></li>
+  </ul>
+</section>
+
+<section class="wrap">
+  <p class="kicker">The stack</p>
+  <h2>All of it, in the house</h2>
+  <ul class="stack">
+    <li><span class="k">device</span><span class="v">LCDWIKI ES3C28P — ESP32-S3, 240×320 ILI9341V, capacitive touch, ES8311 codec<small>Activation is by touching the screen. There is no wake word, so nothing is listening until you ask it to.</small></span></li>
+    <li><span class="k">firmware</span><span class="v">ESPHome, hand-drawn display<small>No LVGL. A fire is not a widget, and the framework's chart widget doesn't exist.</small></span></li>
+    <li><span class="k">hearing</span><span class="v">vosk<small>On the local network. Audio never leaves it.</small></span></li>
+    <li><span class="k">thinking</span><span class="v">Qwen3.6-35B-A3B<small>Running on a machine down the hall, on two second-hand GPUs.</small></span></li>
+    <li><span class="k">speaking</span><span class="v">Piper, en-GB<small>Ember is en-GB, warm, and terse on purpose — brevity is a design constraint, not a personality note.</small></span></li>
+    <li><span class="k">glue</span><span class="v">Home Assistant Assist<small>Announcements can be pushed to the hearth: timers, doorbells, anything.</small></span></li>
+  </ul>
+</section>
+
+<section class="wrap">
+  <p class="kicker">Spread the fire</p>
+  <h2>📣 Share it</h2>
+  <p class="lede">
+    If the idea of an assistant that keeps your voice in the building is worth passing on,
+    here are the buttons.
+  </p>
+  <div class="share-row">
+    <a class="btn-share" target="_blank" rel="noopener"
+       href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fjphein.github.io%2Fember.realm.watch%2F">
+      <svg viewBox="0 0 24 24"><path d="M13.4 21v-8.2h2.7l.4-3.2h-3.1V7.6c0-.9.3-1.6 1.6-1.6h1.7V3.2c-.3 0-1.3-.2-2.5-.2-2.5 0-4.2 1.5-4.2 4.3v2.3H7.3v3.2H10V21h3.4z"/></svg>
+      Facebook</a>
+    <a class="btn-share" target="_blank" rel="noopener"
+       href="https://news.ycombinator.com/submitlink?u=https%3A%2F%2Fjphein.github.io%2Fember.realm.watch%2F&t=Show%20HN%3A%20A%20%2420%20voice%20assistant%20with%20no%20cloud%20%E2%80%94%20local%20STT%2C%20a%2035B%20LLM%2C%20and%20a%20dragon">
+      <svg viewBox="0 0 24 24"><path d="M3 3h18v18H3V3zm8.2 10.4L7.4 6.8h1.9l2.7 4.9 2.7-4.9h1.9l-3.8 6.6v4.6h-1.6v-4.6z"/></svg>
+      Hacker News</a>
+    <a class="btn-share" target="_blank" rel="noopener"
+       href="https://www.reddit.com/submit?url=https%3A%2F%2Fjphein.github.io%2Fember.realm.watch%2F&title=A%20voice%20assistant%20with%20no%20cloud%20in%20it%20%E2%80%94%20local%20speech-to-text%2C%20a%2035B-parameter%20LLM%20and%20local%20TTS%2C%20all%20on%20my%20own%20hardware%2C%20on%20a%20%2420%20ESP32%20touchscreen%20with%20a%20dragon%20in%20the%20fire">
+      <svg viewBox="0 0 24 24"><path d="M14.5 4l1 3.6c1.6.1 3.1.6 4.2 1.4a2 2 0 112.2 3.3c.1.4.1.7.1 1.1 0 3.4-4 6.1-9 6.1s-9-2.7-9-6.1c0-.4 0-.7.1-1.1a2 2 0 112.2-3.3c1.2-.9 2.9-1.4 4.7-1.5l1.2-4.4 3.3.9zM9 12.8a1.3 1.3 0 100 2.6 1.3 1.3 0 000-2.6zm6 0a1.3 1.3 0 100 2.6 1.3 1.3 0 000-2.6zm-6.3 4.5c.9.7 2 1 3.3 1s2.4-.3 3.3-1l.7.8c-1.1.9-2.5 1.3-4 1.3s-2.9-.4-4-1.3l.7-.8z"/></svg>
+      Reddit</a>
+    <button type="button" class="btn-share" onclick="copyThenOpen(this,'https://hackaday.com/submit-a-tip/')"
+            title="Copies the project link, then opens the Hackaday tips line — paste it there.">
+      <svg viewBox="0 0 24 24"><path d="M21.7 6.3l-3.1 3.1-3-.5-.5-3 3.1-3.1a5 5 0 00-6.5 6.5L4 17l-1 4 4-1 7.7-7.7a5 5 0 006.5-6.5l.5.5z"/></svg>
+      <span class="lbl">Hackaday tip</span></button>
+    <button type="button" class="btn-share" onclick="copyOnly(this)"
+            title="Instagram has no web share — this copies the link to paste into a story or bio.">
+      <svg viewBox="0 0 24 24"><path d="M7.5 2h9A5.5 5.5 0 0122 7.5v9A5.5 5.5 0 0116.5 22h-9A5.5 5.5 0 012 16.5v-9A5.5 5.5 0 017.5 2zm0 2A3.5 3.5 0 004 7.5v9A3.5 3.5 0 007.5 20h9a3.5 3.5 0 003.5-3.5v-9A3.5 3.5 0 0016.5 4h-9zM12 7a5 5 0 110 10 5 5 0 010-10zm0 2a3 3 0 100 6 3 3 0 000-6zm5.3-3.1a1.1 1.1 0 110 2.2 1.1 1.1 0 010-2.2z"/></svg>
+      <span class="lbl">Instagram</span></button>
+    <button type="button" class="btn-share native" onclick="nativeShare()">
+      <svg viewBox="0 0 24 24"><path d="M18 16a3 3 0 00-2.2 1L8.9 13a3 3 0 000-2l6.9-4a3 3 0 10-1-1.7L7.9 9.2a3 3 0 100 5.6l6.9 3.9A3 3 0 1018 16z"/></svg>
+      Share…</button>
+  </div>
+  <p class="share-sub">
+    The Instagram button copies the link (paste it in a story or bio); the Hackaday button copies
+    it and opens their tips line. On a phone, <em>Share…</em> opens your native share sheet.
+  </p>
+</section>
+
+</main>
+
+<footer class="wrap">
+  <p>Ember is a hearth-spirit. It is also a 2.8-inch touchscreen with a dragon on it.</p>
+  <p class="sig">ember.realm.watch</p>
+</footer>
+
+<script>
+// ── Chimes ───────────────────────────────────────────────────────────
+// Embedded as data URIs so the page is entirely self-contained: no CDN,
+// no fetch, no network at all. Hearing them is the most persuasive thing
+// on this page, so they ship with it.
+const CHIMES = [
+  {id:'touch',     name:'touch',     note:'145 ms · G4',        kind:'plain',      src:'assets/chime_touch.wav'},
+  {id:'thinking',  name:'thinking',  note:'370 ms · quietest',  kind:'plain',      src:'assets/chime_thinking.wav'},
+  {id:'announce',  name:'announce',  note:'1.54 s · herald',    kind:'plain',      src:'assets/chime_announce.wav'},
+  {id:'done',      name:'done',      note:'1.58 s · mic closed',kind:'plain',      src:'assets/chime_done.wav'},
+  {id:'listening', name:'listening', note:'never played',       kind:'mute',       src:'assets/chime_listening.wav'},
+  {id:'error',     name:'error',     note:'minor second',       kind:'dissonant',  src:'assets/chime_error.wav'}
+];
+
+const host = document.getElementById('chimes');
+const audio = {};
+for (const c of CHIMES) {
+  const a = new Audio(c.src);
+  a.preload = 'none';
+  audio[c.id] = a;
+
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'chime';
+  b.dataset.kind = c.kind;
+  b.dataset.id = c.id;
+  b.setAttribute('aria-pressed', 'false');
+  b.setAttribute('aria-label', 'Play the ' + c.name + ' chime');
+  const n = document.createElement('span'); n.className = 'n';
+  const dot = document.createElement('span'); dot.className = 'dot';
+  n.append(dot, document.createTextNode(c.name));
+  const d = document.createElement('span'); d.className = 'd';
+  d.textContent = c.note;
+  b.append(n, d);
+  b.addEventListener('click', () => play(c.id));
+  host.appendChild(b);
+}
+
+function play(id) {
+  const a = audio[id];
+  if (!a) return;
+  a.currentTime = 0;
+  a.play().catch(() => {});          // autoplay policy / codec refusal: stay silent
+  const b = host.querySelector('[data-id="' + id + '"]');
+  if (!b) return;
+  b.setAttribute('aria-pressed', 'true');
+  clearTimeout(b._t);
+  b._t = setTimeout(() => b.setAttribute('aria-pressed', 'false'), 700);
+}
+
+// The consonance claim is testable, so let the visitor test it.
+const CONSONANT = ['touch','thinking','announce','done','listening'];
+const pick = n => {
+  const p = CONSONANT.slice();
+  for (let i = p.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [p[i], p[j]] = [p[j], p[i]];
+  }
+  return p.slice(0, n);
+};
+
+document.querySelectorAll('.demo button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const act = btn.dataset.act;
+    if (act === 'pair')   pick(2).forEach(play);
+    if (act === 'triple') pick(3).forEach(play);
+    if (act === 'clash') { pick(2).forEach(play); play('error'); }
+  });
+});
+
+// ── Share ────────────────────────────────────────────────────────────────
+// Same mechanism as the sister project (moyoung-watch): the two networks with no
+// usable web-share intent get a copy-to-clipboard affordance instead of a dead
+// button, and `Share…` is revealed only where navigator.share actually exists.
+const SHARE_URL = "https://jphein.github.io/ember.realm.watch/";
+
+function flash(btn, txt) {
+  const l = btn.querySelector(".lbl") || btn;
+  const old = l.textContent;
+  l.textContent = txt;
+  setTimeout(() => { l.textContent = old; }, 1800);
+}
+function copyOnly(btn) {
+  navigator.clipboard.writeText(SHARE_URL)
+    .then(() => flash(btn, "Copied ✓"))
+    .catch(() => flash(btn, "Copy failed"));
+}
+function copyThenOpen(btn, url) {
+  navigator.clipboard.writeText(SHARE_URL)
+    .then(() => flash(btn, "Link copied ✓"))
+    .catch(() => {})
+    .finally(() => window.open(url, "_blank", "noopener"));
+}
+function nativeShare() {
+  navigator.share({
+    title: "Ember — a voice assistant with no cloud in it",
+    text: "Local speech-to-text, a 35B-parameter LLM and local TTS, all on my own hardware. "
+        + "On a $20 ESP32 touchscreen, with a dragon in the coals.",
+    url: SHARE_URL
+  }).catch(() => {});
+}
+if (navigator.share) {
+  document.querySelector(".btn-share.native").style.display = "inline-flex";
+}
+</script>
+</body>
+</html>
