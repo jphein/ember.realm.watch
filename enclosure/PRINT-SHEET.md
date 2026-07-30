@@ -153,6 +153,47 @@ puts the magnet ~70 mm away, so this only matters if you relocate the speaker in
 
 ---
 
+### Making it louder — and the grille is the wyrm's ridge
+
+⚠️ *This subsection was lost once already: rewriting the Speaker section for the sealed-back
+module replaced a span that happened to contain it. Restored, and updated.*
+
+The bottleneck was never the box volume, it was the **baffle**. A slot behaves like a short
+duct and its impedance scales with length ÷ width, so 2.20 mm slots through a 4.00 mm wall
+(**1.82:1**) made the sound squeeze through slits nearly twice as deep as they were wide.
+
+1. **The baffle is recessed to 2.20 mm** in the grille region only, cut from the *outside*
+   so the inner face stays flat. Slot aspect 1.82:1 → **1.00:1**, roughly halving the
+   impedance.
+2. **The slots are lyra-artist's hearth-wyrm dorsal ridge, re-derived for this field.**
+   Nine slots **raked 24° back**, tapering **3.20 → 2.50 mm** thick-to-thin toward the
+   tail, capsule ends. Open area **673 mm²** — identical to the plain array it replaces,
+   and above the driver's ~700 mm² effective radiating area. Minimum web 0.91 mm, and the
+   rake leans the self-supporting direction for FDM.
+
+   Her motif *as delivered* was 11 spines in a 50 × 15 field at 190 mm² open, sized for the
+   round ⌀28 driver the design used to have. Applied unchanged it would have cost **72% of
+   the open area**. The re-derivation keeps the rake and the thick-to-thin gradient — both
+   read at this scale — and drops the **length** taper, which is the literal ridge shape and
+   also precisely what removes open area.
+3. **0.60 mm flare on each slot mouth.** A sharp-edged slot sheds vortices and chuffs at
+   level; the flare opens outward and is self-supporting in the print orientation.
+
+**At assembly:**
+
+- **Skip the wadding.** A sealed-back module brings its own rear volume, so there is no rear
+  chamber to damp — stuffing the front cavity would just absorb output on its way out.
+- **Seal every joint** — the wire pass-through and the base seam. Not to hold bass in a rear
+  chamber, but to stop the *front* cavity venting anywhere except through the slots. A leak
+  there lets the front wave escape and cancel, which costs level.
+- **Print the stand with more walls and infill than feels necessary** (5–6 perimeters, 30%+).
+  It is a speaker cabinet; stiffness is what stops a 2 W driver exciting a 64 mm panel.
+
+**Not done, deliberately:** a bass-reflex port. At this volume a printable port tunes to
+~390–460 Hz, useful only if it lands just below the driver's Fs — unknown. A port tuned
+below Fs does nothing and a mistuned one is worse than sealed.
+`Fb = (c/2π)·√(A / (V·Leff))`, `Leff = L + 0.85·d`.
+
 ## Assembly order
 
 1. Plug the speaker pigtail into the board's **SPEAKER** 1.25 mm 2P header (long edge).

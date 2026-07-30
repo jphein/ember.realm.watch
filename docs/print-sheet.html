@@ -227,6 +227,45 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <p><code>ANT = (17.57, 32.21, 80.04, 85.70)</code> is the PCB Wi-Fi antenna. The stand geometry already</p>
 <p>puts the magnet ~70 mm away, so this only matters if you relocate the speaker into the slab.</p>
 <hr>
+<h3>Making it louder — and the grille is the wyrm's ridge</h3>
+<p>⚠️ *This subsection was lost once already: rewriting the Speaker section for the sealed-back</p>
+<p>module replaced a span that happened to contain it. Restored, and updated.*</p>
+<p>The bottleneck was never the box volume, it was the <b>baffle</b>. A slot behaves like a short</p>
+<p>duct and its impedance scales with length ÷ width, so 2.20 mm slots through a 4.00 mm wall</p>
+<p>(<b>1.82:1</b>) made the sound squeeze through slits nearly twice as deep as they were wide.</p>
+<p>1. <b>The baffle is recessed to 2.20 mm</b> in the grille region only, cut from the <em>outside</em></p>
+<p>   so the inner face stays flat. Slot aspect 1.82:1 → <b>1.00:1</b>, roughly halving the</p>
+<p>   impedance.</p>
+<p>2. <b>The slots are lyra-artist's hearth-wyrm dorsal ridge, re-derived for this field.</b></p>
+<p>   Nine slots <b>raked 24° back</b>, tapering <b>3.20 → 2.50 mm</b> thick-to-thin toward the</p>
+<p>   tail, capsule ends. Open area <b>673 mm²</b> — identical to the plain array it replaces,</p>
+<p>   and above the driver's ~700 mm² effective radiating area. Minimum web 0.91 mm, and the</p>
+<p>   rake leans the self-supporting direction for FDM.</p>
+<p>   Her motif <em>as delivered</em> was 11 spines in a 50 × 15 field at 190 mm² open, sized for the</p>
+<p>   round ⌀28 driver the design used to have. Applied unchanged it would have cost **72% of</p>
+<p>   the open area**. The re-derivation keeps the rake and the thick-to-thin gradient — both</p>
+<p>   read at this scale — and drops the <b>length</b> taper, which is the literal ridge shape and</p>
+<p>   also precisely what removes open area.</p>
+<p>3. <b>0.60 mm flare on each slot mouth.</b> A sharp-edged slot sheds vortices and chuffs at</p>
+<p>   level; the flare opens outward and is self-supporting in the print orientation.</p>
+<p><b>At assembly:</b></p>
+<ul>
+<li><b>Skip the wadding.</b> A sealed-back module brings its own rear volume, so there is no rear</li>
+</ul>
+<p>  chamber to damp — stuffing the front cavity would just absorb output on its way out.</p>
+<ul>
+<li><b>Seal every joint</b> — the wire pass-through and the base seam. Not to hold bass in a rear</li>
+</ul>
+<p>  chamber, but to stop the <em>front</em> cavity venting anywhere except through the slots. A leak</p>
+<p>  there lets the front wave escape and cancel, which costs level.</p>
+<ul>
+<li><b>Print the stand with more walls and infill than feels necessary</b> (5–6 perimeters, 30%+).</li>
+</ul>
+<p>  It is a speaker cabinet; stiffness is what stops a 2 W driver exciting a 64 mm panel.</p>
+<p><b>Not done, deliberately:</b> a bass-reflex port. At this volume a printable port tunes to</p>
+<p>~390–460 Hz, useful only if it lands just below the driver's Fs — unknown. A port tuned</p>
+<p>below Fs does nothing and a mistuned one is worse than sealed.</p>
+<p><code>Fb = (c/2π)·√(A / (V·Leff))</code>, <code>Leff = L + 0.85·d</code>.</p>
 <h2>Assembly order</h2>
 <p>1. Plug the speaker pigtail into the board's <b>SPEAKER</b> 1.25 mm 2P header (long edge).</p>
 <p>2. Seat the driver in the stand, wires out through the cable channel, press on</p>

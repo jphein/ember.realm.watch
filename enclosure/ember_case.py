@@ -233,14 +233,37 @@ SLOT_CY  = 34.0                    # slot centreline Y at the floor
 # ample), the visible area is entirely clear of the stand, and 20.0mm remains below for
 # the plug. See the VA_CLEAR assert below — this must not silently regress.
 SLOT_FLOOR = 24.0
-# --- grille: a PURE PARAMETER SET, so a motif can replace it without touching structure.
-# lyra-artist delivered one — `site/ember-art-web/case-motif.svg`, 11 raked slots derived
-# from the hearth-wyrm's dorsal ridge (pitch ~2x height, 3.4:1 taper, 190mm2 open area),
-# and the ridge already leans backwards, which is the self-supporting direction for FDM.
-# DEFERRED until after the first print, deliberately: the current slot array was just
-# re-tuned for acoustics (2.60mm at 3.40 pitch, 76% open, above the driver's effective
-# radiating area) and changing the open area at the same time as validating the fit would
-# confound two variables. Land the motif once the fit is confirmed, matching the open area.
+# --- grille: lyra-artist's hearth-wyrm dorsal ridge, RE-DERIVED for this field.
+#
+# An earlier comment here deferred the motif and gave the wrong reason ("changing open
+# area while validating fit would confound two variables"). Fit is validated by the bezel
+# and shell against the board; the stand's grille pattern is independent of it. The real
+# obstacle was arithmetic:
+#
+#   lyra's motif as delivered:  11 spines, 50 x 15 field, 190 mm2 open
+#   this grille needs:          37 x 24 field, ~673 mm2 open
+#
+# It was sized for the geometry that existed when she drew it — a round 28mm driver behind
+# a circular 30mm grille. The driver then turned out to be a 40 x 27 sealed-back module and
+# the grille was re-tuned for acoustics. The motif was obsolete before it was ever applied,
+# through nobody's fault: it correctly answered the previous question. Applied as-is it
+# would have cost 72% of the open area and undone the baffle work.
+#
+# WHAT SURVIVES THE RE-DERIVATION, and what does not:
+#   - the RAKE (24.0deg back, measured off her SVG) — the strongest ridge cue at this
+#     scale, and it leans the self-supporting direction for FDM, which she noted.
+#   - the THICK-TO-THIN gradient — a dorsal ridge tapers toward the tail.
+#   - capsule ends (radius = half width), as she drew them.
+#   - DROPPED: the length taper. Spines of falling LENGTH are the literal ridge, and are
+#     also precisely what removes open area. Moving the taper from length into WIDTH keeps
+#     both cues that read at grille scale and costs no acoustics.
+#
+# Solved for 673 mm2 — identical to the plain array it replaces. See the assert below.
+GRILLE_RAKE   = 24.0     # degrees back from vertical, from lyra's motif
+GRILLE_N      = 9
+GRILLE_W0     = 3.20     # widest slot, at the head
+GRILLE_TAPER  = 0.78     # narrowest / widest, toward the tail
+GRILLE_SLOT_W = 2.20
 GRILLE_SLOT_W = 2.20
 GRILLE_PITCH  = 3.40
 # Slots are clipped to the driver's RADIATING AREA, inset 1.5mm from its outline so
@@ -327,16 +350,28 @@ def desk_stand():
                  -0.5, GRILLE_RECESS + 0.5)
 
     bars = None
-    n = int(DRIVER_H/GRILLE_PITCH)+2
-    for i in range(-n,n+1):
-        z = dz + i*GRILLE_PITCH
-        # straight bore through the (now thin) baffle
-        b = bx(0, ST_W, -2, ST_WALL+2, z-GRILLE_SLOT_W2/2, z+GRILLE_SLOT_W2/2)
-        # flared mouth: widens toward the outside (-Y), self-supporting when the stand
-        # prints bottom-down because the overhang opens downward-outward.
-        fl = bx(0, ST_W, -2, GRILLE_RECESS + 0.4,
-                z-GRILLE_SLOT_W2/2-GRILLE_FLARE, z+GRILLE_SLOT_W2/2+GRILLE_FLARE)
+    _fw = DRIVER_W - 2*GRILLE_INSET
+    _pitch = _fw / GRILLE_N
+    _widths = []
+    for i in range(GRILLE_N):
+        w = GRILLE_W0 * (1 - (1-GRILLE_TAPER)*i/(GRILLE_N-1))
+        _widths.append(w)
+        cx = ST_W/2 - _fw/2 + _pitch*(i+0.5)
+        # Overlong on purpose: `field` clips each slot to the rounded-rect opening, which
+        # also handles the truncation the rake causes at the top and bottom corners.
+        sk = RectangleRounded(w, 46.0, w/2 - 0.01)
+        b  = Pos(cx, -2.0, dz) * (Rot(0, GRILLE_RAKE, 0) *
+                                  (Rot(-90,0,0) * extrude(sk, ST_WALL + 4)))
+        # flared mouth, same rake, confined to the thinned baffle region
+        skf = RectangleRounded(w + 2*GRILLE_FLARE, 46.0, (w + 2*GRILLE_FLARE)/2 - 0.01)
+        fl  = Pos(cx, -2.0, dz) * (Rot(0, GRILLE_RAKE, 0) *
+                                   (Rot(-90,0,0) * extrude(skf, GRILLE_RECESS + 2.4)))
         bars = (b+fl) if bars is None else bars+(b+fl)
+    _web = _pitch - max(_widths)
+    _open = sum(w * (DRIVER_H - 2*GRILLE_INSET)/math.cos(math.radians(GRILLE_RAKE))
+                for w in _widths)
+    assert _web >= 0.85, f"grille web {_web:.2f}mm is too thin to print"
+    assert _open >= 640, f"grille open area {_open:.0f}mm2 is below the driver's radiating area"
     p -= (field & bars)
     # USB-C WELL. The plug enters the board's bottom short edge and points down-and-
     # forward along the slab's own axis, so it needs a cavity UNDER the slot rather than
