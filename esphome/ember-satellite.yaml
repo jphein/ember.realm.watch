@@ -96,9 +96,17 @@ substitutions:
   # mutex and calls i2s_del_channel() on every hand-off, so every mic/speaker transition
   # destroys and recreates the clock. That is the architectural root cause.
   #
-  # 180ms is above the FM8002E's ~100ms typical wake-up TD, so the amp finishes waking
-  # before the blank lifts. Below ~100 it would un-blank mid-wake and clip the start of
-  # audio rather than protect it. 0 disables blanking entirely.
+  # >>> CORRECTED. An earlier version of this comment said "the amp finishes waking
+  # before the blank lifts", which is impossible and led to a wrong latency estimate.
+  # GPIO1 is `inverted: true` on an ACTIVE-LOW SHUTDOWN, so `output.turn_off:
+  # amp_enable` genuinely DISABLES the amp. A disabled amp is not waking — its ~100ms
+  # typical wake (TD) begins only when the watchdog RE-ENABLES it at T+180ms.
+  #
+  # So the real timeline is: amp off at T+0, re-enabled at T+180, usably awake at
+  # ~T+280. Any audio inside that window is silenced or clipped, not protected. That
+  # is why 180 is right for the MICROPHONE path (no audio is expected during it) and
+  # why blanking is fundamentally incompatible with a short touch tone — see the
+  # haptic exemption in ui_dispatch. 0 disables blanking entirely.
   #
   # ⚠️ OPEN, and only a listening test can settle it: the amp datasheet warns a large
   # input coupling cap increases pop and recommends 0.1-0.39uF. This board is reported at
@@ -1272,8 +1280,34 @@ script:
       #
       # ui_action == 0 means the touch hit nothing, and gets no acknowledgement:
       # the feedback should mean "that landed", not "something was touched".
+      #
+      # EXEMPT: the talk action (ui_action == 3). Two independent reasons, and the
+      # exemption is also an experiment.
+      #
+      # 1. It cannot be protected. The pop JP hears "before the chime" IS this
+      #    haptic's own driver cold start (device log: ANNOUNCING at 08.403,
+      #    `i2s_audio.speaker: Starting` at 08.502 with the amp live and the DAC
+      #    unmuted). The mute and amp_blank only arm ~1.1s later inside talk_begin,
+      #    so the protection sits BEHIND the transient it is meant to cover — no
+      #    value of amp_blank_ms can reach it. Hoisting the blank ahead of the tone
+      #    does not work either: amp off at T+0, re-enabled at T+180, awake at
+      #    ~T+280, so a 24ms tone starting ~110ms in is simply silenced.
+      #
+      # 2. The talk tap already HAS feedback, and better feedback: the wyrm startles
+      #    — head up, jaw open, eye flaring — and the struck coal flares under the
+      #    finger. Both are visual, so neither can collide with the microphone or
+      #    with speech. The file's own history agrees: the touch TONE was previously
+      #    removed from this path for shared-I2S-lock contention, and reintroducing
+      #    audio here under the name "haptic" hit the same wall.
+      #
+      # AND THIS STAGES THE EXPERIMENT NOBODY HAS RUN. With no tone at tap time, the
+      # only remaining transient on this path is the mic's own MCLK restart — which
+      # happens INSIDE talk_begin, the one place the config was designed to protect.
+      # No pop => the protection works and the question is closed. Still pops => the
+      # protection is ineffective and amp gating can be retired outright. Until now
+      # the protection had never been given a transient it was in position to cover.
       - if:
-          condition: { lambda: 'return id(ui_action) != 0;' }
+          condition: { lambda: 'return id(ui_action) != 0 && id(ui_action) != 3;' }
           then:
             - script.execute:
                 id: chime
