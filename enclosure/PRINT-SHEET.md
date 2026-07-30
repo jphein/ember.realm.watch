@@ -73,15 +73,34 @@ to be **airtight, not structural**.
 
 ## Speaker
 
-Designed around a **⌀28 mm driver** (8 Ω; the board's amp does 1.5 W/8 Ω or 2 W/4 Ω).
-Sealed chamber ≈ **26 cm³** in the stand, firing forward through the ⌀30 mm round grille.
+Cut for a **rectangular 40 × 27 mm driver with rounded corners**, adhesive-mounted
+(8 Ω; the board's amp does 1.5 W/8 Ω or 2 W/4 Ω). Sealed chamber ≈ **30 cm³** in the
+stand, firing forward through a **37 × 24 mm slotted grille**.
 
-- The driver seats against the **inside** of the front wall in a ⌀29 × 2.2 mm recess.
-- Wires exit through the cable channel and up into the slab's slot.
+> **Revised from a ⌀28 mm round driver.** The first cut assumed a round, flanged
+> driver seated in a ⌀29 × 2.2 mm recess. JP's actual speaker is a 40 × 27 rectangle
+> held on with **adhesive tape**, which inverts two requirements: the grille field had
+> to become rectangular, and the recess had to go. Tape needs a **flat, continuous
+> surface** to bond to — a pocket deep enough to seat a flange leaves the adhesive
+> bridging a step, which is where the bond fails first.
+
+- The front wall's inner face is **flat** where the speaker lands. Only a **0.60 mm
+  deep, 1.20 mm wide locating lip** is cut around the driver's outline: enough to stop
+  it sliding while the adhesive grabs, too shallow to interrupt the bonded area.
+- Chamber ceiling was raised **34 → 37 mm** for the taller driver. At 34 the chamber was
+  30 mm tall and a 27 mm driver left 1.5 mm a side. The sealed volume went 27.5 → 30 cm³,
+  which helps the low end.
+- **Wire pass-through: a 6 × 5 mm channel** from inside the chamber (y=19) back to y=30,
+  meeting the board's cable route. From there the wire follows the same path up to the
+  slot. ⚠️ **Seal it after wiring** — silicone, hot glue or putty. An unsealed hole turns
+  the sealed box into a leaky one and costs exactly the low end the chamber exists to
+  produce. It is sized for a bead of sealant rather than a press fit, because a hole
+  tight enough to grip the wire abrades the insulation.
 - The ES3C28P **speaker header is unpopulated** — you need a 1.25 mm 2P pigtail.
-- Changing driver: edit `DRIVER_D`, `GRILLE_FIELD`, `dz` in `ember_case.py` and re-run.
-  A ⌀40 driver fits the chamber footprint; you'd raise `GRILLE_FIELD` to ~42 and widen the
-  stand's front wall clearances.
+- Changing driver: edit `DRIVER_W`, `DRIVER_H`, `DRIVER_R` in `ember_case.py` and re-run.
+  `GRILLE_INSET` (1.5 mm) keeps the slots inside the radiating area so the grille never
+  opens onto the frame — an open slot over the flange is a dust path into the chamber and
+  vents the enclosure.
 
 ⚠️ **Keep the driver magnet away from the top 8 mm of the board's back face** —
 `ANT = (17.57, 32.21, 80.04, 85.70)` is the PCB Wi-Fi antenna. The stand geometry already

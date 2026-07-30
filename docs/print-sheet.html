@@ -156,16 +156,40 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <p>to be <b>airtight, not structural</b>.</p>
 <hr>
 <h2>Speaker</h2>
-<p>Designed around a <b>⌀28 mm driver</b> (8 Ω; the board's amp does 1.5 W/8 Ω or 2 W/4 Ω).</p>
-<p>Sealed chamber ≈ <b>26 cm³</b> in the stand, firing forward through the ⌀30 mm round grille.</p>
+<p>Cut for a <b>rectangular 40 × 27 mm driver with rounded corners</b>, adhesive-mounted</p>
+<p>(8 Ω; the board's amp does 1.5 W/8 Ω or 2 W/4 Ω). Sealed chamber ≈ <b>30 cm³</b> in the</p>
+<p>stand, firing forward through a <b>37 × 24 mm slotted grille</b>.</p>
+<div class="note"><b>Revised from a ⌀28 mm round driver.</b> The first cut assumed a round, flanged</div>
+<div class="note">driver seated in a ⌀29 × 2.2 mm recess. JP's actual speaker is a 40 × 27 rectangle</div>
+<div class="note">held on with <b>adhesive tape</b>, which inverts two requirements: the grille field had</div>
+<div class="note">to become rectangular, and the recess had to go. Tape needs a **flat, continuous</div>
+<div class="note">surface** to bond to — a pocket deep enough to seat a flange leaves the adhesive</div>
+<div class="note">bridging a step, which is where the bond fails first.</div>
 <ul>
-<li>The driver seats against the <b>inside</b> of the front wall in a ⌀29 × 2.2 mm recess.</li>
-<li>Wires exit through the cable channel and up into the slab's slot.</li>
-<li>The ES3C28P <b>speaker header is unpopulated</b> — you need a 1.25 mm 2P pigtail.</li>
-<li>Changing driver: edit <code>DRIVER_D</code>, <code>GRILLE_FIELD</code>, <code>dz</code> in <code>ember_case.py</code> and re-run.</li>
+<li>The front wall's inner face is <b>flat</b> where the speaker lands. Only a **0.60 mm</li>
 </ul>
-<p>  A ⌀40 driver fits the chamber footprint; you'd raise <code>GRILLE_FIELD</code> to ~42 and widen the</p>
-<p>  stand's front wall clearances.</p>
+<p>  deep, 1.20 mm wide locating lip** is cut around the driver's outline: enough to stop</p>
+<p>  it sliding while the adhesive grabs, too shallow to interrupt the bonded area.</p>
+<ul>
+<li>Chamber ceiling was raised <b>34 → 37 mm</b> for the taller driver. At 34 the chamber was</li>
+</ul>
+<p>  30 mm tall and a 27 mm driver left 1.5 mm a side. The sealed volume went 27.5 → 30 cm³,</p>
+<p>  which helps the low end.</p>
+<ul>
+<li><b>Wire pass-through: a 6 × 5 mm channel</b> from inside the chamber (y=19) back to y=30,</li>
+</ul>
+<p>  meeting the board's cable route. From there the wire follows the same path up to the</p>
+<p>  slot. ⚠️ <b>Seal it after wiring</b> — silicone, hot glue or putty. An unsealed hole turns</p>
+<p>  the sealed box into a leaky one and costs exactly the low end the chamber exists to</p>
+<p>  produce. It is sized for a bead of sealant rather than a press fit, because a hole</p>
+<p>  tight enough to grip the wire abrades the insulation.</p>
+<ul>
+<li>The ES3C28P <b>speaker header is unpopulated</b> — you need a 1.25 mm 2P pigtail.</li>
+<li>Changing driver: edit <code>DRIVER_W</code>, <code>DRIVER_H</code>, <code>DRIVER_R</code> in <code>ember_case.py</code> and re-run.</li>
+</ul>
+<p>  <code>GRILLE_INSET</code> (1.5 mm) keeps the slots inside the radiating area so the grille never</p>
+<p>  opens onto the frame — an open slot over the flange is a dust path into the chamber and</p>
+<p>  vents the enclosure.</p>
 <p>⚠️ <b>Keep the driver magnet away from the top 8 mm of the board's back face</b> —</p>
 <p><code>ANT = (17.57, 32.21, 80.04, 85.70)</code> is the PCB Wi-Fi antenna. The stand geometry already</p>
 <p>puts the magnet ~70 mm away, so this only matters if you relocate the speaker into the slab.</p>

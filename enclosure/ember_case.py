@@ -81,6 +81,16 @@ def rbox(x0,x1,y0,y1,z0,z1,r):
     sk = RectangleRounded(x1-x0, y1-y0, r)
     return Pos((x0+x1)/2,(y0+y1)/2,z0) * extrude(sk, z1-z0)
 
+def rrect_y(cx, cz, w, h, r, y0, depth):
+    """Rounded rectangle in the XZ plane, extruded along +Y.
+
+    Same trick as the Cylinder seat it replaces: build the profile in XY, extrude in
+    +Z, then Rot(-90,0,0) maps +Z onto +Y so the prism drives through the front wall.
+    """
+    sk = RectangleRounded(w, h, r)
+    return Pos(cx, y0, cz) * (Rot(-90,0,0) * extrude(sk, depth))
+
+
 def cyl(x,y,z0,z1,d):
     return Pos(x,y,z0) * Cylinder(d/2, z1-z0,
                                   align=(Align.CENTER,Align.CENTER,Align.MIN))
@@ -171,13 +181,32 @@ TILT     = 15.0                    # degrees back from vertical, seated viewer
 SLOT_CLR = 0.40
 ST_W, ST_D, ST_H = 64.0, 64.0, 40.0
 ST_WALL  = 4.0
-DRIVER_D = 28.0                    # target driver; change and re-run
+# DRIVER — JP's actual speaker is a RECTANGLE with rounded corners, 40 x 27 mm,
+# not the round 28mm driver this was first cut for. Rectangular drivers are the norm
+# in this size class (phone/tablet speakers), so this is the likely case rather than
+# the exception, and both the seat and the grille field derive from these numbers.
+DRIVER_W = 40.0                    # across the front wall (X)
+DRIVER_H = 27.0                    # up the front wall (Z)
+DRIVER_R = 3.0                     # corner radius of the driver body
+DRIVER_CLR = 0.60                  # locating clearance per side, print tolerance
+# MOUNTING: JP's speaker is held on with ADHESIVE TAPE, not a flange in a pocket.
+# That inverts the requirement. A 2.2mm recessed seat was right for a flanged driver
+# and is wrong here for two reasons: tape needs a FLAT, continuous surface to bond to,
+# and a pocket deep enough to seat a flange leaves the tape bridging a step — which is
+# where an adhesive bond fails first. So the wall face stays flat and only a shallow
+# LOCATING LIP is cut: deep enough to stop the speaker sliding while the adhesive
+# grabs, too shallow to interrupt the bonded area.
+LIP_DEPTH  = 0.60                  # alignment only; the tape does the work
+LIP_WIDTH  = 1.20                  # the groove is a thin outline, not a pocket
 SLOT_CY  = 34.0                    # slot centreline Y at the floor
 SLOT_FLOOR = 10.0
 # --- grille: replace this block with lyra's motif; it is a pure parameter set
 GRILLE_SLOT_W = 2.20
 GRILLE_PITCH  = 3.40
-GRILLE_FIELD  = 30.0               # slots are clipped to this circle
+# Slots are clipped to the driver's RADIATING AREA, inset 1.5mm from its outline so
+# the grille never opens onto the frame — an open slot over the flange is a dust path
+# into the chamber and vents the enclosure it is meant to seal.
+GRILLE_INSET  = 1.5
 
 def desk_stand():
     # Deliberately NOT chamfered.  A first attempt shaved the top-front at 38deg;
@@ -192,17 +221,33 @@ def desk_stand():
     # sealed speaker chamber, open at the bottom (closed by the base plate)
     cx0,cx1 = ST_WALL+1, ST_W-ST_WALL-1
     cy0,cy1 = ST_WALL,   21.0
-    p -= bx(cx0,cx1, cy0,cy1, ST_WALL, 34.0)   # ceiling = 17mm bridge, no supports
+    # Ceiling raised 34.0 -> 37.0 for the rectangular driver. At 34 the chamber was
+    # 30mm tall and a 27mm driver left 1.5mm a side — no room for a seat lip. At 37 it
+    # is 33mm tall, the seat clears by ~2.5mm, and the sealed volume goes 27.5 -> 30cm3,
+    # which helps the low end rather than hurting it. Still 3mm of wall above (ST_H=40),
+    # and no conflict with the slab slot: that sits at y~34 while the chamber ends at 21.
+    p -= bx(cx0,cx1, cy0,cy1, ST_WALL, 37.0)   # ceiling = 17mm bridge, no supports
     p -= bx(cx0,cx1, cy0,cy1, -1.0, ST_WALL)          # bottom access
     # driver seat on the INSIDE of the front wall + grille through it
-    dz = 18.0
-    seat = Pos(ST_W/2, cy0+0.01, dz) * (Rot(-90,0,0) *
-            Cylinder((DRIVER_D+1.0)/2, 2.2, align=(Align.CENTER,Align.CENTER,Align.MIN)))
-    p -= seat
-    field = Pos(ST_W/2, -1, dz) * (Rot(-90,0,0) *
-            Cylinder(GRILLE_FIELD/2, ST_WALL+3, align=(Align.CENTER,Align.CENTER,Align.MIN)))
+    # Centred in the taller chamber: (ST_WALL + 37.0) / 2
+    dz = 20.5
+    # Locating lip: the outline of the driver as a thin shallow groove, so the wall
+    # inside it stays flat and unbroken for the tape. outer - inner = a ring.
+    lip_o = rrect_y(ST_W/2, dz,
+                    DRIVER_W + 2*DRIVER_CLR, DRIVER_H + 2*DRIVER_CLR,
+                    DRIVER_R + DRIVER_CLR, cy0 + 0.01, LIP_DEPTH)
+    lip_i = rrect_y(ST_W/2, dz,
+                    DRIVER_W + 2*DRIVER_CLR - 2*LIP_WIDTH,
+                    DRIVER_H + 2*DRIVER_CLR - 2*LIP_WIDTH,
+                    max(DRIVER_R + DRIVER_CLR - LIP_WIDTH, 0.6),
+                    cy0 - 0.5, LIP_DEPTH + 1.0)
+    p -= (lip_o - lip_i)
+    field = rrect_y(ST_W/2, dz,
+                    DRIVER_W - 2*GRILLE_INSET, DRIVER_H - 2*GRILLE_INSET,
+                    max(DRIVER_R - GRILLE_INSET, 0.8),
+                    -1.0, ST_WALL + 3)
     bars = None
-    n = int(GRILLE_FIELD/GRILLE_PITCH)+2
+    n = int(DRIVER_H/GRILLE_PITCH)+2
     for i in range(-n,n+1):
         z = dz + i*GRILLE_PITCH
         b = bx(0, ST_W, -2, ST_WALL+2, z-GRILLE_SLOT_W/2, z+GRILLE_SLOT_W/2)
@@ -210,6 +255,22 @@ def desk_stand():
     p -= (field & bars)
     # cable route: slot floor -> out the back
     p -= bx(ST_W/2-8, ST_W/2+8, 29.0, ST_D+1, ST_WALL, 13.0)
+    # SPEAKER WIRE PASS-THROUGH. Caught by JP: the chamber had no exit at all. Its only
+    # opening was the bottom, closed by the base plate — which is correct for a SEALED
+    # enclosure and leaves the driver's own wires with nowhere to go. The board's
+    # speaker header is on a long edge, so the wire has to reach the slab slot.
+    #
+    # This channel runs from inside the chamber (y=19, chamber ends at 21) rearward to
+    # y=30, meeting the board cable route that starts at 29. From there the wire follows
+    # the same path up to the slot. 6 x 5mm: enough for a 2-core lead, small enough to
+    # seal.
+    #
+    # >>> IT MUST BE SEALED AFTER WIRING — a dab of silicone, hot glue or putty. <<<
+    # An unsealed hole turns the sealed box into a leaky one and costs exactly the low
+    # end the chamber exists to produce. Sizing it for a bead of sealant rather than
+    # trying to make it wire-tight is deliberate: a press-fit hole that has to be forced
+    # abrades the insulation.
+    p -= bx(ST_W/2-3, ST_W/2+3, 19.0, 30.0, 6.0, 11.0)
     return p
 
 def stand_base():
