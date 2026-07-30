@@ -58,8 +58,18 @@ That keeps one writer per file and makes the tag survive a rebuild. Run
 `./build-sigil.sh` first so `version.json` exists; a missing file should be a
 skipped tag, not a crash, so the site still builds on a fresh clone.
 
-## Why the markdown is served raw
+## The markdown files are NOT browsable from the site
 
-Not rendered, deliberately — these files are also the natural place to read the
-documentation on GitHub, and with `.nojekyll` nothing stands between the file and
-either reader.
+Stated plainly so nobody files it as a bug. `.nojekyll` turns Jekyll off, which is
+required so Pages serves `index.html` and the assets exactly as built — but it also
+means **every `.md` file here is served as plain text**, not rendered HTML. Opening
+`…/audio-pop.md` on the Pages domain gives you the raw source.
+
+**GitHub's blob view is the intended reading surface** for all of them, and links from
+the site point there for that reason. Accepted rather than fixed: rendering them would
+mean either letting Jekyll process the whole tree — including a 113 KB hand-built
+`index.html` it has no business touching — or maintaining a second Markdown→HTML build
+for documents whose natural home is the repo anyway.
+
+The trade is deliberate, but it is a trade. If these ever need to be readable on the
+site itself, the cheapest honest fix is a link out, not a build step.

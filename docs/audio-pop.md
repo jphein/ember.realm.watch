@@ -146,6 +146,15 @@ restart nobody asked for. The gap is Piper's synthesis latency, not driver
 policy, so raising `timeout` past ~3s or holding the driver loaded across the
 turn are the real levers — not anything in the codec.
 
+> **❌ REFUTED — this became wrong claim #5.** The observation is real; the proposed
+> lever is not. One measurement killed it: the driver is idle **~7 s** across a turn,
+> not 2.716 s. The gap spans the user's speech, STT *and* the LLM — synthesis is only
+> the tail of it. So `timeout` would have had to be functionally **`never`**, which
+> starves the microphone through the shared I2S lock — the very contention that the
+> `timeout: 100ms` experiment already failed on, from the other direction. Keeping the
+> driver loaded across the turn trades a pop for a dead mic. See
+> [The answer](#the-answer-the-amp-is-the-mechanism); the fix was downstream, in the amp.
+
 > **Two settings on the speaker look alike and are not.**
 > `buffer_duration: 500ms` is the measured fix for choppy playback (a 16s
 > utterance went 45.8% → 100.7% delivered) — do not lower it.
@@ -196,6 +205,7 @@ by a different method. That progression is worth more than the conclusion.
 | 2 | The correction overshot: the mute therefore *does* suppress the restart pop, and `amp_blank_ms` "defaults to 0" | `amp_blank_ms` was **never** 0 in any commit; that described an intent never applied | Reading the commit history against the file |
 | 3 | "The amp finishes waking before the blank lifts" | **Inverted mental model.** GPIO1 is `inverted: true` on an **active-low** SHUTDOWN, so `output.turn_off: amp_enable` genuinely *disables* the amp — and a disabled amp is not waking. Its ~100 ms wake begins only when the watchdog **re-enables** it | Trying to hoist the blank ahead of the tone, and finding the timeline impossible |
 | 4 | "It still pops with the DAC muted, so amp gating can be retired too" | **Exactly backwards.** Tabulating the evidence shows amp gating was the *only* mechanism ever observed **in position** at a transient that did **not** pop. The muted-DAC pop is evidence against the *codec mute*, not against the *amp* | Tabulating every observation instead of reasoning forward from the newest datapoint. Refuted within minutes of being proposed |
+| 5 | "Closing the TTS synthesis gap will fix the pop — raise `timeout` past ~3 s" | The gap isn't 2.716 s of synthesis. The driver is idle **~7 s** across a turn, spanning the user's speech, STT *and* the LLM. `timeout` would have to be functionally **`never`**, which starves the mic through the shared I2S lock — the same contention the `timeout: 100ms` attempt failed on from the opposite direction | A single measurement of what the driver was *actually* doing, instead of assuming the gap was the part we'd already named |
 
 Correcting #3 gives the real timeline: **off at T+0, re-enabled at T+180, usably awake
 at ~T+280.** A 24 ms tone starting ~110 ms in is therefore **silenced, not protected**.
@@ -266,8 +276,22 @@ silent on what OUTP/OUTN do while the DAC is powered but unclocked. What settled
 | **mic** cold start (inside `talk_begin`) | DAC muted **+ amp blanked** | **no pop** |
 | **reply** cold start (after the synthesis gap) | DAC muted, **amp not** | **pop** |
 
-Same clock domain, same codec, same build. **One variable: the amp.** Gating the amp on
-the speaker removed the remaining pop.
+Same clock domain, same codec, same build. **One variable: the amp.**
+
+## The fix generalises rather than enumerating
+
+The amp now **follows the speaker** in the same 10 ms watchdog that holds the DAC muted —
+blanked whenever audio is not playing. So every clock cold start is covered, **including
+ones nobody has listed**, instead of adding a third hand-placed mute site.
+
+That also **supersedes `talk_begin`'s `amp_blank` call**: at a tap the speaker is already
+stopped, so the amp is already off. The specific site became redundant the moment the
+policy became general — which is the tell that the policy was the right shape.
+
+Same principle as guarding the chimes on `spk->is_running()` instead of per-call-site
+flags, and the same principle as the DAC mute inversion. Three times in one evening the
+fix that held was *ask the hardware the direct question*, and each time it then covered
+cases nobody had enumerated. That is the single most reusable thing here.
 
 And the codec mute is now **positively excluded**, not merely doubted. That's a stronger
 claim than anything above, and it's only available because of the muted-while-stopped
@@ -303,6 +327,28 @@ It is **live-adjustable** without a reflash via the **Amp Blank Width** number. 
 it to **0 restores the amp immediately — and brings the pop back.** That is also the
 cheapest way for anyone to re-confirm the conclusion above for themselves.
 
+## ⚠️ The frame-delivery instrument is not a health metric
+
+Read this before quoting a number off the speaker-frames instrumentation, because the
+obvious reading of it is wrong in the direction that manufactures a regression.
+
+The aggregate prints **82.4%**, which is **numerically almost identical to the pre-fix
+broken figure** and means something entirely different. It is dragged down by rows
+retained from the broken builds plus a boot event. Read that number cold and you will
+report a fix as a regression.
+
+**The real signal is the per-utterance windows: nine of eleven at 99.5–100.5%.**
+
+> **So: read the per-utterance rows, or drive a controlled `announce` and read that one
+> window.** The ambient aggregate mixes build generations and startup transients and is
+> not a health metric. This is the same class of error as the `amp_blank` A/B tests —
+> a measurement that is real, reported honestly, and answering a different question than
+> the one being asked.
+
+The `buffer_duration: 500ms` figures quoted in the README (45.8% → 100.7% delivered) are
+**single-utterance** measurements, which is why they are meaningful and the aggregate is
+not.
+
 ## ⚠️ Known hazard, quantified and deliberately accepted
 
 The unmute's safety rests on landing inside that 50 ms silence window. But
@@ -328,35 +374,39 @@ away.
    Three rounds of inconclusive A/B testing were all measuring a knob that fired *after*
    the transient it was meant to suppress. No amount of tuning could have worked, and
    the inconclusiveness was the clue.
-2. **An inconclusive result is a claim about the experiment, not only about the
+2. **Measure what the thing is actually doing, not the part you have already named.**
+   Wrong claim #5 assumed the driver's idle gap *was* the 2.7 s of synthesis everyone had
+   been discussing. It was ~7 s, spanning the user's speech and the LLM too — and that
+   single measurement retired the whole proposed fix.
+3. **An inconclusive result is a claim about the experiment, not only about the
    hypothesis.** Three explanations were published before anyone checked whether the
    test could discriminate between them. The audit that found the decisive experiment
    **had never been staged** was worth more than any individual measurement — until then
    every result was simultaneously correct and uninformative.
-3. **Two contradictory audits can both be right.** "The mute bit persists" and "no
+4. **Two contradictory audits can both be right.** "The mute bit persists" and "no
    documented anti-pop mechanism can act without a clock" only look incompatible if you
    assume *asserted* and *working* are the same proposition. They aren't, and conflating
    them cost three revisions. When two careful investigations disagree, suspect the
    question is underdetermined before you suspect one of them.
-4. **A controlled experiment can fall out of ordinary use.** What finally settled it was
+5. **A controlled experiment can fall out of ordinary use.** What finally settled it was
    two reports on one build — mic start protected by mute *and* amp, reply start
    protected by mute alone. One variable. No instrumentation, no reflash. Look for the
    comparison you already have before building one.
-5. **Excluding a mechanism beats doubting it.** The muted-while-stopped policy was a fix,
+6. **Excluding a mechanism beats doubting it.** The muted-while-stopped policy was a fix,
    but its real value was epistemic: it made the DAC *provably* muted at a transient that
    popped anyway, which converts "the mute probably doesn't help" into "the mute
    demonstrably doesn't."
-6. **Tabulate before you reason forward from the newest datapoint.** Wrong claim #4 —
+7. **Tabulate before you reason forward from the newest datapoint.** Wrong claim #4 —
    that amp gating could also be retired — followed plausibly from the latest
    observation and collapsed instantly against the whole table, which showed amp gating
    was the only mechanism ever observed *in position* at a transient that didn't pop.
-7. **Prefer asking the hardware to enumerating call sites.** Both fixes that held —
+8. **Prefer asking the hardware to enumerating call sites.** Both fixes that held —
    `spk->is_running()` for the chimes, muted-while-stopped for the DAC — replaced a list
    of remembered cases with a direct question, and both then covered cases nobody had
    listed.
-8. **An active-low signal behind `inverted: true` will invert your mental model too.**
+9. **An active-low signal behind `inverted: true` will invert your mental model too.**
    Write the real timeline out in milliseconds before trusting any reasoning about it.
-9. **A fix that succeeds wrongly is worse than one that stops.** The accepted ~50 ms soft
+10. **A fix that succeeds wrongly is worse than one that stops.** The accepted ~50 ms soft
    start is disclosed and adjustable; the hazard whose symptom is a clipped syllable is
    written down precisely *because* it would present as a TTS bug. Silence about a
    known cost is how the next person loses a week.
