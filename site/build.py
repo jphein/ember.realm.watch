@@ -29,8 +29,10 @@ Nothing is fetched off-box: no CDN, no external fonts, no remote images.
 """
 
 import base64
+import json
 import os
 import re
+from html import escape as html_escape
 import shutil
 import sys
 from pathlib import Path
@@ -180,6 +182,27 @@ def main() -> int:
     leftover = sorted(set(re.findall(r"\{\{(?:ASSET|SVG):([^}]+)\}\}", html)))
     if leftover:
         sys.exit(f"unresolved placeholder(s): {leftover}")
+
+    # The realm-version stamp. build-sigil.sh used to inject this tag directly, which
+    # made two scripts writers on one file in opposite directions — this build strips
+    # the tag, that script re-adds it, and whichever ran last looked correct. morpheus
+    # removed his writer; this reads his output instead. One writer, no ordering.
+    #
+    # A missing version.json is a SKIPPED TAG, not an error: a fresh clone has no sigil
+    # output yet and must still build.
+    stamp = DOCS / "version.json"
+    if stamp.exists():
+        try:
+            v = json.loads(stamp.read_text())
+            ver = str(v.get("version") or v.get("semver") or "").strip()
+            if ver:
+                tag = f'<meta name="realm-version" content="{html_escape(ver)}">\n'
+                html = html.replace("</head>", tag + "</head>", 1)
+                print(f"  version tag : {ver}")
+        except (ValueError, OSError) as e:
+            print(f"  !! version.json unreadable, tag skipped: {e}")
+    else:
+        print("  version tag : skipped (no docs/version.json yet)")
 
     OUT.write_text(html)
     (DOCS / ".nojekyll").write_text("")
