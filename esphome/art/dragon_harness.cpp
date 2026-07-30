@@ -23,6 +23,33 @@
 // the comment and trips -Wcomment, so the build command would warn on the very flags
 // this header tells you to use.)
 //
+// AND, whenever you touch array extents, loop bounds or NC/GRATE/MAXH, run it
+// instrumented as well:
+//
+//   g++ -std=gnu++20 -O1 -g -fsanitize=address,undefined -o /tmp/dhs esphome/art/dragon_harness.cpp
+//   /tmp/dhs
+//
+// THIS IS THE ONLY PLACE THIS CODE CAN BE INSTRUMENTED AT ALL. You cannot run ASan on
+// the ESP32-S3. Because this harness is host code compiling the real paint body, the
+// sanitizers apply to the actual production render loop — and that is worth more than
+// the tiling check, because a stack write past an array corrupts something OUTSIDE the
+// flame band, and every other check we have looks only inside it.
+//
+// >>> THE HOST IS MORE PROTECTIVE THAN THE DEVICE. Do not read a host pass as safety. <<<
+// Worked example, NC raised 60 -> 80 (the arrays are literal [60]):
+//
+//   host, compile   warns  -Waggressive-loop-optimizations, no sanitizer needed
+//   host, run       ABORTS  "*** stack smashing detected ***", exit 134
+//   host, ASan      exact WRITE-of-size-1 trace at ch[i] = (uint8_t) hgt
+//   DEVICE          SILENT. sdkconfig has CONFIG_COMPILER_STACK_CHECK_MODE_NONE=y and
+//                   no -fstack-protector anywhere in the build's compile flags.
+//
+// Three independent signals here, zero on the target, so the asymmetry runs the wrong
+// way: the thing that saves you locally is absent in the field, where the same overflow
+// just quietly corrupts paint_flame's frame up to 20 times a second. Note the plain
+// -Wall -Wextra build already catches this one; the sanitizer makes it precise rather
+// than possible, so don't conclude you are unsafe without it.
+//
 // It prints, per state: runs/frame, px/frame, the dirty box, and the classify/memset/
 // sqrtf/dragon-row counts, then dumps wyrm_<state>.ppm into the cwd so the result can
 // be LOOKED AT rather than inferred.
