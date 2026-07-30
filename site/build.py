@@ -29,6 +29,7 @@ Nothing is fetched off-box: no CDN, no external fonts, no remote images.
 """
 
 import base64
+import os
 import re
 import shutil
 import sys
@@ -50,17 +51,34 @@ ASSET_DIR = DOCS / "assets"
 # misses and discovery falls all the way through to ~/Projects/ha/esphome, silently
 # rebuilding the site from the OLD repo. That is the exact stale-copy failure this
 # extraction exists to end: it would keep working, and keep being wrong.
+_STALE = Path.home() / "Projects/ha/esphome"     # pre-extraction. Wrong, now.
 _CANDIDATE_ROOTS = [
     REPO / "esphome",                            # where the extraction put them
-    HERE / "ember-art-web",                      # lyra's web art, when it lands
+    HERE / "ember-art-web",                      # lyra's web art
     REPO,                                        # assets at the repo root
-    Path.home() / "Projects/ha/esphome",         # pre-extraction fallback; see above
+    _STALE,                                      # see the guard in _find()
 ]
 
 
 def _find(name: str) -> Path:
     for root in _CANDIDATE_ROOTS:
         if (root / name).is_dir():
+            # THE CLASS FIX. Putting REPO/"esphome" first fixes one accident; it does
+            # nothing about the next edit to this list. The actual defect is that
+            # falling through to a stale root SUCCEEDS — silently rebuilding the site
+            # from the old repo, correctly and indefinitely, with nothing in the output
+            # to show it. A build that succeeds wrongly is worse than one that stops,
+            # for the same reason a mute that never clears is worse than a pop. So this
+            # is a hard stop, with an explicit escape hatch for anyone who means it.
+            if root == _STALE and os.environ.get("EMBER_ALLOW_STALE_ASSETS") != "1":
+                sys.exit(
+                    f"\nREFUSING TO BUILD: '{name}/' resolved to the PRE-EXTRACTION path\n"
+                    f"    {root}\n\n"
+                    f"Ember lives here now, with art/ and sounds/ under esphome/.\n"
+                    f"Building from the old repo would produce a perfect-looking page\n"
+                    f"from stale assets — the failure the extraction exists to end.\n\n"
+                    f"Fix the path, or set EMBER_ALLOW_STALE_ASSETS=1 if you mean it.\n"
+                )
             return root / name
     sys.exit(f"no '{name}/' found. Looked in:\n  "
              + "\n  ".join(str(r) for r in _CANDIDATE_ROOTS))
@@ -68,20 +86,35 @@ def _find(name: str) -> Path:
 
 ART = _find("art")
 SOUNDS = _find("sounds")
+WEBART = HERE / "ember-art-web"          # lyra's web art: a FLAT dir, not an art/ subdir
+if not WEBART.is_dir():
+    sys.exit(f"missing {WEBART} — lyra's web art is required for the hero")
 
-# Inlined as data URIs — needed for first paint.
-INLINE = {
-    "wyrm_states_shipped":  (ART / "wyrm_states_shipped.png",  "image/png"),
-    "wyrm_startle_shipped": (ART / "wyrm_startle_shipped.png", "image/png"),
-    "dragon_sheet":         (ART / "dragon_sheet.png",         "image/png"),
+# ── THE INLINING RULE ─────────────────────────────────────────────────────────
+# Inline ONLY what CSS must reach inside. Everything else is a file under assets/,
+# because a data URI is part of the document and therefore cannot be lazy, cached
+# separately, or skipped. That rule took this page from 345 KB to 138 KB (31 KB
+# gzipped), and it applies to art exactly as it applied to the chimes.
+INLINE_SVG = {
+    # The hero's keyframes live inside it and CSS cannot cross an <img> boundary.
+    # This is the only asset that earns inlining.
+    "wyrm_startle": WEBART / "wyrm-startle.svg",
 }
 
-# Copied to assets/ and referenced relatively, so preload="none" means what it says.
-# Curated, not "everything in the directory": chime_timer is omitted (largest file,
-# musically the least distinct — a longer `announce`). chime_listening IS included
-# even though the device never plays it; hearing the tone that was deliberately
-# silenced is the point of that section.
+INLINE = {}          # nothing else earns it
+
 COPY = {
+    # lyra's web art, referenced by URL. wyrm-states.svg is a CSS *background*, and CSS
+    # never reaches inside one — so inlining it would buy nothing and cost 33% base64
+    # plus a worse gzip ratio. The favicon is a separate request regardless.
+    "wyrm_states":          WEBART / "wyrm-states.svg",
+    "favicon":              WEBART / "favicon.svg",
+    # device art, as <img> figures — below the fold, so fetched rather than inlined
+    "wyrm_startle_shipped": ART / "wyrm_startle_shipped.png",
+    "dragon_sheet":         ART / "dragon_sheet.png",
+    # Chimes. chime_timer omitted (largest, musically least distinct — a longer
+    # `announce`). chime_listening INCLUDED though the device never plays it: hearing
+    # the tone that was deliberately silenced is the point of that section.
     "chime_touch":     SOUNDS / "chime_touch.wav",
     "chime_thinking":  SOUNDS / "chime_thinking.wav",
     "chime_announce":  SOUNDS / "chime_announce.wav",
@@ -89,6 +122,18 @@ COPY = {
     "chime_listening": SOUNDS / "chime_listening.wav",
     "chime_error":     SOUNDS / "chime_error.wav",
 }
+
+
+def inline_svg(path: Path) -> str:
+    """SVG markup safe to drop mid-document.
+
+    Strips the XML prolog and any DOCTYPE — both are illegal inside an HTML body and
+    make the parser bail in ways that are hard to attribute afterwards.
+    """
+    t = path.read_text()
+    t = re.sub(r"<\?xml[^>]*\?>\s*", "", t)
+    t = re.sub(r"<!DOCTYPE[^>]*>\s*", "", t, flags=re.I)
+    return t.strip()
 
 
 def data_uri(path: Path, mime: str) -> str:
@@ -100,11 +145,20 @@ def main() -> int:
         sys.exit(f"missing {SRC}")
     absent = [str(p) for p, _ in INLINE.values() if not p.exists()]
     absent += [str(p) for p in COPY.values() if not p.exists()]
+    absent += [str(p) for p in INLINE_SVG.values() if not p.exists()]
     if absent:
         sys.exit("missing asset(s):\n  " + "\n  ".join(absent))
 
     ASSET_DIR.mkdir(parents=True, exist_ok=True)
     html = SRC.read_text()
+
+    svg_bytes = 0
+    for name, path in INLINE_SVG.items():
+        token = "{{SVG:" + name + "}}"
+        if token in html:
+            markup = inline_svg(path)
+            html = html.replace(token, markup)
+            svg_bytes += len(markup)
 
     inlined = 0
     for name, (path, mime) in INLINE.items():
@@ -123,7 +177,7 @@ def main() -> int:
         html = html.replace(token, f"assets/{path.name}")
         copied += path.stat().st_size
 
-    leftover = sorted(set(re.findall(r"\{\{ASSET:([^}]+)\}\}", html)))
+    leftover = sorted(set(re.findall(r"\{\{(?:ASSET|SVG):([^}]+)\}\}", html)))
     if leftover:
         sys.exit(f"unresolved placeholder(s): {leftover}")
 
@@ -133,7 +187,10 @@ def main() -> int:
     print(f"wrote {OUT}  ({len(html) / 1024:.0f} KB)")
     print(f"  art from    : {ART}")
     print(f"  sounds from : {SOUNDS}")
-    print(f"  inlined     : {inlined / 1024:.0f} KB of art (data URIs)")
+    print(f"  web art     : {WEBART}")
+    print(f"  inline SVG  : {svg_bytes / 1024:.0f} KB (the hero — CSS reaches inside it)")
+    if inlined:
+        print(f"  data URIs   : {inlined / 1024:.0f} KB")
     print(f"  copied      : {copied / 1024:.0f} KB -> docs/assets/ "
           f"({len(COPY)} files, fetched on click)")
 
