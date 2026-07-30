@@ -423,10 +423,21 @@ interval:
       # DELAYED BY 200ms, not immediate. Asserting REG31 mute steps the DAC output
       # while the amp is still enabled — the same class of event as the transient this
       # whole subsystem exists to suppress, just at the other end of playback. Two
-      # things argue it is harmless (the last frame is end-of-speech near-silence, and
-      # ES8311 mute is normally a soft step) and one argues it is not: this board's
-      # 0.39uF coupling caps are worst-case for pop per the amp's own datasheet. Rather
-      # than bet, the mute waits until the output has settled.
+      # things argued it was harmless and one argued it was not, and CORRECTING THE
+      # DATASHEET ERROR (#3) REMOVES ONE OF THE TWO — so the conservative choice below
+      # is now better justified than when it was made, not worse:
+      #
+      #   harmless: the last frame is end-of-speech near-silence.               STANDS.
+      #   harmless: "ES8311 mute is normally a soft step".                      FALSE.
+      #             DAC_RAMPRATE is bits 7:4 and the driver writes 0x08, which sets
+      #             them to 0 = soft ramp DISABLED; bit 3 is DAC_EQBYPASS. The mute is
+      #             a HARD STEP. This was the second of the two places that asserted
+      #             slewing; the other was the pop-suppression block above.
+      #   harmful:  this board's 0.39uF coupling caps are worst-case for pop per the
+      #             amp's own datasheet.                                       STANDS.
+      #
+      # So it is one argument against and one for, on a board already known to be
+      # worst-case. Rather than bet, the mute waits until the output has settled.
       #
       # 200ms also coalesces bursts: a volume tap that plays a tick every few hundred
       # ms would otherwise mute and unmute between every one.
