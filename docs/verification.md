@@ -82,7 +82,32 @@ note: the comparison reduces to '(74 <= 73)'
 > **Know which stage of a toolchain your change lives in, and verify at that stage.** A
 > green result from an earlier stage is not weak evidence — it is *no* evidence.
 
-### 5. A test that could not fail at all
+### 5. The right number, about a part that did not exist
+
+The purest form of the pattern, and the closest one to being printed.
+
+`RegularPolygon(R, 6)` is **flat-top** — two vertices share the maximum Y, so a cell is `2R`
+across corners in X. Both hex lattices spaced columns at `dx = aflat + web`, which is
+*pointy-top* spacing. At R = 3.75 that is a **7.500 mm cell on a 7.395 mm pitch**: the cells
+overlapped, the web went negative, and the field fused into **one solid instead of 33**.
+Flood-filling it showed 43 loose prisms of 2.53–5.38 mm² spanning the full wall. It would
+have printed as a single 37 × 24 opening with loose triangles rattling in it.
+
+**The asserted open area still measured ~673 mm², exactly on target.** Area is insensitive
+to whether a region is *connected*, so the number was right while the part was ruined — and
+the comment promising "0.80 mm of material remains between slots, still printable" was false
+as built. The back panel's stated 0.80 mm web measured **0.305 mm**.
+
+The assert is now on the property that actually matters:
+
+```python
+assert len(_cells.solids()) >= 30
+```
+
+> **Assert the property, not a proxy for it.** An aggregate — area, volume, a count of
+> writes — can be exactly correct about something that is structurally broken.
+
+### 6. A test that could not fail at all
 
 The clearance checker once returned a confident `CLEAR` that meant nothing: the vendor
 STEP lives in its own coordinate frame while the parts are in board coords, so the two
@@ -113,6 +138,33 @@ invisible in correct-looking source and obvious in the rendered output — inclu
 the board" icon that was valid SVG and rendered as a trash can, an `<audio preload="none">`
 over a `data:` URI that could not be lazy because the bytes are part of the document, and
 an exploded view rendered edge-on because the camera was placed to satisfy an aspect ratio.
+
+**A correct warning with a plausible explanation attached is harder to recover from than an
+unexplained one.** This is the *inverted* form of the pattern — not a check that passed for
+the wrong reason, but a warning that **fired for the right reason and got explained away.**
+A `-Wunused-variable` on `CW` was documented as expected noise, kept for mirror fidelity.
+The compiler was telling the truth: `CW` is unused because the hot loop indexes `x >> 2`,
+hardcoding `CW == 4`, so the file's own tuning advice (`NC 60->40 with CW 4->6`) silently
+does nothing to `CW` and makes `NC = 40` read uninitialised memory — the right third of the
+flame band renders from stack garbage while the harness reports `ALL CHECKS PASSED`, because
+every pixel really is written exactly once, with rubbish.
+
+The suppressing rationale was **true but incomplete**, which is precisely what made it
+convincing. A false explanation gets challenged; a true-but-partial one gets accepted and
+closes the question. It then compounded across three steps in a few hours: partial rationale
+in the file → a second, invented rationale layered on top by someone who pattern-matched a
+real comment from elsewhere in the same file → nearly recorded in an issue as settled
+expected output. Two people actively hunting this exact shape, neither careless, each one
+step short.
+
+**Reachability is a lens none of these checks have.** Four faults share a kind that tiling,
+compiling and clearance all miss, because they are about whether a *path exists* — and those
+checks only confirm that code *on* a path is well-formed: the stand in front of the screen;
+the buttons sealed inside it; a menu cursor advancing `% 4` onto a row that is never drawn;
+and a submenu **enterable from the hardware button but not exitable from it** — a mode you
+could not leave without a working touchscreen, in the menu that exists *because* recovery
+must not need one. Output equivalence (`diff -rq` on rendered frames) proves pixels match.
+**Nothing yet proves navigability.**
 
 **Adding a caveat can invalidate a claim elsewhere in the same document — and the source
 view is the one place you will not see them together.** Writing the vendor-STEP caveat into
