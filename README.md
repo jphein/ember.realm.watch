@@ -205,8 +205,12 @@ docs/                        the GitHub Pages root
 ```
 
 > `docs/index.html` is **generated**. Edit `site/index.src.html` and re-run
-> `python3 site/build.py`, then `./build-sigil.sh` to refresh the version stamp.
-> Hand edits to `docs/index.html` are silently destroyed by the next build.
+> `python3 site/build.py`. Hand edits to `docs/index.html` are destroyed silently by
+> the next build.
+>
+> `./build-sigil.sh` writes only `docs/version.json` and touches nothing else, so the
+> two commands write disjoint files and can be run in either order. See
+> [docs/README.md](docs/README.md) for why that wasn't always true.
 
 ---
 

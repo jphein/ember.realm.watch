@@ -24,13 +24,21 @@ fi
 
 cd "$(dirname "$0")"
 
-# --dir is the Pages root. build.sh writes version.json there and, if the HTML
-# exists, injects/updates the meta tag. It skips the injection gracefully when
-# the page is not present yet, so this is safe to run before the site lands.
+# --dir is the Pages root. This writes docs/version.json and NOTHING ELSE.
+#
+# ⚠️ `--html` is deliberately NOT passed, even though sigil supports it and it would
+# inject a <meta name="realm-version"> tag into the page. `docs/index.html` is owned by
+# the site build (site/build.py) and regenerated from site/index.src.html. Passing
+# --html here would make two tools write one file in opposite directions: this script
+# would inject a tag, and the next site build would silently drop it. Whichever ran
+# last would look correct, which is the failure mode this project keeps meeting.
+#
+# So: one writer per file. This script owns version.json; the site build owns the HTML.
+# If the page wants the stamp in a meta tag, the site build should read version.json
+# and emit it — see docs/README.md.
 "$SIGIL" \
   --name ember \
   --description "Local-first voice assistant satellite with a hearth for a face" \
   --realm forge \
   --repo https://github.com/jphein/ember.realm.watch \
-  --html index.html \
   --dir docs
