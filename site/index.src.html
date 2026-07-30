@@ -215,25 +215,30 @@ figcaption{
 :root[data-theme="light"] .linework{background:var(--panel); color:var(--ember)}
 :root[data-theme="dark"]  .linework{background:#0A0604; color:var(--gold)}
 .linework svg{display:block; width:100%; height:auto}
-/* The two button pads, lifted out of the hex field. This is the entire reason the back
-   view is inlined rather than an <img>: the generator emits the pads as their own named
-   group, and one selector turns four line-art rectangles into the obvious controls.
-   Stroke, not fill — the group is a flat outline on the back plane, and filling it would
-   re-introduce the raised-box illusion that flattening it was meant to kill.
+/* The two button pads, marked as a DEFECT rather than as a feature.
 
-   NOT var(--accent): --accent resolves to --gold in dark, which is exactly what .linework
-   already strokes with, so the highlight would have been invisible in the default theme.
-   The rule is "hotter than its surroundings" instead — --hot on coal, --ink on paper — so
-   the pads are the most emphatic thing in the figure whichever way the page is lit. That
-   also happens to be the right semantics: --hot is the top of the ember ramp, and these
-   are the only parts of the device a hand actually touches. Same cascade shape as
-   .linework above: dark default, light media query, then both data-theme overrides. */
-.linework #case-back-btn-vis{stroke:var(--hot); stroke-width:3.2}
-@media (prefers-color-scheme:light){
-  .linework #case-back-btn-vis{stroke:var(--ink)}
+   This selector first painted them in --hot/--ink: the most emphatic thing in the figure,
+   on the reasoning that they were the only parts a hand touches. They are not touchable at
+   all. Both pads sit 100% inside the desk stand — the stand encloses the slab from board-Y
+   -3 upward and the pads span 0.80..10.30, so a 6mm finger-access probe over each one comes
+   back 93% consumed by the stand. Accent styling on an unreachable control is the worst
+   thing this figure could do: it asserts, in the most legible way available, something that
+   is false. So --alarm and dashed, which reads as "flagged" in any theme and matches the
+   page's other caveats. It goes back to an accent when the geometry is actually fixed. */
+.linework #case-back-btn-vis{
+  stroke:var(--alarm); stroke-width:2.6; stroke-dasharray:7 5;
 }
-:root[data-theme="light"] .linework #case-back-btn-vis{stroke:var(--ink)}
-:root[data-theme="dark"]  .linework #case-back-btn-vis{stroke:var(--hot)}
+/* In light, --alarm (#B3200A) sits almost on top of the --ember the linework uses
+   (#A32A08) — the same hue collision that ruled --alarm out as the accent. The dash
+   pattern still separates them, but colour contributes nothing, so weight has to: 3.6
+   against the linework's 1.4 is unmistakable whatever the hue does. This is why the
+   caption says "dashed" rather than "red" — the dash is the signal that survives both
+   themes, and a caption that names a colour is a caption that can be wrong. */
+@media (prefers-color-scheme:light){
+  .linework #case-back-btn-vis{stroke-width:3.6}
+}
+:root[data-theme="light"] .linework #case-back-btn-vis{stroke-width:3.6}
+:root[data-theme="dark"]  .linework #case-back-btn-vis{stroke-width:2.6}
 /* The exploded view is portrait — the camera was moved off-axis so the parts read as
    plates rather than edges, and that costs aspect ratio. Cap it so a tall figure
    cannot push the rest of the section off the screen on a laptop. */
@@ -984,24 +989,40 @@ footer p{margin:.4rem 0}
   <figure class="fig">
     <div class="linework linework-tall">{{SVG:case_back}}</div>
     <figcaption>
-      The other side — and the one that matters in the hand, because
-      <strong>every physical control on this device is here</strong>. The two highlighted pads
-      are printed-in-place pushers over the board's rear-facing SMD tact switches. Each is an
-      11 × 9.5&nbsp;mm patch of the back wall, cut free on three sides by a 0.6&nbsp;mm slot
-      and left attached along the fourth by a 0.9&nbsp;mm living hinge, with a pip on the
-      inside face that reaches the switch plunger. It prints as part of the shell — no
-      separate part, no fastener, nothing to lose. They are flush rather than proud: you find
-      them by feel at the bottom edge, where a thumb already is.
+      The other side. The two pads picked out with a dashed outline are printed-in-place
+      pushers over the board's rear-facing tact switches — each an 11 × 9.5&nbsp;mm patch of
+      the back wall, cut
+      free on three sides by a 0.6&nbsp;mm slot and held along the fourth by a 0.9&nbsp;mm
+      living hinge, with a pip on the inside face reaching the switch plunger. They print as
+      part of the shell: no separate part, no fastener, nothing to lose.
       <br><br>
-      <strong>The pushers are symmetric; the switches underneath are not.</strong> They are
-      the board's <code>K1</code> and <code>K2</code> — RESET and BOOT — and that is the whole
-      hardware input budget. RESET is hardwired to <code>CHIP_PU</code>: it reboots the MCU
-      and the LCD, and firmware cannot read it at all. So <em>one</em> pad is the entire
-      usable input. A short press summons the volume overlay and steps it; a long press opens
-      the power menu and then activates the highlighted item. That is also why volume
-      <em>wraps</em> from 100% back to 0% — a single button cannot express two directions, so
-      wrapping is the only way down. The remaining free pins are GPIO 2, 14 and 21, and
-      reaching them means soldering.
+      <strong>They are also, as drawn, completely unreachable — and that is why they are
+      marked rather than highlighted.</strong> The desk stand encloses the bottom of the slab
+      from board-Y&nbsp;−3 upward; the pads span 0.80 to 10.30. That is
+      <strong>100% of the pad length buried</strong>, and a 6&nbsp;mm finger-access probe over
+      each pad comes back 93% consumed by the stand — not merely flush with the lip, but
+      sealed, with no finger room at all. A redesign is in progress: flipping the hinge to the
+      bottom and running the paddle up past the stand's lip turns it into a class-2 lever, at
+      a lever ratio thin enough that the pip travel has to be measured rather than assumed.
+      Until that lands, this figure shows a control that does not work, and says so.
+      <br><br>
+      There is a second correction underneath the first. The pushers are symmetric; the
+      switches are not. They are the board's <code>K1</code> and <code>K2</code> —
+      <strong>RESET and BOOT</strong> — and that is the entire hardware input budget. RESET is
+      hardwired to <code>CHIP_PU</code>: it reboots the MCU and the LCD, and firmware cannot
+      read it at all. So only <em>one</em> of these two pads was ever going to be an input,
+      which is exactly why the firmware wraps volume from 100% back to 0% — a single button
+      cannot express two directions, so wrapping is the only way down.
+      <br><br>
+      <strong>Worth naming how this survived.</strong> Both shell parts are checked against
+      the vendor board solid by boolean intersection, and the geometry asserts screen
+      occlusion, plug clearance and slot retention. Nothing intersected here: the stand is
+      simply <em>in front of</em> the buttons, and a clearance check cannot fail on empty
+      space. It is the third fault on this part with that shape — the stand also covered a
+      fifth of the screen, and the USB-C well was cut flat where the slot's floor tilts. All
+      three were found by a person looking at a picture, and this one was found by noticing
+      that the buttons were <em>absent</em> from every figure. Which is a reasonable argument
+      for drawing things even when the drawing is incomplete.
       <br><br>
       The field above is 127 hexagons, 3.2&nbsp;mm across the flats on a 0.8&nbsp;mm web —
       55% open. It replaced two rows of straight slot vents and does three jobs at once: it
