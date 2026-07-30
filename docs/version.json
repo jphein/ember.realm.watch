@@ -1,0 +1,12 @@
+{
+  "name": "ember",
+  "description": "Local-first voice assistant satellite with a hearth for a face",
+  "version": "Ironclad Hammer \u00b7 cc1e64c",
+  "hash": "cc1e64c",
+  "branch": "main",
+  "dirty": false,
+  "built": "2026-07-30T02:13:37Z",
+  "realm": "forge",
+  "repo": "https://github.com/jphein/ember.realm.watch",
+  "commit_url": "https://github.com/jphein/ember.realm.watch/commit/cc1e64c"
+}
