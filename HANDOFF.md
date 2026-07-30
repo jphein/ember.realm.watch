@@ -108,10 +108,16 @@ own reachability check. `SLOT_FLOOR` is now 24.0, with a 22 × 22 mm USB-C well 
 - [ ] **Print it.** Start with `ember-front-bezel.stl` — cheapest to reprint, and it now carries
       both the mic port and the whole debossed face, so it is the part most needing a fit check
       *and* the one that tells you whether 0.45 mm reads at arm's length.
-- [ ] `HINGE_T = 0.90` is the parameter most likely to need a second print. If the buttons
-      feel dead, drop to 0.70.
-- [ ] Touchscreen X handedness is still unconfirmed — tap near one edge and watch which
-      coal flares. Opposite side ⇒ `spark_col` needs `59 - tx/4`.
+- [ ] Button feel is the thing most likely to need a second print — but **the knob is
+      `HINGE_L_BOOT` / `HINGE_L_RESET` (1.20 / 2.00), not `HINGE_T`.** Strain is `(t/2)·θ/L`
+      with θ fixed by pip travel over the pip's lever arm, so thickening a hinge to firm it up
+      moves it *toward* fracture. See "the hinges are sized by strain" below.
+- [ ] Touchscreen X handedness is still unconfirmed, but it is now **one tap away**: the raw
+      touch X is captured *before* the clamp and shown on the telemetry band's idle line for 3 s
+      after a tap. Tap near each edge — that answers sign *and* range together, where watching
+      which coal flares only ever answered sign. Mirrored ⇒ `spark_col` needs `59 - tx/4`.
+      There is no `transform:`, no `swap_xy` and no calibration anywhere in the config, so the
+      orientation is **unknown**, not known-and-adjusted.
 - [ ] Ember is not in `status.realm.watch/checks.json`. Deliberately deferred pending a
       DHCP reservation; that reason has mostly expired.
 

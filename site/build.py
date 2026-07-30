@@ -114,6 +114,14 @@ INLINE_SVG = {
     # for the same two reasons as case-back: currentColor, and named ids the stylesheet
     # reaches (`case-dock-btn-vis`, `case-dock-scallop-vis`).
     "case_docked_rear":  Path(__file__).resolve().parent / "renders" / "case-docked-rear.svg",
+    # The bezel face, as a SECTION 0.20mm below the front plane rather than a shaded render.
+    # It exists because the hero could not do this job and it was not the hero's fault: a
+    # 0.45mm recess on a 92mm part is sub-pixel depth at page scale, and a shaded view has only
+    # the recess side-walls to work with, so the motif reads as triangulation noise. Slicing
+    # below the face cuts through every recess and nothing else, so the outlines ARE the motif.
+    # Same failure class as the five figures that could not show a buried button: a figure that
+    # technically contains the information but cannot deliver it.
+    "case_front":        Path(__file__).resolve().parent / "renders" / "case-front.svg",
     "case_print_layout": Path(__file__).resolve().parent / "renders" / "case-print-layout.svg",
 }
 

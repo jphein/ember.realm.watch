@@ -71,7 +71,8 @@ for five in this project on defects invisible in correct-looking source.
 | | |
 |---|---|
 | `DRIVER_W/H/R/T` | the speaker. Currently a 40 × 27 × 10 mm **sealed-back module** with tape on its back |
-| `HINGE_T = 0.90` | the button pads must flex ~0.40 mm. **Most likely to need a second print** — if the buttons feel dead, drop to 0.70 |
+| `HINGE_L_BOOT / HINGE_L_RESET` | 1.20 / 2.00 — the thinned-flexure length, **and the correct knob for button feel.** Longer is softer *and* safer |
+| `HINGE_T = 0.90` | ⚠️ not the feel knob. Strain is `(t/2)·θ/L` and θ is fixed by pip travel over the pip's arm, so **thickening a hinge moves it toward fracture**, not toward a firmer press. Asserted at ≤2.5% |
 | `BTN_R_BIG / BTN_R_SMALL` | the hex caps, 5.20 and 3.80 mm circumradius. **Not free choices**: pinned between the island's bottom edge (below y=0.80 it cuts the shell's bottom wall) and the slot's outer edge (must clear the hex field at y=11.0), and a flat-top hex spans `R·√3` in Y |
 | `DEBOSS_BIG / DEBOSS_SMALL` | 0.90 / 0.50. Deliberately **unequal**, so a thumb has two discriminators in the dark — size and depth — on a case with no lettering |
 | `GRILLE_STYLE` | `"hex"` or `"ridge"`. Both solved to the same 673 mm² open area, so it is aesthetic rather than acoustic |

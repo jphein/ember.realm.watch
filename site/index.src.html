@@ -614,6 +614,67 @@ footer p{margin:.4rem 0}
 </section>
 
 <section class="wrap">
+  <p class="kicker">Quiet hours</p>
+  <h2>Three modes, and one of them changed its mind</h2>
+  <p class="lede">
+    <strong>Normal</strong> → <strong>No talking</strong> → <strong>Hush</strong>. Monotonic:
+    progressively quieter, and nothing else varies. Conversation works fully in all three and
+    the reply still appears on screen — only what leaves the speaker changes.
+  </p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Mode</th><th>Speech</th><th>Chimes</th><th>Microphone</th></tr></thead>
+      <tbody>
+        <tr><td><b>Normal</b></td><td>yes</td><td>yes</td><td>yes</td></tr>
+        <tr><td><b>No talking</b></td><td>—</td><td>yes</td><td>yes</td></tr>
+        <tr><td><b>Hush</b></td><td>—</td><td>—</td><td>yes</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    The gate is not a new mute. It is the existing 10&nbsp;ms audio watchdog
+    <em>declining to lift</em> protection it already asserts, using the display's own speech
+    predicate — so the thing silenced is exactly what the screen calls speech, and the two
+    cannot drift apart. The amplifier switch folds in as an input to one permission question
+    rather than becoming a second writer to the pin.
+  </p>
+  <div class="warn">
+    <p><b>⚠️ Hush changed meaning, and that is the interesting part.</b></p>
+    <p>
+      It used to mean <em>"do not listen to me"</em> and gated the talk gesture. It now means
+      <em>"do not make noise"</em>. The microphone is untouched in every mode. That reversal
+      made six statements false at once across a dashboard and two documents — including two
+      tiles wearing a <code>mdi:microphone-off</code> icon — and every one of them became wrong
+      the moment the firmware booted. <strong>A renamed concept does not announce itself; it
+      leaves its old description in place, still legible and no longer true.</strong>
+    </p>
+  </div>
+  <p>
+    Two things also had to be <em>deleted</em> rather than adapted: the dark-when-hushed LED
+    branch and an "ember isn't listening" telemetry string. Both would now assert something
+    false about the microphone, and a caveat that survives its cause is a defect pointing the
+    other way.
+  </p>
+  <p>
+    The mode that persists is <code>op_mode</code>; the select and the Hush switch are lambda
+    views over it, so they cannot disagree with it. They did once —
+    <strong>a device rebooted while quiet came back genuinely Hush with the select cheerfully
+    reporting "Normal"</strong>, because the stored value restored and the view did not
+    resync. Found by power-cycling the real device in Hush, not by reading the config.
+  </p>
+  <div class="note">
+    <b>The mode chip on screen is a flat-top hexagon, and that is a rule rather than a
+    flourish.</b> The case speaks two hex dialects on purpose: fields are pointy-top, following
+    the honeycomb pitch, while the button caps are flat-top because a pad is a living hinge and
+    a pointy-top hex would put a vertex where the hinge must be. So the rule is not one
+    orientation for the object — it is <em>match what the element represents</em>. This chip
+    stands for the button beneath it, so it is flat-top like the cap; the volume overlay's
+    hearth stones are a field, so they are pointy-top like the grille. The chip was pointy-top
+    for a while on a stated reason that was simply false about the physical part.
+  </div>
+</section>
+
+<section class="wrap">
   <p class="kicker">Engineering</p>
   <h2>The settings that look like mistakes</h2>
   <p class="lede">
@@ -1059,6 +1120,23 @@ footer p{margin:.4rem 0}
       0.9&nbsp;mm living hinge, with a pip on the inside face reaching the switch plunger.
       They print as part of the shell: no separate part, no fastener, nothing to lose.
       <br><br>
+      <strong>Those hinges are sized by strain, and the intuitive fix cracks them.</strong>
+      Bending strain in a flexure is <code>(t/2)·θ/L</code>, and <em>θ is not a free
+      variable</em> — it is pip travel over the pip's distance from the hinge. So the
+      <em>smaller</em> cap bends <em>further</em>: 5.56° against 3.50°, because its pip sits on
+      a shorter arm. At a shared 1.00&nbsp;mm flexure that put RESET at <strong>4.37%</strong>,
+      past PLA's ~2% yield and into its 4–6% break band. The natural remedy — thicken that
+      hinge so it presses firmer — takes it to <strong>6.79%</strong>, because strain scales
+      <em>with</em> thickness. Lengthening the flexure is what actually works: RESET now runs
+      2.00&nbsp;mm and BOOT 1.20, for 2.18% and 2.29%.
+      <br><br>
+      <strong>Every other check on this part passes all three of those variants happily.</strong>
+      The geometry is valid, nothing collides, the pad stays attached to its hinge, the solid is
+      watertight, it prints. It just breaks in your hand after a few dozen presses. Every assert
+      here was about <em>shape</em>; this is a property of the <em>material</em>, and there is
+      no boolean that looks there. Worth asking of any parts library: which of your invariants
+      are about form, which are about matter — and is the second list empty?
+      <br><br>
       <strong>They are the one place on the case where the hexes are flat-top, and that is
       structural rather than decorative.</strong> Everything else here is pointy-top, because
       that is the honeycomb pitch. A pad cannot be: it is a living hinge, so it must stay
@@ -1166,8 +1244,8 @@ footer p{margin:.4rem 0}
          alt="The assembled case seated in its stand at a 15-degree tilt, seen from the front:
               the screen fills the bezel window, the microphone port sits at the top corner,
               a honeycomb of shallow hexagonal recesses runs across the chin and up both
-              rails, the hearth-wyrm is debossed into the brow at top-left, and the speaker
-              grille is in the stand below.">
+              rails, the hearth-wyrm is debossed into the brow, and the speaker grille is in
+              the stand below.">
     <figcaption>
       What it looks like on a desk: the slab seated in the stand at 15°, screen and mic port
       forward, the speaker grille below. The stand is not a stand with a speaker in it — it
@@ -1176,15 +1254,49 @@ footer p{margin:.4rem 0}
       <em>Read this render for proportion, not for detail.</em> The bezel's honeycomb and the
       wyrm mark are 0.45&nbsp;mm recesses in a shaded view at this scale, so they register as
       a faint texture along the chin and a smudge on the brow rather than as the motif they
-      are. The section below has the numbers; the part has the geometry.
+      are. <strong>The next figure is a section rather than a render, for exactly that
+      reason</strong>, and it is the one to look at if you want to see the face.
     </figcaption>
   </figure>
 
   <h3 style="margin-top:2rem">The front face is not blank</h3>
+
+  <figure class="fig">
+    <div class="linework linework-tall">{{SVG:case_front}}</div>
+    <figcaption>
+      <strong>The bezel face, sectioned 0.20&nbsp;mm below the front plane.</strong> Not a
+      render — a slice. Cutting just under the face passes through every recess and nothing
+      else, so these outlines <em>are</em> the motif: the honeycomb chin, a chain up each rail,
+      the screen window, the mic bore, and the hearth-wyrm in the brow, still visibly built out
+      of the same run-length spans the device draws it with.
+      <br><br>
+      This figure exists because the shaded render above <em>cannot</em> do this job, and that
+      is not the render's fault. A 0.45&nbsp;mm recess on a 92&nbsp;mm part is sub-pixel depth
+      at page scale, and a shaded view has only the recess side-walls to work with, so the
+      motif arrives as noise. <strong>A figure that technically contains the information but
+      cannot deliver it fails in the same way as one that omits it</strong> — which is the
+      lesson the buried buttons taught two figures ago, arriving again from the opposite
+      direction.
+      <br><br>
+      It is also <em>measured from the part</em> rather than drawn from the parameters, and
+      that is the whole reason to trust it: this is the view that would have shown 75 cells
+      sitting in the chin with both rails empty, at a moment when the count said 75 and the
+      assert was happy.
+      <br><br>
+      <strong>Handedness warning, because there are now five figures of this object and three
+      of them disagree.</strong> This one is from the front, so board +X runs to the viewer's
+      right and the wyrm sits at low X with the mic bore at high X. The back view mirrors it;
+      the print-layout view mirrors that back again. So nothing on this page names these
+      features by side — the wyrm is "in the brow", the mic is "at the far end of the brow",
+      and BOOT is "the heavier outline". A caption that says <em>left</em> is correct in one
+      figure and wrong in the next.
+    </figcaption>
+  </figure>
+
   <p>
     The bezel carries a <strong>debossed honeycomb</strong> — 75 cells across the chin and a
     16-cell chain up each rail, 2.60&nbsp;mm across the flats on a 0.70&nbsp;mm web — and the
-    <strong>hearth-wyrm</strong> cut into the brow at top-left, 27.07 × 11.28&nbsp;mm.
+    <strong>hearth-wyrm</strong> cut into the brow, 27.07 × 11.28&nbsp;mm.
     Everything on this face is <strong>0.45&nbsp;mm deep</strong> — under three layers at the
     0.16&nbsp;mm this part wants, which is the point: deep enough to read and to feel, shallow
     enough that it never comes near the glass.

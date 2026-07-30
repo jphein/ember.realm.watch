@@ -260,7 +260,8 @@ below Fs does nothing and a mistuned one is worse than sealed.
 | Parameter | Default | Change it when |
 |---|---|---|
 | `FIT` | 0.35 | board is tight/loose in the pocket |
-| `HINGE_T` | 0.90 | **buttons feel stiff → try 0.70.** The pad must flex ~0.40 mm total (0.15 mm air gap + ~0.25 mm switch travel). 0.90 mm of PLA over a ~9 mm cantilever is at the stiff end of workable — this is the parameter most likely to need a second print. Note the hex hinge is only `R/2 + 2·SLOT_W` wide (≈3.8 mm on the big cap) rather than the full pad width, so it is already more compliant than the old rectangular pad at the same thickness. |
+| `HINGE_L_BOOT` / `HINGE_L_RESET` | 1.20 / 2.00 | **buttons feel stiff → lengthen these, do not thin the hinge and above all do not thicken it.** This is the knob, and it was not obvious. |
+| `HINGE_T` | 0.90 | ⚠️ **Read the strain note below before touching this.** Thicker is not stiffer-but-safer, it is *closer to fracture* — strain scales with `t`. |
 | `GLASS_GAP` | 0.40 | never reduce below 0.25 — see below |
 | `SLOT_CLR` | 0.40 | slab loose/tight in the stand |
 | `TILT` | 15° | viewing angle |
@@ -294,6 +295,22 @@ below Fs does nothing and a mistuned one is worse than sealed.
   The wyrm's *size* is set by the print floor rather than the space available: its verified
   minimum feature is 1.23 mm at unit scale, and scaling it to fill the brow would take the
   thinnest part of the creature to 0.84 mm, under the 0.90 mm floor.
+- **The hinges are sized by strain, not by feel — and the intuitive fix cracks them.** Bending
+  strain in a flexure is `(t/2)·θ/L`, and **θ is not a free variable**: it is pip travel over
+  the pip's distance from the hinge. The *smaller* cap therefore bends *further* — 5.56° on
+  RESET against 3.50° on BOOT — because its pip sits on a shorter arm. At a shared 1.00 mm
+  flexure that put RESET at **4.37%**, past PLA's ~2% yield and into its 4–6% break band. The
+  natural remedy, thickening RESET's hinge so it presses firmer, takes it to **6.79%**: strain
+  scales *with* thickness, so the obvious fix points the wrong way. Lengthening the flexure is
+  what actually works. Shipped: **RESET 2.18% at L = 2.00, BOOT 2.29% at L = 1.20**, both under
+  the 2.5% assert. The force ordering stays mildly inverted and that is the accepted trade — an
+  easy RESET is an annoyance, a cracked RESET hinge is a dead part, and findability is already
+  carried by cap size and deboss depth, which cost no strain at all.
+  > **Every other check in this file would have passed all three variants happily.** The
+  > geometry is valid, nothing collides, the pad stays attached, the solid is watertight, it
+  > prints. It just breaks in your hand after a few dozen presses. Every assert here was about
+  > *shape*; this is a property of the *material*. Worth asking of any parts library: which of
+  > your invariants are about form, which are about matter, and is the second list empty?
 - **The stand has finger scallops, and a taller cap would not have worked.** Docked, the stand
   swallows the first 16.56 mm of the slab, so BOOT's cap sat 3.81 mm *below* the rim and
   RESET's 6.23 — with 0.40 mm between the cap face and a solid wall. A finger does not fit in
