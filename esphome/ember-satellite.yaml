@@ -313,6 +313,53 @@ interval:
             - audio_dac.mute_on: es8311_dac
             - lambda: 'id(dac_muted) = true; id(remute_at) = 0;'
 
+      # ---- THE AMP FOLLOWS THE SPEAKER ----
+      #
+      # JP's two reports on the SAME build are a controlled experiment, and they point
+      # at the amp rather than the codec:
+      #
+      #   mic cold start   (in talk_begin)  DAC muted + amp blanked  -> NO POP
+      #   reply cold start (after the gap)  DAC muted, amp NOT       -> POP
+      #
+      # Both are MCLK restarts on the same clock domain. The only difference is the
+      # amp blank. And the codec mute is now positively excluded: the watchdog holds
+      # REG31 muted whenever the speaker is stopped, so the DAC was provably muted
+      # before the reply's cold start — and it popped anyway. Every documented ES8311
+      # anti-pop mechanism is counted in LRCK periods, which is exactly the resource
+      # that stops. The bit persists; it just has no effect.
+      #
+      # So gate the AMP on the same signal, for the same reason the mute inversion
+      # exists: cover every cold start, including ones nobody has enumerated, instead
+      # of adding a third specific site. This SUPERSEDES talk_begin's amp_blank call —
+      # at a tap the speaker is already stopped, so the amp is already off.
+      #
+      # >>> THE COST IS REAL AND IS AUDIBLE: ~50ms of soft start on every reply. <<<
+      # The FM8002E's wake is ~100ms typical but a playback only preloads 5 x 10ms of
+      # silence, so the amp is still waking when the first ~50ms of speech arrives —
+      # the first phoneme is attenuated. That is the trade: a soft onset instead of a
+      # click. It is JP's ear that decides, so it is A/B-able live — the Amp Blank
+      # Width number gates this whole branch, and setting it to 0 restores the amp
+      # permanently and brings the pop back.
+      #
+      # Why "last speaker activity -> reply" and not "chime -> reply": the driver is
+      # idle for ~7s across a turn (measured 19:07:05.910 -> 12.718), because the span
+      # includes the user's own speech, STT and the LLM. So no realistic TTS speedup
+      # keeps the driver loaded — `timeout` would have to be ~10s, which is
+      # functionally `never`, which starves the microphone. Closing the synthesis gap
+      # is still worth doing for the dead air; it is not a fix for this.
+      - if:
+          condition:
+            lambda: 'return id(amp_blank_ms_g) > 0 && !id(amp_off) && !id(spk)->is_running();'
+          then:
+            - output.turn_off: amp_enable
+            - lambda: 'id(amp_off) = true;'
+      - if:
+          condition:
+            lambda: 'return id(amp_off) && (id(spk)->is_running() || id(amp_blank_ms_g) == 0);'
+          then:
+            - output.turn_on: amp_enable
+            - lambda: 'id(amp_off) = false;'
+
       # AMP UN-BLANK, by deadline rather than by a delay inside a killable script.
       # See amp_blank for why: the old shape could strand the amp off forever if a
       # second call aborted the first mid-delay. A deadline cannot be aborted, and it
@@ -1279,16 +1326,25 @@ script:
             # Waiting for is_playing FIRST closes the gap: we do not test for release
             # until the thing we are waiting on has actually acquired. Its timeout is a
             # backstop for the case where no audio was queued at all.
-            - wait_until:
-                condition:
-                  speaker.is_playing: spk
-                # 250ms was measured off ONE fast sample (~110ms) and is not stable:
-                # observed 99ms, 232ms, 2633ms, 2695ms for the media_player to claim
-                # the speaker. When it blows the timeout, is_playing gives up and
-                # is_stopped then passes instantly BECAUSE IT NEVER STARTED — putting
-                # us straight back in the original race, silently, on the slow path
-                # only. That is the "sometimes it works" signature.
-                timeout: 1500ms
+            # >>> The `wait_until: speaker.is_playing` that used to sit here is GONE,
+            #     and removing it is a bug fix, not a simplification. <<<
+            #
+            # It existed to close a race with the haptic tone: script.execute is
+            # non-blocking, so `is_stopped` was true merely because the tone had not
+            # started yet, and waiting for acquire-then-release fixed that.
+            #
+            # Then option (c) removed the tone from the talk path entirely — so NOTHING
+            # is ever queued here, `is_playing` never becomes true, and the wait burned
+            # its FULL 1500ms timeout before every single tap. The microphone opened 1.5s
+            # after the tap, so speech went into a closed mic and VAD ended the turn on
+            # silence. JP's report: "my touches to activate are being deactivated
+            # instantly." The wyrm startles immediately, which made it look like the tap
+            # registered and was then cancelled.
+            #
+            # A guard whose premise has been deleted does not become harmless — it
+            # becomes a timeout. The is_stopped wait below is still needed and still
+            # correct: it covers tapping to interrupt while a REPLY is playing, which is
+            # audio this path did not start.
             - wait_until:
                 condition:
                   speaker.is_stopped: spk
@@ -1320,7 +1376,10 @@ script:
             # The amp's own enable click, which
             # matters because this board's 0.39uF coupling caps are at the top of
             # the range the amp datasheet recommends (i.e. worst-case pop).
-            - script.execute: amp_blank
+            # amp_blank removed: the watchdog now gates the amp on the speaker, so
+            # at a tap (speaker stopped) the amp is ALREADY off. Calling it here
+            # would only start a redundant deadline. The script is kept for now in
+            # case the symmetric policy has to be reverted.
             - voice_assistant.start:
 
   - id: ui_dispatch
@@ -1682,6 +1741,12 @@ globals:
     initial_value: '${amp_blank_ms}'
   # Deferred re-mute deadline. 0 = nothing pending. See the mute branch in the 10ms
   # watchdog for why the mute is delayed rather than immediate.
+  # Is the amp currently blanked? Tracked so the watchdog doesn't re-issue the same
+  # GPIO write every 10ms.
+  - id: amp_off
+    type: bool
+    restore_value: false
+    initial_value: 'false'
   - id: remute_at
     type: uint32_t
     restore_value: false
