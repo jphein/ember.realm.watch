@@ -275,26 +275,25 @@ below Fs does nothing and a mistuned one is worse than sealed.
 
 ---
 
-## Two things to check on the physical board
+## One thing to check on the physical board
 
-**1. Which way does the mic fire?** — 20 seconds with the board in hand.
-
-Look at the **front** face, in the bare strip at the end **away from the USB-C**, about
-**10 mm in from one long edge and ~4.5 mm from the short edge** (just inboard of the
-top-right mounting hole). Is there a tiny hole, ~0.5–1 mm, through the PCB?
-
-- **Hole present** → the mic fires forward. The bezel's ⌀2.40 port and its collar are doing
-  the work, exactly as designed.
-- **No hole** → the mic fires rearward, and the ⌀3.00 relief through the back shell behind
-  the mic is what's carrying it.
-
-**The case provides both paths**, so it works either way — but knowing which one lets you
-tune it (and tells you which opening not to obstruct when mounting).
-
-Why it's still open: the vendor STEP contains **no small holes at all** — not one via — so
-Altium clearly suppressed them on export. Absence of a port hole in the model is therefore
-not evidence of absence on the board. The front-view outline drawing *does* show a circle at
-the mic location, which is why I lean front-firing.
+> ### ✅ The mic question is ANSWERED — do not go looking.
+>
+> **JP inspected the board: the microphone fires FORWARD, through the front face, and the
+> hole is visible in the product photos.** The bezel's ⌀2.40 mm port and its acoustic collar
+> are the working path. The ⌀3.00 mm relief through the back shell is redundant — it stays
+> because it costs nothing and this board is resold under several brands, so a variant with
+> a rear-firing mic is plausible.
+>
+> Recording *why* it needed a human, because it is the most reusable thing on this page: the
+> vendor STEP contains **no small holes at all — not a single via**, because the CAD export
+> suppressed them. The absence of a port in the model was never evidence there wasn't one.
+> **A model's silence is not an answer.** Five seconds of looking settled what a 17 MB solid
+> could not.
+>
+> ⚠️ This section has now been corrected **twice**. The first fix was overwritten by copying
+> a stale working copy over the repo — the same stale-copy failure this project has logged
+> six times. If you are editing this file, edit it *here* and copy outward, never inward.
 
 **2. Where does the microSD card actually go in?** The STEP simplifies the socket to a flat
 11.15 × 14.15 × 0.5 mm plate at x 33.68–44.83, y 15.84–29.99, which doesn't resolve the
