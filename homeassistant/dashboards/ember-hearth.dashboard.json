@@ -219,6 +219,32 @@
        "icon": "mdi:bullhorn"
       },
       {
+       "type": "entities",
+       "show_header_toggle": false,
+       "grid_options": {
+        "columns": "full"
+       },
+       "entities": [
+        {
+         "entity": "input_text.ember_say",
+         "name": "Type, then Speak it"
+        }
+       ]
+      },
+      {
+       "type": "button",
+       "name": "Speak it",
+       "icon": "mdi:send",
+       "show_state": false,
+       "tap_action": {
+        "action": "perform-action",
+        "perform_action": "script.ember_say"
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-gold); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-gold) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-gold); --state-icon-color:var(--em-gold);\n  --paper-item-icon-color:var(--em-gold); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-gold) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-gold); }\n"
+       }
+      },
+      {
        "type": "button",
        "name": "Speech test",
        "icon": "mdi:bullhorn-outline",
@@ -231,28 +257,35 @@
         }
        },
        "card_mod": {
-        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-gold); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-gold) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-gold); --state-icon-color:var(--em-gold);\n  --paper-item-icon-color:var(--em-gold); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-gold) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-gold); }\n"
-       }
-      },
-      {
-       "type": "button",
-       "name": "Test \u00b7 only if awake",
-       "icon": "mdi:cloud-check-outline",
-       "show_state": false,
-       "tap_action": {
-        "action": "perform-action",
-        "perform_action": "script.ember_announce_if_awake",
-        "data": {
-         "message": "The hearth is lit, and my mind is my own."
-        }
-       },
-       "card_mod": {
         "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-coal); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-coal) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-coal); --state-icon-color:var(--em-coal);\n  --paper-item-icon-color:var(--em-coal); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-coal) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-coal); }\n"
        }
       },
       {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "input_text.ember_say",
+         "state": ""
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "*The box is empty, so **Speak it** will do nothing* \u2014 `script.ember_say` conditions on there being text and aborts quietly rather than announcing silence. Type something first.",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
+          "ha-markdown$": "p { margin:0; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\ncode { color:var(--em-glow); background:none; font-size:11px; }\nstrong { color:var(--em-glow); }\nem { color:var(--em-gold); font-style:normal; }\n"
+         }
+        }
+       }
+      },
+      {
        "type": "markdown",
-       "content": "Both buttons call **`script.ember_announce`**, never `assist_satellite.announce` directly \u2014 the script pins `preannounce: false`, and without it HA prepends its own generic blip so you hear two heralds back to back. The second button routes through `ember_announce_if_awake`, which refuses (and logs) when the local lane is unreachable.\n\n*Arbitrary text isn't possible from a dashboard button* \u2014 Lovelace `perform_action` data is not templated, so the message has to be a literal. For one-off phrases use Developer Tools \u2192 Actions \u2192 `script.ember_announce`.",
+       "content": "**Speak it** runs `script.ember_say`, which reads the field above and hands it to `script.ember_announce` \u2014 never `assist_satellite.announce` directly, because the script pins `preannounce: false` and without it HA prepends its own generic blip so you hear two heralds back to back.\n\nThe field-plus-button pairing exists because Lovelace `perform_action` data is **not** templated: a button cannot carry a text field's contents, only call something that reads it. 255 characters, `input_text`'s hard cap.",
        "grid_options": {
         "columns": "full"
        },
@@ -845,7 +878,7 @@
       },
       {
        "type": "markdown",
-       "content": "During TTS this must climb at roughly **16000/s**. A flat line while Ember is *responding* means `audio_output_callback_` never reaches the counter \u2014 usually a resampler or mixer sitting between `voice_assistant` and `spk`. Exact only to ~16.7 M frames (float mantissa); diagnostic only, the display maths uses the `uint32_t` directly.",
+       "content": "During TTS this climbs at **16000/s**, and that is now a measured baseline rather than a target: a 27.2 s announcement produced **26 consecutive one-second windows at exactly +16000 frames, 99.84 % cumulative, zero injected silence.** Long utterances used to land between 45.8 % and 93.9 %, so a shortfall here is a real regression, not normal variance.\n\nA flat line while Ember is *responding* means `audio_output_callback_` never reaches the counter \u2014 usually a resampler or mixer sitting between `voice_assistant` and `spk`. Exact only to ~16.7 M frames (float mantissa); diagnostic only, the display maths uses the `uint32_t` directly.",
        "grid_options": {
         "columns": "full"
        },
@@ -1091,8 +1124,50 @@
        }
       },
       {
+       "type": "button",
+       "name": "Test the awake-gate",
+       "icon": "mdi:cloud-check-outline",
+       "show_state": false,
+       "tap_action": {
+        "action": "perform-action",
+        "perform_action": "script.ember_announce_if_awake",
+        "data": {
+         "message": "The hearth is lit, and my mind is my own."
+        }
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-coal); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-coal) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-coal); --state-icon-color:var(--em-coal);\n  --paper-item-icon-color:var(--em-coal); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-coal) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-coal); }\n"
+       }
+      },
+      {
+       "type": "markdown",
+       "content": "`ember_announce_if_awake` speaks only when the local lane is reachable, and otherwise logs the skip rather than announcing into a void. Pressing this while `Reachability` above reads *serving* should speak; with familiar asleep it should stay silent and leave a warning in the log.",
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": {
+         ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
+         "ha-markdown$": "p { margin:0; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\ncode { color:var(--em-glow); background:none; font-size:11px; }\nstrong { color:var(--em-glow); }\nem { color:var(--em-gold); font-style:normal; }\n"
+        }
+       }
+      },
+      {
        "type": "markdown",
        "content": "The media_player is why HA can push speech at all: `FEATURE_ANNOUNCE` is gated strictly on `voice_assistant` owning one, which is what moved the satellite's `supported_features` **0 \u2192 3**. Announcement pipeline only \u2014 no media pipeline, so no mixer is needed.\n\n\u26a0 *This slider is not the loudness control.* It sets the announcement **pipeline** level, an earlier stage; the es8311 DAC volume on the Hearth view (`Hearth Voice \u00b7 Output Level`) is the one that governs how loud Ember actually is, and it applies to conversational replies too. Reach for that one first.",
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": {
+         ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
+         "ha-markdown$": "p { margin:0; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\ncode { color:var(--em-glow); background:none; font-size:11px; }\nstrong { color:var(--em-glow); }\nem { color:var(--em-gold); font-style:normal; }\n"
+        }
+       }
+      },
+      {
+       "type": "markdown",
+       "content": "**A faint pop on the mic/speaker hand-off is expected and bounded** \u2014 not a fault, and not worth re-investigating. ESPHome tears down and recreates the I\u00b2S clock on every hand-off, while vendor firmware (Korvo, xiaozhi) holds duplex channels open and never stops it. Every ES8311 anti-pop mechanism is clocked by LRCK, so none of them can survive the restart of their own clock. Removing it means leaving stock ESPHome behind.",
        "grid_options": {
         "columns": "full"
        },
@@ -1185,6 +1260,14 @@
         {
          "entity": "input_text.ember_persona_extra",
          "name": "Persona tweak"
+        },
+        {
+         "entity": "input_text.ember_say",
+         "name": "Say (free text)"
+        },
+        {
+         "entity": "script.ember_say",
+         "name": "Say the text field (script)"
         },
         {
          "entity": "script.ember_announce",
