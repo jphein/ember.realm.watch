@@ -41,7 +41,18 @@ import asyncio, json, os, pathlib, subprocess, sys
 import websockets
 
 # Override for your own install: export HA_WS="wss://your-ha-host:8123/api/websocket"
-HA_WS = os.environ.get("HA_WS", "ws://homeassistant.local:8123/api/websocket")
+#
+# ⚠️ THE DEFAULT WAS UNRUNNABLE ON THIS NETWORK and it cost a deploy. It was
+# `ws://homeassistant.local:8123/api/websocket`, which fails three ways here, each
+# masking the next:
+#   1. `homeassistant.local` does not resolve at all -> socket.gaierror.
+#   2. `ha.lan` DOES resolve (10.0.6.108) but 8123 is HTTPS, so plain `ws://` gets
+#      "did not receive a valid HTTP response" — a confusing error for a scheme problem.
+#   3. `wss://ha.lan:8123` then fails cert verification: the certificate is issued for
+#      ha.jphe.in, so the LAN name is a hostname mismatch.
+# The edge name is the one that works, because it is the name on the certificate. Per
+# CLAUDE.md this is a hostname rather than a 10.0.6.x literal, deliberately.
+HA_WS = os.environ.get("HA_WS", "wss://ha.jphe.in/api/websocket")
 URL_PATH = "ember-hearth"       # hyphen required by HA
 TITLE = "Ember"
 ICON = "mdi:fireplace"
