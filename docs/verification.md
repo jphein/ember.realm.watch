@@ -166,6 +166,19 @@ been removed does not become harmless — it becomes a timeout. Removing the ton
 talk path left a `wait_until: speaker.is_playing` with nothing to wait for; it burned its
 full 1500 ms before every tap, and the microphone opened too late to hear anything.
 
+**A report goes stale like any other artifact — and nothing sits beside it to disagree.**
+One agent told another she had *deliberately not* added a flame-height assert, with sound
+reasons. She was then asked to do it, solved the structural objection rather than accepting
+it, and never amended the earlier message. **True when sent, false when read.** The second
+agent avoided opening an issue against finished work *only* by reading the file instead of
+trusting the report.
+
+This is the same failure as a stale comment or a superseded print sheet, with one difference
+that makes it worse: a stale comment sits next to code that contradicts it, so a careful
+reader has a chance. **A stale message has no artifact beside it.** Two disciplines, and both
+are needed: when something you told someone stops being true, tell them — and when a report
+claims something about an artifact, check the artifact.
+
 **Verify against the remote, not the local tree.** Everything can look finished locally —
 commits present, tree clean, device confirmed by ear — while the remote still contains
 every bug. And when grepping a *rendered* document for a phrase, flatten whitespace first:
