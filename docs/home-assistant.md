@@ -242,9 +242,19 @@ rather than textual.
 a screen tap or the BOOT button starts a conversation. The pipeline still names an
 openWakeWord engine because that's the shape HA expects; nothing on Ember listens.
 
-Consequence: `switch.ember_satellite_hush` gates that *talk gesture*. It does not mute
-the microphone and does not touch the audio path, so a hushed Ember looks and feels
-entirely healthy while ignoring every tap.
+Consequence: the talk gesture is the *only* way in, so nothing may gate it silently.
+`switch.ember_satellite_hush` used to do exactly that. **It no longer does.**
+
+⚠️ **`Hush` changed meaning in the three-mode firmware (2026-07-30).** It was *"do not
+listen to me"* — it wrapped the whole talk path, so with Hush on, tapping the screen did
+nothing at all. It is now *"do not make noise"*: Ember listens and converses normally in
+every mode and the reply arrives **on screen**; only the speaker changes. Hush is the
+quietest of three modes, not a mute button on the microphone.
+
+The mode is `select.ember_satellite_ember_mode` — **Normal** (speech + chimes) →
+**No talking** (chimes only) → **Hush** (silent). `switch.ember_satellite_hush` survives
+so existing automations keep working, and is now a *view* over that select: it reads ON
+exactly when the mode is Hush and cannot be set independently of it.
 
 ### 6.2 The mind
 
@@ -445,12 +455,14 @@ Bedrock. The Diagnostics view's 24 h reachability graph doubles as the host's sl
 
 ### 7.3 Tapping the screen does nothing
 
-Check `switch.ember_satellite_hush`. It **gates the talk gesture** — it doesn't mute the
-mic or change the audio path, so the device stays lit, touch-responsive and entirely
-healthy-looking while ignoring you. Pushed announcements still play, which makes it more
-confusing, not less. The Hearth view shows `hushed` inline and banners it.
+**Do not start with `Hush` any more.** Under the three-mode firmware no mode gates the
+talk gesture — every mode listens, so a hushed Ember still converses and still shows the
+reply. If you are chasing "I tapped and got no *sound*", that is the mode working as
+designed: check `select.ember_satellite_ember_mode` and look at the screen, where the
+header reads `UNSPOKEN` and the sub-line says *the reply is on screen*.
 
-If hush is off and taps still do nothing, the touch controller may have stopped
+If you tapped and got **nothing at all** — no header change, no wyrm movement — the mode
+is not the cause and the touch controller may have stopped
 answering. Press **Rouse the touch sensor** (Diagnostics → Levers): it re-pulses the
 FT6336G reset line and re-runs its setup. Deliberately reachable from HA rather than
 only from the device, because recovering a touchscreen must not require the touchscreen.

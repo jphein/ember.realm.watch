@@ -213,6 +213,36 @@ esphome:
         # from. Must run after the es8311 is set up, hence the late priority.
         - audio_dac.mute_on: es8311_dac
 
+        # ---- REPUBLISH THE MODE, or the select lies after a reboot ----
+        #
+        # FOUND ON HARDWARE, NOT IN REVIEW, and the compiler and the config check both
+        # passed with it broken. `op_mode` is `restore_value: true` because the mode is a
+        # preference; `sel_mode` is a VIEW with `restore_value: false` and
+        # `initial_option: "Normal"`. Nothing re-synced the view at boot, so a device
+        # rebooted while quiet came back with:
+        #
+        #     op_mode      == 2      (genuinely Hush: speech and chimes suppressed)
+        #     switch Hush  == ON     (a lambda over op_mode, so it stayed truthful)
+        #     select Mode  == Normal (WRONG -- reverted to initial_option)
+        #
+        # Measured exactly that on the device: set Hush, restart, re-read. The two
+        # entities disagreed and the SELECT was the wrong one -- which is the dangerous
+        # way round, because the select is the surface a person reads and the entity an
+        # automation would consult to decide whether Ember may speak.
+        #
+        # The design claimed the view "cannot disagree with the mode". That was true of
+        # the Hush switch and FALSE of the select, and the gap is exactly one power
+        # cycle wide -- invisible to a compile, to `esphome config`, and to any check
+        # that never rebooted the device in a non-default mode.
+        #
+        # set_index re-runs the select's own set_action, which writes op_mode back to the
+        # value it already holds. Idempotent by construction, so this cannot itself
+        # become a second source of truth.
+        - lambda: |-
+            // A corrupt restored byte must not wedge the device in an undrawn mode.
+            if (id(op_mode) > 2) id(op_mode) = 0;
+            id(sel_mode)->make_call().set_index((size_t) id(op_mode)).perform();
+
 interval:
   # THE UNMUTE ANCHOR. This condition — "we believe we are muted AND the speaker is
   # actually running" — was written as a 250ms watchdog behind on_announcement /
@@ -250,11 +280,120 @@ interval:
   # pop coming back, never silence.
   - interval: 10ms
     then:
+      # ================= THE SILENCE GATE =================
+      # A mode that must not speak is enforced by DECLINING TO LIFT the protection
+      # that already runs between every utterance — not by interjecting in the audio
+      # pipeline. That is the whole design, and it is chosen on this file's own
+      # evidence: every previous attempt to insert something into the single
+      # announcement pipeline broke speech (the `done` chime on on_end clobbered the
+      # reply's FLAC decoder; `enqueue: false` destroys the in-flight item BY DESIGN;
+      # the touch tone wedged the shared I2S lock).
+      #
+      # It is also the ONLY approach where nothing else has to be re-verified. The
+      # media_player still fetches and plays, the I2S driver still loads,
+      # on_tts_start/on_end still fire on schedule, chime_until and tts_est_ms stay
+      # correct, and the display's promotion to SPEAKING plus the paging timer are
+      # untouched. The requirement is "everything else including displaying what it
+      # says", and this is the approach that changes nothing else BY CONSTRUCTION
+      # rather than by inspection.
+      #
+      # THE PREDICATE IS THE DISPLAY'S OWN. `spk->is_running() && !chiming` is
+      # character-for-character what the display lambda uses to promote to SPEAKING,
+      # so the thing silenced is EXACTLY the thing the screen calls speech — one
+      # definition, no second source of truth. It is also what separates speech from
+      # chimes, which share this speaker: chime_until already means "the audio now
+      # playing is not speech", which is precisely the distinction mode 1 needs.
+      #
+      # va_state is deliberately NOT consulted: it reads 0 for the entire duration of
+      # a spoken reply. This asks the hardware, like the chime guard does.
+      #
+      # FAILURE DIRECTION IS PRESERVED AND INVERTS SAFELY. Re-derived from live
+      # hardware every 10ms, so nothing sticks. Wrongly true => silence, which in
+      # these modes is the INTENT. Wrongly false => a brief leak. Moving back to
+      # Normal mid-reply un-mutes within one tick and the reply continues audibly.
+      #
+      # COSTS, STATED RATHER THAN HIDDEN: a driver load/unload still happens per
+      # reply, and a little power is spent decoding audio nobody hears. Both are
+      # cheap, and both buy the "nothing else changes" property above.
+      - lambda: |-
+          // ---- ONE QUESTION: AM I PERMITTED TO MAKE SOUND RIGHT NOW? ----
+          //
+          // Two independent things can forbid it, and they are folded into a single
+          // predicate rather than checked in separate places:
+          //
+          //   the MODE   forbids SPEECH (not chimes) at op_mode >= 1
+          //   amp_switch forbids EVERYTHING, unconditionally — it is the user's master
+          //
+          // Making the switch an INPUT to this question rather than a competing writer
+          // to the pin is what fixes the old bug: it used to be `platform: output` over
+          // amp_enable, so it wrote the GPIO directly and the watchdog's enable branch
+          // overrode it on the next playback. Now there is one writer and one question.
+          //
+          // >>> The switch therefore genuinely SILENCES rather than recording a desire,
+          //     and it does so with BOTH layers: the amp is disabled (see `want` below)
+          //     AND the DAC is held muted for the duration of any playback. Belt and
+          //     braces, because the amp is the half nothing in ESPHome can clear and
+          //     REG31 is the half that survives Amp Blank Width = 0. <<<
+          const bool chiming = (int32_t) (id(chime_until) - millis()) > 0;
+          const bool is_speech = id(spk)->is_running() && !chiming;
+          // The second clause covers a case that is UNREACHABLE TODAY and is here for
+          // exactly that reason. In Hush the `chime` wrapper returns before playing, so
+          // no chime audio ever starts and the gate never sees one — but the gate would
+          // have classified it as not-speech and PERMITTED it. Any future sound path
+          // that bypasses the wrapper (a raw play_on_device_media_file somewhere else)
+          // would therefore leak in the mode whose whole promise is silence.
+          //
+          // Same doctrine as the mute inversion and the chime guard asking
+          // spk->is_running(): cover call sites that do not exist yet, rather than the
+          // ones we happen to have thought of. Costs one clause and makes Hush silent
+          // at the hardware rather than silent by the convention that everything goes
+          // through one script.
+          const bool permitted = id(amp_switch).state &&
+                                 !(is_speech && id(op_mode) >= 1) &&
+                                 !(chiming   && id(op_mode) >= 2);
+          id(snd_block) = id(spk)->is_running() && !permitted;
       - if:
           condition:
-            lambda: 'return id(dac_muted) && id(spk)->is_running();'
+            lambda: 'return id(dac_muted) && id(spk)->is_running() && !id(snd_block);'
           then:
             - script.execute: dac_unmute
+
+      # ⚠️ RE-ASSERTED ON A CADENCE, AND NOT GATED ON OUR OWN BOOKKEEPING.
+      #
+      # `!id(dac_muted)` would be the obvious guard and it is exactly wrong, because
+      # the things that clear REG31 behind our back do not update `dac_muted`.
+      # Verified against the ESPHome source:
+      #
+      #   I2SAudioSpeakerBase::set_volume() calls audio_dac_->set_mute_off() for any
+      #   volume > 0, and SpeakerMediaPlayer::set_volume_ calls that AND
+      #   set_mute_state_(false). So ANY HA media_player.volume_set / volume_up /
+      #   volume_down / unmute clears the mute TWICE OVER, mid-playback, while
+      #   `dac_muted` still says true.
+      #
+      # A guard on our own flag would therefore be silently bypassed — the precise bug
+      # shape this file keeps paying for: correct-looking state, wrong hardware. So the
+      # gate re-states itself to the hardware every 250ms while closed, which bounds
+      # any unenumerated clearer to a quarter second instead of to forever.
+      #
+      # (The device's OWN volume path is safe — number.spk_volume ->
+      # audio_dac.set_volume writes REG32 only. It is the HA media_player surface that
+      # is not, which is why on_volume also re-asserts.)
+      - if:
+          condition:
+            lambda: |-
+              return id(snd_block) &&
+                     (id(gate_ms) == 0 || millis() - id(gate_ms) >= 250u);
+          then:
+            - audio_dac.mute_on: es8311_dac
+            - lambda: |-
+                id(dac_muted) = true;
+                id(remute_at) = 0;
+                id(gate_ms) = millis();
+                if (id(gate_ms) == 0) id(gate_ms) = 1;
+      - if:
+          condition: { lambda: 'return !id(snd_block) && id(gate_ms) != 0;' }
+          then:
+            - lambda: 'id(gate_ms) = 0;'
 
       # ---- AND RE-MUTE THE MOMENT AUDIO STOPS: default-muted at idle ----
       #
@@ -347,18 +486,45 @@ interval:
       # keeps the driver loaded — `timeout` would have to be ~10s, which is
       # functionally `never`, which starves the microphone. Closing the synthesis gap
       # is still worth doing for the dead air; it is not a fix for this.
-      - if:
-          condition:
-            lambda: 'return id(amp_blank_ms_g) > 0 && !id(amp_off) && !id(spk)->is_running();'
-          then:
-            - output.turn_off: amp_enable
-            - lambda: 'id(amp_off) = true;'
-      - if:
-          condition:
-            lambda: 'return id(amp_off) && (id(spk)->is_running() || id(amp_blank_ms_g) == 0);'
-          then:
-            - output.turn_on: amp_enable
-            - lambda: 'id(amp_off) = false;'
+      # ---- ONE DESIRE, COMPARED AGAINST ONE TRACKED REALITY ----
+      #
+      # Replaces the two condition-pair branches that used to live here. They could not
+      # express `amp_switch` correctly: the enable branch did not consult it at all,
+      # and bolting the check on would have left `amp_off` able to desync from the
+      # hardware whenever the switch was toggled (switch writes the GPIO, shadow flag
+      # does not follow, and then neither branch fires because both are guarded on that
+      # same stale flag — the amp then sits electrically live across the next cold
+      # start, i.e. the pop returns for one playback after every switch-on).
+      #
+      # Computing the DESIRE once and comparing it to the tracked state is immune to
+      # that: one writer, one comparison, and a mismatch is always corrected on the
+      # next tick. `amp_off` is still tracked purely so an unchanged desire costs no
+      # GPIO write at 100Hz.
+      #
+      # >>> THE AMP IS THE LOAD-BEARING HALF OF THE SILENCE GATE. <<<
+      # `snd_block` is an independent conjunct here, so it forces the amp off
+      # REGARDLESS of Amp Blank Width — including at 0, which the old branch structure
+      # could not have expressed. That matters because the amp is a hardware disconnect
+      # downstream of everything the codec does, and nothing in ESPHome's audio stack
+      # touches it; the REG31 mute above is the half that can be cleared behind our
+      # back. Two halves, failing in different directions.
+      #
+      # >>> THE COST IS REAL AND IS AUDIBLE: ~50ms of soft start on every reply. <<<
+      # Unchanged by this rewrite, and not removable by scheduling — an amp awake
+      # across the MCLK cold start is precisely what brings the pop back. The lever is
+      # padding the audio, not moving the gate.
+      - lambda: |-
+          // `snd_block` already carries amp_switch (it is an input to `permitted`
+          // above), so this does not re-test it — one question, asked once. Naming it
+          // twice is how the two writers got out of step in the first place.
+          const bool want = !id(snd_block) &&
+                            id(amp_switch).state &&
+                            (id(amp_blank_ms_g) == 0 || id(spk)->is_running());
+          if (want == id(amp_off)) {          // amp_off means "currently disabled"
+            if (want) id(amp_enable)->turn_on();
+            else      id(amp_enable)->turn_off();
+            id(amp_off) = !want;
+          }
 
       # AMP UN-BLANK, by deadline rather than by a delay inside a killable script.
       # See amp_blank for why: the old shape could strand the amp off forever if a
@@ -686,6 +852,45 @@ number:
     set_action:
       - lambda: 'id(amp_blank_ms_g) = (uint32_t) x;'
 
+########################  operating mode  ########################
+# The HA-facing surface for op_mode. Same shape as the volume control: ONE authority
+# (the global) with surfaces that are clients of it, rather than two stores that agree
+# by convention. See the `on_volume` note on the media_player for the precedent.
+#
+# Options are listed quietest-last, so THE OPTION INDEX IS THE STORED VALUE and there
+# is no mapping table at all. An earlier draft of this design needed one (and got to be
+# clever about it being self-inverse); a monotonic control needs none, which is
+# strictly better — a table that does not exist cannot drift.
+select:
+  - platform: template
+    id: sel_mode
+    name: Ember Mode
+    icon: mdi:hexagon-multiple
+    optimistic: true
+    restore_value: false        # op_mode is the thing that persists, not this view
+    options:
+      - "Normal"
+      - "No talking"
+      - "Hush"
+    initial_option: "Normal"
+    set_action:
+      # ⚠️ `i` IS NOT AVAILABLE HERE. A template select's set_action is a
+      # `Trigger<StringRef>` (template/select/template_select.h:69), so the lambda gets
+      # the chosen option as `x` and NOTHING ELSE — no index. An earlier draft of this
+      # used `i` and `esphome config` reported "Configuration is valid!"; it failed at
+      # `esphome compile` with "'i' was not declared in this scope". See the compile-vs-
+      # config note in the header.
+      #
+      # Deriving the index with index_of() is better than a positional assumption
+      # anyway: it reads the order off the select's OWN option list, so adding or
+      # reordering an option cannot silently change which mode a row means.
+      - lambda: |-
+          const auto idx = id(sel_mode)->index_of(x.c_str(), x.size());
+          if (!idx.has_value() || *idx > 2) return;
+          id(op_mode) = (uint8_t) *idx;
+          id(ui_gen)++;                  // the header names the mode, so repaint it
+          id(force_full_repaint) = true; // one ~60ms frame; a mode change is rare
+
 ########################  announce path  ########################
 # WHY THIS EXISTS: `assist_satellite.announce` returned HTTP 500 because
 # FEATURE_ANNOUNCE is gated STRICTLY on voice_assistant's own media_player
@@ -781,6 +986,17 @@ media_player:
       - number.set:
           id: spk_volume
           value: !lambda 'return id(media_out).volume * 100.0f;'
+      # ⚠️ SpeakerMediaPlayer::set_volume_ clears REG31 on its way through — twice, via
+      # I2SAudioSpeakerBase::set_volume() and again directly. So adjusting volume from
+      # HA while a muted reply is playing would UNMUTE IT. Re-assert here, at the
+      # event, rather than waiting up to 250ms for the watchdog's cadence to notice.
+      # The amp gate is what makes this defence-in-depth rather than the only thing
+      # standing between a quiet mode and a leak.
+      - if:
+          condition: { lambda: 'return id(snd_block);' }
+          then:
+            - audio_dac.mute_on: es8311_dac
+            - lambda: 'id(dac_muted) = true;'
 
     ####################################################################
     # POP SUPPRESSION — keep the DAC muted while idle.
@@ -827,12 +1043,37 @@ media_player:
       - lambda: 'id(dac_muted) = true;'
 
 switch:
-  - platform: output
+  # ⚠️ WAS `platform: output` WITH `output: amp_enable`, AND THAT WAS THE BUG.
+  #
+  # It made the switch a SECOND WRITER to amp_enable, competing with the 10ms
+  # watchdog. Two consequences, both of which this file's own comments claimed were
+  # impossible:
+  #
+  #   1. Turning the switch OFF did not mute the device. The watchdog's amp-enable
+  #      branch did not consult it, so the next audio re-enabled the amp.
+  #   2. HA's reported state could disagree with the electrical state, because the
+  #      watchdog wrote the GPIO directly and never went through the switch.
+  #
+  # HOW IT HID, which is the instructive part: the `amp_blank` script — whose deadline
+  # branch DOES check `switch.is_on: amp_switch` — is never executed. There is no
+  # `script.execute: amp_blank` anywhere in this file. So the one branch that honoured
+  # the switch was dead code, and the comment describing its behaviour ("the interval
+  # only restores the amp if the switch is on") read as if it described the live
+  # branch. The output also looked correct, because the amp being ON is normal.
+  #
+  # THE FIX IS TO DELETE THE COMPETITOR, not to reconcile two writers — the same move
+  # that settled volume and the LED. This switch is now pure INTENT and the 10ms
+  # watchdog is the sole writer of amp_enable.
+  #
+  # restore_mode stays ALWAYS_ON deliberately: a persisted OFF would be a silent
+  # permanent mute weeks later, which is the landmine SpeakerMediaPlayer's persisted
+  # is_muted already represents. Do not change this to RESTORE_DEFAULT_ON.
+  - platform: template
     id: amp_switch
     name: Speaker Amplifier
-    output: amp_enable
-    restore_mode: ALWAYS_ON    # If it idle-hisses (class-D BTL often does),
-                               # switch to ALWAYS_OFF and toggle around TTS.
+    icon: mdi:speaker
+    optimistic: true
+    restore_mode: ALWAYS_ON
 
   # prefers-color-scheme has no meaning on a bare SPI panel, so JP's
   # dark/light rule is honoured by exposing the daylight ramp as a control
@@ -852,20 +1093,40 @@ switch:
           id(theme_light) = false;
           id(force_full_repaint) = true;
 
-  # Do-not-disturb. The microphone component has no mute action, and disabling it
-  # would fight sound_level's passive consumer over the shared I2S hub, so "hush"
-  # is a GATE on the talk gesture rather than a change to the audio path. Honest
-  # about what it does: Ember stops listening for you, the hardware doesn't change.
+  # ⚠️⚠️ HUSH HAS CHANGED MEANING. THIS IS A BEHAVIOUR CHANGE TO AN EXISTING CONTROL,
+  # NOT A NEW FEATURE ALONGSIDE ONE. Anyone who learned the old behaviour will be
+  # surprised, so it is spelled out here rather than left to be inferred.
+  #
+  #   BEFORE: "do not listen to me." It wrapped the entire body of `talk_begin`, so
+  #           with Hush on, TAPPING THE SCREEN DID NOTHING AT ALL.
+  #   NOW:    "do not make noise." Ember listens and converses normally; the reply
+  #           arrives on screen instead of out of the speaker, and chimes are silent
+  #           too. It is the quietest of the three modes, not a mute button on the
+  #           microphone.
+  #
+  # The old gate in `talk_begin` is DELETED. Do not restore it — it is the one line
+  # whose meaning inverts, and restoring it would make the quietest mode also the
+  # deafest, which is not what it says on the tin.
+  #
+  # The entity survives so existing dashboards and automations referencing
+  # switch.ember_hush keep working, and it is a CLIENT in the shape this file already
+  # uses for volume: its state is a `lambda:` over op_mode rather than a stored bool,
+  # so there is no second bit to drift and it CANNOT disagree with the mode. That is
+  # also why restore_mode must be DISABLED.
+  #
+  # The old comment's honesty about the hardware is preserved and can now be
+  # strengthened: sound_level is `passive: true`, so it never STARTS the microphone —
+  # with the pipeline stopped nothing is captured at all, in any mode.
   - platform: template
     id: sw_hush
     name: Hush
-    icon: mdi:microphone-off
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
+    icon: mdi:volume-off
+    restore_mode: DISABLED
+    lambda: 'return id(op_mode) == 2;'
     turn_on_action:
-      - lambda: 'id(ui_gen)++;'
+      - lambda: 'id(sel_mode)->make_call().set_index(2).perform();'
     turn_off_action:
-      - lambda: 'id(ui_gen)++;'
+      - lambda: 'id(sel_mode)->make_call().set_index(0).perform();'
 
 button:
   - platform: restart
@@ -952,8 +1213,14 @@ binary_sensor:
               } else if (id(ui_mode) == 1) {
                 id(ui_action) = 2;            // step up (wraps — see below)
               } else {
-                // power menu: advance the cursor
-                id(ui_sel) = (id(ui_sel) + 1) % ${ui_pm_n};
+                // Advance the cursor. THE ROW COUNT DIFFERS PER MENU — the power menu
+                // has ui_pm_n rows, the mode submenu has 3 — so the hardcoded modulus
+                // that used to be here walked the mode cursor onto a fourth row that
+                // is never drawn. The tap hit-test would have refused to apply it, so
+                // the symptom is a cursor that vanishes for one press rather than an
+                // error: invisible in review, and only reachable from the button path.
+                const int n = (id(ui_mode) == 3) ? 3 : ${ui_pm_n};
+                id(ui_sel) = (id(ui_sel) + 1) % n;
                 id(ui_action) = 0;
               }
               id(ui_gen)++;
@@ -976,7 +1243,23 @@ binary_sensor:
           - lambda: |-
               id(ui_last_ms) = millis();
               id(ui_action) = 0;
-              if (id(ui_mode) == 2) {
+              if (id(ui_mode) == 3) {
+                // ⚠️ WITHOUT THIS BRANCH THE MODE SUBMENU IS UNREACHABLE FROM HARDWARE.
+                // A long press with ui_mode == 3 fell through to the `else` below and
+                // re-opened the POWER menu instead of picking a mode — so the mode
+                // could only ever be changed by touch or from Home Assistant.
+                //
+                // That breaks the load-bearing reason these menus are on the button at
+                // all: GPIO0/BOOT is the ENTIRE hardware input budget (K1/RESET is
+                // hardwired to CHIP_PU and cannot be read), and the whole point is that
+                // recovering the device must not require the touchscreen. A mode you
+                // cannot leave without a working touch controller is precisely the trap
+                // `btn_rouse_touch` exists to avoid.
+                //
+                // ui_sel == -1 still means dismiss, for the same reason as below: a
+                // stray long press must not commit a choice nobody aimed at.
+                id(ui_action) = (id(ui_sel) >= 0 && id(ui_sel) < 3) ? 10 : 4;
+              } else if (id(ui_mode) == 2) {
                 // Activate whatever the cursor is on. ui_sel == -1 (the initial
                 // value) deliberately means "dismiss", so a stray long-press can
                 // never fire a destructive item.
@@ -1145,7 +1428,40 @@ script:
   # that works out because on_announce fires tts_start (our chime, enqueue false)
   # BEFORE it ENQUEUEs the announcement itself (voice_assistant.cpp:1056 then
   # :1064-1067), so the speech lands behind the chime rather than cutting it off.
+  # ---- HUSH'S CHIME GUARD LIVES IN A WRAPPER, NOT IN THE BODY ----
+  #
+  # Chimes are separate plays through the same speaker, so suppressing them is a
+  # DIFFERENT lever from suppressing speech — which is exactly what makes the
+  # three-mode split cheap: mode 1 closes the silence gate, mode 2 additionally closes
+  # this one. Neither knows about the other.
+  #
+  # Two shapes were available and one is a trap. Putting
+  # `if (id(op_mode) >= 2) return;` at the top of the body's first lambda would NOT
+  # work: a `return` in a lambda cannot abort its sibling actions in the enclosing
+  # action list — that is the bug oracle-verifier found on the `va_state == 1` guard,
+  # which is why the seven play actions each re-check their own conditions.
+  #
+  # Adding the condition to all seven plays would work but is the fragile shape: one
+  # edit per call site, and it silently fails to cover the eighth sound somebody adds
+  # later.
+  #
+  # So `chime` becomes a one-line wrapper holding the single guard and the real work
+  # moves to `chime_play`. Every existing call site still says `chime`, so nothing can
+  # bypass it — including call sites that do not exist yet. Transparent in timing:
+  # neither script contains a `delay:`, so `script.execute` runs to completion
+  # synchronously and the announce herald still lands AHEAD of the speech it heralds,
+  # which is load-bearing.
   - id: chime
+    mode: restart
+    parameters:
+      which: int
+    then:
+      - if:
+          condition: { lambda: 'return id(op_mode) < 2;' }
+          then:
+            - script.execute: { id: chime_play, which: !lambda 'return which;' }
+
+  - id: chime_play
     mode: restart
     parameters:
       which: int   # 0 done · 1 error · 2 announce · 3 thinking · 4 timer · 5 touch · 6 haptic
@@ -1201,7 +1517,14 @@ script:
           // The announce herald is the ONE chime that must NOT be guarded: it is
           // the leading edge of real speech, and the fire should already be
           // burning as it rings.
-          if (which != 2) {
+          // The herald's exemption has a PREMISE, and a speech-muting mode removes it.
+          // It normally skips chime_until because it is the leading edge of real
+          // speech — but in mode 1 no audible speech follows, so left exempt it would
+          // be classified as speech by the silence gate and muted. That would silence
+          // the one sound mode 1 is supposed to keep, and the one that matters most
+          // there: there is no reply behind it to catch the ear. Same shape of
+          // reasoning as the original exemption, inverted.
+          if (which != 2 || id(op_mode) >= 1) {
             id(chime_until) = millis() + LEN_MS[which];
           } else {
             // ...but its frames DO land between the mark and the speech, so the
@@ -1298,8 +1621,25 @@ script:
   - id: talk_begin
     mode: single
     then:
+      # ⚠️ THE `switch.is_off: sw_hush` GATE THAT USED TO WRAP THIS ENTIRE BODY IS
+      # DELETED, AND ITS DELETION IS THE POINT OF THE THREE-MODE SPEC.
+      #
+      # Hush used to mean "do not listen to me", so with it on a tap did NOTHING. It
+      # now means "do not make noise": Ember converses in all three modes and the reply
+      # lands on screen. Gating the conversation here would make the quietest mode also
+      # the deafest, which is not what the control says.
+      #
+      # The `if:` wrapper is kept with an always-true condition rather than unindenting
+      # ~100 lines of load-bearing comments and waits, so that this diff is reviewable
+      # and the sequencing notes below stay attached to the actions they explain.
+      #
+      # ⚠️ FORWARD COMPATIBILITY: wake word is currently off. If micro_wake_word is
+      # ever enabled it needs NO mode gate under this spec — every mode listens. That
+      # is a change from the previous design and is worth stating, because the earlier
+      # draft required the opposite and a half-applied memory of it would reintroduce a
+      # gate nobody wants.
       - if:
-          condition: { switch.is_off: sw_hush }
+          condition: { lambda: 'return true;' }
           then:
             - lambda: |-
                 // Clear stale error text the instant the tap lands, so the device
@@ -1491,11 +1831,27 @@ script:
                   # something would feel broken in a way that waiting to start does not.
                   - voice_assistant.stop:
 
+      # Row 0 opened a submenu rather than toggling, because the mode is a three-way
+      # choice and a toggle cannot express it. The Hush entity still toggles for
+      # anything that automates it (it is a view onto mode == 2).
       - if:
           condition: { lambda: 'return id(ui_action) == 5;' }
           then:
-            - switch.toggle: sw_hush
-            - lambda: 'id(ui_action) = 4;'          # then dismiss
+            - lambda: |-
+                id(ui_mode) = 3;                    // the mode submenu
+                id(ui_sel) = -1;                    // nothing preselected
+                id(ui_last_ms) = millis();
+                id(ui_gen)++;
+                id(ui_action) = 0;
+
+      # Apply the mode the cursor is on. ui_sel carries the row, and because the modes
+      # are monotonic the row index IS the mode value — no mapping at the tap site.
+      - if:
+          condition: { lambda: 'return id(ui_action) == 10 && id(ui_sel) >= 0 && id(ui_sel) < 3;' }
+          then:
+            - lambda: |-
+                id(sel_mode)->make_call().set_index((size_t) id(ui_sel)).perform();
+                id(ui_action) = 4;                  // then dismiss
 
       - if:
           condition: { lambda: 'return id(ui_action) == 6;' }
@@ -1851,6 +2207,62 @@ globals:
     restore_value: false
     initial_value: 'false'
 
+  # ---- OPERATING MODE: ONE MONOTONIC CONTROL ----
+  #
+  #     0  Normal      speech YES   chimes YES
+  #     1  No talking   speech no    chimes YES
+  #     2  Hush         speech no    chimes no
+  #
+  # PROGRESSIVELY QUIETER AND NOTHING ELSE VARIES. Conversation works fully in all
+  # three — tap to talk, STT, the LLM, the reply text paging on screen, the wyrm
+  # animating through its speaking state. The ONLY difference is what leaves the
+  # speaker. This is not a capability ladder, so nothing in the state machine or the
+  # display may degrade as it rises.
+  #
+  # Monotonic ordering is load-bearing, not cosmetic: both predicates become threshold
+  # tests over one number —
+  #
+  #     speech audible  ==  op_mode == 0
+  #     chimes audible  ==  op_mode <  2
+  #
+  # which is why this is ONE 3-position control rather than two switches. Two switches
+  # would expose a fourth state (chimes off, speech on) that is not wanted, and an
+  # unwanted reachable state is a worse surface than a missing one.
+  #
+  # restore_value is TRUE, and the contrast with amp_blank_num (FALSE) is principled:
+  # THE MODE IS A PREFERENCE, THE BLANK WIDTH IS A DIAGNOSTIC. A mode that silently
+  # reverts after a 3am power blip is a fault; a persisted diagnostic 0 that reinstates
+  # the pop weeks later with no trace of why is also a fault. Opposite defaults, one
+  # rule.
+  - id: op_mode
+    type: uint8_t
+    restore_value: true
+    initial_value: '0'
+
+  # The silence gate's verdict, re-derived from LIVE HARDWARE every 10ms tick.
+  # Never persisted and never latched: a stuck value cannot survive one tick.
+  - id: snd_block
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+
+  # Last time the gate re-stated itself to the codec. Exists because the things that
+  # clear REG31 do NOT update dac_muted, so the gate cannot trust its own bookkeeping
+  # and must re-assert on a cadence instead. 0 = gate open.
+  - id: gate_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+
+  # A pushed announcement landed while speech was muted, so the SCREEN was the only
+  # delivery. Persists until the next touch, because an announcement nobody was in the
+  # room for is otherwise indistinguishable from one that never arrived. This matters
+  # most in Hush, where nothing audible happens at all.
+  - id: unread
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+
 ########################  display + touch  ########################
 
 display:
@@ -2042,6 +2454,17 @@ display:
       int st = id(va_state);
       if (audio_live && !chiming && (st == 0 || st == 2)) st = 3;   // -> SPEAKING
 
+      // ---- the mode's one visual consequence ----
+      // NO NEW `st` VALUE, deliberately. An earlier draft added st == 5 for "speaking
+      // but silenced" and it forced edits at ~10 call sites (accent, LED, fire height,
+      // swallow, fuse, telemetry, the eye, the scheduler's idle rate), every one an
+      // opportunity to miss one. A single boolean instead modifies only the places
+      // where AUDIBILITY is the subject, and everything keyed on `st == 3` inherits
+      // correct behaviour for free. That is right, not merely cheap: the fire, the
+      // fuse and the swallow are grounded in audio that genuinely IS streaming, just
+      // inaudibly — and the spec requires that nothing else degrade.
+      const bool silenced = (st == 3) && id(op_mode) >= 1;
+
       // Snapshot the frame counter on the rising edge of playback — this is what
       // on_tts_stream_start used to do. Main loop only, so no cross-task concern.
       static bool was_live = false;
@@ -2075,39 +2498,61 @@ display:
       // per frame. `led_shown` is a static local, main-loop only, no cross-task
       // concern, and it is re-derived from `st` every frame so it cannot get stuck.
       {
-        // Hush is privacy-relevant, so it deviates from the fire ramp deliberately —
-        // the same justification as error being off-ramp. A hushed device that looks
-        // identical to a listening one is the failure worth avoiding, so the hearth
-        // goes DARK: unambiguous, and distinct from banked-ember. The telemetry band
-        // says "hushed - ember isn't listening" so "off" can't read as "dead".
-        const int led_want = (st == 0 && id(sw_hush).state) ? -1 : st;
+        // ⚠️ THE HUSH-GOES-DARK BEHAVIOUR IS DELETED, AND THAT IS A CORRECTNESS FIX,
+        // not a simplification.
+        //
+        // It read `led_want = (st == 0 && sw_hush) ? -1 : st`, justified on privacy:
+        // "a hushed device that looks identical to a listening one is the failure
+        // worth avoiding, so the hearth goes DARK". That reasoning was sound for the
+        // OLD meaning of hush, which blocked the conversation outright.
+        //
+        // Under the three-mode spec hush does NOT mean "I am not listening" — Ember
+        // listens and converses in all three modes. A dark hearth would now assert
+        // something FALSE about the microphone, which is worse than being
+        // uninformative: it is exactly the class of lie this file's grounding rule
+        // exists to prevent. The old telemetry line said "hushed - ember isn't
+        // listening", which would also have become untrue; it is rewritten below.
+        //
+        // So the LED keeps carrying `st` and nothing else, and the mode rides on
+        // BRIGHTNESS instead.
+        const int led_want = st;
         static int led_shown = -99;
-        if (led_want != led_shown) {
+        static uint8_t led_mode = 0xFFu;
+        // The modes are monotonic — progressively quieter — so the glow is monotonic
+        // too: the hearth banks down as the device gets quieter. That is legible across
+        // a room, and it does NOT give the LED a second meaning that could disagree
+        // with the first: hue and effect still mean state, exactly as before, and the
+        // mode only scales them. Same "one authority, shared with the fire" property
+        // the note above claims.
+        const float mode_k = (id(op_mode) == 0) ? 1.00f
+                           : (id(op_mode) == 1) ? 0.65f : 0.35f;
+        if (led_want != led_shown || id(op_mode) != led_mode) {
           led_shown = led_want;
-          if (led_want < 0) {
-            auto c = id(status_led)->turn_off();
-            c.set_transition_length(400);
-            c.perform();
-          } else {
+          led_mode = id(op_mode);
+          {
             auto c = id(status_led)->turn_on();
             // Idle fades in slowly (the fire settling); everything else snaps, because
             // a state change you had to wait for reads as lag.
             c.set_transition_length(led_want == 0 ? 800u : 120u);
             switch (led_want) {
               case 1:  // LISTENING - amber, rung 1
-                c.set_rgb(1.00f, 0.40f, 0.04f); c.set_brightness(1.00f);
+                c.set_rgb(1.00f, 0.40f, 0.04f); c.set_brightness(mode_k);
                 c.set_effect("none"); break;
               case 2:  // THINKING - gold, rung 2, pulsing
-                c.set_rgb(1.00f, 0.66f, 0.12f); c.set_brightness(1.00f);
+                c.set_rgb(1.00f, 0.66f, 0.12f); c.set_brightness(mode_k);
                 c.set_effect("crucible"); break;
               case 3:  // SPEAKING - white-hot, rung 3. Restored; see above.
-                c.set_rgb(1.00f, 0.91f, 0.70f); c.set_brightness(1.00f);
+                c.set_rgb(1.00f, 0.91f, 0.70f); c.set_brightness(mode_k);
                 c.set_effect("none"); break;
+              // ERROR does NOT dim. An error must be recognisable before it is
+              // consistent, which is the same reason it is the one colour off the
+              // fire ramp — and a quiet mode is exactly when you are relying on the
+              // screen and the LED rather than on a chime you switched off.
               case 4:  // ERROR - the one colour off the ramp
                 c.set_rgb(1.00f, 0.12f, 0.05f); c.set_brightness(1.00f);
                 c.set_effect("none"); break;
               default:  // IDLE - banked coals, still breathing
-                c.set_rgb(1.00f, 0.14f, 0.02f); c.set_brightness(0.20f);
+                c.set_rgb(1.00f, 0.14f, 0.02f); c.set_brightness(0.20f * mode_k);
                 c.set_effect("bank"); break;
             }
             c.perform();
@@ -2238,15 +2683,81 @@ display:
         switch (st) {
           case 1:  name = "LISTENING"; sub = "speak - i'm here";                     break;
           case 2:  name = "THINKING";  sub = "turning it over";                      break;
-          case 3:  name = "SPEAKING";  sub = "";                                     break;
+          // A muted reply must not claim SPEAKING. The grounding rule here is that the
+          // screen cannot lie about whether sound is coming out, and a muted playback
+          // would make SPEAKING a lie about audibility. UNSPOKEN is plain English for
+          // exactly this and — unlike "SILENCED" — cannot be mistaken for a fault.
+          case 3:  name = silenced ? "UNSPOKEN" : "SPEAKING";
+                   sub  = silenced ? "the reply is on screen" : "";                  break;
           // The WORD stays "ERROR" — an error must be recognisable before it is
           // charming. The metaphor lives in the sub-line.
           case 4:  name = "ERROR";     sub = "the fire guttered - touch to rekindle"; break;
           default: name = "EMBER";     sub = "banked - touch to wake";               break;
         }
-        // The ember dot: the fire's own pilot light, at the state's temperature.
-        it.filled_circle(13, SIGIL_Y + 13, 5, accent);
-        if (st == 1 || st == 3) it.circle(13, SIGIL_Y + 13, 8, c_dim);  // halo when live
+        // At idle the sub-line names the mode, because in a quiet mode "touch to wake"
+        // is true but incomplete — what a tap will DO is unchanged, what it will SOUND
+        // like is not.
+        if (st == 0 && id(op_mode) != 0) {
+          sub = (id(op_mode) == 1) ? "no talking - replies on screen"
+                                   : "hush - silent, replies on screen";
+        }
+
+        // ---- THE MODE CHIP: the object's motif, doing work ----
+        // The hexagon is this object's motif at three physical scales already (a
+        // 6.50mm honeycomb speaker grille, a 3.2mm hex field, ~16mm hex thumb
+        // buttons). Here it is the fourth, and it is not decoration: the FILL LEVEL is
+        // the mode, read as a fuel gauge, which is the natural shape for a MONOTONIC
+        // control —
+        //
+        //     Normal  full        No talking  half        Hush  empty outline
+        //
+        // Fill level is a shape-and-luminance difference rather than a hue, so it
+        // survives distance AND stays readable to a red-green colour blind viewer,
+        // which is the rule the palette already follows. It fills from the BOTTOM
+        // because a gauge draining downward is the one reading nobody has to be
+        // taught.
+        //
+        // Cost: this band is erased and rewritten wholesale and repaints ON CHANGE
+        // ONLY, so this is ~14 horizontal_line calls where the circle was ~10. It is
+        // NOT in the flame band, so the write-once tiling invariant and the 18,240
+        // px/frame figure are untouched. (Confirmed by luna: check_tiling is
+        // band-scoped to the flame band, and paint_sigil already overdraws its own
+        // erase.)
+        {
+          // POINTY-TOP, matching the physical hex caps (vertex top and bottom, flat
+          // edges left and right). Not a free choice: the ~15mm BOOT cap and 8.5mm
+          // RESET cap are pointy-top, so a flat-top chip would read as a different
+          // shape family from the button directly below it. Note the case's own grille
+          // and back-panel fields currently RENDER flat-top while their lattice maths
+          // assumes pointy-top — that is a known bug being fixed, so match the buttons,
+          // not a current render.
+          //
+          // Geometry: R is the circumradius, so point-to-point is 2R = 14px and across
+          // flats is sqrt(3)*R ~= 12px. Full width holds across the middle half, then
+          // tapers linearly to the vertex — which is what distinguishes it from the
+          // flat-top form, where the taper is at the left and right instead.
+          const int cx = 13, cy = SIGIL_Y + 13, R = 7;
+          for (int dy = -R; dy <= R; dy++) {
+            const int a = (dy < 0 ? -dy : dy);
+            const int hw = (a * 2 <= R) ? (R * 866) / 1000        // sqrt(3)/2 * R
+                                        : ((R - a) * 1732) / 1000; // sqrt(3) * (R-a)
+            if (hw <= 0) continue;
+            const bool filled = (id(op_mode) == 0) ||
+                                (id(op_mode) == 1 && dy >= 0);
+            if (filled) {
+              it.horizontal_line(cx - hw, cy + dy, hw * 2 + 1, accent);
+            } else if (a >= R - 1 || hw <= 2) {
+              it.horizontal_line(cx - hw, cy + dy, hw * 2 + 1, c_dim);
+            } else {
+              it.draw_pixel_at(cx - hw, cy + dy, c_dim);
+              it.draw_pixel_at(cx + hw, cy + dy, c_dim);
+            }
+          }
+          if (st == 1 || st == 3) it.circle(cx, cy, 10, c_dim);   // halo when live
+          // Unread: a pushed announcement arrived while speech was muted, so the
+          // screen was the only delivery. Survives being missed; cleared by any touch.
+          if (id(unread)) it.filled_circle(W - 8, SIGIL_Y + 8, 3, c_gold);
+        }
         it.print(28, SIGIL_Y + 3, id(font_hdr), accent, name);
         // Right-aligned rather than measured off the name's width: no strlen, no
         // font metrics, and name-left / status-right is the better composition.
@@ -2325,8 +2836,16 @@ display:
           it.print(6, TELE_Y + 6, id(font_sm), c_ash, "mic idle (no capture)");
         }
         // print(), not printf() — no format specifiers, so no varargs.
-        if (id(sw_hush).state) {
-          it.print(6, TELE_Y + 24, id(font_sm), c_alarm, "hushed - ember isn't listening");
+        // ⚠️ WAS "hushed - ember isn't listening", WHICH WOULD NOW BE FALSE. Ember
+        // listens in all three modes; only the speaker changes. The line names what is
+        // actually true instead, at the one place that already repaints on a timer and
+        // costs nothing extra.
+        if (id(op_mode) == 1) {
+          it.print(6, TELE_Y + 24, id(font_sm), c_gold,
+                   "no talking - listening, replies on screen");
+        } else if (id(op_mode) == 2) {
+          it.print(6, TELE_Y + 24, id(font_sm), c_gold,
+                   "hush - listening, silent, on screen");
         } else {
           it.print(6, TELE_Y + 24, id(font_sm), c_ash, "ember - hearth spirit");
         }
@@ -2384,6 +2903,33 @@ display:
           it.filled_rectangle(161, by + bh / 2 - 2, 36, 5, can_up ? c_ink : c_ash);
           it.filled_rectangle(177, by + bh / 2 - 18, 5, 36, can_up ? c_ink : c_ash);
 
+        } else if (id(ui_mode) == 3) {
+          it.print(6, OY + 4, id(font_hdr), c_gold, "MODE");
+          it.print(W - 6, OY + 9, id(font_sm), c_dim,
+                   display::TextAlign::TOP_RIGHT, "tap away to leave");
+          // Quietest last, matching sel_mode's option order — so the row index IS the
+          // mode value and no mapping exists at the tap site.
+          const char *names[3] = {"Normal", "No talking", "Hush"};
+          const char *subs[3]  = {"speaks and chimes",
+                                  "replies on screen - chimes still ring",
+                                  "silent - replies on screen"};
+          for (int i = 0; i < 3; i++) {
+            const int iy = ${ui_pm_iy} + i * ${ui_pm_ih};
+            const bool sel = (id(ui_sel) == i);
+            const bool cur = ((int) id(op_mode) == i);
+            if (sel) {
+              it.filled_rectangle(0, iy, W, ${ui_pm_ih} - 2, c_ash);
+              it.filled_rectangle(0, iy, 4, ${ui_pm_ih} - 2, accent);
+            } else {
+              it.filled_rectangle(0, iy + ${ui_pm_ih} - 3, W, 1, c_ash);
+            }
+            it.print(12, iy + 4, id(font_body), cur ? c_gold : c_ink, names[i]);
+            it.print(12, iy + 24, id(font_sm), c_dim, subs[i]);
+            if (cur) {
+              it.print(W - 8, iy + 8, id(font_sm), c_gold,
+                       display::TextAlign::TOP_RIGHT, "NOW");
+            }
+          }
         } else {
           it.print(6, OY + 4, id(font_hdr), c_gold, "THE HEARTH");
           it.print(W - 6, OY + 9, id(font_sm), c_dim,
@@ -2392,9 +2938,14 @@ display:
           // Order is least-destructive-first, deliberately: the BOOT-only path
           // advances a cursor through these in order, so "Rekindle" is last and
           // cannot be reached by accident before three harmless options.
-          const char *names[4] = {"Hush the mic", "Bank the fire",
+          // "Hush the mic" is GONE as a row label, and deliberately: it described
+          // behaviour that no longer exists. Hush does not stop the mic.
+          const char *names[4] = {"Mode", "Bank the fire",
                                   "Rouse the touch sensor", "Rekindle"};
-          const char *subs[4]  = {"stop listening for me", "screen off - touch to wake",
+          const char *subs[4]  = {(id(op_mode) == 0) ? "normal - speaks and chimes"
+                                : (id(op_mode) == 1) ? "no talking - on screen"
+                                                     : "hush - silent",
+                                  "screen off - touch to wake",
                                   "reset the touch controller", "restart ember"};
           for (int i = 0; i < ${ui_pm_n}; i++) {
             const int iy = ${ui_pm_iy} + i * ${ui_pm_ih};
@@ -2409,9 +2960,11 @@ display:
             }
             it.print(12, iy + 4, id(font_body), fg, names[i]);
             it.print(12, iy + 24, id(font_sm), c_dim, subs[i]);
-            if (i == 0 && id(sw_hush).state) {
-              it.print(W - 8, iy + 8, id(font_sm), c_alarm,
-                       display::TextAlign::TOP_RIGHT, "ON");
+            // Row 0 is a submenu now, not a toggle, so it gets a disclosure caret
+            // rather than an ON badge.
+            if (i == 0) {
+              it.print(W - 8, iy + 8, id(font_sm), c_dim,
+                       display::TextAlign::TOP_RIGHT, ">");
             }
           }
         }
@@ -3195,6 +3748,17 @@ display:
           wake_t = 0.03f;            // asleep
           break;
       }
+      // A muted reply: the jaw is CLAMPED SHUT while the throat-swallow still
+      // travels — a creature forming words it will not voice. Free: `jaw` is already an
+      // index into three mouth shapes and the swallow is already a row window, so this
+      // is a decision, not a drawing. Zero extra pixels, zero extra runs.
+      //
+      // Note what is deliberately NOT changed: the eye, the startle strength and the
+      // wake curve are all untouched, because every mode listens. An earlier draft
+      // damped those for a mode that refused to listen; that mode no longer exists,
+      // and damping them now would misreport the microphone.
+      if (silenced) jaw = 0;
+
       // The startle, on ANY touch.
       //
       // An earlier draft graded this: hard startle if the tap landed ON the wyrm, a
@@ -3383,9 +3947,9 @@ display:
           "NC is not a knob: the per-column arrays are literal [60] and the read index "
           "runs 0..59 regardless. Below 60 reads uninitialised stack; above 60 writes "
           "past the arrays. Resize the arrays too, or leave NC alone.");
-      const int GRATE = 3;
+      const int GRATE = 8;                  // one course of hex cells; was 3 solid rows
       const int base_row = FLAM_H - GRATE;
-      const int MAXH = FLAM_H - 8;
+      const int MAXH = FLAM_H - 12;         // 64. WAS 68 -- the deeper grate's price.
       // >>> IF YOU TUNE GRATE OR MAXH, READ THIS. <<<
       // Flames rise from base_row, so the tallest reaches row base_row-MAXH. Rows below
       // FUSE_H belong to the progress fuse, which is painted by an EARLIER branch that
@@ -3405,8 +3969,14 @@ display:
       // line for line and carries the identical assertion — the harness is only worth
       // running while it is the same code, so this change had to avoid restructuring.
       //
-      // Slack at GRATE=3 is one row (68+4 <= 73). Raise GRATE to 8 and MAXH must drop
-      // to 64 — about 6% shorter flames, which is the real cost of a deeper grate.
+      // AT GRATE=8 THERE IS ZERO SLACK: 64+4 == 68 == base_row, so the tallest flame
+      // ends exactly on the fuse boundary and one more row of MAXH is a silent clip.
+      // MAXH=65 PASSES check_tiling AND IS STILL WRONG -- the fuse branch covers the
+      // stolen pixel, so the write-once invariant is satisfied by the very mechanism
+      // that hides the defect. That is what this assert is for; a green harness run
+      // is not evidence here. Measured: 64 is the largest correct value.
+      // Going back to a shallower grate? Raise MAXH in the same commit or the fire
+      // just stays 6% short with nothing said.
       static_assert(MAXH + FUSE_H <= base_row,
                     "MAXH is too tall for GRATE: the tallest flame reaches into the fuse "
                     "rows and will be silently clipped flat. Lower MAXH or lower GRATE.");
@@ -3486,7 +4056,53 @@ display:
           }
           continue;
         }
-        if (r >= base_row) { it.horizontal_line(0, y, W, c_ash); continue; }
+        if (r >= base_row) {
+          // ---- HEX-LATTICE GRATE: one course of cells, the wyrm sleeping on it ----
+          //
+          // Rendered, eyeballed and tiling-checked before it was written here; the numbers
+          // and the PPMs are in luna's ember-backview/fw2/. R=4 gives an 8px-tall course
+          // (exactly GRATE, by the derivation below), sqrt(3)*R = 6.93px across flats,
+          // WEB px of material between neighbours. Pointy-top, matching the mode chip in
+          // the sigil band and the physical hex thumb caps -- a flat-top course here would
+          // read as a different shape family from the button it sits under.
+          //
+          // COST, measured, not estimated: +392..+454 runs/frame across all nine states and
+          // px/frame UNCHANGED at 18,240. Runs barely bill -- horizontal_line is a bare loop
+          // over draw_pixel_at with no span fast-path, so px dominates and px is invariant
+          // here by construction. The whole price of this lattice is the 5 rows of flame
+          // ceiling that GRATE 3->8 costs, which is why MAXH had to drop to 64.
+          //
+          // GRATE is NOT a cost lever: taller hexes are proportionally wider, so total runs
+          // ~= 2 * (band area / hex area), scale-invariant. Measured flat at GRATE 6/8/12/16.
+          //
+          // Write-once holds per row: the loop emits [ash gap][bg cell] pairs left to right,
+          // each starting where the last ended, plus one ash tail. A cell that rounds away to
+          // zero width `continue`s WITHOUT advancing x, so its span is covered by the next
+          // gap rather than skipped -- that is the case that would break the flame band's
+          // tiling invariant, and it is why the tail is unconditional.
+          const float HR = 0.5f * (float) GRATE;          // hex radius == half the course
+          const float WEB = 2.0f;                         // material between cells, px
+          const float hw_full = 0.8660254f * HR;          // sqrt(3)/2 * R, half-width at waist
+          const float pitch = 2.0f * hw_full + WEB;
+          const float dy = fabsf(((float) (r - base_row)) + 0.5f - 0.5f * (float) GRATE);
+          float hw = (dy <= 0.5f * HR) ? hw_full          // flat waist
+                                       : hw_full * (HR - dy) / (0.5f * HR);   // tapered point
+          if (hw < 0.0f) hw = 0.0f;
+          int x = 0;
+          for (int ci = 0; ci < 128; ci++) {
+            const float cx = 0.5f * pitch + (float) ci * pitch;
+            int h0 = (int) (cx - hw + 0.5f), h1 = (int) (cx + hw + 0.5f);
+            if (h0 < 0) h0 = 0;
+            if (h1 > W) h1 = W;
+            if (h0 >= W) break;
+            if (h1 <= h0) continue;                       // cell rounds away; x deliberately unmoved
+            if (h0 > x) it.horizontal_line(x, y, h0 - x, c_ash);
+            it.horizontal_line(h0, y, h1 - h0, c_bg);
+            x = h1;
+          }
+          if (x < W) it.horizontal_line(x, y, W - x, c_ash);
+          continue;
+        }
         const int hup = base_row - r;
         const int dr = r - DGN_Y;
         const bool drow_live = (dr >= 0 && dr < DGN_H);
@@ -3713,6 +4329,9 @@ display:
       else if (pend & 0x20) { pend &= ~0x20; if (id(ui_mode) != 0) paint_overlay(); }
       else if (pend & 0x08) { pend &= ~0x08; paint_telem();  }
       else if (id(ui_mode) != 0) {
+        // ui_mode 3 (the mode submenu) covers the same region as the power menu, so it
+        // falls into the same branch: the scroll band must not repaint under it and the
+        // fire is suspended. Only ui_mode == 1 (volume) keeps the fire alive.
         // An overlay owns the scroll band, so the scroll band must not repaint
         // under it; and in POWER mode the overlay owns the flame band too, so the
         // fire is suspended. Dropping both here is what keeps the persistent
@@ -3827,7 +4446,37 @@ touchscreen:
             return;
           }
 
-          // normal: touch-to-talk, exactly as before
+          if (id(ui_mode) == 3) {
+            // mode submenu: same geometry and the same dead zones as the power menu,
+            // so the shared ui_pm_ substitutions keep "where it's drawn" and "where
+            // it's tappable" from drifting apart.
+            //
+            // ⚠️ DO NOT write a dollar-brace expression in a lambda COMMENT. In
+            // ESPHome 2026.7.x those are evaluated as jinja before the C++ ever
+            // exists, so prose naming a substitution with that syntax is a hard
+            // TemplateSyntaxError — and the error quotes the WHOLE lambda, which makes
+            // it read as a C++ fault.
+            const int rel = ty - ${ui_pm_iy};
+            const int row = rel / ${ui_pm_ih};
+            if (rel >= 0 && row < 3 && (rel % ${ui_pm_ih}) < ${ui_pm_ih} - 2) {
+              id(ui_sel) = row;
+              id(ui_gen)++;
+              id(ui_action) = 10;
+            } else {
+              id(ui_action) = 4;
+            }
+            return;
+          }
+
+          // Any touch clears the unread marker: you are demonstrably in the room.
+          if (id(unread)) { id(unread) = false; id(ui_gen)++; }
+
+          // normal: touch-to-talk, exactly as before — AND IN EVERY MODE. The three
+          // modes differ only in what leaves the speaker, so there is no mode in which
+          // a tap means something else, and no "why did nothing happen" state to
+          // explain. An earlier draft needed a two-tap escalation here for a mode that
+          // refused to listen; that mode no longer exists and this stays a single
+          // gesture with a single meaning.
           id(ui_action) = 3;
           // Strike the coal under your finger. 60 flame columns across 240px, so
           // x/4 is the column. Fired here — not in ui_dispatch — because this is
@@ -3941,6 +4590,14 @@ voice_assistant:
         id(said_text) = x;
         id(tts_est_ms) = ${tts_lead_ms}u + (uint32_t) x.size() * ${tts_ms_per_char}u;
         if (id(is_announce)) id(heard_text).clear();
+        // A pushed announcement in a speech-muted mode is delivered ONLY by the
+        // screen, so it must survive nobody being in the room. Cleared by any touch.
+        //
+        // NEVER QUEUED AS AUDIO. A doorbell announcement blurting twenty minutes later
+        // because the mode changed is worse than either showing it or dropping it, and
+        // it would re-create the exact failure of a second item entering the single
+        // announcement pipeline behind a stale one.
+        if (id(is_announce) && id(op_mode) >= 1) id(unread) = true;
         id(scroll_gen)++;
     # Herald, for PUSHED speech only. A reply needs no herald — you just spoke, so
     # you are already listening.

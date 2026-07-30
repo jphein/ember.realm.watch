@@ -119,6 +119,63 @@ detector *still* said `0.000`.
 > **There is now a permanent self-test doing exactly that, and it must report
 > `1467.842 mm³`. If it ever reports zero, the checker is broken — not the parts.**
 
+### 7. The reboot that verified the firmware also uninstalled it
+
+The three-mode firmware was flashed OTA, and a hardware probe then rebooted the device to
+check that the mode survived a power cycle. It did not: the mode select came back reading
+`Normal` while the `Hush` switch still read `ON`. A real defect — the select was
+`restore_value: false` with nothing re-syncing it from the persisted `op_mode`.
+
+A fix was written, flashed, and the same probe re-run. **It reported the identical
+failure.** The obvious reading — "the fix doesn't work" — was wrong, and the reason is
+that the fix *was no longer on the device*:
+
+```
+[W][safe_mode:094]: OTA rollback detected! Rolled back from partition 'app1'
+[W][safe_mode:094]:  The device reset before the boot was marked successful
+```
+
+`safe_mode` marks a boot good after **60 s**, and ESP-IDF rolls an unvalidated OTA image
+back to the previous partition if the device resets first. The probe rebooted ~12 s after
+upload. **The act of testing reverted the thing under test**, and the second measurement
+was taken against the first binary — so it faithfully reproduced the bug the fix had
+already removed.
+
+Two claims were available and both would have been false: *"the fix doesn't work"*
+(measured the wrong binary) and, had the probe happened to pass, *"the fix works"* (also
+the wrong binary). The rollback was printed in the log the whole time.
+
+> **After an OTA, read back what is running before concluding anything from its
+> behaviour.** `[I][app:151] compiled on <timestamp>` must match the `build_time_str` the
+> upload reported. Then wait for `[I][safe_mode:142] Boot seems successful` before any
+> reboot-based test — until that line appears the device can silently revert underneath
+> you.
+
+Same family as the rest of this file, one turn further out: not an invariant satisfied by
+the wrong mechanism, but a *test* satisfied by the wrong artifact. `esphome upload` ships
+a stale binary; a rollback ships a stale binary *after* a correct upload.
+
+### 8. The check's scope was one file; the claim's scope was the system
+
+The mode patch carried a self-check that nothing still read `sw_hush` as state, and it
+passed — proving all six touchpoints moved **inside `ember-satellite.yaml`**. The widened
+meaning of `Hush` was then reported as handled.
+
+It was not. Four tiles, one conditional card and two `mdi:microphone-off` icons in
+`homeassistant/dashboards/ember-hearth.dashboard.json`, plus two sections of
+`docs/home-assistant.md`, still told the reader that Hush *"gates the talk gesture"* and
+that *"tapping the screen will not start a conversation"*. Every one became false the
+moment the firmware booted — the same lie the spec had just deleted a dark-LED branch and
+a telemetry string to avoid, surviving on a bigger screen.
+
+An anchor assertion can only fail in a file it is pointed at. The count was also wrong on
+the first attempt: the guard expected one stale icon and found two, because a fourth Hush
+tile is named plainly `"Hush"` and only its *icon* carried the old meaning.
+
+> **When a control changes meaning, the blast radius is every artifact that describes it,
+> not every artifact that reads it.** Grep the entity id across the whole repo — docs,
+> dashboards, packages — not just the firmware that implements it.
+
 ---
 
 ---

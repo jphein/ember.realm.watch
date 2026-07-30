@@ -79,7 +79,7 @@
        ],
        "card": {
         "type": "markdown",
-        "content": "\ud83e\udd2b **Ember is hushed.** Tapping the screen will *not* start a conversation \u2014 hush gates the talk gesture, it doesn't mute the microphone or change the audio path, so the device will look and feel entirely healthy while ignoring you.\n\nAnnouncements pushed from HA still play. Turn hush off below to make Ember listen again.",
+        "content": "\ud83e\udd2b **Ember is hushed.** Hush is the quietest of three modes \u2014 it stops *sound*, not listening. Tap the screen and Ember still hears you, still thinks, and still answers; the reply arrives **on screen**, headed `UNSPOKEN`, with the sub-line *the reply is on screen*. Chimes are silent too.\n\nIt does **not** mute the microphone and does **not** gate the talk gesture \u2014 that was the old meaning of this switch and it changed on 2026-07-30. Pushed announcements still arrive as text and leave an unread pip until you touch the screen.\n\nSet **Mode** to `Normal` to give Ember its voice back, or `No talking` to keep chimes without speech.",
         "grid_options": {
          "columns": "full"
         },
@@ -413,9 +413,21 @@
       },
       {
        "type": "tile",
+       "entity": "select.ember_satellite_ember_mode",
+       "name": "Mode \u00b7 how much noise Ember may make",
+       "icon": "mdi:hexagon-multiple",
+       "color": "amber",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ]
+      },
+      {
+       "type": "tile",
        "entity": "switch.ember_satellite_hush",
-       "name": "Hush \u00b7 ignore the talk gesture",
-       "icon": "mdi:microphone-off",
+       "name": "Hush \u00b7 no speech, no chimes",
+       "icon": "mdi:volume-off",
        "color": "red",
        "features": [
         {
@@ -1051,8 +1063,20 @@
       },
       {
        "type": "tile",
+       "entity": "select.ember_satellite_ember_mode",
+       "name": "Mode \u00b7 how much noise Ember may make",
+       "icon": "mdi:hexagon-multiple",
+       "color": "amber",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ]
+      },
+      {
+       "type": "tile",
        "entity": "switch.ember_satellite_hush",
-       "name": "Hush \u00b7 gates the talk gesture",
+       "name": "Hush \u00b7 no speech, no chimes",
        "color": "red",
        "features": [
         {
@@ -1222,8 +1246,12 @@
          "name": "Wake word"
         },
         {
+         "entity": "select.ember_satellite_ember_mode",
+         "name": "Mode (Normal / No talking / Hush)"
+        },
+        {
          "entity": "switch.ember_satellite_hush",
-         "name": "Hush (gates the talk gesture)"
+         "name": "Hush (no speech, no chimes)"
         },
         {
          "type": "section",
@@ -1456,9 +1484,21 @@
       },
       {
        "type": "tile",
+       "entity": "select.ember_satellite_ember_mode",
+       "name": "Mode \u00b7 how much noise Ember may make",
+       "icon": "mdi:hexagon-multiple",
+       "color": "amber",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ]
+      },
+      {
+       "type": "tile",
        "entity": "switch.ember_satellite_hush",
        "name": "Hush",
-       "icon": "mdi:microphone-off",
+       "icon": "mdi:volume-off",
        "color": "red",
        "features": [
         {

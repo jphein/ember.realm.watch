@@ -467,9 +467,9 @@ static void paint_flame_frame() {
   // by `x / CW` and size the arrays by NC, and reword :1922 either way). Flagged to the
   // firmware owner rather than changed here.
   const int NC = 60, CW = 4;
-  const int GRATE = 3;
+  const int GRATE = 8;                  // one course of hex cells; was 3 solid rows
   const int base_row = FLAM_H - GRATE;
-  const int MAXH = FLAM_H - 8;
+  const int MAXH = FLAM_H - 12;         // 64. WAS 68 -- the deeper grate's price.
   // Flames rise from base_row and the tallest reaches row base_row-MAXH. Rows below
   // FUSE_H belong to the progress fuse, which is painted by an EARLIER branch that
   // `continue`s — so if MAXH is too tall the fire does not overflow, it is silently
@@ -482,8 +482,9 @@ static void paint_flame_frame() {
   // static_assert rather than a runtime check, deliberately: it needs nothing hoisted out
   // of this body, so the harness stays structurally identical to the lambda in
   // ember-satellite.yaml — the only property that makes it worth running — and a
-  // compile-time failure cannot be skipped, absorbed or ignored. At GRATE=3 there is one
-  // row of slack (68+4 <= 73). At GRATE=8, MAXH must be <= 64.
+  // compile-time failure cannot be skipped, absorbed or ignored. AT GRATE=8 (shipped)
+  // THERE IS ZERO SLACK: 64+4 == 68 == base_row. MAXH=65 passes check_tiling and is
+  // still wrong -- the fuse covers the stolen pixel. LOOK AT THE PPM.
   static_assert(MAXH + FUSE_H <= base_row,
                 "MAXH is too tall for GRATE: the tallest flame reaches into the fuse "
                 "rows and will be silently clipped flat. Lower MAXH or lower GRATE.");
@@ -565,7 +566,53 @@ static void paint_flame_frame() {
       }
       continue;
     }
-    if (r >= base_row) { it.horizontal_line(0, y, W, c_ash); continue; }
+    if (r >= base_row) {
+      // ---- HEX-LATTICE GRATE: one course of cells, the wyrm sleeping on it ----
+      //
+      // Rendered, eyeballed and tiling-checked before it was written here; the numbers
+      // and the PPMs are in luna's ember-backview/fw2/. R=4 gives an 8px-tall course
+      // (exactly GRATE, by the derivation below), sqrt(3)*R = 6.93px across flats,
+      // WEB px of material between neighbours. Pointy-top, matching the mode chip in
+      // the sigil band and the physical hex thumb caps -- a flat-top course here would
+      // read as a different shape family from the button it sits under.
+      //
+      // COST, measured, not estimated: +392..+454 runs/frame across all nine states and
+      // px/frame UNCHANGED at 18,240. Runs barely bill -- horizontal_line is a bare loop
+      // over draw_pixel_at with no span fast-path, so px dominates and px is invariant
+      // here by construction. The whole price of this lattice is the 5 rows of flame
+      // ceiling that GRATE 3->8 costs, which is why MAXH had to drop to 64.
+      //
+      // GRATE is NOT a cost lever: taller hexes are proportionally wider, so total runs
+      // ~= 2 * (band area / hex area), scale-invariant. Measured flat at GRATE 6/8/12/16.
+      //
+      // Write-once holds per row: the loop emits [ash gap][bg cell] pairs left to right,
+      // each starting where the last ended, plus one ash tail. A cell that rounds away to
+      // zero width `continue`s WITHOUT advancing x, so its span is covered by the next
+      // gap rather than skipped -- that is the case that would break the flame band's
+      // tiling invariant, and it is why the tail is unconditional.
+      const float HR = 0.5f * (float) GRATE;          // hex radius == half the course
+      const float WEB = 2.0f;                         // material between cells, px
+      const float hw_full = 0.8660254f * HR;          // sqrt(3)/2 * R, half-width at waist
+      const float pitch = 2.0f * hw_full + WEB;
+      const float dy = fabsf(((float) (r - base_row)) + 0.5f - 0.5f * (float) GRATE);
+      float hw = (dy <= 0.5f * HR) ? hw_full          // flat waist
+                                   : hw_full * (HR - dy) / (0.5f * HR);   // tapered point
+      if (hw < 0.0f) hw = 0.0f;
+      int x = 0;
+      for (int ci = 0; ci < 128; ci++) {
+        const float cx = 0.5f * pitch + (float) ci * pitch;
+        int h0 = (int) (cx - hw + 0.5f), h1 = (int) (cx + hw + 0.5f);
+        if (h0 < 0) h0 = 0;
+        if (h1 > W) h1 = W;
+        if (h0 >= W) break;
+        if (h1 <= h0) continue;                       // cell rounds away; x deliberately unmoved
+        if (h0 > x) it.horizontal_line(x, y, h0 - x, c_ash);
+        it.horizontal_line(h0, y, h1 - h0, c_bg);
+        x = h1;
+      }
+      if (x < W) it.horizontal_line(x, y, W - x, c_ash);
+      continue;
+    }
 
     const int hup = base_row - r;
     const int dr = r - DGN_Y;
