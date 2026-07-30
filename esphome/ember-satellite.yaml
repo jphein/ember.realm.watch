@@ -2724,23 +2724,39 @@ display:
         // band-scoped to the flame band, and paint_sigil already overdraws its own
         // erase.)
         {
-          // POINTY-TOP, matching the physical hex caps (vertex top and bottom, flat
-          // edges left and right). Not a free choice: the ~15mm BOOT cap and 8.5mm
-          // RESET cap are pointy-top, so a flat-top chip would read as a different
-          // shape family from the button directly below it. Note the case's own grille
-          // and back-panel fields currently RENDER flat-top while their lattice maths
-          // assumes pointy-top — that is a known bug being fixed, so match the buttons,
-          // not a current render.
+          // ---- FLAT-TOP, and the orientation is structural rather than styling ----
           //
-          // Geometry: R is the circumradius, so point-to-point is 2R = 14px and across
-          // flats is sqrt(3)*R ~= 12px. Full width holds across the middle half, then
-          // tapers linearly to the vertex — which is what distinguishes it from the
-          // flat-top form, where the taper is at the left and right instead.
+          // ⚠️ An earlier revision of this block said POINTY-top "matching the physical
+          // hex caps". That was wrong about the caps, and it is corrected here rather
+          // than quietly changed, because a wrong reason is what licenses a wrong
+          // change later.
+          //
+          // The case carries BOTH orientations on purpose:
+          //   FIELDS (stand grille, back panel) are POINTY-top — RegularPolygon(R, 6,
+          //     rotation=30), which is the honeycomb lattice pitch.
+          //   CAPS are FLAT-top — RegularPolygon(R, 6), rotated 30 degrees OUT of the
+          //     lattice, because the pad is a LIVING HINGE that must stay attached
+          //     along its +Y edge. A pointy-top hex has a VERTEX at +Y, and hinging on
+          //     a point is a tear, not a hinge. Flat-top puts a full edge there.
+          //
+          // So the rule is not one orientation for the object — it is MATCH WHAT THE
+          // ELEMENT REPRESENTS. This chip stands for the physical button beneath it, so
+          // it is FLAT-top like the cap. The volume overlay's hearth stones are a FIELD
+          // of hexes and should be POINTY-top like the grille.
+          //
+          // Geometry: R is the circumradius, so point-to-point is the HORIZONTAL extent
+          // (2R, 15px here) and across-flats is the VERTICAL one (sqrt(3)*R, ~13px) —
+          // transposed from the pointy-top form. Half-width tapers as R - |dy|/sqrt(3),
+          // which is what produces the flat top and bottom edges.
+          //
+          // Sized for legibility at 240px rather than proportionally to the cap,
+          // deliberately: the shipped caps are 9.01mm and 6.58mm across flats and may
+          // still grow, so a proportional chip would need revisiting and this will not.
           const int cx = 13, cy = SIGIL_Y + 13, R = 7;
-          for (int dy = -R; dy <= R; dy++) {
+          const int H = (R * 866) / 1000;              // sqrt(3)/2 * R — vertical half
+          for (int dy = -H; dy <= H; dy++) {
             const int a = (dy < 0 ? -dy : dy);
-            const int hw = (a * 2 <= R) ? (R * 866) / 1000        // sqrt(3)/2 * R
-                                        : ((R - a) * 1732) / 1000; // sqrt(3) * (R-a)
+            const int hw = R - (a * 1000) / 1732;      // R - |dy| / sqrt(3)
             if (hw <= 0) continue;
             const bool filled = (id(op_mode) == 0) ||
                                 (id(op_mode) == 1 && dy >= 0);
