@@ -852,6 +852,8 @@ footer p{margin:.4rem 0}
   <h3 style="margin-top:2rem">Two constraints the geometry imposes</h3>
   <ul class="spec">
     <li><span class="k">Glass</span><span class="v">The touch panel spans the full 50&nbsp;mm PCB width<small>So the shell cannot clamp the long edges at all — there is no bezel to grip. Only the two ~8.2&nbsp;mm strips at the short ends are available, which is, conveniently, exactly where the screw holes are.</small></span></li>
+    <li><span class="k">Screws</span><span class="v">Heat-set inserts are ruled out by measurement, not taste<small>The vendor's 5.60&nbsp;mm pad caps the boss at 5.40, and an M3 insert's 4.1&nbsp;mm bore leaves a 0.6&nbsp;mm wall that splits. So it is 4× M3 self-tappers from the back — no screw heads on the face anyone looks at.</small></span></li>
+    <li><span class="k">Stand</span><span class="v">The 15° desk cradle is also the speaker cabinet<small>A sealed ~26&nbsp;cm³ volume behind the driver, which is the difference between a speaker in a box and a speaker in a hole. One part doing two jobs because the geometry allowed it.</small></span></li>
     <li><span class="k">LED</span><span class="v">The WS2812 fires <em>backwards</em><small>A closed back would hide Ember's status glow completely. So the diffuser is a separate printed part rather than a feature of the shell — the light has to get out of the box it is pointing into.</small></span></li>
   </ul>
 
@@ -864,14 +866,44 @@ footer p{margin:.4rem 0}
     </p>
   </div>
 
+  <h3 style="margin-top:2rem">The verifier was broken first</h3>
+  <p>
+    Every board dimension is <strong>measured from the vendor's 3D solid</strong> rather than
+    transcribed from a datasheet table, and both shell parts are checked against it by boolean
+    intersection. The first version of that check reported a confident <em>clear</em> on both
+    parts and meant nothing at all.
+  </p>
+  <p>
+    The vendor solid lives in its own coordinate frame; the parts were in the board's. The two
+    never overlapped in space, so <strong>every boolean returned empty and every result was
+    a pass.</strong> It surfaced only because someone deliberately sank the bezel 2&nbsp;mm into
+    the board — and the detector still said <code>0.000</code>.
+  </p>
   <div class="note">
-    <b>Status: designed against the vendor STEP, first print pending.</b> The clearance check is
-    not confirmed, and the front mic-port position is inferred from the vendor drawing rather
-    than measured from the STEP. So nothing on this page is claimed as a fitted result — if the
-    first print reveals an interference, that is a thing that can happen, not a thing that
-    contradicts anything said here. Full geometry, wall thicknesses and print settings are in
+    <b>A test that cannot fail is not a test.</b> The board is now transposed into the parts'
+    frame with an assertion on the resulting bounding box, and that deliberately-sunk-bezel
+    self-test runs on every rebuild and reports <code>1467.8&nbsp;mm³</code>. The working
+    booleans then immediately caught three real defects — including a bezel that would have
+    <strong>rested on the capacitive glass</strong>, which is how you crack a display.
+  </div>
+  <p>
+    That is the same shape as the audio bugs above: not a wrong answer, but a check whose
+    <em>name</em> promised something it wasn't doing. The three defects it found afterwards are
+    the argument for fixing tests before trusting them.
+  </p>
+
+  <div class="note">
+    <b>Status: boolean-verified at 0.000&nbsp;mm³ interference against the vendor solid —
+    first print pending.</b> That is a CAD result, not a fitted one: it says the geometry does
+    not intersect, not that a printed part slides on. Tolerance stack-up, shrinkage and
+    filament behaviour are exactly what a first print is for. Five parts, none needing
+    supports, in
+    <a href="https://github.com/jphein/ember.realm.watch/tree/main/enclosure"
+       target="_blank" rel="noopener"><code>enclosure/</code></a> — with the
+    <a href="https://github.com/jphein/ember.realm.watch/blob/main/enclosure/PRINT-SHEET.md"
+       target="_blank" rel="noopener">print sheet</a> and the
     <a href="https://github.com/jphein/ember.realm.watch/blob/main/docs/enclosure.md"
-       target="_blank" rel="noopener">the enclosure notes</a>.
+       target="_blank" rel="noopener">design notes</a>.
   </div>
 </section>
 
