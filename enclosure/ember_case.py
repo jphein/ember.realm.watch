@@ -13,6 +13,7 @@ Every board number below was MEASURED from the vendor STEP solid, not transcribe
 from a datasheet table.  See VERIFIED{} for the provenance of each.
 """
 from build123d import *
+import wyrm_spans as _W
 import os, math
 
 # ============================================================================
@@ -259,6 +260,7 @@ SLOT_FLOOR = 24.0
 #     both cues that read at grille scale and costs no acoustics.
 #
 # Solved for 673 mm2 — identical to the plain array it replaces. See the assert below.
+WYRM_ON       = False    # False restores the plain raked array
 GRILLE_RAKE   = 24.0     # degrees back from vertical, from lyra's motif
 GRILLE_N      = 9
 GRILLE_W0     = 3.20     # widest slot, at the head
@@ -372,7 +374,30 @@ def desk_stand():
                 for w in _widths)
     assert _web >= 0.85, f"grille web {_web:.2f}mm is too thin to print"
     assert _open >= 640, f"grille open area {_open:.0f}mm2 is below the driver's radiating area"
-    p -= (field & bars)
+    # THE WYRM IS A SOLID ISLAND IN THE SLOT FIELD.
+    #
+    # Not a hole shaped like a dragon — material shaped like one, with the slots cut
+    # everywhere except inside it. It therefore reads as a figure standing in the grille,
+    # the same way the creature sits in the fire on the screen.
+    #
+    # Traced from esphome/art/dragon.py by tools/make_wyrm_spans.py, so it is the SAME
+    # curves the device renders and the website traces — one creature, three renderings.
+    # Re-pose the wyrm there and this follows.
+    #
+    # THE COST, stated because it is real: the silhouette is 204.9mm2 and blocks ~156mm2
+    # of slot, taking open area 673 -> ~517mm2. That is 77% of the plain array and 74% of
+    # the driver's ~700mm2 effective radiating area. A dragon on the case costs about a
+    # quarter of the grille. Setting WYRM_ON = False restores the plain array exactly.
+    if WYRM_ON:
+        _fx = ST_W/2 - (DRIVER_W - 2*GRILLE_INSET)/2
+        _fz = dz - (DRIVER_H - 2*GRILLE_INSET)/2 + ((DRIVER_H - 2*GRILLE_INSET) - _W.WYRM_H)/2
+        wyrm = None
+        for (rx, ry, rw, rh) in _W.WYRM:
+            b = bx(_fx+rx, _fx+rx+rw, -3.0, ST_WALL+4.0, _fz+ry, _fz+ry+rh)
+            wyrm = b if wyrm is None else wyrm + b
+        p -= ((field & bars) - wyrm)
+    else:
+        p -= (field & bars)
     # USB-C WELL. The plug enters the board's bottom short edge and points down-and-
     # forward along the slab's own axis, so it needs a cavity UNDER the slot rather than
     # behind it. Spans the full height between the stand floor and the new slot floor.
