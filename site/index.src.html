@@ -187,6 +187,31 @@ figcaption{
   margin-top:.6rem; line-height:1.55;
 }
 
+/* Enclosure figures. `figure img` above sets image-rendering:pixelated, which is
+   correct for the device art — that IS pixel art, and smoothing it would misrepresent
+   a 240x320 panel. The case hero is a smooth shaded render, so it needs the opposite. */
+.fig img{image-rendering:auto}
+
+/* Line art. The SVG is stroked with `currentColor`, so `color` here is what draws it —
+   which is the entire reason these are inlined rather than <img>: CSS cannot cross an
+   <img> boundary, and a raster render would be frozen to whichever theme produced it.
+   Set the colour once and both themes are handled. */
+.linework{
+  color:var(--gold);
+  border:1px solid var(--edge); border-radius:10px; background:#0A0604;
+  padding:1.2rem; box-shadow:var(--shadow);
+}
+@media (prefers-color-scheme:light){
+  .linework{background:var(--panel); color:var(--flame)}
+}
+:root[data-theme="light"] .linework{background:var(--panel); color:var(--flame)}
+:root[data-theme="dark"]  .linework{background:#0A0604; color:var(--gold)}
+.linework svg{display:block; width:100%; height:auto}
+/* The exploded view is portrait — the camera was moved off-axis so the parts read as
+   plates rather than edges, and that costs aspect ratio. Cap it so a tall figure
+   cannot push the rest of the section off the screen on a laptop. */
+.linework-tall svg{max-height:78vh; margin:0 auto}
+
 /* ── chimes ────────────────────────────────────────────── */
 .chimes{display:grid; grid-template-columns:repeat(auto-fit,minmax(148px,1fr)); gap:.6rem; margin:1.8rem 0 0}
 .chime{
@@ -899,12 +924,57 @@ footer p{margin:.4rem 0}
     filament behaviour are exactly what a first print is for.
   </div>
 
+  <p>
+    One dimension could not be settled from the vendor model at all, and it happened to be the
+    one the whole design turns on. <b>The STEP file contains no small holes — not a single
+    via</b>, because the CAD export suppressed them. So the absence of a microphone port in the
+    model was not evidence that there isn't one. The case was built to work either way: a
+    ⌀2.40&nbsp;mm front port with an acoustic collar, <em>and</em> a ⌀3.00&nbsp;mm relief through
+    the back shell behind the microphone.
+  </p>
+
+  <p>
+    <b>That has since been confirmed by looking at the board: the microphone fires forward,
+    through the front face, and the hole is visible in the product photos.</b> So the front port
+    is the working one and the rear relief is redundant — kept, because it costs nothing and the
+    same board is resold under several brands. Five seconds of eyeballing settled what a
+    17&nbsp;MB CAD model could not, which is worth remembering the next time a model's silence
+    reads as an answer.
+  </p>
+
+  <figure class="fig">
+    <div class="linework linework-tall">{{SVG:case_exploded}}</div>
+    <figcaption>
+      Bezel, board, back shell, diffuser — separated along the real assembly axis, so the
+      figure is a statement about how it goes together rather than an arrangement. The shell's
+      cutouts are visible from here: USB-C and its cable relief on the near edge, microSD
+      opposite, vents top and bottom, and the boss the diffuser seats into.
+    </figcaption>
+  </figure>
+
+  <figure class="fig">
+    <img src="{{ASSET:case_hero}}" width="1400" height="788" loading="lazy"
+         alt="The assembled case standing in its cradle, seen from behind: vent slots above and
+              below a circular window for the rear-firing LED, and the speaker grille in the
+              stand below.">
+    <figcaption>
+      From behind, because that is where the design decisions are. The stand is not a stand
+      with a speaker in it — it <em>is</em> the speaker enclosure, a sealed ~26&nbsp;cm³
+      chamber. The circular window is for an LED that fires backwards into a closed box.
+    </figcaption>
+  </figure>
+
   <h3>Print it</h3>
   <p>
     Five parts, <b>none needing supports</b>. The orientation column is the load-bearing one —
     every part has a face that wants to be on the bed, and the overhangs are chamfered to
     self-support in that orientation only.
   </p>
+
+  <figure class="fig">
+    <div class="linework">{{SVG:case_print_layout}}</div>
+    <figcaption>Each part in the orientation it prints in.</figcaption>
+  </figure>
 
   <div class="tablewrap">
     <table>

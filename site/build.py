@@ -101,9 +101,20 @@ INLINE_SVG = {
     # The hero's keyframes live inside it and CSS cannot cross an <img> boundary.
     # This is the only asset that earns inlining.
     "wyrm_startle": WEBART / "wyrm-startle.svg",
+    # Enclosure line art — inlined so `currentColor` resolves against the page.
+    "case_exploded":     Path(__file__).resolve().parent / "renders" / "case-exploded.svg",
+    "case_print_layout": Path(__file__).resolve().parent / "renders" / "case-print-layout.svg",
 }
 
 INLINE = {}          # nothing else earns it
+
+# Enclosure figures. The technical views are SVG stroked with `currentColor`, which
+# is the whole reason they are INLINE_SVG below rather than <img>: a raster render is
+# locked to the theme it was made in — dark line art vanishes on a dark page and light
+# line art vanishes on a light one, and there is no single PNG that satisfies both.
+# currentColor inherits whatever the page is using. CSS cannot cross an <img>
+# boundary, so an <img> would freeze them.
+RENDERS = HERE / "renders"
 
 COPY = {
     # lyra's web art, referenced by URL. wyrm-states.svg is a CSS *background*, and CSS
@@ -114,6 +125,9 @@ COPY = {
     # device art, as <img> figures — below the fold, so fetched rather than inlined
     "wyrm_startle_shipped": ART / "wyrm_startle_shipped.png",
     "dragon_sheet":         ART / "dragon_sheet.png",
+    # The one beauty shot. A shaded raster is right here — it is a photograph-like
+    # figure, not line art, and nothing about it needs to change with the theme.
+    "case_hero":            Path(__file__).resolve().parent / "renders" / "case-hero.png",
     # Chimes. chime_timer omitted (largest, musically least distinct — a longer
     # `announce`). chime_listening INCLUDED though the device never plays it: hearing
     # the tone that was deliberately silenced is the point of that section.
