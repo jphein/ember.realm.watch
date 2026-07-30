@@ -72,6 +72,14 @@ substitutions:
   # reports is_running(), the fire gutters and the telemetry band says so.
   stall_ms: "300"
 
+  # Chime on THINKING. 0 = off (default), 1 = on. See the chime script for why this
+  # is a switch and why `listening` deliberately isn't one.
+  chime_on_thinking: "0"
+
+  # How long the touch spark takes to settle, ms. Long enough to read as a flare
+  # rather than a flicker; short enough that it is gone before the pipeline answers.
+  spark_ms_len: "500"
+
   # ---- text wrapping (character budgets, estimated from Roboto's average
   # advance — NOT measured. Feed it a long reply and watch the right edge.) ----
   cpl_body: "30"        # chars per line at font_body (Roboto 15)
@@ -128,6 +136,71 @@ esphome:
               (void) ts;
               id(spk_frames) += frames;
             });
+
+    # Put the DAC where HA thinks it is. This fixes a PRE-EXISTING desync that has
+    # nothing to do with announce: TemplateNumber::setup() only calls
+    # publish_state() and never control() (template/number/template_number.cpp:8-25),
+    # so `set_action` — and therefore audio_dac.set_volume — NEVER RAN AT BOOT. The
+    # es8311 sat at its own 0.75 (= 0dB) default while HA displayed 45%, which is
+    # exactly the "too loud" symptom noted on the number below.
+    #
+    # Driving it through media_player.volume_set (rather than number.set) settles
+    # all three at once: speaker->set_volume() writes the DAC, and on_volume mirrors
+    # the value back into spk_volume so the number and the media_player entity agree
+    # too. Priority -200 so it lands after every component has finished setup().
+    - priority: -200
+      then:
+        - media_player.volume_set:
+            id: media_out
+            volume: !lambda 'return id(spk_volume).state / 100.0f;'
+        # Mute the DAC before anything can start I2S. The `dac_muted` global already
+        # says true, but the CODEC has to agree — otherwise the very first audio
+        # after boot still pops, since there is no previous stop to inherit a mute
+        # from. Must run after the es8311 is set up, hence the late priority.
+        - audio_dac.mute_on: es8311_dac
+
+interval:
+  # THE UNMUTE ANCHOR. This condition — "we believe we are muted AND the speaker is
+  # actually running" — was written as a 250ms watchdog behind on_announcement /
+  # on_play. It is in fact the only correctly-timed anchor available, so it has been
+  # promoted to the primary mechanism and the period tightened to 10ms.
+  #
+  # WHY THE MEDIA_PLAYER TRIGGERS WERE THE WRONG ANCHOR:
+  #   on_announcement / on_play fire when the media_player enters its playing state,
+  #   which is BEFORE the pipeline starts the speaker and therefore before
+  #   i2s_channel_enable(). Unmuting there unmutes ahead of the clock transient, so
+  #   the pop survives — the fix would appear to do nothing. is_running() is the only
+  #   signal that means "the clocks are already up".
+  #
+  # WHY 10ms AND NOT 250ms — the free 50ms window:
+  #   The speaker preloads DMA_BUFFERS_COUNT (5) buffers of memset-zero SILENCE and
+  #   only THEN calls i2s_channel_enable()
+  #   (i2s_audio_speaker_standard.cpp:121-166, DMA_BUFFER_DURATION_MS = 10).
+  #   Every playback therefore opens with 5 x 10ms = 50ms of digital silence, and the
+  #   clock transient lands inside it. Separately the frame callback fires only for
+  #   `real_frames > 0` (:231), so spk_frames does not advance during that silence.
+  #   Unmuting inside the window costs ZERO audio. At 250ms the unmute would land
+  #   ~200ms INTO real speech — audible as a clipped start, and mid-signal, so the
+  #   unmute itself would click. At 10ms it lands in the silence.
+  #
+  # is_running() flips in the speaker's own loop() (i2s_audio_speaker.cpp:69), the
+  # same main loop as this interval, so detection is typically 10-20ms after the
+  # enable. The one thing that could push it past 50ms is a long main-loop block —
+  # a full display repaint is up to 60ms. If a faint tick ever survives at the very
+  # start of audio, that is the cause, and the lever is main-loop time, not this
+  # period.
+  #
+  # THE FAILURE DIRECTION IS PRESERVED, and it is why this is safe to ship: the
+  # condition is re-evaluated against live hardware every 10ms, so a stuck mute
+  # cannot persist — the moment audio runs, this unmutes. The worst case remains the
+  # pop coming back, never silence.
+  - interval: 10ms
+    then:
+      - if:
+          condition:
+            lambda: 'return id(dac_muted) && id(spk)->is_running();'
+          then:
+            - script.execute: dac_unmute
 
 esp32:
   variant: esp32s3
@@ -247,6 +320,30 @@ speaker:
     #     resource here; main-loop time is. <<<
     buffer_duration: 500ms
 
+    # ⚠️ TWO DIFFERENT 500ms VALUES LIVE ON THIS COMPONENT. Do not conflate them.
+    # buffer_duration (above) is the measured choppiness fix and STAYS at 500ms.
+    # `timeout` is a different problem: how long the driver stays LOADED after the
+    # last audio. While loaded, the speaker holds I2SAudioComponent's single shared
+    # `Mutex lock_` (i2s_audio.h:64-71). The microphone acquires that lock with a
+    # NON-BLOCKING try_lock() (i2s_audio_microphone.cpp:98) and on failure backs off
+    # a FULL SECOND:
+    #     "Driver failed to start; retrying in 1 second"
+    #     status_momentary_error("driver_fail", 1000)    (:399-403)
+    #
+    # So at the 500ms default, ANY touch-to-talk within ~500ms of audio ending —
+    # Ember finishing a reply, the done chime, an announcement — costs a 1.0s mic
+    # stall with an error in the log that reads like a hardware fault. Pre-existing,
+    # not new; 100ms shrinks the window it can happen in by 5x.
+    #
+    # This is only safe BECAUSE the DAC-mute manager below fixes the pop: a shorter
+    # timeout means more driver load/unload cycles, and until now every one of those
+    # was an audible transient. Fixing the pop is what makes this tunable at all.
+    #
+    # >>> Do NOT set `timeout: never`. It would remove the transient entirely and
+    #     silently starve the microphone forever — try_lock() could never succeed,
+    #     and the only symptom is "Ember can't hear me". <<<
+    timeout: 100ms
+
 microphone:
   - platform: i2s_audio
     id: mic
@@ -357,6 +454,139 @@ number:
       - audio_dac.set_volume:
           id: es8311_dac
           volume: !lambda 'return x / 100.0f;'
+
+########################  announce path  ########################
+# WHY THIS EXISTS: `assist_satellite.announce` returned HTTP 500 because
+# FEATURE_ANNOUNCE is gated STRICTLY on voice_assistant's own media_player
+# (voice_assistant.h:168-171). No media_player on voice_assistant => the satellite
+# never advertises announce => HA cannot push speech at all: no timer chimes, no
+# doorbell TTS, no notifications, only conversational replies.
+#
+# A standalone media_player NOT wired into voice_assistant does NOT fix it — the
+# feature flag would still be unset and announce would still 500. It had to go on
+# voice_assistant, which is `cv.Exclusive` with `speaker:` (:110-113).
+#
+# WHAT THAT COST, AND WHY IT ISN'T A LOSS:
+#   Losing `speaker:` forbids on_tts_stream_start/on_tts_stream_end (:82-86), which
+#   is what used to set SPEAKING and snapshot the frame counter. The display lambda
+#   now DERIVES speaking from the speaker itself (spk->is_running() + frames
+#   advancing). That is the same source of truth the animation already used, so the
+#   grounding is intact — and it is strictly better, because it also lights up for
+#   pushed announcements, which never fire a stream trigger at all.
+#
+# The frame counter is unaffected: the pipeline calls
+# `decoder->add_sink(this_pipeline->speaker_)` — "Send audio directly to the
+# speaker" (audio_pipeline.cpp:473-475) — so `spk` is still the direct sink and its
+# add_audio_output_callback fires exactly as before. No mixer, no resampler.
+media_player:
+  - platform: speaker
+    id: media_out
+    name: Ember Speaker
+    # Only the announcement pipeline is needed, and that is what removes the need
+    # for a `mixer`: EVERY voice_assistant output path calls .set_announcement(true)
+    # — conversational TTS (voice_assistant.cpp:817), streaming TTS (:886) and
+    # on_announce (:1061,1067). A media_pipeline would only be for
+    # media_player.play_media, and adding one WOULD force a mixer, because
+    # announcement and media pipelines may not share a speaker
+    # (speaker/media_player/__init__.py:91-100).
+    announcement_pipeline:
+      speaker: spk
+      format: FLAC
+      # These are inherited from `spk` if omitted (media_player/__init__.py:91-92),
+      # but they are stated explicitly because they are what HA transcodes TO. Left
+      # implicit, a future change to the speaker would silently retune the wire
+      # format. 16k/mono also matches the es8311, so nothing has to resample and
+      # `spk` never restarts mid-stream on a stream-info change.
+      sample_rate: 16000
+      num_channels: 1
+    # Hearth chimes, embedded in flash as progmem (~250KB of the 16MB).
+    #
+    # `files:` is TOP-LEVEL on the media_player, not per-pipeline
+    # (speaker/media_player/__init__.py:156), so these play through the existing
+    # announcement_pipeline — no media_pipeline, therefore still no mixer and still
+    # no resampler. All six are 16kHz/mono/16-bit, matching `spk` and the es8311
+    # exactly, so nothing in the chime path can perturb what spk_frames means.
+    #
+    # Path is CORE.relative_config_path (audio_file/__init__.py:95). `scratch/sounds`
+    # is a symlink to `../esphome/sounds` precisely so this line is IDENTICAL in the
+    # scratch copy and the committed esphome/ copy — otherwise the path would have to
+    # be edited on every sync, which is a silent breakage waiting to happen.
+    files:
+      - id: chime_done
+        file: sounds/chime_done.wav
+      - id: chime_error
+        file: sounds/chime_error.wav
+      - id: chime_announce
+        file: sounds/chime_announce.wav
+      - id: chime_thinking
+        file: sounds/chime_thinking.wav
+      - id: chime_timer
+        file: sounds/chime_timer.wav
+      # 145ms. Length is a SAFETY constraint, not taste — it is short enough that
+      # the mic can be opened after it finishes without adding perceptible latency.
+      # Do not lengthen it and do not point this id at chime_listening.wav.
+      - id: chime_touch
+        file: sounds/chime_touch.wav
+      # chime_listening.wav is deliberately NOT declared — see the chime script.
+    volume_increment: 5%
+    volume_initial: 45%
+    # ⚠️ VOLUME IS NOT A SECOND AUTHORITY — and it very nearly was.
+    # Speaker::set_volume() forwards straight to audio_dac_->set_volume()
+    # (speaker/speaker.h:70-77): the SAME es8311 register number.spk_volume writes.
+    # So the media_player's slider is not an independent software gain, it is a
+    # second writer to one knob. Mirroring it back into spk_volume makes the
+    # media_player a CLIENT of the number rather than a competitor: whichever
+    # surface HA touches, spk_volume ends up authoritative and both stay in sync.
+    # This terminates rather than ping-pongs — spk_volume's set_action calls
+    # audio_dac.set_volume directly, which does not re-enter Speaker::set_volume.
+    on_volume:
+      - number.set:
+          id: spk_volume
+          value: !lambda 'return id(media_out).volume * 100.0f;'
+
+    ####################################################################
+    # POP SUPPRESSION — keep the DAC muted while idle.
+    #
+    # SYMPTOM: an audible pop before EVERY audio — chimes, TTS replies,
+    # announcements alike.
+    #
+    # CAUSE: the ES8311's DAC output DC-steps when the I2S clocks start. The
+    # speaker starts and stops per utterance (one `Created ring buffer` per
+    # playback), and GPIO1 is ALWAYS_ON with nothing toggling it per-utterance,
+    # so the amp is faithfully amplifying a step — it is NOT a class-D turn-on
+    # click, and it is not the assets (all have a 4ms raised-cosine attack).
+    #
+    # FIX: mute the DAC while idle, so the next I2S start happens INTO a muted
+    # DAC and is never amplified. Unmute once audio is actually flowing. REG37
+    # is the DAC ramp rate (es8311_const.h:63, set to 0x08 by the driver), so
+    # the unmute itself slews instead of stepping — which is why this direction
+    # works and muting *across* the transient would not.
+    #
+    # WHY NOT `timeout: never` ON THE SPEAKER — it is the obvious fix and it is
+    # a trap on this board. It would keep the I2S driver loaded and remove the
+    # transient outright, but `I2SAudioComponent` has ONE shared `Mutex lock_`
+    # (i2s_audio.h:64-71); the speaker holds it while its driver is loaded, and
+    # the microphone acquires it with NON-BLOCKING `try_lock()`
+    # (i2s_audio_microphone.cpp:98). A permanently-loaded speaker means the mic
+    # silently fails to start with nothing logged — i.e. "Ember can't hear me",
+    # traded for a pop. Do not do it.
+    #
+    # FAILURE DIRECTION IS DELIBERATE: a mute that never clears is a SILENT
+    # DEVICE, which is strictly worse than a pop. So unmuting is triggered from
+    # three independent places and backed by a watchdog (see `interval:`), while
+    # muting happens only from on_idle. If any single path fails, the worst case
+    # is the pop coming back — never silence.
+    # on_announcement / on_play REMOVED as unmute anchors — they fire when the
+    # media_player enters its playing state, which is BEFORE the pipeline starts the
+    # speaker and therefore before i2s_channel_enable(). Unmuting there is ahead of
+    # the clock transient, so the pop survives and the fix looks like it did nothing.
+    # The 10ms is_running() anchor in `interval:` replaces them; it is the only
+    # signal that means "the clocks are already up". Do not add them back.
+    on_idle:
+      # Mute AFTER playback ends, so the DAC is already muted before the next
+      # I2S start. This also absorbs the stop transient.
+      - audio_dac.mute_on: es8311_dac
+      - lambda: 'id(dac_muted) = true;'
 
 switch:
   - platform: output
@@ -532,7 +762,202 @@ binary_sensor:
 # TemplateNumber::control() -> set_action (audio_dac.set_volume) + publish_state
 # (template_number.cpp:38-46). HA therefore stays in sync and spk_volume remains
 # the single source of truth — nothing here writes the DAC directly.
+########################  hearth chimes  ########################
+# WHICH EVENTS EARN A CHIME — and the two that don't:
+#
+#   done      YES  marks "the mic is closed". You cannot know that by ear otherwise,
+#                  and it is privacy-relevant, so it earns its place even though
+#                  Ember stopping talking is already a hint.
+#   error     YES  the strongest case after announce. The deliberate minor second
+#                  cannot be mistaken for a normal event, and an error is exactly
+#                  when you are NOT looking at the screen wondering why nothing
+#                  happened.
+#   announce  YES  the strongest case of the six. A pushed announcement arrives
+#                  unprompted, so without a herald the first word is always missed.
+#   timer     YES  a finished timer is useless if unheard. Wiring on_timer_finished
+#                  also sets has_timers_ -> FEATURE_TIMERS (voice_assistant.h:164),
+#                  which is what makes HA Assist timers work on this satellite.
+#   thinking  OFF BY DEFAULT (taste). Flip ${chime_on_thinking} to 1 to try it.
+#                  It fires on every single interaction and is immediately followed
+#                  by speech, which is its own announcement — so it is redundant with
+#                  the thing it announces. Whether that is charming or maddening
+#                  depends on how long local Qwen takes, which only JP can judge.
+#                  A switch is the right answer for a TASTE call; it would be the
+#                  wrong answer for a correctness problem, which is why listening
+#                  below is not a switch.
+#   listening NOT WIRED AT ALL — this one is a correctness problem, not taste:
+#                  chime_listening.wav is 1.425s, and it would play out of `spk`
+#                  while the mic is streaming to HA. Mic and speaker share one I2S
+#                  hub in one enclosure and there is NO acoustic echo cancellation
+#                  (noise_suppression and auto_gain are not AEC). So HA's VAD would
+#                  almost certainly fire on the chime, then see the chime's trailing
+#                  silence and END the utterance before the user says a word. The
+#                  symptom would be "Ember can't hear me" — an STT bug that isn't
+#                  an STT bug, which is the most expensive kind to diagnose.
+#                  The screen already acknowledges the tap instantly and
+#                  unambiguously (fire -> amber, header -> LISTENING, LED -> amber),
+#                  so this is also the least necessary of the six on a device that
+#                  has a display.
+#                  IF WANTED, the safe pattern is: play a SHORT tone, then open the
+#                  mic after it finishes, so nothing is ever captured:
+#                      - media_player.speaker.play_on_device_media_file: ...
+#                      - delay: <tone length>
+#                      - voice_assistant.start:
+#                  That needs a ~300ms asset (chime_listening is 4x too long for it);
+#                  generate_chimes.py can produce one. Costs that much added latency
+#                  on every push-to-talk, which is why it is a follow-up and a
+#                  judgement call rather than something shipped silently.
 script:
+  # Unmute the DAC. Called from three independent triggers (on_announcement,
+  # on_play, and the watchdog interval) because the dangerous failure here is
+  # asymmetric: a stuck MUTE is a silent device, a stuck UNMUTE is only the pop
+  # coming back. So unmuting is made redundant on purpose and muting is not.
+  #
+  # `mode: single` — concurrent calls are a no-op rather than stacking I2C writes
+  # on the shared bus (the codec and the touch controller share GPIO15/16).
+  - id: dac_unmute
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return id(dac_muted);'
+          then:
+            - audio_dac.mute_off: es8311_dac
+            - lambda: 'id(dac_muted) = false;'
+
+  # ONE place that knows both the file and its length, because those two facts must
+  # not drift apart: the length is what sizes the not-speech window.
+  #
+  # `announcement: true` on every call. With only an announcement pipeline
+  # configured, single_pipeline_() (speaker_media_player.h:112) routes everything
+  # there anyway so the flag is currently cosmetic — but
+  # `media_pipeline_->start_file()` is dereferenced with NO null guard
+  # (speaker_media_player.cpp:177). If anyone ever adds a media_pipeline, an
+  # unflagged chime would route to it. Setting it true makes that impossible.
+  #
+  # enqueue: false is deliberate — a chime should interrupt a stale chime, not
+  # queue behind it. The one place ordering matters is the announce herald, and
+  # that works out because on_announce fires tts_start (our chime, enqueue false)
+  # BEFORE it ENQUEUEs the announcement itself (voice_assistant.cpp:1056 then
+  # :1064-1067), so the speech lands behind the chime rather than cutting it off.
+  - id: chime
+    mode: restart
+    parameters:
+      which: int   # 0 done · 1 error · 2 announce · 3 thinking · 4 timer · 5 touch
+    then:
+      - lambda: |-
+          // Declare "the next N ms of audio is NOT speech" BEFORE starting it, so
+          // the display lambda can never observe the audio without the guard.
+          // Durations are the real file lengths + 250ms of slack for pipeline
+          // start-up: done 1.580 · error 1.050 · announce 1.540 · thinking 0.370
+          // · timer 1.860 · touch 0.145.
+          static const uint32_t LEN_MS[6] = {1830u, 1300u, 1790u, 620u, 2110u, 395u};
+          if (which < 0 || which > 5) return;
+          // The announce herald is the ONE chime that must NOT be guarded: it is
+          // the leading edge of real speech, and the fire should already be
+          // burning as it rings.
+          if (which != 2) {
+            id(chime_until) = millis() + LEN_MS[which];
+          } else {
+            // ...but its frames DO land between the mark and the speech, so the
+            // fuse would run ~1.5s ahead of the words. Lengthen the estimate by
+            // exactly the herald so the fuse still tracks.
+            if (id(tts_est_ms) > 0) id(tts_est_ms) += LEN_MS[2];
+          }
+      - if:
+          condition: { lambda: 'return which == 0;' }
+          then:
+            - media_player.speaker.play_on_device_media_file:
+                id: media_out
+                media_file: chime_done
+                announcement: true
+                enqueue: false
+      - if:
+          condition: { lambda: 'return which == 1;' }
+          then:
+            - media_player.speaker.play_on_device_media_file:
+                id: media_out
+                media_file: chime_error
+                announcement: true
+                enqueue: false
+      - if:
+          condition: { lambda: 'return which == 2;' }
+          then:
+            - media_player.speaker.play_on_device_media_file:
+                id: media_out
+                media_file: chime_announce
+                announcement: true
+                enqueue: false
+      - if:
+          condition: { lambda: 'return which == 3;' }
+          then:
+            - media_player.speaker.play_on_device_media_file:
+                id: media_out
+                media_file: chime_thinking
+                announcement: true
+                enqueue: false
+      - if:
+          condition: { lambda: 'return which == 4;' }
+          then:
+            - media_player.speaker.play_on_device_media_file:
+                id: media_out
+                media_file: chime_timer
+                announcement: true
+                enqueue: false
+      - if:
+          condition: { lambda: 'return which == 5;' }
+          then:
+            - media_player.speaker.play_on_device_media_file:
+                id: media_out
+                media_file: chime_touch
+                announcement: true
+                enqueue: false
+
+  # Starting a conversation.
+  #
+  # ⚠️ THE TOUCH TONE WAS REMOVED FROM THIS PATH, AND MUST NOT COME BACK.
+  #
+  # Revision 6 played the 145ms tone here and then delayed 190ms before opening the
+  # mic, so the tone could never be captured. That reasoning was sound but
+  # incomplete, and the shipped version had a worse bug than the one it avoided:
+  #
+  #   t=0     tone starts -> speaker takes the shared I2S lock
+  #   t=145   tone ends
+  #   t=190   delay expires, voice_assistant.start -> mic start_driver_()
+  #           -> try_lock() FAILS (speaker holds the lock for its whole `timeout`)
+  #           -> "Driver failed to start; retrying in 1 second"
+  #   t≈245   speaker finally releases the lock (at timeout: 100ms)
+  #   t≈1190  mic retries and succeeds
+  #
+  # So the tone advertised "speak now" and then the mic was deaf for ~1 second. That
+  # is the same "Ember can't hear me" failure chime_listening was refused over,
+  # reached by a completely different route: the shared-lock backoff rather than VAD.
+  #
+  # Waiting out the lock instead would mean a ~350ms+ delay on every push-to-talk,
+  # for a cue the screen already gives instantly and for free. The visual spark is
+  # the touch feedback; audio is the wrong medium for it on this hardware. The tone
+  # also cost an extra driver load, i.e. an extra pop, immediately before speech.
+  #
+  # mode: single is still load-bearing: it debounces the double-touches a capacitive
+  # panel reports, so a fumbled tap cannot start two conversations.
+  #
+  # STOPPING is deliberately NOT routed through here — cancelling is instant.
+  - id: talk_begin
+    mode: single
+    then:
+      - if:
+          condition: { switch.is_off: sw_hush }
+          then:
+            - lambda: |-
+                // Clear stale error text the instant the tap lands, so the device
+                // feels responsive before the pipeline has answered.
+                if (id(va_state) == 4) {
+                  id(said_text).clear();
+                  id(heard_text).clear();
+                  id(scroll_gen)++;
+                }
+            - voice_assistant.start:
+
   - id: ui_dispatch
     mode: single
     then:
@@ -540,16 +965,27 @@ script:
       # default to cycle: TRUE (number/__init__.py:392), which would silently
       # wrap 100% -> 0% when you press "+" at maximum. That default is wrong for
       # a volume control and has to be overridden explicitly.
+      # The tone fires AFTER the change, so you hear the NEW level. Volume is the
+      # one control whose result cannot be judged visually, which is why it earns a
+      # tone where menu taps don't — it isn't acknowledgement, it's the readout.
+      #
+      # This is the ONLY surviving use of chime_touch, and unlike the talk path it is
+      # safe: no listening follows a volume tap, so the shared-I2S-lock backoff that
+      # killed the talk tone cannot bite. The residual is that a touch-to-talk within
+      # ~100ms of a volume tap would still hit the mic's 1s retry — but the overlay
+      # has to be dismissed first, which takes longer than that.
       - if:
           condition: { lambda: 'return id(ui_action) == 1;' }
           then:
             - number.decrement: { id: spk_volume, cycle: false }
             - lambda: 'id(ui_gen)++;'
+            - script.execute: { id: chime, which: 5 }
       - if:
           condition: { lambda: 'return id(ui_action) == 2;' }
           then:
             - number.increment: { id: spk_volume, cycle: false }
             - lambda: 'id(ui_gen)++;'
+            - script.execute: { id: chime, which: 5 }
 
       # talk toggle — the gesture that existed before, unchanged, and gated by hush
       - if:
@@ -559,17 +995,11 @@ script:
                 condition:
                   - lambda: 'return id(va_state) == 0 || id(va_state) == 4;'
                 then:
-                  - if:
-                      condition: { switch.is_off: sw_hush }
-                      then:
-                        - lambda: |-
-                            if (id(va_state) == 4) {
-                              id(said_text).clear();
-                              id(heard_text).clear();
-                              id(scroll_gen)++;
-                            }
-                        - voice_assistant.start:
+                  # Toned + delayed, so the tone is never captured by the mic.
+                  - script.execute: talk_begin
                 else:
+                  # Cancelling is instant: no tone, no delay. Waiting 190ms to stop
+                  # something would feel broken in a way that waiting to start does not.
                   - voice_assistant.stop:
 
       - if:
@@ -688,6 +1118,14 @@ sensor:
 ########################  visualiser state  ########################
 
 globals:
+  # Tracks the DAC mute state so unmuting is idempotent across the three
+  # triggers that call it. Starts TRUE because on_boot mutes: the DAC must
+  # already be muted before the first I2S start, or the first audio still pops.
+  - id: dac_muted
+    type: bool
+    restore_value: false
+    initial_value: 'true'
+
   # Rolling waveform history, 0.0-1.0, fed from sound_level's on_value at 20Hz.
   - id: level_hist
     type: float[120]
@@ -763,6 +1201,43 @@ globals:
 
   # ---- theme + repaint control ----
   - id: theme_light
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+
+  # A chime is audio through `spk`, so it raises is_running() and advances
+  # spk_frames exactly like speech does — which would make the fire claim SPEAKING
+  # for a doorbell tone. This is the same class of bug as on_announce firing on_end
+  # early (Revision 4), so it gets the same treatment: an explicit window during
+  # which audio is known NOT to be speech. Set by the chime script; the display
+  # lambda refuses to promote to SPEAKING while it is open.
+  - id: chime_until
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+
+  # ---- touch feedback: the struck coal ----
+  # A capacitive panel gives no click, so a tap currently has no acknowledgement at
+  # all. These two say WHERE and WHEN the tap landed, and the flame band renders it
+  # as a coal being struck: a local flare at the touch's column plus a brief
+  # quickening of the whole hearth, both decaying over 500ms.
+  #
+  # This costs ZERO extra redraw. The flame band is already the animated band, so
+  # the spark is just another term in the column-height maths — no new band, no
+  # scheduler change, no overlay. -1 = no spark.
+  - id: spark_col
+    type: int
+    restore_value: false
+    initial_value: '-1'
+
+  - id: spark_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+
+  # True when the current speech was PUSHED by HA (assist_satellite.announce /
+  # tts.speak) rather than being a reply to something we heard. Set in on_tts_start.
+  - id: is_announce
     type: bool
     restore_value: false
     initial_value: 'false'
@@ -918,7 +1393,6 @@ display:
       // is burning along the fuse.
       const int FUSE_H  = 4;
       const uint32_t now = millis();
-      const int st = id(va_state);
 
       // ================= palette: one fire-temperature ramp =================
       // Every state is a rung on ember->amber->gold->white-hot. The ONLY colour
@@ -952,6 +1426,62 @@ display:
         c_alarm = Color(0xFF, 0x3C, 0x18);
       }
 
+      // ================= the audio clock, and the state derived FROM it =========
+      // Read spk_frames ONCE per frame into a plain local; everything downstream
+      // uses the local, so the whole frame is internally consistent.
+      const uint32_t frames = id(spk_frames);
+      static uint32_t last_frames = 0;
+      static uint32_t last_change_ms = 0;
+      if (frames != last_frames) { last_frames = frames; last_change_ms = now; }
+      const uint32_t since_frames = now - last_change_ms;
+
+      // >>> SPEAKING IS DERIVED, NOT TRIGGERED. <<<
+      // Losing `speaker:` on voice_assistant (the price of announce) removed
+      // on_tts_stream_start. This replaces it with the speaker's own state, which
+      // is the same source of truth the fire's phase already uses — and it is
+      // strictly better, because a pushed announcement fires NO stream trigger and
+      // in fact reports va_state == 0 the whole time it is talking.
+      //
+      // The 1200ms ceiling matters: the i2s speaker can linger in is_running()
+      // briefly after the last frame while it tears down. Without the ceiling the
+      // fire would sit in `guttering` (ash, "BUFFER STALL") after every normal
+      // utterance, which would read as an error. With it: 0-300ms normal fire,
+      // 300-1200ms guttering (a real stall is visible), >1200ms playback is over.
+      const bool audio_live = id(spk)->is_running() && since_frames < 1200u;
+      const bool guttering  = audio_live && since_frames > ${stall_ms}u;
+
+      // A chime is audio too, so audio_live alone would make the fire flare for a
+      // doorbell tone. `chime_until` is the window during which the audio coming out
+      // is known not to be speech. The announce herald deliberately does NOT set it,
+      // because there it IS the leading edge of speech.
+      const bool chiming = (int32_t) (id(chime_until) - now) > 0;
+
+      // ---- touch spark envelope ----
+      // Computed here, not inside paint_flame, because the SCHEDULER needs it too:
+      // in IDLE the flame band only ticks every 200ms, which would sample a 500ms
+      // spark two or three times and look like a stutter rather than a flare. While
+      // a spark is live the band goes to 50ms — 10 frames, ~90ms of main loop over
+      // half a second, and only when you actually touch the thing.
+      // t*t gives a fast attack and softer settle: struck, not faded.
+      float spark_k = 0.0f;
+      if (id(spark_col) >= 0) {
+        const uint32_t age = now - id(spark_ms);
+        if (age < ${spark_ms_len}u) {
+          const float t = 1.0f - (float) age / ${spark_ms_len}.0f;
+          spark_k = t * t;
+        }
+      }
+      const bool spark_live = spark_k > 0.0f;
+
+      int st = id(va_state);
+      if (audio_live && !chiming && (st == 0 || st == 2)) st = 3;   // -> SPEAKING
+
+      // Snapshot the frame counter on the rising edge of playback — this is what
+      // on_tts_stream_start used to do. Main loop only, so no cross-task concern.
+      static bool was_live = false;
+      if (audio_live && !was_live) id(spk_frames_mark) = frames;
+      was_live = audio_live;
+
       Color accent = c_ember;
       switch (st) {
         case 1: accent = c_amber; break;
@@ -960,22 +1490,21 @@ display:
         case 4: accent = c_alarm; break;
       }
 
-      // ================= the audio clock =================
-      // spk_frames is incremented from speaker_task. Read it ONCE per frame into
-      // a plain local; everything downstream uses the local, so the whole frame
-      // is internally consistent.
-      const uint32_t frames = id(spk_frames);
-      static uint32_t last_frames = 0;
-      static uint32_t last_change_ms = 0;
-      if (frames != last_frames) { last_frames = frames; last_change_ms = now; }
-
-      const bool playing = id(spk)->is_running();
-      // Honest stall indicator: the speaker says it is running but no frames
-      // have reached the DAC. Real buffer underrun / wifi hiccup.
-      const bool guttering = playing && (now - last_change_ms) > ${stall_ms}u;
-
-      // 16000 frames/s -> frames/16 == milliseconds. Wrap-safe subtraction.
-      const uint32_t spoken_ms = (frames - id(spk_frames_mark)) / 16u;
+      // ---- elapsed playback, RATE-AGNOSTIC ----
+      // This used to be `frames / 16u`, hardcoding 16kHz. That is now a latent trap:
+      // the media_player pipeline calls speaker_->set_audio_stream_info() with
+      // whatever the decoder produced (audio_pipeline.cpp:474), so the speaker's
+      // rate is not a constant any more. At 48kHz the old maths would have run the
+      // fire 3x fast and slammed the fuse to 97% instantly.
+      //
+      // We pin sample_rate: 16000 on the announcement pipeline so HA transcodes to
+      // match the es8311, which makes this agree with the old constant in practice —
+      // but asking the speaker is free and removes the trap rather than documenting it.
+      // Wrap-safe subtraction; uint32 microseconds is good for ~71 min of one
+      // utterance, and this is per-utterance.
+      const uint32_t spoken_ms =
+          id(spk)->get_audio_stream_info().frames_to_microseconds(
+              frames - id(spk_frames_mark)) / 1000u;
 
       float prog = 0.0f;
       if (id(tts_est_ms) > 0) {
@@ -1058,11 +1587,17 @@ display:
 
       auto paint_scroll = [&]() {
         it.filled_rectangle(0, SCRL_Y, W, SCRL_H, c_bg);
-        it.print(6, SCRL_Y + 2, id(font_sm), c_dim, "heard");
-        if (!id(heard_text).empty()) {
-          wrap(6, SCRL_Y + 18, id(font_sm), c_ink, id(heard_text), ${cpl_sm}, 14, 2);
+        // A pushed announcement answers nothing, so captioning it "heard: -" would
+        // be a small lie. Label the provenance instead.
+        if (id(is_announce)) {
+          it.print(6, SCRL_Y + 2, id(font_sm), c_gold, "a word from the house");
         } else {
-          it.print(6, SCRL_Y + 18, id(font_sm), c_ash, "-");
+          it.print(6, SCRL_Y + 2, id(font_sm), c_dim, "heard");
+          if (!id(heard_text).empty()) {
+            wrap(6, SCRL_Y + 18, id(font_sm), c_ink, id(heard_text), ${cpl_sm}, 14, 2);
+          } else {
+            it.print(6, SCRL_Y + 18, id(font_sm), c_ash, "-");
+          }
         }
         it.filled_rectangle(6, SCRL_Y + 50, W - 12, 1, c_ash);
         if (!id(said_text).empty()) {
@@ -1242,6 +1777,17 @@ display:
             f = 0.06f + 0.16f * breath * (0.55f + 0.45f * w);
           }
 
+          // ---- the struck coal: touch acknowledgement, on any state ----
+          // Two terms, because a tap is both local and global: the coal you struck
+          // flares hard, and the whole hearth quickens as if breathed on. k*k gives
+          // a fast attack and a softer settle, which reads as struck rather than
+          // faded. Costs one expf per column for ~10 frames.
+          if (spark_k > 0.0f) {
+            const float d = fabsf(fx - (float) id(spark_col));
+            f += 0.85f * spark_k * expf(-(d * d) / 6.0f);   // the struck column
+            f += 0.16f * spark_k;                           // the hearth quickens
+          }
+
           if (f < 0.0f) f = 0.0f;
           if (f > 1.0f) f = 1.0f;
           int hgt = (int) (f * (float) MAXH);
@@ -1415,12 +1961,15 @@ display:
         }
       }
       else if (pend & 0x04) { pend &= ~0x04; paint_scroll(); }
-      else if (st == 4) {
-        // Error paints once and then costs literally nothing.
+      else if (st == 4 && !spark_live) {
+        // Error paints once and then costs literally nothing — unless a tap needs
+        // acknowledging, which is exactly the state where feedback matters most
+        // (touch to rekindle). The spark re-animates the ash bed for its 500ms.
         if (pend & 0x10) { pend &= ~0x10; paint_flame(); }
       } else {
         // Multiples of update_interval (50ms) ONLY — see the warning above.
-        const uint32_t iv = (st == 0) ? 200u : 50u;
+        // A live spark overrides the idle rate so the flare is smooth from banked.
+        const uint32_t iv = (st == 0 && !spark_live) ? 200u : 50u;
         if ((pend & 0x10) || now >= t_flame) {
           pend &= ~0x10; t_flame = now + iv; paint_flame();
         }
@@ -1516,6 +2065,19 @@ touchscreen:
 
           // normal: touch-to-talk, exactly as before
           id(ui_action) = 3;
+          // Strike the coal under your finger. 60 flame columns across 240px, so
+          // x/4 is the column. Fired here — not in ui_dispatch — because this is
+          // where the coordinate exists, and it fires even when hush is on or the
+          // pipeline refuses: the tap DID land, and the screen should say so before
+          // it explains why nothing else happened.
+          //
+          // Deliberately NOT fired for overlay touches. Feedback should come from
+          // the thing you touched, and in an overlay that is the overlay — which
+          // already repaints on the action (a new stone lights, a row highlights).
+          // Flaring the fire when you tap a volume stone would point at the wrong
+          // object.
+          id(spark_col) = tx < 0 ? 0 : (tx > 239 ? 59 : tx / 4);
+          id(spark_ms) = millis();
       - script.execute: ui_dispatch
 
 ########################  voice assistant  ########################
@@ -1524,7 +2086,9 @@ voice_assistant:
   id: va
   microphone:
     microphone: mic
-  speaker: spk
+  # `media_player:` NOT `speaker:` — cv.Exclusive, and only media_player sets
+  # FEATURE_ANNOUNCE. See the announce-path block above for the full trade.
+  media_player: media_out
   noise_suppression_level: 2
   auto_gain: 31dBFS
   volume_multiplier: 2.0
@@ -1538,6 +2102,14 @@ voice_assistant:
         id(heard_text).clear();
         id(said_text).clear();
         id(tts_est_ms) = 0;
+        // Reset is_announce here or it goes STALE. It is set true by
+        // on_timer_finished and by a pushed announcement, and only ever cleared by
+        // the next on_tts_start. A conversation that produces NO tts_start (the
+        // error path) would therefore still be flagged as an announcement at
+        // on_end, which suppresses the `done` chime for the wrong reason. Clearing
+        // it at the start of every conversation makes the flag mean exactly
+        // "the speech currently in flight was pushed".
+        id(is_announce) = false;
         id(scroll_gen)++;
 
   on_listening:
@@ -1563,32 +2135,54 @@ voice_assistant:
         green: 66%
         blue: 12%         # gold — rung 2
         effect: crucible
+    # Off by default — taste call, see the chime script.
+    - if:
+        condition: { lambda: 'return ${chime_on_thinking} != 0;' }
+        then:
+          - script.execute: { id: chime, which: 3 }
 
-  # Fires while the audio is still being FETCHED — not speaking yet, so the
-  # state deliberately stays 2. Previously this set state 3, which made the
-  # header claim SPEAKING before any sound existed. We use the text for the
-  # fuse denominator and to show it on screen.
+  # Fires while the audio is still being FETCHED — not speaking yet, so the state
+  # deliberately stays 2. We use the text for the fuse denominator and to show it.
+  #
+  # This ALSO fires for a pushed announcement (voice_assistant.cpp:1056), which is
+  # how the screen gets announcement text for free.
+  #
+  # Distinguishing the two: on_announce triggers tts_start BEFORE it sets
+  # STREAMING_RESPONSE, so on an idle device va_state is still 0 here. A
+  # conversational reply always arrives with va_state == 2 (thinking). That makes
+  # `va_state == 0` a sound discriminator, and the scroll band uses it to label
+  # where the speech came from instead of captioning a doorbell chime as "said".
   on_tts_start:
     - lambda: |-
+        id(is_announce) = (id(va_state) == 0);
         id(said_text) = x;
         id(tts_est_ms) = ${tts_lead_ms}u + (uint32_t) x.size() * ${tts_ms_per_char}u;
+        if (id(is_announce)) id(heard_text).clear();
         id(scroll_gen)++;
+    # Herald, for PUSHED speech only. A reply needs no herald — you just spoke, so
+    # you are already listening.
+    #
+    # ⚠️ HA's `assist_satellite.announce` plays its OWN preannounce sound by default
+    # (voice_assistant.cpp:1059-1062 honours msg.preannounce_media_id). If that is
+    # left on, JP will hear HA's generic chime AND Ember's hearth chime back to back.
+    # Pass `preannounce: false` in the service call to get only Ember's. We cannot
+    # suppress HA's from the device side.
+    - if:
+        condition: { lambda: 'return id(is_announce);' }
+        then:
+          - script.execute: { id: chime, which: 2 }
 
-  # THIS is when sound actually starts leaving the speaker. Requires `speaker:`
-  # (voice_assistant/__init__.py:83-86) — we have one.
-  on_tts_stream_start:
-    - lambda: |-
-        id(va_state) = 3;
-        id(spk_frames_mark) = id(spk_frames);
-    - light.turn_on:
-        id: status_led
-        red: 100%
-        green: 91%
-        blue: 70%         # white-hot — rung 3
+  # NOTE: on_tts_stream_start / on_tts_stream_end are GONE, and must stay gone —
+  # they are a validation error without `speaker:` (voice_assistant/__init__.py:82-86).
+  # SPEAKING and the frame mark are now derived in the display lambda from
+  # spk->is_running() plus the frame counter. See the announce-path note above.
 
-  on_tts_stream_end:
-    - lambda: 'id(spk_frames_mark) = id(spk_frames);'
-
+  # ⚠️ For an ANNOUNCEMENT this fires IMMEDIATELY, before a single sample plays:
+  # on_announce calls tts_start -> tts_end -> end_trigger synchronously
+  # (voice_assistant.cpp:1056-1080). So va_state returns to 0 while audio is still
+  # coming out. That is precisely why the fire can no longer be driven by these
+  # triggers — the display lambda promotes to SPEAKING off the speaker's own state,
+  # so an announcement animates correctly despite the pipeline claiming to be idle.
   on_end:
     - lambda: |-
         id(va_state) = 0;
@@ -1601,6 +2195,14 @@ voice_assistant:
         blue: 2%
         brightness: 20%
         effect: bank
+    # "The mic is closed." Suppressed for announcements, where on_end fires BEFORE
+    # the audio plays (voice_assistant.cpp:1056-1080) — chiming "done" there would
+    # ring over the announcement it is supposedly closing, and the herald already
+    # bracketed it.
+    - if:
+        condition: { lambda: 'return !id(is_announce);' }
+        then:
+          - script.execute: { id: chime, which: 0 }
 
   on_error:
     - lambda: |-
@@ -1617,3 +2219,18 @@ voice_assistant:
         green: 0%
         blue: 0%
         effect: none
+    - script.execute: { id: chime, which: 1 }
+
+  # Wiring ANY on_timer_* sets has_timers_ -> FEATURE_TIMERS (voice_assistant.h:164),
+  # which is what makes HA Assist timers work on this satellite. Only `finished` is
+  # wired: started/updated/cancelled/tick would each need their own UI decision, and
+  # a timer you cannot hear finish is the only one that actually fails at its job.
+  on_timer_finished:
+    - lambda: |-
+        id(is_announce) = true;              // pushed, not a reply
+        id(said_text) = timer.name.empty() ? std::string("Timer finished")
+                                           : (timer.name + " — finished");
+        id(tts_est_ms) = 0;                  // no speech, so no fuse
+        id(heard_text).clear();
+        id(scroll_gen)++;
+    - script.execute: { id: chime, which: 4 }
