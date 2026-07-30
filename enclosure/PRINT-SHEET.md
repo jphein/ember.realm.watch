@@ -74,7 +74,7 @@ to be **airtight, not structural**.
 ## Speaker
 
 Cut for a **rectangular 40 × 27 mm driver with rounded corners**, adhesive-mounted
-(8 Ω; the board's amp does 1.5 W/8 Ω or 2 W/4 Ω). Sealed chamber ≈ **30 cm³** in the
+(8 Ω; the board's amp does 1.5 W/8 Ω or 2 W/4 Ω). Sealed chamber ≈ **32 cm³** in the
 stand, firing forward through a **37 × 24 mm slotted grille**.
 
 > **Revised from a ⌀28 mm round driver.** The first cut assumed a round, flanged
@@ -89,13 +89,56 @@ stand, firing forward through a **37 × 24 mm slotted grille**.
   it sliding while the adhesive grabs, too shallow to interrupt the bonded area.
 - Chamber ceiling was raised **34 → 37 mm** for the taller driver. At 34 the chamber was
   30 mm tall and a 27 mm driver left 1.5 mm a side. The sealed volume went 27.5 → 30 cm³,
-  which helps the low end.
+  which helps the low end (and 22.0mm of depth takes it to 32.1).
 - **Wire pass-through: a 6 × 5 mm channel** from inside the chamber (y=19) back to y=30,
   meeting the board's cable route. From there the wire follows the same path up to the
   slot. ⚠️ **Seal it after wiring** — silicone, hot glue or putty. An unsealed hole turns
   the sealed box into a leaky one and costs exactly the low end the chamber exists to
   produce. It is sized for a bead of sealant rather than a press fit, because a hole
   tight enough to grip the wire abrades the insulation.
+
+### Making it louder
+
+The bottleneck was never the box volume — it was the **baffle**. A slot behaves like a
+short duct and its impedance scales with length ÷ width, so 2.20 mm slots through a
+4.00 mm wall (**1.82:1**) made the sound squeeze through slits nearly twice as deep as
+they were wide. Three changes, in order of how much they buy:
+
+1. **The baffle is recessed to 2.20 mm** in the grille region only, cut from the
+   *outside* so the inner face the speaker tapes to stays flat and unbroken. Slot aspect
+   goes 1.82:1 → **1.00:1**, roughly halving the impedance.
+2. **Slots widened 2.20 → 2.60 mm** at the same 3.40 mm pitch. Open area over the field
+   goes 65% → **76%**, which puts it *above* the driver's effective radiating area
+   (~700 mm²) instead of below it. 0.80 mm of material remains between slots — still
+   printable.
+3. **0.60 mm flare on each slot mouth.** A sharp-edged slot sheds vortices and chuffs at
+   level. The flare opens downward-outward, so it is self-supporting in the stand's
+   print orientation and costs nothing.
+
+Chamber also went 21.0 → 22.0 mm deep (**30.3 → 32.1 cm³**). That is as far as it safely
+goes — the slab slot's front face sits at y ≈ 24.9 at the floor. Modest, and it matters
+less than it sounds: sealed volume sets the low-frequency corner, and with a driver whose
+Fs is ~650 Hz the box was never what limited output.
+
+**Two free things you should do at assembly:**
+
+- **Loosely fill the chamber with polyester wadding** (pillow stuffing, a pinch — not
+  packed). It damps standing waves in a box whose dimensions are all similar, and makes
+  the enclosure behave as if it were ~10–15% larger.
+- **Seal every joint.** In a box this small, leaks cost more output than anything above
+  buys back: the wire pass-through, the base plate seam, and the perimeter of the driver
+  itself. The adhesive tape *is* the driver's gasket — lay it continuous, not in dabs.
+
+**Print the stand with more walls and infill than feels necessary** (5–6 perimeters,
+30%+). It is a speaker cabinet; panel resonance is audible as boxiness, and stiffness is
+the only thing that stops a 2 W driver exciting a 64 mm panel.
+
+**Not done, and deliberately:** a bass-reflex port. At this volume a printable port tunes
+to roughly 390–460 Hz, which is only useful if it lands just below the driver's Fs — and
+that number is unknown. A port tuned below Fs does nothing, and a mistuned one is worse
+than sealed. If you measure Fs and want one, the arithmetic is
+`Fb = (c/2π)·√(A / (V·Leff))` with `Leff = L + 0.85·d`.
+
 - The ES3C28P **speaker header is unpopulated** — you need a 1.25 mm 2P pigtail.
 - Changing driver: edit `DRIVER_W`, `DRIVER_H`, `DRIVER_R` in `ember_case.py` and re-run.
   `GRILLE_INSET` (1.5 mm) keeps the slots inside the radiating area so the grille never

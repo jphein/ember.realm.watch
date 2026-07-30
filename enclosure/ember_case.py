@@ -207,6 +207,23 @@ GRILLE_PITCH  = 3.40
 # the grille never opens onto the frame — an open slot over the flange is a dust path
 # into the chamber and vents the enclosure it is meant to seal.
 GRILLE_INSET  = 1.5
+# ── ACOUSTIC TUNING ────────────────────────────────────────────────────────────
+# The bottleneck was never the box volume, it was the BAFFLE. A slot behaves like a
+# short duct: its impedance scales with length/width, and 2.20mm slots through a 4.00mm
+# wall is an aspect ratio of 1.82:1 — the sound has to squeeze through slits nearly
+# twice as deep as they are wide. Recessing the OUTER face of the wall in the grille
+# region takes the slot depth to 2.20mm (1.00:1) and roughly halves the impedance.
+# That is a bigger effect than anything available from volume here.
+BAFFLE_T      = 2.20    # wall thickness in the grille region only (was ST_WALL=4.0)
+GRILLE_RECESS = ST_WALL - BAFFLE_T
+# Slots widened 2.20 -> 2.60 at the same pitch: open area over the field goes 65% -> 76%,
+# which puts it above the driver's effective radiating area (~700mm2) rather than below.
+# The remaining material still spans only 0.80mm between slots, so it stays printable.
+GRILLE_SLOT_W2 = 2.60
+# Outer chamfer on each slot. A sharp-edged slot mouth sheds vortices and chuffs at
+# level; a flare is the standard fix and costs nothing to print because it opens
+# downward-outward, i.e. it is self-supporting in the stand's print orientation.
+GRILLE_FLARE  = 0.60
 
 def desk_stand():
     # Deliberately NOT chamfered.  A first attempt shaved the top-front at 38deg;
@@ -220,7 +237,13 @@ def desk_stand():
     p -= Pos(ST_W/2, SLOT_CY, SLOT_FLOOR) * (Rot(-TILT,0,0) * slot)
     # sealed speaker chamber, open at the bottom (closed by the base plate)
     cx0,cx1 = ST_WALL+1, ST_W-ST_WALL-1
-    cy0,cy1 = ST_WALL,   21.0
+    # Rear wall pushed 21.0 -> 22.0. That is as far as it safely goes: the slab slot's
+    # front face at the floor sits at y = SLOT_CY - (SLAB_T/2 + SLOT_CLR) ~= 24.9, so
+    # 22.0 leaves ~2.9mm of wall at the tightest point and more above, since the slot
+    # leans back at TILT. Volume 30.3 -> 32.1cm3. Modest, and free — the sealed volume
+    # only sets the low-frequency corner, and on a driver with Fs ~650Hz the box is not
+    # what is limiting output. The baffle was.
+    cy0,cy1 = ST_WALL,   22.0
     # Ceiling raised 34.0 -> 37.0 for the rectangular driver. At 34 the chamber was
     # 30mm tall and a 27mm driver left 1.5mm a side — no room for a seat lip. At 37 it
     # is 33mm tall, the seat clears by ~2.5mm, and the sealed volume goes 27.5 -> 30cm3,
@@ -246,12 +269,25 @@ def desk_stand():
                     DRIVER_W - 2*GRILLE_INSET, DRIVER_H - 2*GRILLE_INSET,
                     max(DRIVER_R - GRILLE_INSET, 0.8),
                     -1.0, ST_WALL + 3)
+    # BAFFLE RECESS. Cut from the OUTSIDE, so the inside face the speaker tapes to stays
+    # flat and unbroken — the recess must not touch the bonded area. Slightly larger than
+    # the grille field so the thin region fully contains the slots.
+    p -= rrect_y(ST_W/2, dz,
+                 DRIVER_W + 2*DRIVER_CLR, DRIVER_H + 2*DRIVER_CLR,
+                 DRIVER_R + DRIVER_CLR,
+                 -0.5, GRILLE_RECESS + 0.5)
+
     bars = None
     n = int(DRIVER_H/GRILLE_PITCH)+2
     for i in range(-n,n+1):
         z = dz + i*GRILLE_PITCH
-        b = bx(0, ST_W, -2, ST_WALL+2, z-GRILLE_SLOT_W/2, z+GRILLE_SLOT_W/2)
-        bars = b if bars is None else bars+b
+        # straight bore through the (now thin) baffle
+        b = bx(0, ST_W, -2, ST_WALL+2, z-GRILLE_SLOT_W2/2, z+GRILLE_SLOT_W2/2)
+        # flared mouth: widens toward the outside (-Y), self-supporting when the stand
+        # prints bottom-down because the overhang opens downward-outward.
+        fl = bx(0, ST_W, -2, GRILLE_RECESS + 0.4,
+                z-GRILLE_SLOT_W2/2-GRILLE_FLARE, z+GRILLE_SLOT_W2/2+GRILLE_FLARE)
+        bars = (b+fl) if bars is None else bars+(b+fl)
     p -= (field & bars)
     # cable route: slot floor -> out the back
     p -= bx(ST_W/2-8, ST_W/2+8, 29.0, ST_D+1, ST_WALL, 13.0)

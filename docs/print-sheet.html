@@ -157,7 +157,7 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <hr>
 <h2>Speaker</h2>
 <p>Cut for a <b>rectangular 40 × 27 mm driver with rounded corners</b>, adhesive-mounted</p>
-<p>(8 Ω; the board's amp does 1.5 W/8 Ω or 2 W/4 Ω). Sealed chamber ≈ <b>30 cm³</b> in the</p>
+<p>(8 Ω; the board's amp does 1.5 W/8 Ω or 2 W/4 Ω). Sealed chamber ≈ <b>32 cm³</b> in the</p>
 <p>stand, firing forward through a <b>37 × 24 mm slotted grille</b>.</p>
 <div class="note"><b>Revised from a ⌀28 mm round driver.</b> The first cut assumed a round, flanged</div>
 <div class="note">driver seated in a ⌀29 × 2.2 mm recess. JP's actual speaker is a 40 × 27 rectangle</div>
@@ -174,7 +174,7 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <li>Chamber ceiling was raised <b>34 → 37 mm</b> for the taller driver. At 34 the chamber was</li>
 </ul>
 <p>  30 mm tall and a 27 mm driver left 1.5 mm a side. The sealed volume went 27.5 → 30 cm³,</p>
-<p>  which helps the low end.</p>
+<p>  which helps the low end (and 22.0mm of depth takes it to 32.1).</p>
 <ul>
 <li><b>Wire pass-through: a 6 × 5 mm channel</b> from inside the chamber (y=19) back to y=30,</li>
 </ul>
@@ -183,6 +183,44 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <p>  the sealed box into a leaky one and costs exactly the low end the chamber exists to</p>
 <p>  produce. It is sized for a bead of sealant rather than a press fit, because a hole</p>
 <p>  tight enough to grip the wire abrades the insulation.</p>
+<h3>Making it louder</h3>
+<p>The bottleneck was never the box volume — it was the <b>baffle</b>. A slot behaves like a</p>
+<p>short duct and its impedance scales with length ÷ width, so 2.20 mm slots through a</p>
+<p>4.00 mm wall (<b>1.82:1</b>) made the sound squeeze through slits nearly twice as deep as</p>
+<p>they were wide. Three changes, in order of how much they buy:</p>
+<p>1. <b>The baffle is recessed to 2.20 mm</b> in the grille region only, cut from the</p>
+<p>   <em>outside</em> so the inner face the speaker tapes to stays flat and unbroken. Slot aspect</p>
+<p>   goes 1.82:1 → <b>1.00:1</b>, roughly halving the impedance.</p>
+<p>2. <b>Slots widened 2.20 → 2.60 mm</b> at the same 3.40 mm pitch. Open area over the field</p>
+<p>   goes 65% → <b>76%</b>, which puts it <em>above</em> the driver's effective radiating area</p>
+<p>   (~700 mm²) instead of below it. 0.80 mm of material remains between slots — still</p>
+<p>   printable.</p>
+<p>3. <b>0.60 mm flare on each slot mouth.</b> A sharp-edged slot sheds vortices and chuffs at</p>
+<p>   level. The flare opens downward-outward, so it is self-supporting in the stand's</p>
+<p>   print orientation and costs nothing.</p>
+<p>Chamber also went 21.0 → 22.0 mm deep (<b>30.3 → 32.1 cm³</b>). That is as far as it safely</p>
+<p>goes — the slab slot's front face sits at y ≈ 24.9 at the floor. Modest, and it matters</p>
+<p>less than it sounds: sealed volume sets the low-frequency corner, and with a driver whose</p>
+<p>Fs is ~650 Hz the box was never what limited output.</p>
+<p><b>Two free things you should do at assembly:</b></p>
+<ul>
+<li><b>Loosely fill the chamber with polyester wadding</b> (pillow stuffing, a pinch — not</li>
+</ul>
+<p>  packed). It damps standing waves in a box whose dimensions are all similar, and makes</p>
+<p>  the enclosure behave as if it were ~10–15% larger.</p>
+<ul>
+<li><b>Seal every joint.</b> In a box this small, leaks cost more output than anything above</li>
+</ul>
+<p>  buys back: the wire pass-through, the base plate seam, and the perimeter of the driver</p>
+<p>  itself. The adhesive tape <em>is</em> the driver's gasket — lay it continuous, not in dabs.</p>
+<p><b>Print the stand with more walls and infill than feels necessary</b> (5–6 perimeters,</p>
+<p>30%+). It is a speaker cabinet; panel resonance is audible as boxiness, and stiffness is</p>
+<p>the only thing that stops a 2 W driver exciting a 64 mm panel.</p>
+<p><b>Not done, and deliberately:</b> a bass-reflex port. At this volume a printable port tunes</p>
+<p>to roughly 390–460 Hz, which is only useful if it lands just below the driver's Fs — and</p>
+<p>that number is unknown. A port tuned below Fs does nothing, and a mistuned one is worse</p>
+<p>than sealed. If you measure Fs and want one, the arithmetic is</p>
+<p><code>Fb = (c/2π)·√(A / (V·Leff))</code> with <code>Leff = L + 0.85·d</code>.</p>
 <ul>
 <li>The ES3C28P <b>speaker header is unpopulated</b> — you need a 1.25 mm 2P pigtail.</li>
 <li>Changing driver: edit <code>DRIVER_W</code>, <code>DRIVER_H</code>, <code>DRIVER_R</code> in <code>ember_case.py</code> and re-run.</li>
