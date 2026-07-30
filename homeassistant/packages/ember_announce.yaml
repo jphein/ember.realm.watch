@@ -71,3 +71,17 @@ script:
                 Skipped announcement, Ember unreachable
                 ({{ state_attr('binary_sensor.ember_reachable', 'detail') }}):
                 {{ message }}
+
+  # Speak whatever is in input_text.ember_say. Exists because Lovelace's
+  # perform_action data is not templated, so a dashboard button cannot pass a
+  # text field's value — it can only call a script that reads it.
+  ember_say:
+    alias: Ember - say the text field
+    mode: queued
+    max: 5
+    sequence:
+      - condition: template
+        value_template: "{{ states('input_text.ember_say') | trim not in ['', 'unknown', 'unavailable'] }}"
+      - action: script.ember_announce
+        data:
+          message: "{{ states('input_text.ember_say') }}"

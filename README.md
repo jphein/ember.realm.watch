@@ -76,21 +76,41 @@ Don't wire it; the reasoning is at the point of use in the YAML.
 
 #### ⚠️ Partly fixed: an audible pop on some audio starts
 
-**The codec cannot fix all of it, and this is a mechanism limit rather than a
-tuning problem.** `use_mclk: true`, and MCLK is only driven while an I2S channel
-is loaded — so when *both* the speaker and the microphone are unloaded, MCLK
-stops entirely. The ES8311 is fully clock-dependent, and **REG31 mute is enforced
-inside that same clock domain**. It therefore cannot hold the analog output
-across an MCLK stop/start, because during the transition there is no clock with
-which to enforce it. No anchor, no poll period and no earlier hook changes that.
+`use_mclk: true`, and MCLK is only driven while an I2S channel is loaded — so
+when *both* the speaker and the microphone are unloaded, MCLK stops entirely.
+Every start therefore restarts the codec's clock, and that restart is when the
+pop happens.
 
-| transient | fixable by muting the codec? |
+> **A previous revision of this file claimed REG31 mute "is enforced inside the
+> clock domain" and so could not hold across an MCLK stop/start. That was
+> wrong.** REG31's `DAC_DSMMUTE` (bit 6) and `DAC_DEMMUTE` (bit 5) are **latched
+> I²C register bits**. I²C has its own clock (SCL, from the ESP32), the bits
+> persist until something rewrites them, and ESPHome never rewrites REG31 on
+> restart. Mute asserted before a clock stop is **still asserted** after the
+> clock comes back.
+>
+> The file contradicted itself while the claim was in it: our shipped, *working*
+> suppression on the speaker path is exactly a REG31 write. If the mechanism were
+> clock-gated that fix could not work either. Two commit messages
+> (`feat(ember): blank the amp…`, `docs(ember): record the pop mechanism`) state
+> the wrong version; this section supersedes both.
+
+So the pop is not a mechanism impossibility. It is a **race**, which is a much
+better kind of problem to have because races can be closed:
+
+`on_idle` is the only thing that mutes the DAC, and it fires from
+`speaker_media_player::loop()` — a different component's loop pass, additionally
+gated on the pipeline draining. But `talk_begin`'s `wait_until:
+speaker.is_stopped` is satisfied as soon as `stop_i2s_driver_()` runs. A tap
+could therefore reach `voice_assistant.start` *before* `on_idle` had muted, and
+the microphone's clock start then happened into an **unmuted DAC**.
+
+| transient | suppressed? |
 |---|---|
-| Speaker start, MCLK already up | **Yes** — REG31 inside the 50ms preloaded-silence window (shipped) |
-| MCLK cold start (both unloaded → first load) | **No.** Only the amp is downstream of it |
-| Mic-side start (e.g. tap to talk) | **No** — same reason |
+| Speaker start, MCLK already up | **Yes** — REG31 inside the 50ms preloaded-silence window |
+| Mic-side start (tap to talk) | **Yes** — explicit `audio_dac.mute_on` in `talk_begin`, ahead of the race |
 | Failed starts (`Parent bus is busy`) | **Nothing to suppress** — see below |
-| The amp's own enable click | Unmeasured |
+| The amp's own enable click | Avoided by leaving `amp_blank_ms: 0` |
 
 **Failed starts are not a pop source**, despite looking like the obvious suspect.
 `Parent bus is busy` is the `try_lock()` failure at
@@ -99,16 +119,27 @@ which to enforce it. No anchor, no poll period and no earlier hook changes that.
 failed start touches zero hardware; it costs latency and log noise only. (An
 earlier revision of this file claimed otherwise. It was wrong.)
 
-The only remaining lever for the clock-cold-start pop is gating the **SC8002B**
-amp on GPIO1. `amp_blank_ms` (default 180ms, set to `0` to disable) blanks the
-amp across the microphone's clock start. That is an **experiment, not a
-settled fix** — the amp has its own enable click, and a permanently-enabled BTL
-amp is *why* this board has no idle hiss. Deliberately not applied to the speaker
-path, so the two mechanisms stay separately measurable.
+`amp_blank_ms` gates the **SC8002B** amp on GPIO1 across the microphone's clock
+start. It works — a listening test confirmed it, because the pop *returned* when
+it was disabled — but it is the **second-choice fix** and now defaults to `0`
+(off), because muting the codec is strictly better on three counts: the amp has
+its own enable click, this board's 0.39µF coupling caps sit at the top of the
+range the amp datasheet recommends (so worst-case pop), and a permanently-enabled
+BTL amp is *why* this board has no idle hiss. Set it back to `180` if a
+codec-side race ever reappears; the two mechanisms are independent and the knob
+stays for that reason.
 
-**Cheapest falsification if you doubt the mechanism:** turn `Hush` on and tap to
-talk. Hush blocks `voice_assistant.start`, so no clock start occurs. If the pop
-persists, the clock-domain explanation above is wrong.
+**Cheapest falsification if you doubt the race:** turn `Hush` on and tap to talk.
+Hush blocks `voice_assistant.start`, so no clock start occurs. If the pop still
+happens, the trigger is not the mic-side start and something else is restarting
+the clock.
+
+**A pop that is not a race, and needs a different fix.** The chime→reply gap
+measures **2.716s** — longer than the speaker's `timeout: 500ms`. So the driver
+unloads and reloads *mid-response*, before every single reply, which is a clock
+restart nobody asked for. The gap is Piper's synthesis latency, not driver
+policy, so raising `timeout` past ~3s or holding the driver loaded across the
+turn are the real levers — not anything in the codec.
 
 > **Two settings on the speaker look alike and are not.**
 > `buffer_duration: 500ms` is the measured fix for choppy playback (a 16s

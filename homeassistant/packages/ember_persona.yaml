@@ -35,3 +35,15 @@ input_text:
     #   "Be even terser today, one sentence only."
     #   "You are in a hurry and a little short with me."
     #   "Mention the weather if it is relevant."
+
+  # Free-text "make Ember say something" from the dashboard.
+  #
+  # Lovelace `perform_action` data is NOT templated, so a button cannot pass a
+  # text field's contents directly — hence this pairing: the field holds the
+  # text, and script.ember_say reads it. Without it the dashboard can only
+  # speak hardcoded literals.
+  ember_say:
+    name: Ember Say
+    icon: mdi:message-text-outline
+    max: 255
+    initial: ""

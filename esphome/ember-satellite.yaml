@@ -81,15 +81,41 @@ substitutions:
   spark_ms_len: "500"
 
   # How long the amp is held in shutdown across a shared-I2S clock start, ms.
-  # 0 DISABLES amp blanking entirely (single-edit escape hatch — see the amp_blank
-  # script for why this is defaulted on despite being unmeasured). 180ms covers the
-  # mic's channel allocation plus enable with margin.
+  #
+  # ENABLED, on evidence. I had set this to 0 believing amp blanking caused a silent-TTS
+  # regression. It did not: with blanking off JP reported "the pop was still there and it
+  # didn't speak" — so the pop RETURNED the moment blanking stopped, and the silence was
+  # concurrent but unrelated (an HA-side stale TTS stream subscription,
+  # `ERROR tts: Invalid subscription`, from repeated OTAs; fixed by reloading the ESPHome
+  # config entry). Correlation, not causation, and I had it backwards.
+  #
+  # So amp blanking does the one job REG31 provably cannot: suppress the MCLK cold-start
+  # transient. Confirmed independently by nebula's prior-art review — vendor firmware
+  # (Espressif Korvo BSP, xiaozhi) creates DUPLEX channels once and never calls
+  # i2s_channel_disable, so the clock never stops. ESPHome is simplex behind one shared
+  # mutex and calls i2s_del_channel() on every hand-off, so every mic/speaker transition
+  # destroys and recreates the clock. That is the architectural root cause.
+  #
+  # 180ms is above the FM8002E's ~100ms typical wake-up TD, so the amp finishes waking
+  # before the blank lifts. Below ~100 it would un-blank mid-wake and clip the start of
+  # audio rather than protect it. 0 disables blanking entirely.
+  #
+  # ⚠️ OPEN, and only a listening test can settle it: the amp datasheet warns a large
+  # input coupling cap increases pop and recommends 0.1-0.39uF. This board is reported at
+  # 0.39uF (C44/C45) — the very top of that range — so PA gating may TRADE a codec pop
+  # for an amp-enable pop rather than remove it. That value came from extracted schematic
+  # text and pdftotext adjacency has misled us on this board before, so it is
+  # unconfirmed. Compare 0 / 180 / 300 by ear before trusting any of it.
   amp_blank_ms: "180"
 
-  # ---- text wrapping (character budgets, estimated from Roboto's average
-  # advance — NOT measured. Feed it a long reply and watch the right edge.) ----
-  cpl_body: "30"        # chars per line at font_body (Roboto 15)
-  cpl_sm: "38"          # chars per line at font_sm   (Roboto 12)
+  # ---- text layout ----
+  # cpl_body / cpl_sm are GONE. They were character budgets estimated from Roboto's
+  # average advance, and they were the cause of the truncation JP reported: an average
+  # advance under-counts any line with wide glyphs, so lines overran the band and were
+  # clipped. Wrapping is now measured with it.get_text_bounds(), so there is no
+  # estimate left to be wrong.
+  said_lines: "4"              # visible lines of Ember's reply per page
+  scroll_page_ms_len: "3500"   # how long each page is held before advancing
 
   # ---- overlay geometry ----
   # SHARED between the display lambda (which draws the targets) and the
@@ -207,6 +233,23 @@ interval:
             lambda: 'return id(dac_muted) && id(spk)->is_running();'
           then:
             - script.execute: dac_unmute
+
+      # AMP UN-BLANK, by deadline rather than by a delay inside a killable script.
+      # See amp_blank for why: the old shape could strand the amp off forever if a
+      # second call aborted the first mid-delay. A deadline cannot be aborted, and it
+      # self-clears — the failure direction here is "the pop comes back", never
+      # "the device is silent", which is the same asymmetry the DAC mute uses.
+      - if:
+          condition:
+            lambda: |-
+              return id(amp_unblank_at) != 0 &&
+                     (int32_t) (millis() - id(amp_unblank_at)) >= 0;
+          then:
+            - lambda: 'id(amp_unblank_at) = 0;'
+            - if:
+                condition: { switch.is_on: amp_switch }
+                then:
+                  - output.turn_on: amp_enable
 
 esp32:
   variant: esp32s3
@@ -552,6 +595,13 @@ media_player:
       # Do not lengthen it and do not point this id at chime_listening.wav.
       - id: chime_touch
         file: sounds/chime_touch.wav
+      # HAPTIC — a felt tap rather than a heard note. 24ms, fundamental + octave,
+      # NO inharmonic partials, because a bell rings and a tap must not. Fires on
+      # every touch target so the glass acknowledges contact even when the result
+      # isn't visible yet. Loud (peak 0.55) BECAUSE it's short: the ear integrates
+      # energy over ~30ms, so a brief transient has to be hot to register at all.
+      - id: chime_haptic
+        file: sounds/chime_haptic.wav
       # chime_listening.wav is deliberately NOT declared — see the chime script.
     volume_increment: 5%
     volume_initial: 45%
@@ -864,18 +914,27 @@ script:
   #
   # Deliberately does NOT override the user: if JP has switched `amp_switch` off, the
   # amp stays off. Restoring it here would silently un-mute a device he muted.
+  # ⚠️ REWRITTEN (Rev 10). The previous version was `mode: restart` with the
+  # re-enable sitting AFTER a `delay:` inside the script body. You spotted the
+  # consequence and you were right: a second call during the delay aborts the first
+  # run, so its `output.turn_on` never executes and the amp stays off indefinitely.
+  # That is a script that can strand the hardware in its unsafe state.
+  #
+  # The fix is the same shape as chime_until and the DAC mute: the script only sets a
+  # DEADLINE, and the re-enable is performed by the 10ms interval. There is no delay
+  # inside a killable script any more, so there is nothing to abort — the deadline
+  # survives independently of the script's lifetime.
+  #
+  # `amp_switch` remains the user-facing master: the interval only restores the amp if
+  # the switch is on, so blanking can never un-mute an amp JP muted deliberately.
   - id: amp_blank
-    mode: restart
+    mode: single
     then:
       - if:
           condition: { lambda: 'return ${amp_blank_ms} > 0;' }
           then:
             - output.turn_off: amp_enable
-            - delay: ${amp_blank_ms}ms
-            - if:
-                condition: { switch.is_on: amp_switch }
-                then:
-                  - output.turn_on: amp_enable
+            - lambda: 'id(amp_unblank_at) = millis() + ${amp_blank_ms}u;'
 
   # Unmute the DAC. Called from three independent triggers (on_announcement,
   # on_play, and the watchdog interval) because the dangerous failure here is
@@ -912,7 +971,7 @@ script:
   - id: chime
     mode: restart
     parameters:
-      which: int   # 0 done · 1 error · 2 announce · 3 thinking · 4 timer · 5 touch
+      which: int   # 0 done · 1 error · 2 announce · 3 thinking · 4 timer · 5 touch · 6 haptic
     then:
       - lambda: |-
           // Declare "the next N ms of audio is NOT speech" BEFORE starting it, so
@@ -920,8 +979,9 @@ script:
           // Durations are the real file lengths + 250ms of slack for pipeline
           // start-up: done 1.580 · error 1.050 · announce 1.540 · thinking 0.370
           // · timer 1.860 · touch 0.145.
-          static const uint32_t LEN_MS[6] = {1830u, 1300u, 1790u, 620u, 2110u, 395u};
-          if (which < 0 || which > 5) return;
+          // File length + 250ms of driver load/unload — measured uniform across all seven.
+          static const uint32_t LEN_MS[7] = {1830u, 1300u, 1790u, 620u, 2110u, 395u, 274u};
+          if (which < 0 || which > 6) return;
           // Do not start audio while the microphone holds the shared I2S lock. The
           // captured log shows what happens otherwise: the speaker fails with
           // "Parent bus is busy" (i2s_audio_speaker_standard.cpp:400-403) and then
@@ -932,6 +992,9 @@ script:
           // NOTE this failure costs no transient: :400 returns ESP_ERR_INVALID_STATE
           // BEFORE i2s_new_channel(), so a failed start never touches the hardware.
           // Failed starts are a LATENCY problem, not a pop source.
+          // Gates chime_until only. The PLAY actions are guarded in their own
+          // conditions below — a `return` here cannot abort sibling actions in
+          // the enclosing action list, which is the bug oracle-verifier found.
           if (id(va_state) == 1) return;
           // The announce herald is the ONE chime that must NOT be guarded: it is
           // the leading edge of real speech, and the fire should already be
@@ -945,7 +1008,7 @@ script:
             if (id(tts_est_ms) > 0) id(tts_est_ms) += LEN_MS[2];
           }
       - if:
-          condition: { lambda: 'return which == 0;' }
+          condition: { lambda: 'return which == 0 && id(va_state) != 1;' }
           then:
             - media_player.speaker.play_on_device_media_file:
                 id: media_out
@@ -953,7 +1016,7 @@ script:
                 announcement: true
                 enqueue: false
       - if:
-          condition: { lambda: 'return which == 1;' }
+          condition: { lambda: 'return which == 1 && id(va_state) != 1;' }
           then:
             - media_player.speaker.play_on_device_media_file:
                 id: media_out
@@ -961,7 +1024,7 @@ script:
                 announcement: true
                 enqueue: false
       - if:
-          condition: { lambda: 'return which == 2;' }
+          condition: { lambda: 'return which == 2 && id(va_state) != 1;' }
           then:
             - media_player.speaker.play_on_device_media_file:
                 id: media_out
@@ -969,7 +1032,7 @@ script:
                 announcement: true
                 enqueue: false
       - if:
-          condition: { lambda: 'return which == 3;' }
+          condition: { lambda: 'return which == 3 && id(va_state) != 1;' }
           then:
             - media_player.speaker.play_on_device_media_file:
                 id: media_out
@@ -977,7 +1040,7 @@ script:
                 announcement: true
                 enqueue: false
       - if:
-          condition: { lambda: 'return which == 4;' }
+          condition: { lambda: 'return which == 4 && id(va_state) != 1;' }
           then:
             - media_player.speaker.play_on_device_media_file:
                 id: media_out
@@ -985,11 +1048,19 @@ script:
                 announcement: true
                 enqueue: false
       - if:
-          condition: { lambda: 'return which == 5;' }
+          condition: { lambda: 'return which == 5 && id(va_state) != 1;' }
           then:
             - media_player.speaker.play_on_device_media_file:
                 id: media_out
                 media_file: chime_touch
+                announcement: true
+                enqueue: false
+      - if:
+          condition: { lambda: 'return which == 6 && id(va_state) != 1;' }
+          then:
+            - media_player.speaker.play_on_device_media_file:
+                id: media_out
+                media_file: chime_haptic
                 announcement: true
                 enqueue: false
 
@@ -1058,12 +1129,50 @@ script:
                 timeout: 900ms
             # Blank the amp across the MICROPHONE's clock start. This is the one
             # transient DAC mute provably cannot suppress — see the amp_blank script.
+            # RACE FIX (oracle-verifier #6). `on_idle` is the ONLY thing that
+            # mutes the DAC, and it fires from speaker_media_player::loop() — a
+            # DIFFERENT component's loop pass, additionally gated on the pipeline
+            # draining. Meanwhile the wait above is satisfied as soon as
+            # stop_i2s_driver_() runs. So a tap could reach voice_assistant.start
+            # BEFORE on_idle had muted, and the mic's clock start then happened
+            # into an UNMUTED DAC. That is the pop, and it needs no impossibility
+            # to explain it.
+            #
+            # REG31's mute bits (DAC_DSMMUTE bit 6, DAC_DEMMUTE bit 5) are LATCHED
+            # I2C register bits, not clocked state, and ESPHome never rewrites
+            # REG31 on restart — so asserting mute here genuinely holds across the
+            # MCLK stop/start. (An earlier revision of this file claimed the
+            # opposite; that claim was refuted from the datasheet.)
+            - audio_dac.mute_on: es8311_dac
+            - lambda: 'id(dac_muted) = true;'
+            # amp_blank is now redundant IF the above is sufficient — this is the
+            # experiment. amp_blank_ms: 0 disables it; if the pop stays away we
+            # delete a subsystem and avoid the SC8002B's own enable click, which
+            # matters because this board's 0.39uF coupling caps are at the top of
+            # the range the amp datasheet recommends (i.e. worst-case pop).
             - script.execute: amp_blank
             - voice_assistant.start:
 
   - id: ui_dispatch
     mode: single
     then:
+      # HAPTIC FIRST, for every action including dismiss and bank. This is the one
+      # place all touch targets converge (on_touch only hit-tests and sets
+      # ui_action), so wiring it here means any future UI target gets feedback for
+      # free and cannot forget to ask for it.
+      #
+      # It inherits chime's `va_state != 1` guard, so nothing plays while the mic
+      # is open — this board has no AEC and the speaker shares one I2S hub with the
+      # microphone.
+      #
+      # ui_action == 0 means the touch hit nothing, and gets no acknowledgement:
+      # the feedback should mean "that landed", not "something was touched".
+      - if:
+          condition: { lambda: 'return id(ui_action) != 0;' }
+          then:
+            - script.execute:
+                id: chime
+                which: 6
       # cycle: false on both on-screen targets. `number.increment`/`decrement`
       # default to cycle: TRUE (number/__init__.py:392), which would silently
       # wrap 100% -> 0% when you press "+" at maximum. That default is wrong for
@@ -1338,6 +1447,34 @@ globals:
     restore_value: false
     initial_value: '0'
 
+  # ---- reply paging ----
+  # Which page of an overflowing reply is showing, how many there are, and when the
+  # current one was raised. scroll_pages is PUBLISHED BY paint_scroll (it is the only
+  # place that knows the measured line count) and READ BY the scheduler, which arms the
+  # page timer only when it is > 1. A reply that fits therefore costs exactly what it
+  # did before: one repaint on change and nothing ongoing.
+  - id: scroll_page
+    type: int
+    restore_value: false
+    initial_value: '0'
+
+  - id: scroll_pages
+    type: int
+    restore_value: false
+    initial_value: '1'
+
+  - id: scroll_page_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+
+  # Deadline for restoring the amp after a blank. 0 = nothing pending. Lives here
+  # rather than in a script `delay:` so it cannot be aborted mid-flight — see amp_blank.
+  - id: amp_unblank_at
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+
   # True when the current speech was PUSHED by HA (assist_satellite.announce /
   # tts.speak) rather than being a reply to something we heard. Set in on_tts_start.
   - id: is_announce
@@ -1585,6 +1722,73 @@ display:
       if (audio_live && !was_live) id(spk_frames_mark) = frames;
       was_live = audio_live;
 
+      // ================= the LED: one authority, shared with the fire =============
+      // The WS2812 is the hearth's glow spilling out of the box, so it is driven from
+      // the SAME derived `st` the flame band uses. Not a parallel state machine that
+      // agrees by convention — literally the same variable, so the light and the
+      // screen cannot disagree. A user reads whichever one they happen to be looking
+      // at, so same-source-of-truth is the property worth protecting.
+      //
+      // WHY THIS REPLACED THE TRIGGERS RATHER THAN JOINING THEM.
+      //   The LED used to be written by four voice_assistant triggers. Two writers
+      //   would have needed an ownership handoff and would still drift. This is the
+      //   shape that worked for volume: make one thing the authority and DELETE the
+      //   competitor. All four `light.turn_on` actions are gone from voice_assistant.
+      //   >>> Do not add a light.turn_on back to any trigger. It would not merely be
+      //       redundant, it would fight this on every transition. <<<
+      //
+      // WHAT THIS FIXES, and it was worse than I had been reporting:
+      //   Removing on_tts_stream_start in Revision 4 (forbidden once we took
+      //   media_player for announce) silently deleted the LED's SPEAKING rung. The
+      //   light went gold at THINKING and stayed gold through the entire spoken
+      //   reply, then banked. Driving it from `st` restores white-hot — and gets the
+      //   announcement case for free, because `st` is derived from the speaker rather
+      //   than from a trigger that fires before the audio.
+      //
+      // COST: edge-triggered, so this is ~1 RMT write per state transition, not one
+      // per frame. `led_shown` is a static local, main-loop only, no cross-task
+      // concern, and it is re-derived from `st` every frame so it cannot get stuck.
+      {
+        // Hush is privacy-relevant, so it deviates from the fire ramp deliberately —
+        // the same justification as error being off-ramp. A hushed device that looks
+        // identical to a listening one is the failure worth avoiding, so the hearth
+        // goes DARK: unambiguous, and distinct from banked-ember. The telemetry band
+        // says "hushed - ember isn't listening" so "off" can't read as "dead".
+        const int led_want = (st == 0 && id(sw_hush).state) ? -1 : st;
+        static int led_shown = -99;
+        if (led_want != led_shown) {
+          led_shown = led_want;
+          if (led_want < 0) {
+            auto c = id(status_led)->turn_off();
+            c.set_transition_length(400);
+            c.perform();
+          } else {
+            auto c = id(status_led)->turn_on();
+            // Idle fades in slowly (the fire settling); everything else snaps, because
+            // a state change you had to wait for reads as lag.
+            c.set_transition_length(led_want == 0 ? 800u : 120u);
+            switch (led_want) {
+              case 1:  // LISTENING - amber, rung 1
+                c.set_rgb(1.00f, 0.40f, 0.04f); c.set_brightness(1.00f);
+                c.set_effect("none"); break;
+              case 2:  // THINKING - gold, rung 2, pulsing
+                c.set_rgb(1.00f, 0.66f, 0.12f); c.set_brightness(1.00f);
+                c.set_effect("crucible"); break;
+              case 3:  // SPEAKING - white-hot, rung 3. Restored; see above.
+                c.set_rgb(1.00f, 0.91f, 0.70f); c.set_brightness(1.00f);
+                c.set_effect("none"); break;
+              case 4:  // ERROR - the one colour off the ramp
+                c.set_rgb(1.00f, 0.12f, 0.05f); c.set_brightness(1.00f);
+                c.set_effect("none"); break;
+              default:  // IDLE - banked coals, still breathing
+                c.set_rgb(1.00f, 0.14f, 0.02f); c.set_brightness(0.20f);
+                c.set_effect("bank"); break;
+            }
+            c.perform();
+          }
+        }
+      }
+
       Color accent = c_ember;
       switch (st) {
         case 1: accent = c_amber; break;
@@ -1630,20 +1834,60 @@ display:
       // ================= text helper =================
       // Word-wrap on a character budget. O(n) and good enough: this runs only
       // when the text changes (a few times per conversation), never per frame.
+      // ---- MEASURED word-wrap, and the reason text was being truncated ----
+      // This used to wrap on a CHARACTER BUDGET (cpl_body: 30 / cpl_sm: 38) estimated
+      // from Roboto's average advance. I flagged those as unmeasured from the start,
+      // and they are the truncation JP is seeing: an average advance under-counts any
+      // line with wide glyphs, so real lines overran the band and were clipped at the
+      // right edge. Guessing a width when the renderer will tell you the answer was
+      // the mistake.
+      //
+      // it.get_text_bounds() (display.h:689) measures the actual rendered width, so
+      // this now wraps on PIXELS. O(words) measurements, and it only runs when the
+      // text changes — a few times per conversation, never per frame.
+      //
+      // Returns the TOTAL number of lines the text needs, which is what lets the
+      // caller detect overflow and page instead of silently dropping the rest. Draws
+      // only lines [first, first + max_lines).
+      //
+      // Known limit, deliberately not handled: a single word wider than the band is
+      // not hard-broken, so it will overrun. For speech that means a pathological URL;
+      // splitting mid-word would cost a second measurement pass for a case Ember's
+      // persona does not produce.
       auto wrap = [&](int x, int y, auto *fnt, Color col, const std::string &s,
-                      int cpl, int lh, int max_lines) {
-        int ly = y, lines = 0; size_t i = 0;
-        while (i < s.size() && lines < max_lines) {
-          size_t take = (s.size() - i) < (size_t) cpl ? (s.size() - i) : (size_t) cpl;
-          if (i + take < s.size()) {
-            size_t sp = s.rfind(' ', i + take);
-            if (sp != std::string::npos && sp > i) take = sp - i;
+                      int maxw, int lh, int max_lines, int first) -> int {
+        int total = 0, drawn = 0;
+        std::string line;
+        auto flush = [&]() {
+          if (total >= first && drawn < max_lines) {
+            it.print(x, y + drawn * lh, fnt, col, line.c_str());
+            drawn++;
           }
-          it.print(x, ly, fnt, col, s.substr(i, take).c_str());
-          i += take;
-          while (i < s.size() && s[i] == ' ') i++;
-          ly += lh; lines++;
+          total++;
+          line.clear();
+        };
+        size_t i = 0;
+        while (true) {
+          size_t sp = s.find(' ', i);
+          size_t end = (sp == std::string::npos) ? s.size() : sp;
+          if (end > i) {
+            std::string w = s.substr(i, end - i);
+            std::string cand = line.empty() ? w : line + " " + w;
+            int bx, by, bw, bh;
+            it.get_text_bounds(0, 0, cand.c_str(), fnt,
+                               display::TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
+            if (bw > maxw && !line.empty()) {
+              flush();
+              line = w;
+            } else {
+              line = cand;
+            }
+          }
+          if (end == s.size()) break;
+          i = end + 1;
         }
+        if (!line.empty()) flush();
+        return total;
       };
 
       // ================= band painters =================
@@ -1689,6 +1933,8 @@ display:
       };
 
       auto paint_scroll = [&]() {
+        const int MAXW = W - 12;
+        const int SAID_LINES = ${said_lines};
         it.filled_rectangle(0, SCRL_Y, W, SCRL_H, c_bg);
         // A pushed announcement answers nothing, so captioning it "heard: -" would
         // be a small lie. Label the provenance instead.
@@ -1697,15 +1943,43 @@ display:
         } else {
           it.print(6, SCRL_Y + 2, id(font_sm), c_dim, "heard");
           if (!id(heard_text).empty()) {
-            wrap(6, SCRL_Y + 18, id(font_sm), c_ink, id(heard_text), ${cpl_sm}, 14, 2);
+            // The transcript gets 2 lines and an ellipsis if it overruns: you know
+            // what you just said, so paging it would cost budget for no information.
+            int need = wrap(6, SCRL_Y + 18, id(font_sm), c_ink, id(heard_text),
+                            MAXW, 14, 2, 0);
+            if (need > 2) {
+              it.print(W - 6, SCRL_Y + 32, id(font_sm), c_ash,
+                       display::TextAlign::TOP_RIGHT, "...");
+            }
           } else {
             it.print(6, SCRL_Y + 18, id(font_sm), c_ash, "-");
           }
         }
         it.filled_rectangle(6, SCRL_Y + 50, W - 12, 1, c_ash);
+
+        // Ember's reply PAGES rather than truncating. JP's framing was that he would
+        // rather read it over time than lose it, and paging honours that at a cost
+        // that rounds to nothing: one repaint every ${scroll_page_ms_len}ms only while
+        // a reply actually overflows. A smooth scroll would need a repaint every
+        // 50-100ms, and at 18-22ms per scroll-band paint that is 20-40% of the main
+        // loop — it would compete directly with the fire, permanently, for a case that
+        // is rare because the persona enforces terseness.
         if (!id(said_text).empty()) {
-          wrap(6, SCRL_Y + 58, id(font_body),
-               st == 4 ? c_alarm : c_ink, id(said_text), ${cpl_body}, 18, 5);
+          const int need = wrap(6, SCRL_Y + 58, id(font_body),
+                                st == 4 ? c_alarm : c_ink, id(said_text),
+                                MAXW, 18, SAID_LINES,
+                                id(scroll_page) * SAID_LINES);
+          // Publish the page count for the scheduler. Only >1 arms the page timer, so
+          // a reply that fits costs exactly what it did before: nothing.
+          const int pages = (need + SAID_LINES - 1) / SAID_LINES;
+          id(scroll_pages) = pages < 1 ? 1 : pages;
+          if (id(scroll_pages) > 1) {
+            it.printf(W - 6, SCRL_Y + 134, id(font_sm), c_dim,
+                      display::TextAlign::TOP_RIGHT, "%d/%d",
+                      id(scroll_page) + 1, id(scroll_pages));
+          }
+        } else {
+          id(scroll_pages) = 1;
         }
       };
 
@@ -2040,7 +2314,23 @@ display:
       }
 
       if (st != seen_state)           { seen_state = st;            pend |= 0x1F; }
-      if (id(scroll_gen) != seen_gen) { seen_gen = id(scroll_gen);  pend |= 0x04; }
+      if (id(scroll_gen) != seen_gen) {
+        seen_gen = id(scroll_gen);
+        pend |= 0x04;
+        // New text starts at page 1. Without this a long reply followed by a short one
+        // would open on page 3 of a document that now has one page, showing blank.
+        id(scroll_page) = 0;
+        id(scroll_pages) = 1;
+        id(scroll_page_ms) = now;
+      }
+      // Page an overflowing reply. Armed ONLY when paint_scroll measured more lines
+      // than fit, so this is dormant for the common (terse) case.
+      if (id(scroll_pages) > 1 &&
+          (now - id(scroll_page_ms)) > ${scroll_page_ms_len}u) {
+        id(scroll_page) = (id(scroll_page) + 1) % id(scroll_pages);
+        id(scroll_page_ms) = now;
+        pend |= 0x04;
+      }
       if (now >= t_tele)              { pend |= 0x08; t_tele = now + 500u; }
       // Overlay repaints on change only — 0x20 is never set by a timer.
       if (id(ui_gen) != seen_ui || id(ui_mode) != seen_mode) {
@@ -2219,11 +2509,6 @@ voice_assistant:
     - lambda: |-
         id(va_state) = 1;
         id(db_peak_hold) = ${db_floor}f;
-    - light.turn_on:
-        id: status_led
-        red: 100%
-        green: 40%
-        blue: 4%          # amber — rung 1 of the fire ramp
 
   on_stt_end:
     - lambda: |-
@@ -2232,12 +2517,6 @@ voice_assistant:
 
   on_stt_vad_end:
     - lambda: 'id(va_state) = 2;'
-    - light.turn_on:
-        id: status_led
-        red: 100%
-        green: 66%
-        blue: 12%         # gold — rung 2
-        effect: crucible
     # Off by default — taste call, see the chime script.
     - if:
         condition: { lambda: 'return ${chime_on_thinking} != 0;' }
@@ -2290,14 +2569,6 @@ voice_assistant:
     - lambda: |-
         id(va_state) = 0;
         id(tts_est_ms) = 0;
-    # Not turn_off: the ember still burns while the room is dark.
-    - light.turn_on:
-        id: status_led
-        red: 100%
-        green: 14%
-        blue: 2%
-        brightness: 20%
-        effect: bank
     # "The mic is closed." Suppressed for announcements, where on_end fires BEFORE
     # the audio plays (voice_assistant.cpp:1056-1080) — chiming "done" there would
     # ring over the announcement it is supposedly closing, and the herald already
@@ -2316,12 +2587,6 @@ voice_assistant:
         // trigger (on_stt_end / on_tts_start / on_tts_end) does use `x`.
         id(said_text) = code + " / " + message;
         id(scroll_gen)++;
-    - light.turn_on:
-        id: status_led
-        red: 100%
-        green: 0%
-        blue: 0%
-        effect: none
     - script.execute: { id: chime, which: 1 }
 
   # Wiring ANY on_timer_* sets has_timers_ -> FEATURE_TIMERS (voice_assistant.h:164),

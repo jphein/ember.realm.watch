@@ -129,6 +129,29 @@ def main():
     write("chime_touch.wav",
           render([(G4, 0.0, 0.70, 0.085)], tail=0.06), 0.30)
 
+    # haptic — a felt tap rather than a heard note. Every touch event.
+    #
+    # This is NOT the struck-glass voice: no inharmonic partials, because a bell
+    # rings and a tap must not. Just the fundamental plus its octave, decaying in
+    # ~12ms, so the ear registers an impulse and the cone registers a shove.
+    #
+    # F3 (174.6Hz) is the lowest note in the set, so it stays in the same
+    # pentatonic family as every other tone while sitting where a small 8-ohm
+    # speaker can still move air. Anything lower is inaudible on this hardware and
+    # would only waste excursion.
+    #
+    # ~30ms total. Length is a HARD constraint, for two reasons:
+    #   1. Every playback is a speaker driver cycle, and driver cycles are what
+    #      correlate with the unresolved MCLK-start pop. Short means the tap is
+    #      over before the next one, so bursts coalesce in one driver session.
+    #   2. A 145ms tone previously took the shared I2S lock and left the mic deaf
+    #      for a full second. Short plus wait_until:speaker.is_stopped is what
+    #      makes a per-touch sound safe at all.
+    # >>> Do not lengthen this and do not add partials. It stops being a tap. <<<
+    write("chime_haptic.wav",
+          render([(F3, 0.0, 1.00, 0.012), (F3 * 2.0, 0.0, 0.35, 0.008)],
+                 tail=0.012), 0.55)
+
 
 if __name__ == "__main__":
     main()
