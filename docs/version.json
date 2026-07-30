@@ -1,12 +1,12 @@
 {
   "name": "ember",
   "description": "Local-first voice assistant satellite with a hearth for a face",
-  "version": "White-Hot Anvil \u00b7 c7d095c",
-  "hash": "c7d095c",
+  "version": "Tempered Crucible \u00b7 ba07524",
+  "hash": "ba07524",
   "branch": "main",
   "dirty": false,
-  "built": "2026-07-30T02:52:28Z",
+  "built": "2026-07-30T02:57:24Z",
   "realm": "forge",
   "repo": "https://github.com/jphein/ember.realm.watch",
-  "commit_url": "https://github.com/jphein/ember.realm.watch/commit/c7d095c"
+  "commit_url": "https://github.com/jphein/ember.realm.watch/commit/ba07524"
 }
