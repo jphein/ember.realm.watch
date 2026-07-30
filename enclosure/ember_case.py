@@ -363,6 +363,21 @@ GRILLE_FLARE  = 0.60
 def _hex_panel(x0, x1, y0, y1, z0, z1, aflat, web):
     """Fine hex lattice filling a rectangular patch, extruded through Z.
 
+    >>> rotation=30 IS LOAD-BEARING. Without it this field is a single hole. <<<
+
+    `RegularPolygon(R, 6)` is FLAT-top: two vertices share the maximum Y, so the cell
+    measures 2R across-corners in X and R*sqrt(3) across-flats in Y. Both lattices here
+    space columns at `dx = aflat + web` — POINTY-top spacing, where across-flats is the X
+    extent. Drawn flat-top, the cell is 2R wide against a 2R*sqrt(3)/2 + web pitch, so the
+    cells OVERLAP and the web is negative.
+
+    Found by luna-bezel while building the bezel face. As built, the stand grille returned
+    ONE solid instead of 33, and flood-filling the field showed the remaining material as
+    44 disconnected pieces — 43 loose prisms of 2.53-5.38mm2 spanning the full wall. It
+    would have printed as a single 37x24 opening with 43 loose triangles rattling around,
+    and the back panel's stated 0.80mm web measured 0.305mm. rotation=30 gives one
+    connected web at the stated figures.
+
     Used on the back shell. Same lattice maths as the speaker grille, different
     granularity — coarse there because open area is the goal, fine here because the
     back is a surface you look at and the holes are venting plus the LED's light path.
@@ -381,7 +396,7 @@ def _hex_panel(x0, x1, y0, y1, z0, z1, aflat, web):
             # keep every hex wholly inside the patch — a clipped hex leaves a sliver
             if not (x0 + R <= hx <= x1 - R and y0 + R <= hy <= y1 - R):
                 continue
-            h = Pos(hx, hy, z0) * extrude(RegularPolygon(R, 6), z1 - z0)
+            h = Pos(hx, hy, z0) * extrude(RegularPolygon(R, 6, rotation=30), z1 - z0)
             out = h if out is None else out + h
     return out
 
@@ -402,7 +417,7 @@ def _hex_field(dz, flare=0.0, depth=None):
             if abs(cx) > fw/2 + aflat or abs(cy) > fh/2 + HEX_R:
                 continue
             h = Pos(ST_W/2 + cx, -2.0, dz + cy) * (Rot(-90,0,0) *
-                    extrude(RegularPolygon(R, 6), d))
+                    extrude(RegularPolygon(R, 6, rotation=30), d))
             out = h if out is None else out + h
     return out
 
@@ -469,8 +484,19 @@ def desk_stand():
                  -0.5, GRILLE_RECESS + 0.5)
 
     if GRILLE_STYLE == "hex":
-        bars = _hex_field(dz) + _hex_field(dz, flare=GRILLE_FLARE,
-                                           depth=GRILLE_RECESS + 2.4)
+        _cells = _hex_field(dz)
+        # THE CELLS MUST BE SEPARATE, and no area check can tell you they are.
+        #
+        # Drawn flat-top on pointy-top spacing they overlapped and fused into ONE solid,
+        # while the open area still measured ~673mm2 — the number was right and the part
+        # was ruined. Counting solids is the property that actually matters: 33 cells with
+        # a connected web between them, not one hole with loose prisms in it.
+        _n = len(_cells.solids())
+        assert _n >= 30, (
+            f"hex grille collapsed to {_n} solid(s) — the cells have merged, so the web is "
+            f"negative and the part would print as one opening with loose prisms")
+        bars = _cells + _hex_field(dz, flare=GRILLE_FLARE,
+                                   depth=GRILLE_RECESS + 2.4)
     else:
         bars = None
         _fw = DRIVER_W - 2*GRILLE_INSET
