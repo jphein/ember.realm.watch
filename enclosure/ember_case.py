@@ -55,8 +55,11 @@ PAD_Y0, PAD_Y1 = 0.80, 10.30   # pad spans +Y only: the switches sit just 3.26mm
                                # through the shell's bottom wall. Hinge at PAD_Y1.
 HINGE_T    = 0.90    # living-hinge thickness
 SLOT_W     = 0.60    # printed-in-place slot around the button pads
-LED_WIN_D  = 12.0
-DIFF_D     = 16.0    # diffuser disc seat
+# LED_WIN_D / DIFF_D deleted with the rear glow window and the diffuser disc. The fine
+# hex field on the back now carries the WS2812's light, and JP is printing in WHITE — a
+# translucent shell, so the glow leaves through the wall as well as the holes. Many small
+# apertures in a translucent panel scatter; one 12mm bore behind a printed disc just shows
+# you the die.
 
 GLASS_GAP  = 0.40    # bezel NEVER touches the glass: LCD 2.3+/-0.1 & TP 1.0+/-0.1
                      # stack up to +0.2, so 0.40 keeps 0.2 clear worst-case.
@@ -142,9 +145,12 @@ def back_shell():
         p -= bx(OX0-1, PK0+0.01, a,b, CAV_FLOOR, PCB_BOT)
     # ---- mic BACK relief: works whichever way the port faces ----
     p -= cyl(MIC[0],MIC[1], BACK_Z-1, CAV_FLOOR+0.01, 3.00)
-    # ---- rear glow window for the WS2812 + diffuser seat ----
-    p -= cyl(LED[0],LED[1], BACK_Z-1, CAV_FLOOR+1, LED_WIN_D)
-    p -= cyl(LED[0],LED[1], BACK_Z-0.01, BACK_Z+1.00, DIFF_D)
+    # ---- NO LED WINDOW, NO DIFFUSER ----
+    # There used to be a 12mm bore over the WS2812 plus a 16mm seat for a printed
+    # translucent disc. Both are gone: the fine hex field below passes straight over the
+    # LED, so its light leaves through ~30 small holes instead of one big one. That is a
+    # better diffuser than the diffuser was — many small apertures scatter, one large one
+    # just shows you the die — and it deletes a part, a seat, and a second filament.
     # ---- printed-in-place button pushers ----
     pw = BUTTON_PAD_W
     for (cx,cy) in BTN:
@@ -158,17 +164,23 @@ def back_shell():
         p -= bx(x0-SLOT_W, x1+SLOT_W, y1-0.5, y1+0.5, BACK_Z+HINGE_T, CAV_FLOOR+1)
         # pip that reaches the switch plunger
         p += cyl(cx,cy, CAV_FLOOR, BTN_TIP_Z-0.15, 4.00)
-    # ---- vents (kept clear of the antenna keepout and the LED window) ----
-    for i in range(6):
-        yv = 15.0 + i*2.6
-        p -= bx(10.0,40.0, yv, yv+1.3, BACK_Z-1, CAV_FLOOR+1)
-    for i in range(6):
-        yv = 60.0 + i*2.6
-        p -= bx(10.0,40.0, yv, yv+1.3, BACK_Z-1, CAV_FLOOR+1)
+    # ---- FINE HEX BACK. Replaces two arrays of slot vents. ----
+    #
+    # The patch is bounded by what is already in the back face, not by taste:
+    #   x 9..41  clears the screw bosses. Holes sit on 78x42 centres 4mm in from every
+    #            edge, so at x=4 a BOSS_D boss spans 1.3..6.7 and at x=46, 43.3..48.7.
+    #   y 11..75 clears the printed-in-place button pads at y~3.3, the USB-C relief below
+    #            them, the mic relief at (40, 81.5), and the PCB antenna keepout
+    #            ANT y 80.04..85.70. The old slot vents dodged the same features.
+    #
+    # 3.2mm across the flats on a 0.8mm web — fine enough to read as a texture rather
+    # than as holes, and 0.8mm is two extrusion widths at a 0.4mm nozzle. Every hex is
+    # kept WHOLLY inside the patch: a clipped hex at the boundary leaves a sliver of
+    # material that prints as stringing.
+    p -= _hex_panel(9.0, 41.0, 11.0, 75.0, BACK_Z-1, CAV_FLOOR+1, 3.2, 0.8)
     return p
 
-def diffuser():
-    return cyl(0,0,0,0.90, DIFF_D-0.4)
+# diffuser() deleted along with the LED window it seated into — see back_shell().
 
 
 # ============================================================================
@@ -304,6 +316,32 @@ GRILLE_SLOT_W2 = 2.60
 # level; a flare is the standard fix and costs nothing to print because it opens
 # downward-outward, i.e. it is self-supporting in the stand's print orientation.
 GRILLE_FLARE  = 0.60
+
+def _hex_panel(x0, x1, y0, y1, z0, z1, aflat, web):
+    """Fine hex lattice filling a rectangular patch, extruded through Z.
+
+    Used on the back shell. Same lattice maths as the speaker grille, different
+    granularity — coarse there because open area is the goal, fine here because the
+    back is a surface you look at and the holes are venting plus the LED's light path.
+    """
+    R = aflat / math.sqrt(3)
+    dx = aflat + web
+    dy = 1.5 * R + web * math.sqrt(3) / 2
+    cx0, cy0 = (x0 + x1) / 2, (y0 + y1) / 2
+    out = None
+    ny = int((y1 - y0) / dy) + 2
+    nx = int((x1 - x0) / dx) + 2
+    for j in range(-ny, ny + 1):
+        for i in range(-nx, nx + 1):
+            hx = cx0 + i * dx + (dx / 2 if j % 2 else 0)
+            hy = cy0 + j * dy
+            # keep every hex wholly inside the patch — a clipped hex leaves a sliver
+            if not (x0 + R <= hx <= x1 - R and y0 + R <= hy <= y1 - R):
+                continue
+            h = Pos(hx, hy, z0) * extrude(RegularPolygon(R, 6), z1 - z0)
+            out = h if out is None else out + h
+    return out
+
 
 def _hex_field(dz, flare=0.0, depth=None):
     """Pointy-top hex lattice covering the grille field, extruded through the wall."""
@@ -492,7 +530,7 @@ if __name__ == "__main__":
     out = os.path.dirname(os.path.abspath(__file__))
     parts = {"ember-front-bezel": front_bezel(),
              "ember-back-shell":  back_shell(),
-             "ember-diffuser":    diffuser()}
+             }
     try:
         parts["ember-stand"] = desk_stand()
         parts["ember-stand-base"] = stand_base()
