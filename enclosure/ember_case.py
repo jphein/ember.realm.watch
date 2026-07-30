@@ -145,6 +145,12 @@ BTN_R_SMALL = 5.7735  # RESET. "it can be smaller hexagon" — 11.55 corners, 10
 CAP_CX_BOOT  = 33.05  # island centre; switch is at BTN_BOOT_X = 36.58
 CAP_CX_RESET = 14.51  # island centre; switch is at BTN_RESET_X = 13.45
 PAD_Y0     = 0.80    # island bottom edge. Any lower cuts the shell's bottom wall.
+# The back hex field's lower boundary, NAMED because two places need it and they disagreed:
+# _hex_panel() was moved to 19.00 for the thumb-sized caps while the assert that checks the
+# caps clear the field still read a hardcoded 11.0 — so the assert fired against a boundary
+# the part no longer had. Exactly the GRILLE_SLOT_W duplication one screenful up, and the
+# reason a shared number gets a name.
+HEX_FIELD_Y0 = 19.00
 # DEBOSSED, NOT RAISED — and the print orientation decides this, not taste.
 #
 # The first version of these caps stood 1.20mm PROUD of the back face, because JP asked for
@@ -414,20 +420,89 @@ def _bezel_mark():
     the brow allows.
     """
     s = 0.90 / _W.WYRM_MIN_FEATURE
-    w, h = _W.WYRM_W * s, _W.WYRM_H * s
-    # x0 IS DERIVED, NOT CHOSEN. It was 1.00, which put the mark 1.18mm INSIDE the (4,82)
-    # screw boss's 5.40mm pad — thinning the bezel roof over a self-tapper from 1.50 to
-    # 1.05mm, on a fastener that gets driven in. Not a hole, which is exactly why nothing
-    # noticed: the pilot stops at SEAM_Z+1.5 and the front face is 1.5mm above it, so the
-    # boolean clearance check had nothing to intersect. Start clear of the boss instead.
-    x0 = max(1.00, 4.0 + BOSS_D/2 + MARK_MARGIN)
+    h = _W.WYRM_H * s
+
+    # MIRRORED, AND THAT IS THE WHOLE COMPOSITION. dragon.py line 48: "Faces LEFT." Unmirrored,
+    # the creature's TAIL points at the mic port and its gesture exits off the face — so the
+    # port became the end of a sentence with nothing leading to it, and the 12mm before it read
+    # as dead air rather than as spacing. Mirrored, the head faces the flare and the same
+    # emptiness becomes direction: the port is where sound enters, so a hearth-wyrm attending it
+    # is the device's function drawn on its own face.
+    #
+    # ⚠️ THE COST, ON THE RECORD: this hands the creature. Three other renderings (the device's
+    # RLE spans, the website's SVG, the stand's grille) share one handedness and this one does
+    # not, so "one creature, four renderings" is now "…one of them mirrored". JP was shown that
+    # cost and the "not top-left" cost and chose this anyway.
+    #
+    # READ IT AS A FRIEZE, NOT A LOGO. The ink fills the canvas height completely
+    # (y 0.0000..15.4166 of 15.4167) and the scale is floored by printability, so it CANNOT be
+    # given a ground — and a frieze fills its band by definition. That reframing is what makes
+    # the full-height fit correct rather than cramped, and the port sharing the register
+    # natural. It is also why this is not the coiled-ember mark: it is character art in a band.
+    _ix0 = min(r[0] for r in _W.WYRM)
+    _ix1 = max(r[0] + r[2] for r in _W.WYRM)
+
+    # x0 IS DERIVED TWICE OVER, NOT CHOSEN.
+    #
+    # First by the screw boss: the mark once started at x=1.00, which put it 1.18mm INSIDE the
+    # (4,82) boss's 5.40mm pad, thinning the bezel roof over a driven self-tapper from 1.50 to
+    # 1.05mm. Invisible to the clearance check because the pilot stops at SEAM_Z+1.5 and the
+    # front face is 1.5mm above it — an absence cannot collide.
+    #
+    # Second, and this is the part worth checking rather than trusting: the constraint is on the
+    # INK, not on the canvas. Mirrored, the leftmost ink sits 0.900mm inside the canvas origin,
+    # so a canvas origin of 6.80 puts the first ink at exactly 7.70 = boss pad + MARK_MARGIN.
+    # The reviewer's 6.80 and my 7.70 looked like a disagreement and were the same number
+    # measured from different edges.
+    #
+    # The payoff is not spacing, it is centring: ink 7.70..33.35 plus the flare's right edge at
+    # 42.30 gives a creature-and-port group centred on 25.00 — the face's exact centreline. The
+    # 4.35mm gap reads as attention (2.0 crowds, 5.0 drifts, both rendered), and the leftover
+    # 9.45mm becomes plain left margin, which is invisible.
+    _inset_l = (_W.WYRM_W - _ix1) * s          # mirroring swaps which inset leads
+    x0 = (4.0 + BOSS_D/2 + MARK_MARGIN) - _inset_l
     y0 = (VA[3] + WIN_MARGIN) + MARK_MARGIN
+    # ⚠️ EVERY SPAN IS INFLATED BY EPS, AND THE STL IS NON-MANIFOLD WITHOUT IT.
+    #
+    # The mark is 104 row-runs stacked into a staircase. Wherever one row's run ENDS at exactly
+    # the x where the next row's run BEGINS, the two boxes touch along a single vertical edge —
+    # and edge-only contact between solids is non-manifold by definition, not a rounding
+    # artefact. It produced 9 non-manifold edges and 22 mis-oriented directed edges in
+    # ember-front-bezel.stl, all of them at z = 7.700 and 7.220: the front face and the deboss
+    # floor, inside the wyrm's footprint. The other three parts were clean.
+    #
+    # Inflating each span by EPS in BOTH x and y turns every such corner kiss into a genuine
+    # 2*EPS square prism of overlap, which unions cleanly. It must be both axes: y alone leaves
+    # the contact zero-width in x and still an edge. At 1.5um the silhouette grows 3um overall —
+    # three orders of magnitude below the 0.90mm print floor and below the resolution of any
+    # instrument here — and it only ever makes features THICKER, so no printability claim
+    # weakens.
+    #
+    # THE REASON THIS SURVIVED SO LONG IS WORTH MORE THAN THE FIX. The repo asserted "all parts
+    # watertight, 0 non-manifold edges" on the strength of a check that imported each STL and
+    # counted boundary edges — but build123d's import_stl returns a single Face with ZERO edges
+    # and zero volume, so the count was 0 because there was nothing to count. A perfect result
+    # about nothing. The real test is arithmetic on the triangles: every undirected edge shared
+    # by exactly two, every directed edge appearing exactly once.
+    # EPS MUST EXCEED THE MESHER'S TOLERANCE, NOT MERELY EXCEED ZERO. At 1.5um the overlap was
+    # real in the BRep and vanished in the triangulation — the tessellator collapsed a 3um-wide
+    # prism back to a single edge, so the solid was manifold and the exported mesh was not. That
+    # took 9 non-manifold edges to 3 and stopped, which is the tell: a fix that helps but does
+    # not finish is usually the right idea at the wrong magnitude. 20um is above any linear
+    # deflection used here and still 45x below the 0.90mm print floor.
+    EPS = 0.020
     out = None
     for (rx, ry, rw, rh) in _W.WYRM:
-        b = bx(x0 + rx*s, x0 + (rx+rw)*s, y0 + ry*s, y0 + (ry+rh)*s,
+        mx = _W.WYRM_W - (rx + rw)             # mirror in X about the canvas centre
+        b = bx(x0 + mx*s - EPS, x0 + (mx + rw)*s + EPS,
+               y0 + ry*s - EPS, y0 + (ry+rh)*s + EPS,
                FRONT_Z - BEZEL_DEBOSS, FRONT_Z + 1)
         out = b if out is None else out + b
-    return out, x0, w, h, _W.WYRM_MIN_FEATURE * s
+    # return the INK extents, not the canvas: every assert downstream is about where the
+    # creature actually is, and the canvas carries up to 0.9mm of nothing on either side.
+    ink0 = x0 + (_W.WYRM_W - _ix1) * s
+    ink1 = x0 + (_W.WYRM_W - _ix0) * s
+    return out, ink0, ink1 - ink0, h, _W.WYRM_MIN_FEATURE * s
 
 def cap_hex_pts(cx, cy, R):
     """The six corners of a FLAT-top hexagon, in mm, counter-clockwise from +X.
@@ -546,11 +621,24 @@ def front_bezel():
         f"{getattr(_W, 'WYRM_GAP', float('nan')):.3f}mm at generator scale) — it will print as "
         f"a creature with a detached head. Regenerate with body|neck|posed-head.")
 
-    # the mark must clear the mic flare, which lives in the same strip, with REAL margin
-    _mic_x = MIC[0] - 2.30 - BEZ_MARGIN
-    assert _mx0 + _mw < _mic_x - 0.50, (
-        f"wyrm mark reaches x={_mx0+_mw:.2f}, mic keepout starts x={_mic_x:.2f} — "
-        f"{_mic_x-(_mx0+_mw):.2f}mm apart, want >0.50")
+    # THE GAP TO THE FLARE IS THE COMPOSITION, so assert the gap rather than a keepout.
+    # 2.0mm crowds and 5.0mm drifts — both were rendered and looked at — and 3.5..4.5 reads as
+    # attention. Below the floor it stops being a creature regarding a port and becomes a
+    # creature bumping into a hole.
+    _gap = (MIC[0] - 2.30) - (_mx0 + _mw)
+    assert 3.00 <= _gap <= 5.50, (
+        f"wyrm head sits {_gap:.2f}mm from the mic flare — outside the 3.00..5.50 band where "
+        f"it reads as attention rather than as collision or as dead air")
+    # AND THE PROPERTY THE COMPOSITION ACTUALLY RESTS ON: the creature-and-port group is
+    # centred on the face. This is the one thing that makes the arrangement deliberate rather
+    # than merely spaced — ink 7.70..33.35 plus the flare's right edge at 42.30 centres on
+    # 25.000, the exact face centreline, which turns 9.45mm of leftover into plain margin.
+    # Nothing else here would notice if it drifted: every other assert is a clearance, and a
+    # clearance is satisfied by any amount of slack in the wrong place.
+    _centre = (_mx0 + (MIC[0] + 2.30)) / 2.0
+    assert abs(_centre - BW/2) <= 0.40, (
+        f"the wyrm-and-port group centres on x={_centre:.3f}, {abs(_centre-BW/2):.3f}mm off the "
+        f"face centreline {BW/2:.3f} — the frieze reads as centred or it reads as an accident")
     # ...and must fit the brow with margin rather than by coincidence. It previously occupied
     # 11.28 of 11.29mm of usable height and sat 1.21mm from an outer silhouette whose keepout
     # is 1.20mm: both true, both luck, and neither would survive the mark changing size.
@@ -594,6 +682,7 @@ def back_shell():
     # ---- printed-in-place HEXAGONAL button pushers ----
     for (cx, cy) in BTN:
         cyh, R, deb = cap_geometry(cx)
+        icx = cap_center_x(cx)          # island centre; cx remains the SWITCH
         ytop = cap_hex_top_y(cyh, R)
         # A HEX RING, THEN THE HINGE PUT BACK. The old pad was three box cuts forming a U,
         # which only works because a rectangle's sides are axis-aligned. A hexagon's are
@@ -602,21 +691,21 @@ def back_shell():
         # the hinge a little around both upper shoulders: cutting exactly to the corners
         # would leave the hinge meeting the slot at a knife edge, which prints as a
         # stress riser in the one feature here designed to flex.
-        ring = (hexp(cx, cyh, R + SLOT_W, BACK_Z-1, CAV_FLOOR+1)
-                - hexp(cx, cyh, R,        BACK_Z-1, CAV_FLOOR+1))
-        ring -= bx(cx - R/2 - SLOT_W, cx + R/2 + SLOT_W,
+        ring = (hexp(icx, cyh, R + SLOT_W, BACK_Z-1, CAV_FLOOR+1)
+                - hexp(icx, cyh, R,        BACK_Z-1, CAV_FLOOR+1))
+        ring -= bx(icx - R/2 - SLOT_W, icx + R/2 + SLOT_W,
                    cyh, ytop + SLOT_W + 1, BACK_Z-1, CAV_FLOOR+1)
         p -= ring
         # thin the hinge from the inside
         _hl = cap_hinge_len(cx)
-        p -= bx(cx - R/2 - SLOT_W, cx + R/2 + SLOT_W, ytop - _hl/2, ytop + _hl/2,
+        p -= bx(icx - R/2 - SLOT_W, icx + R/2 + SLOT_W, ytop - _hl/2, ytop + _hl/2,
                 BACK_Z+HINGE_T, CAV_FLOOR+1)
         # pip that reaches the switch plunger
-        p += cyl(cx,cy, CAV_FLOOR, BTN_TIP_Z-0.15, 4.00)
+        p += cyl(cx,cy, CAV_FLOOR, BTN_TIP_Z-0.15, PIP_D)   # on the SWITCH, not the island
         # DEBOSSED CAP FACE. Cut after the ring, inset CAP_INSET from the island edge so
         # the recess never breaks into the slot and never undercuts the hinge — at
         # R - CAP_INSET it stops 0.87mm short of the hinge line.
-        p -= hexp(cx, cyh, R - CAP_INSET, BACK_Z - 1.0, BACK_Z + deb)
+        p -= hexp(icx, cyh, R - CAP_INSET, BACK_Z - 1.0, BACK_Z + deb)
     # ---- FINE HEX BACK. Replaces two arrays of slot vents. ----
     #
     # The patch is bounded by what is already in the back face, not by taste:
@@ -630,7 +719,12 @@ def back_shell():
     # than as holes, and 0.8mm is two extrusion widths at a 0.4mm nozzle. Every hex is
     # kept WHOLLY inside the patch: a clipped hex at the boundary leaves a sliver of
     # material that prints as stringing.
-    p -= _hex_panel(9.0, 41.0, 11.0, 75.0, BACK_Z-1, CAV_FLOOR+1, 3.2, 0.8)
+    # y0 11.0 -> 19.00, DERIVED not chosen: the hinge cut reaches ytop + HINGE_L/2 = 16.30, a
+    # 3.2mm pointy-top cell has half-height 3.2/sqrt(3) = 1.85, and 0.80mm of clearance between
+    # them gives 16.30 + 0.80 + 1.85 = 18.95. An earlier estimate of 18.5 omitted the cell's
+    # half-height; an earlier one of 34 was measured against a different cap architecture
+    # entirely. The field yields 8mm so the caps can be thumb-sized — JP authorised that trade.
+    p -= _hex_panel(9.0, 41.0, HEX_FIELD_Y0, 75.0, BACK_Z-1, CAV_FLOOR+1, 3.2, 0.8)
     return p
 
 # diffuser() deleted along with the LED window it seated into — see back_shell().
@@ -709,6 +803,10 @@ SCALLOP_D  = 12.00   # out from the slot's rear face, leaving ~7mm of wall behin
 SCALLOP_R  = 3.00    # corner radius IN THE RIM PROFILE — see desk_stand() for both reasons
 SCALLOP_CLR = 1.80   # clearance per side beyond the cap's across-corners width. ONE value
                      # for both caps, so the width rule is visible in the result.
+SCALLOP_MIN_RIB = 3.00  # if two caps' openings would leave a rib thinner than this, they
+                     # MERGE into one scoop. A rib here is a full-height wall segment 12mm
+                     # deep carrying the slab's bearing load; under ~3mm it is a fin, not a
+                     # wall. The rule decides, so a cap change cannot leave a sliver standing.
 SCALLOP_CHAMFER = 0.90  # on the pocket MOUTH, where the rim plane cuts the prism. This is the
                      # radius you can actually see; SCALLOP_R above is buried 11.5mm down.
 # --- grille: lyra-artist's hearth-wyrm dorsal ridge, RE-DERIVED for this field.
@@ -861,12 +959,23 @@ def desk_stand():
     # JP, looking at the render: "are those new hexagon buttons tall enough? seems like there
     # should be a tab to bring them taller to be more accessible when in the stand." The
     # instinct was right and the cause was worse than height. The stand swallows the first
-    # 16.56mm of the slab and both switches sit 3.26mm from the board's bottom edge, so BOTH
-    # caps are entirely inside the slot — the BOOT cap's top edge is 3.81mm BELOW the stand's
-    # rim, the RESET cap's 6.23mm below — with 0.40mm of SLOT_CLR between the cap face and a
-    # solid wall. A finger does not fit in 0.40mm, so a cap of any height reaches nothing:
+    # 16.56mm of the slab, so the rim crosses the slab at board y=13.61, and with 0.40mm of
+    # SLOT_CLR between the cap face and a solid wall a finger reaches nothing:
     # THE OBSTRUCTION IS BESIDE THE CAP, NOT ABOVE IT. Adding material cannot fix a problem
     # caused by surrounding material; the wall has to go.
+    #
+    # ⚠️ RE-MEASURED AFTER THE CAPS GREW, BECAUSE THIS PARAGRAPH'S OWN PREMISE EXPIRED. It
+    # used to read "BOTH caps are entirely inside the slot — the BOOT cap's top edge is 3.81mm
+    # BELOW the rim, the RESET cap's 6.23mm below". At 15.00/10.00mm across flats that is no
+    # longer true of BOOT:
+    #     RESET  top edge y=10.80  ->  2.81mm BELOW the rim   (still buried)
+    #     BOOT   top edge y=15.80  ->  2.19mm ABOVE the rim   (now breaks the rim line)
+    # The scoop is still required, for two reasons that survive the change: RESET is still
+    # wholly buried, and 2.19mm of proud cap with a wall 0.40mm behind it is something you can
+    # see but not get a fingertip onto — the obstruction was always lateral, and it still is.
+    # But "both caps are entirely inside the slot" was the justification for this whole
+    # feature, so it is worth saying plainly that it is now half true rather than leaving a
+    # stale premise propping up a correct conclusion.
     #
     # WHY NOT THE TAB, since that was the actual suggestion. A lever hinged at the pad's
     # BOTTOM with a thumb tab reaching above the stand is mechanically sound in principle and
@@ -933,26 +1042,56 @@ def desk_stand():
     # not by midpoint: the slot's rear top edge is split into segments by these pockets and
     # one of those segments has its midpoint inside the BOOT span. Selecting on the midpoint
     # would have chamfered a 10.5mm stretch of the bearing rim by accident.
+    # >>> CENTRED ON THE CAP, NOT THE SWITCH. <<< The first version of this block used the
+    # switch x, and once the caps gained their offset islands that was a real defect rather
+    # than a style point: a 20.92mm pocket centred on BTN_BOOT_X=36.58 spans 26.12..47.04
+    # while the island spans 24.39..41.71, so 1.73mm of the cap would have sat behind solid
+    # wall while the pocket wasted 5.33mm on empty rim. A finger reaches the CAP. There is an
+    # assert below, because that failure is invisible in a render from the wrong angle.
+    #
+    # AND THE MERGE IS DERIVED, NOT TYPED. Each cap gets a span; if the rib the two would
+    # leave between them is too thin to be a wall, they become ONE scoop. At the current caps
+    # (15.00 / 10.00 across flats) the rib is 0.51mm, which is not a wall, it is a defect that
+    # prints as a fin — so this resolves to a single opening. At the previous 9.01/6.58 caps
+    # the same rule left a 10.53mm rib and gave two pockets, which is also right. The rule
+    # decides, so a future cap change cannot silently leave a sliver standing.
+    # One scoop also reads better, for the same reason two notches read as castellation: one
+    # deliberate opening beats two bites with a splinter between them.
+    _spans = []
     for (cx, cy) in BTN:
         _cyh, _R, _ = cap_geometry(cx)
-        _w = 2*_R + 2*SCALLOP_CLR          # cap across corners + clearance per side
+        _icx = cap_center_x(cx)
+        _w = 2*_R + 2*SCALLOP_CLR          # cap across CORNERS + clearance per side
+        _spans.append((_icx - _w/2, _icx + _w/2))
+    _spans.sort()
+    _rib = _spans[1][0] - _spans[0][1]
+    if _rib < SCALLOP_MIN_RIB:
+        _spans = [(_spans[0][0], _spans[-1][1])]
+    for (_x0, _x1) in _spans:
         p -= Pos(ST_W/2, SLOT_CY, SLOT_FLOOR) * (Rot(-TILT,0,0) * rrect_y(
-                 cx - BW/2, SCALLOP_Z0 + 35.0, _w, 70.0, SCALLOP_R,
+                 (_x0 + _x1)/2 - BW/2, SCALLOP_Z0 + 35.0, _x1 - _x0, 70.0, SCALLOP_R,
                  SLAB_T/2 + SLOT_CLR, SCALLOP_D))
-    _mouth = []
+    # every cap must be WHOLLY inside an opening — this is the assert the switch-vs-island
+    # bug above would have tripped, and it costs nothing to keep.
     for (cx, cy) in BTN:
         _cyh, _R, _ = cap_geometry(cx)
-        _w   = 2*_R + 2*SCALLOP_CLR
-        _cxs = ST_W/2 + (cx - BW/2)
+        _icx = cap_center_x(cx)
+        assert any(_a <= _icx - _R and _icx + _R <= _b for (_a, _b) in _spans), (
+            f"the cap at island x={_icx} spans {_icx-_R:.2f}..{_icx+_R:.2f} and no scallop "
+            f"opening {[(round(a,2), round(b,2)) for a, b in _spans]} contains it — part of "
+            f"the cap you are meant to press is behind solid wall")
+    _mouth = []
+    for (_x0, _x1) in _spans:
+        _a, _b = ST_W/2 + (_x0 - BW/2), ST_W/2 + (_x1 - BW/2)
         for _e in p.edges():
             _bb = _e.bounding_box()
             if (abs(_bb.min.Z - ST_H) < 1e-6 and abs(_bb.max.Z - ST_H) < 1e-6
-                    and _bb.min.X >= _cxs - _w/2 - 0.01
-                    and _bb.max.X <= _cxs + _w/2 + 0.01):
+                    and _bb.min.X >= _a - 0.01 and _bb.max.X <= _b + 0.01):
                 _mouth.append(_e)
-    assert len(_mouth) == 2*len(BTN) + len(BTN), (
-        f"expected 3 mouth edges per scallop (two side walls + the back wall), got "
-        f"{len(_mouth)} — the selection has drifted and chamfer would cut the wrong rim")
+    assert len(_mouth) == 3*len(_spans), (
+        f"expected 3 mouth edges per opening (two side walls + the back wall) for "
+        f"{len(_spans)} opening(s), got {len(_mouth)} — the selection has drifted and "
+        f"chamfer would cut the wrong rim")
     p = chamfer(_mouth, length=SCALLOP_CHAMFER)
     # sealed speaker chamber, open at the bottom (closed by the base plate)
     cx0,cx1 = ST_WALL+1, ST_W-ST_WALL-1
@@ -1153,6 +1292,52 @@ def desk_stand():
 def stand_base():
     return bx(ST_WALL+1.3, ST_W-ST_WALL-1.3, ST_WALL+0.3, 20.7, 0.4, ST_WALL)
 
+def _check_manifold(path):
+    """Parse a binary STL and test the mesh itself. Returns (tris, boundary, nonmanifold, dup).
+
+    ⚠️ THIS REPLACES A CHECK THAT COULD NOT FAIL. The repo asserted "all parts watertight, 0
+    non-manifold edges" on the strength of importing each STL with build123d and counting
+    boundary edges — but `import_stl` returns a single Face with ZERO edges and zero volume, so
+    the count was 0 because there was nothing to count. It reported a perfect result about an
+    empty object, for as long as anyone had been looking at it. `docs/verification.md` §6 is
+    about exactly this and it did not stop me writing another one.
+
+    The real test is arithmetic on the triangles and needs no CAD kernel at all:
+      * WATERTIGHT  — every undirected edge is shared by exactly two triangles
+      * ORIENTABLE  — every directed edge appears exactly once
+    Vertices are quantised to 1e-4mm so exporter float noise cannot split a shared vertex.
+    """
+    import struct as _st, collections as _co
+    with open(path, "rb") as f:
+        f.read(80)
+        n, = _st.unpack("<I", f.read(4))
+        tris = []
+        for _ in range(n):
+            d = _st.unpack("<12fH", f.read(50))
+            tris.append([tuple(round(d[i+j]*1e4) for j in range(3)) for i in (3, 6, 9)])
+    und, dir_ = _co.Counter(), _co.Counter()
+    for a, b, c in tris:
+        for u, v in ((a, b), (b, c), (c, a)):
+            dir_[(u, v)] += 1
+            und[tuple(sorted((u, v)))] += 1
+    return (n,
+            sum(1 for v in und.values() if v == 1),
+            sum(1 for v in und.values() if v > 2),
+            sum(1 for v in dir_.values() if v > 1))
+
+# Known, measured, and deliberately not asserted away. ember-front-bezel carries 3 edges shared
+# by more than two triangles, all at one spot inside the wyrm recess (x 26.149, y 82.11..82.79,
+# at the front face and the deboss floor). Everything that could be established says the SOLID
+# is fine: `is_valid` is True, it is one solid of 326 faces, the boundary-edge count is 0, and
+# the figure is 3 whether the union is built in 2D or 3D, at tessellation tolerances from 0.1
+# to 0.001, before or after clean(). It is a mesher artefact at coplanar face seams in a valid
+# solid, and every slicer repairs this class silently.
+#
+# It is recorded as a NUMBER rather than hidden behind a threshold, because the whole reason it
+# went unnoticed is that the previous check reported zero without measuring anything. A known
+# defect with a stated cause is honest; a green light over an unmeasured one is not.
+KNOWN_NONMANIFOLD = {"ember-front-bezel": 3}
+
 # ============================================================================
 # 6. build + verify
 # ============================================================================
@@ -1171,6 +1356,24 @@ if __name__ == "__main__":
         print(f"{n:20s} vol={p.volume/1000:7.2f} cm^3   "
               f"bbox {bb.size.X:6.2f} x {bb.size.Y:6.2f} x {bb.size.Z:6.2f}")
         export_stl(p, os.path.join(out, n+".stl"))
+
+    print("\n--- MESH CHECK (the STL itself, not the solid) ---")
+    _mesh_bad = []
+    for n in parts:
+        _t, _b, _nm, _dd = _check_manifold(os.path.join(out, n+".stl"))
+        _expect = KNOWN_NONMANIFOLD.get(n, 0)
+        _ok = (_b == 0 and _nm <= _expect)
+        print(f"  {n:20s} {_t:6d} tris   boundary {_b:2d}   non-manifold {_nm:2d}"
+              f"{f' (known {_expect})' if _expect else ''}   "
+              f"{'watertight' if (_b==0 and _nm==0) else ('as expected' if _ok else 'REGRESSION')}")
+        if not _ok:
+            _mesh_bad.append(n)
+    # A boundary edge is a HOLE and is never acceptable. A non-manifold count above the
+    # recorded baseline means something new broke, and is worth failing the build for.
+    assert not _mesh_bad, (
+        f"mesh regression in {_mesh_bad} — an open edge or more non-manifold edges than the "
+        f"documented baseline. Do not raise KNOWN_NONMANIFOLD to make this pass.")
+
     print("\n--- BOOLEAN CLEARANCE CHECK vs vendor STEP ---")
     # Also anchored to this file, not to cwd: with `out` derived from the working directory,
     # `../ES3C28P_3D/` resolved outside the repo and the clearance check silently skipped.
@@ -1333,7 +1536,7 @@ def _check_geometry():
         _arm = cap_hex_top_y(_cyh, _R) - _cy
         _theta = 0.40 / _arm                     # 0.40mm = air gap + switch travel
         _strain = (HINGE_T/2) * _theta / cap_hinge_len(_cx)
-        assert _strain <= 0.025, (
+        assert _strain <= 0.020, (
             f"hinge at x={_cx} bends {math.degrees(_theta):.1f}deg over "
             f"{cap_hinge_len(_cx)}mm at t={HINGE_T} -> {100*_strain:.2f}% strain. PLA yields "
             f"near 2% and breaks by 4-6%. LENGTHEN the flexure; thickening makes it worse.")
@@ -1350,15 +1553,36 @@ def _check_geometry():
         _cyh, _R, _ = cap_geometry(_cx)
         # the slot's OUTER edge must clear the fine hex field, which starts at y=11.0
         _slot_top = cap_hex_top_y(_cyh, _R + SLOT_W)
-        assert _slot_top <= 10.70, (
-            f"cap at x={_cx} pushes its slot to y={_slot_top:.2f}, into the hex field at "
-            f"y=11.0 — reduce R or raise the field")
+        # the hinge cut reaches further than the slot does, so check the deeper of the two
+        _reach = max(_slot_top, cap_hex_top_y(_cyh, _R) + cap_hinge_len(_cx)/2)
+        assert _reach <= HEX_FIELD_Y0 - 0.80, (
+            f"cap at x={_cx} reaches y={_reach:.2f}, and the hex field starts at "
+            f"y={HEX_FIELD_Y0} — needs 0.80mm of clearance. Raise HEX_FIELD_Y0 or shrink R.")
         # the plunger pip must sit wholly inside the island, and the island narrows with
         # every millimetre away from its centre: half-width = R - |dy|/sqrt(3)
+        # THE PIP MUST SIT WHOLLY INSIDE THE ISLAND, AND THE ISLAND IS NOW OFFSET FROM IT.
+        # This is the tightest margin on the part (0.72mm on BOOT), and it is the one a
+        # reviewer specifically asked to be re-checked by geometry rather than by arithmetic,
+        # because both terms are small: the island hex narrows toward its bottom flat by
+        # |dy|/sqrt(3), which is exactly where the switch is, AND the island centre is shifted
+        # up to 3.53mm away from the switch to clear a countersink. Either alone is fine; the
+        # two together are what make it tight.
+        _icx = cap_center_x(_cx)
         _halfw = _R - abs(_cy - _cyh)/math.sqrt(3)
-        assert _halfw >= 2.00 + 0.60, (
-            f"cap at x={_cx} is only {_halfw:.2f}mm half-wide at the switch (y={_cy}); the "
-            f"4.00mm pip needs {2.60:.2f}mm and would hang over the slot")
+        _need = PIP_D/2 + abs(_cx - _icx)
+        assert _halfw >= _need + 0.50, (
+            f"cap at x={_cx}: island is {_halfw:.2f}mm half-wide at the switch (y={_cy}) and "
+            f"the {PIP_D}mm pip offset {abs(_cx-_icx):.2f}mm needs {_need:.2f}mm — the pip "
+            f"would hang over the printed-in-place slot and weld the pad shut")
+        # ...and the ISLAND must clear the countersinks, which are 6.40mm at the outer face
+        # and are the reason the island is offset in the first place. Assert the thing the
+        # offset was chosen to achieve, rather than trusting the number that achieved it.
+        for _hx, _hy in HOLES:
+            if abs(_hy - _cyh) < _R*math.sqrt(3)/2 + 3.20:
+                _gap = abs(_icx - _hx) - _R - 3.20
+                assert _gap >= 0.30, (
+                    f"cap island at x={_icx:.2f} (R={_R:.2f}) overlaps the countersink at "
+                    f"({_hx},{_hy}) by {-_gap:.2f}mm — shift CAP_CX_*, do not shrink the cap")
     return engagement, va_start, below
 
 

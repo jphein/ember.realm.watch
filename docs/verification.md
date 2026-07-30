@@ -360,6 +360,52 @@ designed, and the claim built on it was false. **`grep` counts lines matching a 
 does not tell you whether a thing is true of a program**, and every step between those two
 propositions is yours to justify.
 
+### 14. "0 non-manifold edges", counted over an empty object
+
+The repo asserted, in three documents, that **all parts are watertight with 0 non-manifold
+edges.** The check behind it imported each STL with build123d and counted boundary edges.
+
+`import_stl` returns a **single `Face` with zero edges, zero vertices and zero volume.** So the
+count was 0 because there was nothing to count. Every part passed, always, including parts that
+did not.
+
+Run properly — arithmetic on the triangles, no CAD kernel required, every undirected edge shared
+by exactly two and every directed edge appearing once — three parts were genuinely clean and the
+front bezel had **9 non-manifold edges and 22 mis-oriented ones.**
+
+This is §6 again, and the person who wrote it had spent the day maintaining this file. That is
+the honest lesson: **knowing the failure mode does not confer immunity to it.** The tell was
+available and unexamined — a *suspiciously* perfect result, reported instantly, over four parts
+of wildly different complexity. A 12-triangle plate and a 10,000-triangle bezel with 107
+debossed cells do not usually agree exactly.
+
+The cause of the real defect was worth having: the mark is built from 104 stacked row-spans, and
+wherever one row's run **ends** at exactly the x where the next row's run **begins**, two boxes
+touch along a single edge. Edge-only contact between solids is non-manifold by definition, not a
+rounding artefact. Inflating each span by 20 µm took 9 to 3.
+
+### 15. Four hypotheses, none tested before it was believed
+
+Chasing the last three, four causes were proposed and each was acted on before being checked:
+tessellation tolerance, diagonal-only pixel connectivity, the fusion method, checkerboard
+corners at the outline. **All four were wrong.** Each cost a build.
+
+What settled it was measurement rather than reasoning: the BRep is **valid** — one solid, 326
+faces, zero boundary edges — and the count is 3 whether the union is built in 2D or 3D, at
+tessellation tolerances from 0.1 to 0.001, before or after `clean()`. It is a mesher artefact at
+coplanar face seams in a correct solid.
+
+Two things generalise. **A fix that helps but does not finish is information** — 9 → 3 → 3 said
+the remaining defect had a different cause, and that was visible after the second attempt rather
+than the fourth. And **the project's own rule was available the whole time**: rendering and
+looking beats reasoning about the source, and the pixel dump that ended the guessing could have
+been the first step instead of the fifth.
+
+It is now recorded as a **number, not a threshold** — `KNOWN_NONMANIFOLD = {"ember-front-bezel":
+3}` — with the cause documented, a boundary edge failing the build outright, and an explicit
+instruction not to raise the baseline to make a build pass. A known defect with a stated cause is
+honest; a green light over an unmeasured one is not.
+
 ---
 
 ## The cheapest countermeasure found so far: ask, don't assemble
