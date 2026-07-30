@@ -1,8 +1,11 @@
 # Verification notes
 
-Four faults on this project shared one structure. Naming it is worth more than the four
-fixes, because the fixes are specific and the structure keeps recurring — it has now
-appeared in geometry, in rendering and in audio.
+Four faults on this project shared one structure, and naming it is worth more than the four
+fixes: the fixes are specific, the structure keeps recurring. It has now appeared in
+geometry, in rendering, in audio and in prose.
+
+The corollaries below are separate lessons, collected here because each was learned once and
+written into a commit message that nobody would ever read again.
 
 ---
 
@@ -126,7 +129,7 @@ survived on a published page.
 | `_check_geometry()` | `enclosure/ember_case.py` | no screen occlusion; ≥16 mm for a USB-C plug; ≥12 mm slot engagement |
 | grille web + open area asserts | `enclosure/ember_case.py` | printable material between apertures; open area above the driver's radiating area |
 | minimum feature by **morphological opening** | `enclosure/tools/make_wyrm_spans.py` | traced art is printable — see the note below |
-| `check_tiling`, write-once | `dragon_harness.cpp` | every pixel in the band written exactly once |
+| `check_tiling`, write-once | `esphome/art/dragon_harness.cpp` | every pixel in the band written exactly once |
 | `CLAIMS` / `BLOCKED` provenance guard | `site/og_card.py` | the build **refuses** to emit a known-wrong engine name |
 
 ### On measuring minimum feature size
