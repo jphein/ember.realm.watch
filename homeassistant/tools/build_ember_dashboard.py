@@ -40,7 +40,8 @@ Auth: env HA_TOKEN -> ~/.cache/ha-token-tmp -> `bw get password ha-llat`.
 import asyncio, json, os, pathlib, subprocess, sys
 import websockets
 
-HA_WS = os.environ.get("HA_WS", "wss://ha.jphe.in:8123/api/websocket")
+# Override for your own install: export HA_WS="wss://your-ha-host:8123/api/websocket"
+HA_WS = os.environ.get("HA_WS", "ws://homeassistant.local:8123/api/websocket")
 URL_PATH = "ember-hearth"       # hyphen required by HA
 TITLE = "Ember"
 ICON = "mdi:fireplace"
