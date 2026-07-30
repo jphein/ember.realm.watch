@@ -139,6 +139,31 @@ the board" icon that was valid SVG and rendered as a trash can, an `<audio prelo
 over a `data:` URI that could not be lazy because the bytes are part of the document, and
 an exploded view rendered edge-on because the camera was placed to satisfy an aspect ratio.
 
+**But looking is not sufficient, and knowing what to ask of the picture is the whole
+skill.** The fused hex field was *rendered and inspected* before it shipped. At 2× the
+flat-top cells are visibly interpenetrating — edges crossing, no material between them. The
+inspection asked *"does this read as a honeycomb?"*, concluded yes, and wrote that it "reads
+as a texture rather than as holes." It never asked *"is there material between the cells?"*
+**The defect was in the pixels that were examined.**
+
+> **A picture can confirm topology and composition. It cannot confirm a tolerance.** For a
+> dimensional claim — a web width, a clearance, a minimum feature — measure the geometry:
+> count solids, take a bounding box. 0.5 mm of web at figure scale is a handful of white
+> pixels, and a reader reads texture, not calipers.
+
+That is the same lesson as the open-area failure, arriving from the other side: **area is
+insensitive to connectivity, and a picture is insensitive to tolerance.** Both were the
+right measurement of the wrong property.
+
+**Most of these were correct signals with wrong explanations attached, not missing signals.**
+Three of the five faults found in a single afternoon had a true observation already in hand:
+a `-Wunused-variable` documented as expected noise; a correct comment about mouth-variant
+arrays transplanted onto `CW`, carrying the file's authority with it; and the flat-top
+rendering *observed and reported* — as a styling inconsistency between the button caps and
+the fields, one step from the defect. **The observation survives; the interpretation kills
+it.** Invention has a tell. Transplantation doesn't. This is the class most worth mechanising,
+because the signal was already there every time.
+
 **A correct warning with a plausible explanation attached is harder to recover from than an
 unexplained one.** This is the *inverted* form of the pattern — not a check that passed for
 the wrong reason, but a warning that **fired for the right reason and got explained away.**
