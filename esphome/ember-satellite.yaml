@@ -1011,10 +1011,24 @@ media_player:
     # click, and it is not the assets (all have a 4ms raised-cosine attack).
     #
     # FIX: mute the DAC while idle, so the next I2S start happens INTO a muted
-    # DAC and is never amplified. Unmute once audio is actually flowing. REG37
-    # is the DAC ramp rate (es8311_const.h:63, set to 0x08 by the driver), so
-    # the unmute itself slews instead of stepping — which is why this direction
-    # works and muting *across* the transient would not.
+    # DAC and is never amplified. Unmute once audio is actually flowing.
+    #
+    # ⚠️ CORRECTION (#3) — THIS USED TO CLAIM THE UNMUTE SLEWS. IT DOES NOT.
+    # The old rationale was "REG37 is the DAC ramp rate, set to 0x08 by the driver,
+    # so the unmute slews instead of stepping". Per the datasheet DAC_RAMPRATE is
+    # bits 7:4, and 0x08 sets those to 0 = SOFT RAMP DISABLED; bit 3 is DAC_EQBYPASS,
+    # which is exactly what the driver's own comment says it is setting.
+    # THE MUTE AND UNMUTE ARE BOTH A HARD STEP.
+    #
+    # The fix still works, and for a better reason than the one stated: it works
+    # because the DAC is ALREADY muted when the clocks start, so the transient is
+    # never amplified — not because the unmute is gentle. Muting *across* the
+    # transient would still not work, and that was never about ramping either: the
+    # reply cold start popped with the DAC provably muted.
+    #
+    # This matters beyond tidiness. A hard step is what makes the silence gate sound:
+    # asserting the mute cannot leak a slewing tail. Anyone reasoning from the old
+    # comment would conclude the opposite.
     #
     # WHY NOT `timeout: never` ON THE SPEAKER — it is the obvious fix and it is
     # a trap on this board. It would keep the I2S driver loaded and remove the
@@ -1496,7 +1510,19 @@ script:
           // lacks. Applied to done/error/touch/haptic only: the announce herald is
           // enqueued AHEAD of the speech it heralds (verified), and a timer finishing
           // is the one sound whose whole job is to interrupt.
-          if ((which == 0 || which == 1 || which == 5 || which == 6) &&
+          // Case 3 (thinking) IS in this list, and its absence was an oversight
+          // rather than a decision — 2 and 4 are exempt and say why, 3 said nothing.
+          // It belongs here on the weakest claim of any sound the device makes: the
+          // thinking chime is a "still working" filler, so it is the LAST audio that
+          // should be allowed to destroy something already playing. The reachable case
+          // is a timer (case 4, deliberately unguarded because interrupting is its
+          // whole job) still ringing when a new turn starts — without this, thinking
+          // clears the playlist and kills it.
+          //
+          // Latent until now only because chime_on_thinking defaults to 0, which is
+          // the worst kind of latent: it would first misbehave for whoever flips that
+          // switch to try the feature, with no reason to suspect the chime.
+          if ((which == 0 || which == 1 || which == 3 || which == 5 || which == 6) &&
               id(spk)->is_running()) {
             return;
           }
@@ -2079,6 +2105,25 @@ globals:
     type: uint32_t
     restore_value: false
     initial_value: '0'
+
+  # ---- RAW touch coordinate, for the handedness question ----
+  # The config has NO transform:/swap_xy/calibration block, so the controller's
+  # orientation is UNKNOWN rather than known-and-adjusted, and `spark_col` assumes
+  # both the sign (`tx / 4`) and the range (clamped at `tx > 239`). If X is mirrored
+  # the wrong coal flares on every tap; if this rotation reports 0..319 the clamp is
+  # wrong as well. Both are answered by reading two numbers off the screen.
+  #
+  # RAW, deliberately — post-clamp values cannot show a range violation, because the
+  # clamp is the thing under suspicion.
+  - id: touch_raw_x
+    type: int16_t
+    restore_value: false
+    initial_value: '-1'
+
+  - id: touch_raw_y
+    type: int16_t
+    restore_value: false
+    initial_value: '-1'
 
   # ---- reply paging ----
   # Which page of an overflowing reply is showing, how many there are, and when the
@@ -2841,15 +2886,43 @@ display:
         it.filled_rectangle(0, TELE_Y, W, 1, c_ash);
         if (st == 3) {
           it.printf(6, TELE_Y + 6, id(font_sm), guttering ? c_alarm : c_dim,
+                    // Cast at the CALL SITE, not by switching to %lu. uint32_t's
+                    // underlying type is implementation-defined, so %lu would be
+                    // correct here and wrong on a target where uint32_t is unsigned
+                    // int — moving the warning rather than removing it. An explicit
+                    // (unsigned) makes the argument match %u on every target.
+                    // Harmless on xtensa (both 32-bit); fixed because a STANDING
+                    // count of 4 warnings is how a real new one gets missed.
                     "spoken %u.%us / ~%u.%us%s",
-                    spoken_ms / 1000u, (spoken_ms % 1000u) / 100u,
-                    id(tts_est_ms) / 1000u, (id(tts_est_ms) % 1000u) / 100u,
+                    (unsigned) (spoken_ms / 1000u),
+                    (unsigned) ((spoken_ms % 1000u) / 100u),
+                    (unsigned) (id(tts_est_ms) / 1000u),
+                    (unsigned) ((id(tts_est_ms) % 1000u) / 100u),
                     guttering ? "   BUFFER STALL" : "");
         } else if (id(mic_live)) {
           it.printf(6, TELE_Y + 6, id(font_sm), c_dim, "%.1f dBFS   peak %.1f",
                     id(db_rms), id(db_peak_hold));
         } else {
-          it.print(6, TELE_Y + 6, id(font_sm), c_ash, "mic idle (no capture)");
+          // Shows the raw coordinate for 3s after a tap, then goes back to the
+          // ordinary idle line. Tap the left edge, tap the right edge, read two
+          // numbers: that settles the sign AND the range in ONE flash, where an
+          // A/B ("which coal flared?") costs a flash per hypothesis and yields only
+          // the sign. This file's own rule — tested beats derived — established when
+          // reset_pin: GPIO18 was reasoned from the schematic and refuted by hardware.
+          //
+          // FREE: the telemetry band is chrome, not the flame band. It erases and
+          // overdraws by design, so it is outside the write-once invariant and
+          // outside the 18,240 px/frame budget; this replaces one string with
+          // another in a band that already repaints.
+          if (id(touch_raw_x) >= 0 &&
+              (uint32_t) (millis() - id(spark_ms)) < 3000u) {
+            it.printf(6, TELE_Y + 6, id(font_sm), c_dim,
+                      "tap raw x=%d y=%d  ->  col %d",
+                      (int) id(touch_raw_x), (int) id(touch_raw_y),
+                      (int) id(spark_col));
+          } else {
+            it.print(6, TELE_Y + 6, id(font_sm), c_ash, "mic idle (no capture)");
+          }
         }
         // print(), not printf() — no format specifiers, so no varargs.
         // ⚠️ WAS "hushed - ember isn't listening", WHICH WOULD NOW BE FALSE. Ember
@@ -4505,6 +4578,10 @@ touchscreen:
           // already repaints on the action (a new stone lights, a row highlights).
           // Flaring the fire when you tap a volume stone would point at the wrong
           // object.
+          // Captured BEFORE the clamp, and here because this is the only scope
+          // where the raw coordinate exists at all.
+          id(touch_raw_x) = (int16_t) tx;
+          id(touch_raw_y) = (int16_t) ty;
           id(spark_col) = tx < 0 ? 0 : (tx > 239 ? 59 : tx / 4);
           id(spark_ms) = millis();
 
