@@ -1,0 +1,15 @@
+# Exact set the shipped STLs were built with. build123d sits on OpenCASCADE, which is what
+# produced the vendor STEP — that is why the board solid can be imported and clearances
+# checked by boolean rather than by transcribing dimensions.
+build123d==0.11.1
+cadquery-ocp-novtk==7.9.3.1.1
+cadquery-ocp-proxy==7.9.3.1.1
+ocpsvg==0.6.0
+numpy==2.5.1
+scipy==1.18.0
+ezdxf==1.4.4
+svgpathtools==1.7.2
+trianglesolver==1.2
+anytree==2.13.0
+# renders only
+matplotlib==3.11.1

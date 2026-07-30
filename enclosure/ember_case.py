@@ -233,7 +233,14 @@ SLOT_CY  = 34.0                    # slot centreline Y at the floor
 # ample), the visible area is entirely clear of the stand, and 20.0mm remains below for
 # the plug. See the VA_CLEAR assert below — this must not silently regress.
 SLOT_FLOOR = 24.0
-# --- grille: replace this block with lyra's motif; it is a pure parameter set
+# --- grille: a PURE PARAMETER SET, so a motif can replace it without touching structure.
+# lyra-artist delivered one — `site/ember-art-web/case-motif.svg`, 11 raked slots derived
+# from the hearth-wyrm's dorsal ridge (pitch ~2x height, 3.4:1 taper, 190mm2 open area),
+# and the ridge already leans backwards, which is the self-supporting direction for FDM.
+# DEFERRED until after the first print, deliberately: the current slot array was just
+# re-tuned for acoustics (2.60mm at 3.40 pitch, 76% open, above the driver's effective
+# radiating area) and changing the open area at the same time as validating the fit would
+# confound two variables. Land the motif once the fit is confirmed, matching the open area.
 GRILLE_SLOT_W = 2.20
 GRILLE_PITCH  = 3.40
 # Slots are clipped to the driver's RADIATING AREA, inset 1.5mm from its outline so
