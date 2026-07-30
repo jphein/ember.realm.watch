@@ -915,57 +915,69 @@ footer p{margin:.4rem 0}
 </section>
 
 <section class="wrap">
-  <p class="kicker">Still open</p>
-  <h2>Two clicks, one closed</h2>
+  <p class="kicker">Settled, and how</p>
+  <h2>What settled the pop was not a datasheet</h2>
   <p class="lede">
-    Some audio starts with a click. The cause is architectural, and it's worth writing down
-    because the fix that works isn't the fix that sounds right.
+    Some audio started with a click. The cause is architectural: the microphone and speaker share
+    one bus behind one lock, and the framework tears the audio clock down and rebuilds it on every
+    hand-off. Vendor firmware for this family opens the bus once, in both directions, and leaves
+    it open — so the clock restarts constantly here, and a restart is when the click happens.
   </p>
   <p>
-    The microphone and speaker share one bus behind one lock, and the framework tears the
-    audio clock down and rebuilds it on every hand-off between them. Vendor firmware for this
-    family of chips never does that — it opens the bus once, in both directions, and leaves it
-    open. So the clock restarts constantly here, and a restart is when the click happens.
+    Two mechanisms could explain it and the datasheets could not choose between them. They specify
+    what the codec's mute <em>bit</em> does and are silent on what the analog outputs do while the
+    converter is powered but unclocked. Weeks of reading could not separate a lingering analog
+    settle from a digital transient in the first clock cycles.
   </p>
   <p>
-    Muting the codec across the restart is the obvious answer and it isn't sufficient on its
-    own. Interrupting the amplifier <em>downstream</em> of everything the codec can do is
-    sufficient — but the amplifier has its own enable transient, and on this board the input
-    coupling capacitors sit at the top of the range the datasheet warns about. So it may trade
-    one click for another rather than removing it.
+    <strong>What separated them was an accident that happened to be a controlled experiment.</strong>
+    One build produced two reports, on two different clock restarts, with exactly one variable
+    between them:
   </p>
-  <p>
-    <strong>One of the two is now closed.</strong> There were two separate clock restarts, not
-    one: tapping to talk restarts it (the microphone opens) and speaking restarts it again. The
-    tap-side click is gone — and the way it went is the informative part. It disappeared when a
-    145&nbsp;ms feedback tone was removed from the tap, because the protection had been in place
-    the whole time and had simply never been given a transient it was in position to cover.
-  </p>
-  <p>
-    That distinction is worth being careful about, because there are two readings and only one
-    of them is a result. If the tone had been the <em>only</em> thing making noise, removing it
-    would prove nothing. But tapping still opens the microphone, which still restarts the clock —
-    and it no longer clicks. So the protection genuinely works on that transient. What remains
-    unknown is <em>which half</em> of it works: the codec mute and the amplifier blank have never
-    been tested apart.
-  </p>
-  <p>
-    The residual click is on the reply path, and its cause is not in the audio chain at all.
-    Speech synthesis takes about <strong>2.8&nbsp;seconds</strong> to return the first audio —
-    longer than the driver's idle timeout — so the driver unloads and reloads <em>mid-turn</em>,
-    before every single reply. That is a clock restart nobody asked for, and no amount of codec
-    tuning addresses it. The levers are the timeout and holding the driver open across a turn.
-  </p>
-  <div class="note">
-    <b>The mechanism question is still open, and we say so.</b> Both a lingering analog settle
-    and a digital transient in the first clock cycles predict every observation we have, and a
-    datasheet review confirms the available evidence cannot separate them. Every documented
-    anti-pop mechanism in this codec is counted in clock periods, which is exactly the resource
-    that stops. So: one transient explained and fixed, one located and understood, the mechanism
-    behind them still undecided. The project notes record which claims are measured, which are
-    inferred, and which two earlier explanations were wrong — in opposite directions — rather
-    than quietly settling on whichever story the last fix happened to support.
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Clock restart</th><th>Protection in place</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td>mic cold start</td><td>codec muted <strong>+ amp blanked</strong></td><td>no pop</td></tr>
+        <tr><td>reply cold start</td><td>codec muted, <strong>amp not</strong></td><td>pop</td></tr>
+      </tbody>
+    </table>
   </div>
+
+  <p>
+    Same codec, same clock domain, same firmware. One variable. <strong>Gating the amplifier
+    removed the remaining pop, and the codec mute is now positively excluded rather than merely
+    doubted</strong> — a policy elsewhere in the firmware holds the mute asserted whenever the
+    speaker is stopped, so the converter was <em>provably</em> muted before the reply's restart,
+    and it popped anyway. A mute that is demonstrably in force and demonstrably does not help is
+    excluded, not suspected.
+  </p>
+
+  <div class="note">
+    <b>Two audits contradicted each other and both were right.</b> One held that the mute is a
+    latched register bit and therefore survives the clock stopping — true, confirmed from the
+    driver source. The other held that every documented anti-pop mechanism in this codec is
+    counted in clock periods and so cannot act while the clock is stopped — also true. Together
+    they give the answer: <strong>the bit persists <em>and</em> has no effect.</strong> They only
+    look contradictory if you assume "the mute is asserted" and "the mute is working" are the same
+    proposition. They are not, and this project spent three revisions conflating them.
+  </div>
+
+  <p>
+    The fix is not free, and the cost is worth stating plainly: the amplifier wakes in about
+    100&nbsp;ms while playback preloads only about 50&nbsp;ms of silence, so
+    <strong>roughly the first 50&nbsp;ms of every reply is a soft start.</strong> That is a
+    deliberate trade — a slightly soft first fraction of a syllable, in exchange for no pop, on a
+    device whose whole job is to be pleasant to talk to in a quiet room.
+  </p>
+  <p class="lede">
+    The full analysis is kept unedited, including the two opposite wrong conclusions it argued
+    itself into along the way, with banners marking what was later superseded rather than quiet
+    revisions that would make it look prescient. It is the most instructive document in the
+    project. <a href="https://github.com/jphein/ember.realm.watch/blob/main/docs/audio-pop.md"
+    target="_blank" rel="noopener">Read it here.</a>
+  </p>
 </section>
 
 <section class="wrap">
