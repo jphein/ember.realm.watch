@@ -26,10 +26,10 @@ cd ~/.claude/projects/-home-jp-Projects-familiar-realm-watch/scratch/hosyond-s3/
 ../cadenv/bin/python make_renders.py    # the site figures
 ```
 
-⚠️ **The CAD toolchain lives in scratch, not in this repo** — `cadenv/` (build123d 0.11.1
-+ OCP), `make_renders.py`, `check_and_render.py`. So `ember_case.py` **cannot be rebuilt
-from a fresh clone**. That is a real gap; landing them here is the single highest-value
-piece of unfinished work.
+**Buildable from a fresh clone** — see [`enclosure/README.md`](enclosure/README.md).
+`tools/requirements.txt` pins the exact set the shipped STLs were built with. The 17.7 MB
+vendor STEP is linked rather than committed; without it the STLs still build and only the
+clearance check is skipped.
 
 ### The speaker took three revisions — read this before changing anything
 
@@ -65,12 +65,12 @@ Both found by rendering and looking, both now asserted in `_check_geometry()`:
 
 - [ ] **Print it.** Start with `ember-front-bezel.stl` — cheapest to reprint and it carries
       the mic port, so it is the part most needing a fit check.
-- [ ] Land the CAD toolchain in-repo (see the gap above).
 - [ ] `HINGE_T = 0.90` is the parameter most likely to need a second print. If the buttons
       feel dead, drop to 0.70.
-- [ ] Lyra delivered a grille motif (`site/ember-art-web/case-motif.svg`) that was never
-      picked up. `ember_case.py:177` still says *"replace this block with lyra's motif"*.
-      Both halves are committed, each commenting at the other.
+- [ ] Land Lyra's grille motif (`site/ember-art-web/case-motif.svg`) **after the first
+      print** — deliberately deferred, since the slot array was just re-tuned for acoustics
+      and changing open area while validating fit would confound two variables. Match the
+      open area when you do.
 - [ ] Touchscreen X handedness is still unconfirmed — tap near one edge and watch which
       coal flares. Opposite side ⇒ `spark_col` needs `59 - tx/4`.
 - [ ] Ember is not in `status.realm.watch/checks.json`. Deliberately deferred pending a
