@@ -256,6 +256,63 @@ interval:
           then:
             - script.execute: dac_unmute
 
+      # ---- AND RE-MUTE THE MOMENT AUDIO STOPS: default-muted at idle ----
+      #
+      # This is the symmetric half, and it generalises the fix instead of chasing
+      # cold starts one at a time. Previously the mute was asserted at two SPECIFIC
+      # places (boot, and talk_begin), which protected the transients we happened to
+      # have thought of. JP's result proved the mechanism works — exempting the talk
+      # tap from the haptic removed the touch pop entirely — but also isolated the one
+      # we had NOT covered: the REPLY's own driver cold start, ~2.95s after the chime,
+      # because the 500ms driver timeout unloads the driver during the gap while Piper
+      # synthesises. Nothing was in position to mute that one.
+      #
+      # Holding the DAC muted whenever the speaker is stopped means EVERY cold start
+      # begins muted, including ones nobody has enumerated yet — the same reason the
+      # chime guard asks `spk->is_running()` rather than tracking per-call-site flags.
+      #
+      # It costs ZERO audio, for the reason documented above: every playback preloads
+      # 5 x 10ms of memset-zero silence before calling i2s_channel_enable(), so the
+      # unmute above lands inside that window. This mute lands after the LAST frame,
+      # which is quieter still.
+      #
+      # Failure direction is preserved and it is why this is safe: the condition is
+      # re-evaluated against live hardware every 10ms, so a stuck mute cannot persist.
+      # The moment audio runs, the branch above unmutes it. Worst case is the pop
+      # returning, never silence.
+      #
+      # DELAYED BY 200ms, not immediate. Asserting REG31 mute steps the DAC output
+      # while the amp is still enabled — the same class of event as the transient this
+      # whole subsystem exists to suppress, just at the other end of playback. Two
+      # things argue it is harmless (the last frame is end-of-speech near-silence, and
+      # ES8311 mute is normally a soft step) and one argues it is not: this board's
+      # 0.39uF coupling caps are worst-case for pop per the amp's own datasheet. Rather
+      # than bet, the mute waits until the output has settled.
+      #
+      # 200ms also coalesces bursts: a volume tap that plays a tick every few hundred
+      # ms would otherwise mute and unmute between every one.
+      #
+      # The deadline is CANCELLED if audio resumes, so a reply that stutters does not
+      # get muted mid-sentence.
+      - if:
+          condition:
+            lambda: 'return !id(dac_muted) && !id(spk)->is_running() && id(remute_at) == 0;'
+          then:
+            - lambda: 'id(remute_at) = millis() + 200u; if (id(remute_at) == 0) id(remute_at) = 1;'
+      - if:
+          condition:
+            lambda: 'return id(remute_at) != 0 && id(spk)->is_running();'
+          then:
+            - lambda: 'id(remute_at) = 0;'
+      - if:
+          condition:
+            lambda: |-
+              return id(remute_at) != 0 &&
+                     (int32_t) (millis() - id(remute_at)) >= 0;
+          then:
+            - audio_dac.mute_on: es8311_dac
+            - lambda: 'id(dac_muted) = true; id(remute_at) = 0;'
+
       # AMP UN-BLANK, by deadline rather than by a delay inside a killable script.
       # See amp_blank for why: the old shape could strand the amp off forever if a
       # second call aborted the first mid-delay. A deadline cannot be aborted, and it
@@ -1623,6 +1680,12 @@ globals:
     type: uint32_t
     restore_value: false
     initial_value: '${amp_blank_ms}'
+  # Deferred re-mute deadline. 0 = nothing pending. See the mute branch in the 10ms
+  # watchdog for why the mute is delayed rather than immediate.
+  - id: remute_at
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
   - id: amp_unblank_at
     type: uint32_t
     restore_value: false
