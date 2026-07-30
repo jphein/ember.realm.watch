@@ -320,8 +320,11 @@ endpoint and does not need one.
 ## Provenance
 
 Ember started life inside a Home Assistant configuration repo and was extracted
-into this one with `git filter-repo`, preserving all 15 commits that touched it.
-Those commit messages are load-bearing — several are the only record of *why* a
+into this one with `git filter-repo`, preserving **every** commit that touched it —
+`git log -- esphome/ember-satellite.yaml` is the real answer, and it goes back to
+the file's first appearance.
+
+Those commit messages are load-bearing. Several are the only record of *why* a
 non-obvious setting is what it is, and more than one documents a conclusion that a
 later commit overturned. `git log --follow` works across the extraction, including
 through `esphome/README.md` → `README.md`.

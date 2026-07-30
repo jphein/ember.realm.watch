@@ -1,12 +1,12 @@
 {
   "name": "ember",
   "description": "Local-first voice assistant satellite with a hearth for a face",
-  "version": "Kilned Mold \u00b7 b33e967",
-  "hash": "b33e967",
+  "version": "Bellowed Bellows \u00b7 58e9260",
+  "hash": "58e9260",
   "branch": "main",
   "dirty": true,
-  "built": "2026-07-30T02:27:02Z",
+  "built": "2026-07-30T02:28:11Z",
   "realm": "forge",
   "repo": "https://github.com/jphein/ember.realm.watch",
-  "commit_url": "https://github.com/jphein/ember.realm.watch/commit/b33e967"
+  "commit_url": "https://github.com/jphein/ember.realm.watch/commit/58e9260"
 }
