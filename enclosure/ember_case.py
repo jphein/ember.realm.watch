@@ -59,6 +59,21 @@ USB_Z           = (-4.85, -1.60)
 BTN             = [(13.45,3.26),(36.58,3.26)]
 BTN_RESET_X     = 13.45              # small cap
 BTN_BOOT_X      = 36.58              # big cap, the only readable switch
+#
+# >>> NEVER SPECIFY THESE AS "LEFT" OR "RIGHT". USE THE COORDINATES. <<<
+#
+# The apparent side flips between three figures of this same part:
+#   case-back.svg          eye behind the part -> board +X appears on the viewer's LEFT
+#                          (confirmed from the render: the mic at (40, 81.5) lands
+#                          upper-left and the x=46 countersinks are the left-hand pair)
+#   case-print-layout.svg  shell open-side-up -> mirrored back again, +X on the RIGHT
+#   case-hero.png          a front view entirely
+#
+# So "big cap on the left" is true in one figure, false in another and meaningless in the
+# third. Spec from the wrong one and the generous thumb-sized cap lands over the HARDWARE
+# RESET — a device that reboots when you reach for the volume. Same discipline as the
+# hostname rule in CLAUDE.md: the literal is the thing that silently goes stale, and a
+# coordinate cannot be mirrored by a camera.
 BTN_TIP_Z       = -4.10             # plunger tip (2.50mm below PCB back face)
 LED             = (29.00, 45.60)    # WS2812B 5x5, on the BACK, fires rearward
 ANT             = (17.57, 32.21, 80.04, 85.70)  # PCB antenna -- KEEPOUT, no metal
