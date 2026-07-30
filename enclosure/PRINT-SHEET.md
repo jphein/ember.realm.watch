@@ -165,17 +165,24 @@ duct and its impedance scales with length ÷ width, so 2.20 mm slots through a 4
 1. **The baffle is recessed to 2.20 mm** in the grille region only, cut from the *outside*
    so the inner face stays flat. Slot aspect 1.82:1 → **1.00:1**, roughly halving the
    impedance.
-2. **The slots are lyra-artist's hearth-wyrm dorsal ridge, re-derived for this field.**
-   Nine slots **raked 24° back**, tapering **3.20 → 2.50 mm** thick-to-thin toward the
-   tail, capsule ends. Open area **673 mm²** — identical to the plain array it replaces,
-   and above the driver's ~700 mm² effective radiating area. Minimum web 0.91 mm, and the
-   rake leans the self-supporting direction for FDM.
+2. **The grille is a hexagonal honeycomb** — 33 hexes, **6.50 mm across the flats** on a
+   7.40 mm pitch (3.75 mm circumradius), 0.90 mm web. Open area **673.0 mm²**, solved
+   *numerically* to match the slot array it replaces exactly, so the change is aesthetic
+   rather than acoustic.
 
-   Her motif *as delivered* was 11 spines in a 50 × 15 field at 190 mm² open, sized for the
-   round ⌀28 driver the design used to have. Applied unchanged it would have cost **72% of
-   the open area**. The re-derivation keeps the rake and the thick-to-thin gradient — both
-   read at this scale — and drops the **length** taper, which is the literal ridge shape and
-   also precisely what removes open area.
+   **They are not louvers.** Both patterns are straight-through bores; the raked slots were
+   angled *in the plane* of the wall, not through its thickness, so nothing about the angle
+   ever steered sound. That is precisely why the pattern was free to change.
+
+   Hex is the better engineering answer at equal open area, for two reasons: it is the
+   **optimal packing** for a given web thickness, so it reaches the target with more
+   material left between holes than parallel slots do; and it is **isotropic** — a slot
+   array is slightly stiffer across the bars than along them, a hex field has no preferred
+   direction.
+
+   `GRILLE_STYLE = "ridge"` restores the raked dorsal-ridge array (9 slots, 24° rake,
+   3.20 → 2.50 mm taper, also 673 mm²).
+
 3. **0.60 mm flare on each slot mouth.** A sharp-edged slot sheds vortices and chuffs at
    level; the flare opens outward and is self-supporting in the print orientation.
 

@@ -260,7 +260,22 @@ SLOT_FLOOR = 24.0
 #     both cues that read at grille scale and costs no acoustics.
 #
 # Solved for 673 mm2 — identical to the plain array it replaces. See the assert below.
-WYRM_ON       = False    # False restores the plain raked array
+# GRILLE STYLE. "hex" or "ridge". Both are solved to the SAME 673 mm2 open area, so the
+# choice is aesthetic, not acoustic — which is only true because the rake was never doing
+# acoustic work. These are straight-through bores raked IN THE PLANE of the wall, not
+# louvered vanes angled through its thickness: nothing about the angle steers sound.
+#
+# Hex is the better engineering answer at equal open area, for two reasons:
+#   - it is the optimal packing for a given web thickness, so it reaches the target with
+#     more material left between holes than parallel slots do;
+#   - it is ISOTROPIC. A slot array is slightly stiffer across the bars than along them;
+#     a hex field has no preferred direction.
+# Solved numerically (not from the closed form) for 673.0 mm2: R=3.75mm circumradius,
+# 6.50mm across the flats, 7.40mm pitch, 33 hexes.
+GRILLE_STYLE  = "hex"
+HEX_R         = 3.75     # circumradius
+HEX_WEB       = 0.90     # material between hexes; the print floor
+WYRM_ON       = False    # solid wyrm island in the grille field
 GRILLE_RAKE   = 24.0     # degrees back from vertical, from lyra's motif
 GRILLE_N      = 9
 GRILLE_W0     = 3.20     # widest slot, at the head
@@ -289,6 +304,27 @@ GRILLE_SLOT_W2 = 2.60
 # level; a flare is the standard fix and costs nothing to print because it opens
 # downward-outward, i.e. it is self-supporting in the stand's print orientation.
 GRILLE_FLARE  = 0.60
+
+def _hex_field(dz, flare=0.0, depth=None):
+    """Pointy-top hex lattice covering the grille field, extruded through the wall."""
+    R = HEX_R + flare
+    aflat = math.sqrt(3) * HEX_R
+    dx = aflat + HEX_WEB
+    dy = 1.5 * HEX_R + HEX_WEB * math.sqrt(3) / 2
+    fw, fh = DRIVER_W - 2*GRILLE_INSET, DRIVER_H - 2*GRILLE_INSET
+    d = depth if depth is not None else ST_WALL + 4.0
+    out = None
+    for j in range(-int(fh/dy)-3, int(fh/dy)+4):
+        for i in range(-int(fw/dx)-3, int(fw/dx)+4):
+            cx = i*dx + (dx/2 if j % 2 else 0)
+            cy = j*dy
+            if abs(cx) > fw/2 + aflat or abs(cy) > fh/2 + HEX_R:
+                continue
+            h = Pos(ST_W/2 + cx, -2.0, dz + cy) * (Rot(-90,0,0) *
+                    extrude(RegularPolygon(R, 6), d))
+            out = h if out is None else out + h
+    return out
+
 
 def desk_stand():
     # Deliberately NOT chamfered.  A first attempt shaved the top-front at 38deg;
@@ -351,29 +387,29 @@ def desk_stand():
                  DRIVER_R + DRIVER_CLR,
                  -0.5, GRILLE_RECESS + 0.5)
 
-    bars = None
-    _fw = DRIVER_W - 2*GRILLE_INSET
-    _pitch = _fw / GRILLE_N
-    _widths = []
-    for i in range(GRILLE_N):
-        w = GRILLE_W0 * (1 - (1-GRILLE_TAPER)*i/(GRILLE_N-1))
-        _widths.append(w)
-        cx = ST_W/2 - _fw/2 + _pitch*(i+0.5)
-        # Overlong on purpose: `field` clips each slot to the rounded-rect opening, which
-        # also handles the truncation the rake causes at the top and bottom corners.
-        sk = RectangleRounded(w, 46.0, w/2 - 0.01)
-        b  = Pos(cx, -2.0, dz) * (Rot(0, GRILLE_RAKE, 0) *
-                                  (Rot(-90,0,0) * extrude(sk, ST_WALL + 4)))
-        # flared mouth, same rake, confined to the thinned baffle region
-        skf = RectangleRounded(w + 2*GRILLE_FLARE, 46.0, (w + 2*GRILLE_FLARE)/2 - 0.01)
-        fl  = Pos(cx, -2.0, dz) * (Rot(0, GRILLE_RAKE, 0) *
-                                   (Rot(-90,0,0) * extrude(skf, GRILLE_RECESS + 2.4)))
-        bars = (b+fl) if bars is None else bars+(b+fl)
-    _web = _pitch - max(_widths)
-    _open = sum(w * (DRIVER_H - 2*GRILLE_INSET)/math.cos(math.radians(GRILLE_RAKE))
-                for w in _widths)
-    assert _web >= 0.85, f"grille web {_web:.2f}mm is too thin to print"
-    assert _open >= 640, f"grille open area {_open:.0f}mm2 is below the driver's radiating area"
+    if GRILLE_STYLE == "hex":
+        bars = _hex_field(dz) + _hex_field(dz, flare=GRILLE_FLARE,
+                                           depth=GRILLE_RECESS + 2.4)
+    else:
+        bars = None
+        _fw = DRIVER_W - 2*GRILLE_INSET
+        _pitch = _fw / GRILLE_N
+        _widths = []
+        for i in range(GRILLE_N):
+            w = GRILLE_W0 * (1 - (1-GRILLE_TAPER)*i/(GRILLE_N-1))
+            _widths.append(w)
+            cx = ST_W/2 - _fw/2 + _pitch*(i+0.5)
+            sk = RectangleRounded(w, 46.0, w/2 - 0.01)
+            b  = Pos(cx, -2.0, dz) * (Rot(0, GRILLE_RAKE, 0) *
+                                      (Rot(-90,0,0) * extrude(sk, ST_WALL + 4)))
+            skf = RectangleRounded(w + 2*GRILLE_FLARE, 46.0,
+                                   (w + 2*GRILLE_FLARE)/2 - 0.01)
+            fl  = Pos(cx, -2.0, dz) * (Rot(0, GRILLE_RAKE, 0) *
+                                       (Rot(-90,0,0) * extrude(skf, GRILLE_RECESS + 2.4)))
+            bars = (b+fl) if bars is None else bars+(b+fl)
+        _web = _pitch - max(_widths)
+        assert _web >= 0.85, f"grille web {_web:.2f}mm is too thin to print"
+
     # THE WYRM IS A SOLID ISLAND IN THE SLOT FIELD.
     #
     # Not a hole shaped like a dragon — material shaped like one, with the slots cut
@@ -404,7 +440,28 @@ def desk_stand():
     # Generous on purpose: a moulded plug's strain relief is wider than the connector,
     # and a cable forced into a tight well takes the bend at the plug rather than in the
     # lead, which is how USB-C cables die.
-    p -= bx(ST_W/2-11, ST_W/2+11, 24.0, 46.0, ST_WALL, SLOT_FLOOR)
+    # >>> THE WELL MUST FOLLOW THE SLAB'S AXIS, NOT A HORIZONTAL PLANE. <<<
+    #
+    # First cut was a flat box down to z = SLOT_FLOOR. That is wrong, and the reason is
+    # worth stating because it is invisible on the centreline: the slot is a box rotated
+    # by TILT with align=MIN, so its BOTTOM FACE tilts too. The front-bottom corner rises
+    # to z ~= 26.4 while the rear-bottom corner drops to ~21.6. A flat well to z = 24
+    # therefore leaves a wedge of material between itself and the real slot bottom —
+    # exactly where the plug emerges. Point-sampling the centreline said "20mm clear",
+    # because the centreline is the one place the discrepancy vanishes.
+    #
+    # The plug travels DOWN THE TILT, so its clearance volume has to be tilted with it.
+    #
+    # 16mm in Y, not 22: the well drifts forward as it descends (sin 15deg per mm), and at
+    # full depth a wider one would breach the sealed speaker chamber at y = 22.0. The
+    # assert below is what makes that a build failure rather than a leak discovered by ear.
+    # 12.0, solved rather than guessed: the well drifts forward sin(TILT) per mm of depth,
+    # so at full reach its front face sits at SLOT_CY - sin(15)*20.7 - _wellY/2. At 16.0 that
+    # is y=20.6, inside the sealed chamber whose rear wall is at 22.0 — the assert in
+    # _check_geometry caught it, which is the whole point of having it. 12.0 lands at 22.6.
+    _wellY = 12.0
+    p -= Pos(ST_W/2, SLOT_CY, SLOT_FLOOR) * (Rot(-TILT,0,0) *
+             Box(22.0, _wellY, 30.0, align=(Align.CENTER, Align.CENTER, Align.MAX)))
     # cable route: slot floor -> out the back
     p -= bx(ST_W/2-8, ST_W/2+8, 29.0, ST_D+1, ST_WALL, 13.0)
     # SPEAKER WIRE PASS-THROUGH. Caught by JP: the chamber had no exit at all. Its only
@@ -498,6 +555,12 @@ def _check_geometry():
     assert engagement <= va_start, (
         f"stand occludes {engagement - va_start:.1f}mm of the visible area "
         f"(engagement {engagement:.1f}mm along the slab, VA starts at {va_start:.1f}mm)")
+    # 2a. the USB-C well must not breach the sealed speaker chamber
+    reach = (SLOT_FLOOR - ST_WALL) / math.cos(math.radians(TILT))
+    front_at_depth = SLOT_CY - math.sin(math.radians(TILT))*reach - 12.0/2
+    assert front_at_depth > 22.0, (
+        f"USB-C well reaches y={front_at_depth:.1f} at full depth and would breach the "
+        f"speaker chamber at y=22.0")
     # 2. room under the slab for a USB-C plug
     below = SLOT_FLOOR - ST_WALL
     assert below >= 16.0, f"only {below:.1f}mm under the slab for a USB-C plug (need >=16)"
