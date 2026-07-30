@@ -171,6 +171,28 @@ Deterministic, no RNG. Regenerate with `python3 esphome/art/dragon.py`, which
 rewrites `dragon_spans.inc` (pasted into the display lambda) and the preview
 PNGs.
 
+### Falsifying a flame-band change before you flash it
+
+`esphome/art/dragon_harness.cpp` compiles the `paint_flame` body against stubs and
+checks the two things no compiler can: that every row of the band is written **exactly
+once**, and that nothing writes outside `y188..263`. It also reports **runs/frame** and
+**px/frame** per assistant state and dumps `wyrm_<state>.ppm` so a change can be looked
+at rather than reasoned about.
+
+```bash
+g++ -std=gnu++20 -O2 -Wall -Wextra -o /tmp/dh esphome/art/dragon_harness.cpp && /tmp/dh
+```
+
+Two things to know before trusting a pass, both explained at length in the file's
+header. `FAIL negative-control: …covered 0 times` **is expected** — it is the harness
+proving its own tiling check can fail. And the tiling check **cannot** catch an over-tall
+`MAXH`: the fuse rows are painted before the fire logic, so a too-tall flame is silently
+clipped flat while every pixel remains covered exactly once. If you touch `GRATE` or
+`MAXH`, look at the PPM.
+
+It mirrors the lambda in `ember-satellite.yaml`. Change one, change the other — it is
+only worth running while it is the same code.
+
 ---
 
 ## Repository layout
@@ -181,6 +203,7 @@ esphome/
   secrets.yaml.example       copy to secrets.yaml — three keys, never committed
   sounds/                    8 chime WAVs + generate_chimes.py
   art/                       dragon.py, dragon_spans.inc, preview PNGs
+                             dragon_harness.cpp — host falsifier for the flame band
 homeassistant/
   packages/
     ember_backend_health.yaml  is the local LLM actually reachable?
