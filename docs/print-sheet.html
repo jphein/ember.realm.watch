@@ -85,8 +85,7 @@ tbody tr:last-child td{border-bottom:0}
 <main>
 <a class="back" href="./">&larr; Ember</a>
 <h1>Ember satellite case — print sheet</h1>
-<p>Board: <b>LCDWIKI/QDtech ES3C28P</b> (Hosyond 2.8" ESP32-S3).</p>
-<p>Source of truth: <code>ember_case.py</code> (build123d). The STLs are output, not the artifact.</p>
+<p>Board: <b>LCDWIKI/QDtech ES3C28P</b> (Hosyond 2.8" ESP32-S3). Source of truth: <code>ember_case.py</code> (build123d). The STLs are output, not the artifact.</p>
 <p>Rebuild with:</p>
 <pre>
 cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
@@ -106,8 +105,7 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <tr><td><code>ember-stand-base.stl</code></td><td>1</td><td>flat</td><td>none</td><td>Closes the speaker chamber. Press fit.</td></tr>
 <tr><td><code>ember-diffuser.stl</code></td><td>1</td><td>flat</td><td>none</td><td>Print in <b>translucent / natural / ember-orange</b> filament — this is the WS2812 glow window.</td></tr>
 </tbody></table></div>
-<p>Outer sizes: slab (bezel + shell assembled) <b>55.9 × 91.9 × 17.4 mm</b>; stand <b>64 × 64 × 40 mm</b>.</p>
-<p>Material use ≈ 122 cm³ total (~150 g).</p>
+<p>Outer sizes: slab (bezel + shell assembled) <b>55.9 × 91.9 × 17.4 mm</b>; stand <b>64 × 64 × 40 mm</b>. Material use ≈ 122 cm³ total (~150 g).</p>
 <hr>
 <h2>Slicer settings</h2>
 <div class="tablewrap"><table><thead><tr>
@@ -123,48 +121,31 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <tr><td>Supports</td><td>no</td><td>no</td><td>no</td><td>no</td></tr>
 <tr><td>Bridging</td><td>—</td><td>—</td><td><b>on</b></td><td>—</td></tr>
 </tbody></table></div>
-<p>The bezel gets the fine layer height because its front face is the one you look at, and</p>
-<p>because the mic bore is only ⌀2.40 mm — at 0.2 mm layers it starts to close up.</p>
-<p>The stand wants <b>more walls and more infill than feels necessary</b>: it is a speaker</p>
-<p>enclosure, and cabinet stiffness/mass is what stops a 2 W driver sounding like a rattle.</p>
-<p>Heavier is better here.</p>
-<p><b>Filament:</b> matte <b>charcoal/coal PLA</b> for bezel + shell — best surface finish and the</p>
-<p>tightest dimensional accuracy, which matters because the board pocket is a 0.35 mm fit.</p>
-<p>Use <b>PETG</b> instead only if it will sit in direct sun (PLA creeps at ~50 °C).</p>
-<p>Diffuser in translucent or ember-orange so the glow reads warm.</p>
+<p>The bezel gets the fine layer height because its front face is the one you look at, and because the mic bore is only ⌀2.40 mm — at 0.2 mm layers it starts to close up.</p>
+<p>The stand wants <b>more walls and more infill than feels necessary</b>: it is a speaker enclosure, and cabinet stiffness/mass is what stops a 2 W driver sounding like a rattle. Heavier is better here.</p>
+<p><b>Filament:</b> matte <b>charcoal/coal PLA</b> for bezel + shell — best surface finish and the tightest dimensional accuracy, which matters because the board pocket is a 0.35 mm fit. Use <b>PETG</b> instead only if it will sit in direct sun (PLA creeps at ~50 °C). Diffuser in translucent or ember-orange so the glow reads warm.</p>
 <hr>
 <h2>Fasteners</h2>
-<p><b>4 × M3 × 14 mm countersunk (flat-head) self-tapping</b>, driven <b>from the back</b>, so no</p>
-<p>screw heads appear on the front face.</p>
-<p>Load path: screw head countersunk in the back shell → 5.5 mm standoff → through the PCB's</p>
-<p>⌀3.20 hole → <b>self-taps into a blind ⌀2.50 pilot in the bezel boss</b>.</p>
+<p><b>4 × M3 × 14 mm countersunk (flat-head) self-tapping</b>, driven <b>from the back</b>, so no screw heads appear on the front face.</p>
+<p>Load path: screw head countersunk in the back shell → 5.5 mm standoff → through the PCB's ⌀3.20 hole → <b>self-taps into a blind ⌀2.50 pilot in the bezel boss</b>.</p>
 <ul>
 <li>14 mm is right: the tip lands 4.3 mm into the bezel boss with 1.9 mm of pilot spare, and</li>
 </ul>
-<p>  1.5 mm of solid skin remains under the front face. <b>16 mm bottoms out — don't.</b></p>
+<p>1.5 mm of solid skin remains under the front face. <b>16 mm bottoms out — don't.</b></p>
 <ul>
 <li><b>Heat-set inserts will NOT fit.</b> The vendor specifies a ⌀5.60 pad around each mounting</li>
 </ul>
-<p>  hole, so bosses are capped at ⌀5.40. An M3 insert needs a ⌀4.0–4.2 bore, leaving a 0.6 mm</p>
-<p>  wall that will split. Self-tappers only.</p>
+<p>hole, so bosses are capped at ⌀5.40. An M3 insert needs a ⌀4.0–4.2 bore, leaving a 0.6 mm wall that will split. Self-tappers only.</p>
 <ul>
 <li>The boss OD (5.40) is inside the ⌀5.60 pad, so nothing bridges the annular ring. No</li>
 </ul>
-<p>  washers needed — but if you substitute a metal-headed screw with a wide flange, add a</p>
-<p>  nylon washer.</p>
-<p>Stand base: press fit. Seal the seam with a bead of silicone or a strip of tape — it needs</p>
-<p>to be <b>airtight, not structural</b>.</p>
+<p>washers needed — but if you substitute a metal-headed screw with a wide flange, add a nylon washer.</p>
+<p>Stand base: press fit. Seal the seam with a bead of silicone or a strip of tape — it needs to be <b>airtight, not structural</b>.</p>
 <hr>
 <h2>The slab in the stand</h2>
 <p>The slab drops into a tilted slot, <b>15° back from vertical</b> for a seated viewer.</p>
-<p>⚠️ <b>Revised — it used to bury the screen.</b> The slot floor was at <code>z = 10.0</code>, which put</p>
-<p>the stand <b>30 mm</b> up the slab — <b>31.1 mm along it</b> once tilt is accounted for</p>
-<p>(30 / cos 15°). The visible area starts only 19.76 mm up from the slab's bottom edge, so</p>
-<p>the stand covered <b>11.3 mm of screen: 19.5% of a 58.05 mm display</b>, hidden behind the</p>
-<p>box. Caught by looking at a render; a boolean clearance check can never find this, because</p>
-<p>nothing intersects — the stand was simply <em>in front of</em> the screen.</p>
-<p>The same depth left just 6.0 mm between the slab's bottom edge and the stand floor, and a</p>
-<p>straight USB-C plug body needs <b>~18–20 mm</b>. There was nowhere for the power lead to go.</p>
+<p>⚠️ <b>Revised — it used to bury the screen.</b> The slot floor was at <code>z = 10.0</code>, which put the stand <b>30 mm</b> up the slab — <b>31.1 mm along it</b> once tilt is accounted for (30 / cos 15°). The visible area starts only 19.76 mm up from the slab's bottom edge, so the stand covered <b>11.3 mm of screen: 19.5% of a 58.05 mm display</b>, hidden behind the box. Caught by looking at a render; a boolean clearance check can never find this, because nothing intersects — the stand was simply <em>in front of</em> the screen.</p>
+<p>The same depth left just 6.0 mm between the slab's bottom edge and the stand floor, and a straight USB-C plug body needs <b>~18–20 mm</b>. There was nowhere for the power lead to go.</p>
 <p><b>Slot floor is now <code>z = 24.0</code>:</b></p>
 <div class="tablewrap"><table><thead><tr>
 <th></th>
@@ -174,14 +155,8 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <tr><td>Visible area</td><td><b>entirely clear</b> of the stand</td></tr>
 <tr><td>Room below for USB-C</td><td><b>20.0 mm</b></td></tr>
 </tbody></table></div>
-<p>There is a <b>USB-C well</b> under the slot — 22 mm wide × 12 mm deep, **tilted to follow the</p>
-<p>slab's own axis** and running 30 mm down it into the rear cable route.</p>
-<p>⚠️ <b>It was a flat box first, and that did not work.</b> The slot is a box rotated by the tilt</p>
-<p>with <code>align=MIN</code>, so <b>its bottom face tilts too</b> — the front-bottom corner sits at</p>
-<p>z ≈ 26.4 while the rear-bottom drops to ≈ 21.6. A well cut flat to z = 24 therefore left a</p>
-<p>wedge of material exactly where the plug emerges. It measured as "20 mm clear" only because</p>
-<p>the check point-sampled the <b>centreline</b>, which is the single locus where that discrepancy</p>
-<p>vanishes. A plug has width, and its front corner hit the wedge.</p>
+<p>There is a <b>USB-C well</b> under the slot — 22 mm wide × 12 mm deep, <b>tilted to follow the slab's own axis</b> and running 30 mm down it into the rear cable route.</p>
+<p>⚠️ <b>It was a flat box first, and that did not work.</b> The slot is a box rotated by the tilt with <code>align=MIN</code>, so <b>its bottom face tilts too</b> — the front-bottom corner sits at z ≈ 26.4 while the rear-bottom drops to ≈ 21.6. A well cut flat to z = 24 therefore left a wedge of material exactly where the plug emerges. It measured as "20 mm clear" only because the check point-sampled the <b>centreline</b>, which is the single locus where that discrepancy vanishes. A plug has width, and its front corner hit the wedge.</p>
 <p>Re-measured by sweeping a plug-shaped box down the insertion axis:</p>
 <div class="tablewrap"><table><thead><tr>
 <th>plug</th>
@@ -192,115 +167,55 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <tr><td>chunky braided 16 × 9 mm</td><td>past 20.7 mm</td></tr>
 <tr><td>very bulky 20 × 11 mm</td><td>past 20.7 mm</td></tr>
 </tbody></table></div>
-<p>20.7 mm is the stand floor; past that the well opens into the cable route. A straight plug's</p>
-<p>overmould is 18–25 mm, so all of them fit.</p>
-<p><b>Depth is 12 mm, not 22, and that is solved rather than chosen:</b> the well drifts forward</p>
-<p><code>sin(15°)</code> per mm of descent, and at 22 mm wide its front face reached y = 20.6 — inside the</p>
-<p>sealed speaker chamber, whose rear wall is at y = 22.0. <code>_check_geometry</code> asserts this, and</p>
-<p>it is what caught it.</p>
-<p><code>ember_case.py</code> asserts all three of these on every run (<code>_check_geometry</code>), so the screen</p>
-<p>cannot get buried again by a later tweak.</p>
+<p>20.7 mm is the stand floor; past that the well opens into the cable route. A straight plug's overmould is 18–25 mm, so all of them fit.</p>
+<p><b>Depth is 12 mm, not 22, and that is solved rather than chosen:</b> the well drifts forward <code>sin(15°)</code> per mm of descent, and at 22 mm wide its front face reached y = 20.6 — inside the sealed speaker chamber, whose rear wall is at y = 22.0. <code>_check_geometry</code> asserts this, and it is what caught it.</p>
+<p><code>ember_case.py</code> asserts all three of these on every run (<code>_check_geometry</code>), so the screen cannot get buried again by a later tweak.</p>
 <h2>Speaker</h2>
-<p>It is a <b>sealed-back module</b>, not a bare driver: a plastic box carrying its own rear</p>
-<p>cavity, diaphragm on one face, JST-1.25 2-pin pigtail, <b>double-sided tape on the back</b>.</p>
-<p><b>40 × 27 mm footprint, 10 mm thick</b> (measured).</p>
-<div class="note"><b>That inverts the mount, and it took three revisions to get right.</b> The first cut</div>
-<div class="note">assumed a round ⌀28 flanged driver in a recess. The second made it a 40 × 27 rectangle</div>
-<div class="note">and kept a shallow lip on the baffle. Both were wrong, because a baffle-mounted driver</div>
-<div class="note">needs adhesive on the face that <em>meets the baffle</em> — and this one has it on the</div>
-<div class="note">opposite side. The bonding surface cannot be the front wall at all.</div>
-<p><b>How it mounts.</b> A flat <b>tape pad</b> stands 0.80 mm proud of the chamber's rear wall,</p>
-<p>40 × 27 with matching corner radius. Stick the module's taped back to it; the diaphragm</p>
-<p>then faces forward at the grille. The pad is <em>raised</em> deliberately, so the adhesive meets</p>
-<p>one continuous plane — no fillet, no print artefact at the wall/floor junction to</p>
-<p>interrupt the bond. <b>The baffle's inner face is left completely alone</b>: the module never</p>
-<p>touches it, and anything cut there would only put a cavity edge in front of the diaphragm.</p>
-<p><b>Chamber depth is now derived, not chosen.</b> Baffle + 2.50 mm front gap + 10 mm module +</p>
-<p>0.80 mm pad + margin → rear wall at <b>19.3 mm</b>. Previously it was pushed to 22.0 "as deep</p>
-<p>as the slab slot allows", maximising sealed volume — the right goal for a baffle-mounted</p>
-<p>driver and the wrong one here. With the module taped to the rear wall, extra depth is not</p>
-<p>extra enclosure, it is <b>extra air in front of the diaphragm</b>, which is a cavity</p>
-<p>resonance. There is an assert in the source so this can never silently foul the slot.</p>
+<p>It is a <b>sealed-back module</b>, not a bare driver: a plastic box carrying its own rear cavity, diaphragm on one face, JST-1.25 2-pin pigtail, <b>double-sided tape on the back</b>. <b>40 × 27 mm footprint, 10 mm thick</b> (measured).</p>
+<div class="note"><b>That inverts the mount, and it took three revisions to get right.</b> The first cut assumed a round ⌀28 flanged driver in a recess. The second made it a 40 × 27 rectangle and kept a shallow lip on the baffle. Both were wrong, because a baffle-mounted driver needs adhesive on the face that <em>meets the baffle</em> — and this one has it on the opposite side. The bonding surface cannot be the front wall at all.</div>
+<p><b>How it mounts.</b> A flat <b>tape pad</b> stands 0.80 mm proud of the chamber's rear wall, 40 × 27 with matching corner radius. Stick the module's taped back to it; the diaphragm then faces forward at the grille. The pad is <em>raised</em> deliberately, so the adhesive meets one continuous plane — no fillet, no print artefact at the wall/floor junction to interrupt the bond. <b>The baffle's inner face is left completely alone</b>: the module never touches it, and anything cut there would only put a cavity edge in front of the diaphragm.</p>
+<p><b>Chamber depth is now derived, not chosen.</b> Baffle + 2.50 mm front gap + 10 mm module + 0.80 mm pad + margin → rear wall at <b>19.3 mm</b>. Previously it was pushed to 22.0 "as deep as the slab slot allows", maximising sealed volume — the right goal for a baffle-mounted driver and the wrong one here. With the module taped to the rear wall, extra depth is not extra enclosure, it is <b>extra air in front of the diaphragm</b>, which is a cavity resonance. There is an assert in the source so this can never silently foul the slot.</p>
 <p>⚠️ <b>Two corrections to earlier advice in this file, now that the module is known:</b></p>
 <ul>
 <li><b>Skip the wadding.</b> It was recommended to damp standing waves in the sealed chamber.</li>
 </ul>
-<p>  A sealed-back module brings its own rear volume, so there is no rear chamber to damp —</p>
-<p>  stuffing the front cavity would just absorb output on its way to the grille.</p>
+<p>A sealed-back module brings its own rear volume, so there is no rear chamber to damp — stuffing the front cavity would just absorb output on its way to the grille.</p>
 <ul>
 <li><b>Sealing still matters, for a different reason.</b> Not to hold bass in a rear chamber,</li>
 </ul>
-<p>  but to stop the <em>front</em> cavity venting anywhere except through the slots. Any leak lets</p>
-<p>  the front wave escape and cancel, which costs level. So still seal the wire</p>
-<p>  pass-through and the base seam — the reason changed, the instruction didn't.</p>
-<p>The **volume figures earlier in this file are about a rear chamber that no longer exists</p>
-<p>in the acoustic sense.** They still describe the printed void; they no longer describe</p>
-<p>what the module is loading into.</p>
+<p>but to stop the <em>front</em> cavity venting anywhere except through the slots. Any leak lets the front wave escape and cancel, which costs level. So still seal the wire pass-through and the base seam — the reason changed, the instruction didn't.</p>
+<p>The <b>volume figures earlier in this file are about a rear chamber that no longer exists in the acoustic sense.</b> They still describe the printed void; they no longer describe what the module is loading into.</p>
 <ul>
 <li>The ES3C28P <b>speaker header is unpopulated</b> — you need a 1.25 mm 2P pigtail.</li>
 <li>Changing driver: edit <code>DRIVER_W</code>, <code>DRIVER_H</code>, <code>DRIVER_R</code> in <code>ember_case.py</code> and re-run.</li>
 </ul>
-<p>  <code>GRILLE_INSET</code> (1.5 mm) keeps the slots inside the radiating area so the grille never</p>
-<p>  opens onto the frame — an open slot over the flange is a dust path into the chamber and</p>
-<p>  vents the enclosure.</p>
-<p>⚠️ <b>Keep the driver magnet away from the top 8 mm of the board's back face</b> —</p>
-<p><code>ANT = (17.57, 32.21, 80.04, 85.70)</code> is the PCB Wi-Fi antenna. The stand geometry already</p>
-<p>puts the magnet ~70 mm away, so this only matters if you relocate the speaker into the slab.</p>
+<p><code>GRILLE_INSET</code> (1.5 mm) keeps the slots inside the radiating area so the grille never opens onto the frame — an open slot over the flange is a dust path into the chamber and vents the enclosure.</p>
+<p>⚠️ <b>Keep the driver magnet away from the top 8 mm of the board's back face</b> — <code>ANT = (17.57, 32.21, 80.04, 85.70)</code> is the PCB Wi-Fi antenna. The stand geometry already puts the magnet ~70 mm away, so this only matters if you relocate the speaker into the slab.</p>
 <hr>
 <h3>Making it louder — and the grille is the wyrm's ridge</h3>
-<p>⚠️ *This subsection was lost once already: rewriting the Speaker section for the sealed-back</p>
-<p>module replaced a span that happened to contain it. Restored, and updated.*</p>
-<p>The bottleneck was never the box volume, it was the <b>baffle</b>. A slot behaves like a short</p>
-<p>duct and its impedance scales with length ÷ width, so 2.20 mm slots through a 4.00 mm wall</p>
-<p>(<b>1.82:1</b>) made the sound squeeze through slits nearly twice as deep as they were wide.</p>
-<p>1. <b>The baffle is recessed to 2.20 mm</b> in the grille region only, cut from the <em>outside</em></p>
-<p>   so the inner face stays flat. Slot aspect 1.82:1 → <b>1.00:1</b>, roughly halving the</p>
-<p>   impedance.</p>
-<p>2. <b>The grille is a hexagonal honeycomb</b> — 33 hexes, <b>6.50 mm across the flats</b> on a</p>
-<p>   7.40 mm pitch (3.75 mm circumradius), 0.90 mm web. Open area <b>673.0 mm²</b>, solved</p>
-<p>   <em>numerically</em> to match the slot array it replaces exactly, so the change is aesthetic</p>
-<p>   rather than acoustic.</p>
-<p>   <b>They are not louvers.</b> Both patterns are straight-through bores; the raked slots were</p>
-<p>   angled <em>in the plane</em> of the wall, not through its thickness, so nothing about the angle</p>
-<p>   ever steered sound. That is precisely why the pattern was free to change.</p>
-<p>   Hex is the better engineering answer at equal open area, for two reasons: it is the</p>
-<p>   <b>optimal packing</b> for a given web thickness, so it reaches the target with more</p>
-<p>   material left between holes than parallel slots do; and it is <b>isotropic</b> — a slot</p>
-<p>   array is slightly stiffer across the bars than along them, a hex field has no preferred</p>
-<p>   direction.</p>
-<p>   <code>GRILLE_STYLE = "ridge"</code> restores the raked dorsal-ridge array (9 slots, 24° rake,</p>
-<p>   3.20 → 2.50 mm taper, also 673 mm²).</p>
-<p>3. <b>0.60 mm flare on each slot mouth.</b> A sharp-edged slot sheds vortices and chuffs at</p>
-<p>   level; the flare opens outward and is self-supporting in the print orientation.</p>
+<p>⚠️ <em>This subsection was lost once already: rewriting the Speaker section for the sealed-back module replaced a span that happened to contain it. Restored, and updated.</em></p>
+<p>The bottleneck was never the box volume, it was the <b>baffle</b>. A slot behaves like a short duct and its impedance scales with length ÷ width, so 2.20 mm slots through a 4.00 mm wall (<b>1.82:1</b>) made the sound squeeze through slits nearly twice as deep as they were wide.</p>
+<p>1. <b>The baffle is recessed to 2.20 mm</b> in the grille region only, cut from the <em>outside</em> so the inner face stays flat. Slot aspect 1.82:1 → <b>1.00:1</b>, roughly halving the impedance. 2. <b>The grille is a hexagonal honeycomb</b> — 33 hexes, <b>6.50 mm across the flats</b> on a 7.40 mm pitch (3.75 mm circumradius), 0.90 mm web. Open area <b>673.0 mm²</b>, solved <em>numerically</em> to match the slot array it replaces exactly, so the change is aesthetic rather than acoustic.</p>
+<p><b>They are not louvers.</b> Both patterns are straight-through bores; the raked slots were angled <em>in the plane</em> of the wall, not through its thickness, so nothing about the angle ever steered sound. That is precisely why the pattern was free to change.</p>
+<p>Hex is the better engineering answer at equal open area, for two reasons: it is the <b>optimal packing</b> for a given web thickness, so it reaches the target with more material left between holes than parallel slots do; and it is <b>isotropic</b> — a slot array is slightly stiffer across the bars than along them, a hex field has no preferred direction.</p>
+<p><code>GRILLE_STYLE = "ridge"</code> restores the raked dorsal-ridge array (9 slots, 24° rake, 3.20 → 2.50 mm taper, also 673 mm²).</p>
+<p>3. <b>0.60 mm flare on each slot mouth.</b> A sharp-edged slot sheds vortices and chuffs at level; the flare opens outward and is self-supporting in the print orientation.</p>
 <p><b>At assembly:</b></p>
 <ul>
 <li><b>Skip the wadding.</b> A sealed-back module brings its own rear volume, so there is no rear</li>
 </ul>
-<p>  chamber to damp — stuffing the front cavity would just absorb output on its way out.</p>
+<p>chamber to damp — stuffing the front cavity would just absorb output on its way out.</p>
 <ul>
 <li><b>Seal every joint</b> — the wire pass-through and the base seam. Not to hold bass in a rear</li>
 </ul>
-<p>  chamber, but to stop the <em>front</em> cavity venting anywhere except through the slots. A leak</p>
-<p>  there lets the front wave escape and cancel, which costs level.</p>
+<p>chamber, but to stop the <em>front</em> cavity venting anywhere except through the slots. A leak there lets the front wave escape and cancel, which costs level.</p>
 <ul>
 <li><b>Print the stand with more walls and infill than feels necessary</b> (5–6 perimeters, 30%+).</li>
 </ul>
-<p>  It is a speaker cabinet; stiffness is what stops a 2 W driver exciting a 64 mm panel.</p>
-<p><b>Not done, deliberately:</b> a bass-reflex port. At this volume a printable port tunes to</p>
-<p>~390–460 Hz, useful only if it lands just below the driver's Fs — unknown. A port tuned</p>
-<p>below Fs does nothing and a mistuned one is worse than sealed.</p>
-<p><code>Fb = (c/2π)·√(A / (V·Leff))</code>, <code>Leff = L + 0.85·d</code>.</p>
+<p>It is a speaker cabinet; stiffness is what stops a 2 W driver exciting a 64 mm panel.</p>
+<p><b>Not done, deliberately:</b> a bass-reflex port. At this volume a printable port tunes to ~390–460 Hz, useful only if it lands just below the driver's Fs — unknown. A port tuned below Fs does nothing and a mistuned one is worse than sealed. <code>Fb = (c/2π)·√(A / (V·Leff))</code>, <code>Leff = L + 0.85·d</code>.</p>
 <h2>Assembly order</h2>
-<p>1. Plug the speaker pigtail into the board's <b>SPEAKER</b> 1.25 mm 2P header (long edge).</p>
-<p>2. Seat the driver in the stand, wires out through the cable channel, press on</p>
-<p>   <code>ember-stand-base</code>, seal the seam.</p>
-<p>3. Lay the board <b>face down into the bezel</b>. The glass does <b>not</b> touch the bezel —</p>
-<p>   there is a deliberate 0.40 mm gap. The four bosses land on the PCB's top face.</p>
-<p>4. Drop the back shell on. Check the five 1.25 mm connectors and the microSD sit in the</p>
-<p>   side channels before pulling anything tight.</p>
-<p>5. Four M3 × 14 countersunk from the back. Snug, not hard — you are clamping a PCB.</p>
-<p>6. Optional: press <code>ember-diffuser</code> into the ⌀16 seat around the rear glow window.</p>
-<p>7. Slide the slab into the stand slot; route the USB-C cable down the channel and out the back.</p>
+<p>1. Plug the speaker pigtail into the board's <b>SPEAKER</b> 1.25 mm 2P header (long edge). 2. Seat the driver in the stand, wires out through the cable channel, press on <code>ember-stand-base</code>, seal the seam. 3. Lay the board <b>face down into the bezel</b>. The glass does <b>not</b> touch the bezel — there is a deliberate 0.40 mm gap. The four bosses land on the PCB's top face. 4. Drop the back shell on. Check the five 1.25 mm connectors and the microSD sit in the side channels before pulling anything tight. 5. Four M3 × 14 countersunk from the back. Snug, not hard — you are clamping a PCB. 6. Optional: press <code>ember-diffuser</code> into the ⌀16 seat around the rear glow window. 7. Slide the slab into the stand slot; route the USB-C cable down the channel and out the back.</p>
 <hr>
 <h2>Tunables (edit + re-run)</h2>
 <div class="tablewrap"><table><thead><tr>
@@ -320,53 +235,33 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <ul>
 <li><b><code>GLASS_GAP = 0.40</code> — the bezel never touches the capacitive glass.</b> The vendor tolerances</li>
 </ul>
-<p>  the LCD at 2.3 ±0.1 and the touch panel at 1.0 ±0.1, so the glass front face can sit up to</p>
-<p>  0.2 mm high. A rigid printed bezel bearing on glass is how you crack a display. The entire</p>
-<p>  clamping load runs bezel → bosses → PCB → standoffs → shell; the glass is never in the load</p>
-<p>  path. This was a bug in the first iteration, caught before export.</p>
+<p>the LCD at 2.3 ±0.1 and the touch panel at 1.0 ±0.1, so the glass front face can sit up to 0.2 mm high. A rigid printed bezel bearing on glass is how you crack a display. The entire clamping load runs bezel → bosses → PCB → standoffs → shell; the glass is never in the load path. This was a bug in the first iteration, caught before export.</p>
 <ul>
 <li><b>Button pads extend in +Y only.</b> The switches sit just 3.26 mm from the board edge, so a</li>
 </ul>
-<p>  centred pad cut straight through the shell's bottom wall. Caught by rendering and looking.</p>
+<p>centred pad cut straight through the shell's bottom wall. Caught by rendering and looking.</p>
 <ul>
 <li><b>Side channels are deliberately generous.</b> See the open question below.</li>
 <li><b>Shrinkage:</b> PLA ≈0.3 % over 86 mm = 0.13 mm/side, PETG ≈0.5 % = 0.22 mm/side — both</li>
 </ul>
-<p>  inside the 0.35 mm pocket fit, so <b>no scaling compensation is needed</b>.</p>
+<p>inside the 0.35 mm pocket fit, so <b>no scaling compensation is needed</b>.</p>
 <hr>
 <h2>Two things to check on the physical board</h2>
 <p><b>1. Which way does the mic fire?</b> — 20 seconds with the board in hand.</p>
-<p>Look at the <b>front</b> face, in the bare strip at the end <b>away from the USB-C</b>, about</p>
-<p><b>10 mm in from one long edge and ~4.5 mm from the short edge</b> (just inboard of the</p>
-<p>top-right mounting hole). Is there a tiny hole, ~0.5–1 mm, through the PCB?</p>
+<p>Look at the <b>front</b> face, in the bare strip at the end <b>away from the USB-C</b>, about <b>10 mm in from one long edge and ~4.5 mm from the short edge</b> (just inboard of the top-right mounting hole). Is there a tiny hole, ~0.5–1 mm, through the PCB?</p>
 <ul>
 <li><b>Hole present</b> → the mic fires forward. The bezel's ⌀2.40 port and its collar are doing</li>
 </ul>
-<p>  the work, exactly as designed.</p>
+<p>the work, exactly as designed.</p>
 <ul>
 <li><b>No hole</b> → the mic fires rearward, and the ⌀3.00 relief through the back shell behind</li>
 </ul>
-<p>  the mic is what's carrying it.</p>
-<p><b>The case provides both paths</b>, so it works either way — but knowing which one lets you</p>
-<p>tune it (and tells you which opening not to obstruct when mounting).</p>
-<p>Why it's still open: the vendor STEP contains <b>no small holes at all</b> — not one via — so</p>
-<p>Altium clearly suppressed them on export. Absence of a port hole in the model is therefore</p>
-<p>not evidence of absence on the board. The front-view outline drawing <em>does</em> show a circle at</p>
-<p>the mic location, which is why I lean front-firing.</p>
-<p><b>2. Where does the microSD card actually go in?</b> The STEP simplifies the socket to a flat</p>
-<p>11.15 × 14.15 × 0.5 mm plate at x 33.68–44.83, y 15.84–29.99, which doesn't resolve the</p>
-<p>insertion direction. That's why both long edges get a continuous channel across y 14–75 and</p>
-<p>y 14–42 rather than a neat per-connector cutout. If the card turns out to be blocked, the fix</p>
-<p>is one parameter, not a redesign.</p>
+<p>the mic is what's carrying it.</p>
+<p><b>The case provides both paths</b>, so it works either way — but knowing which one lets you tune it (and tells you which opening not to obstruct when mounting).</p>
+<p>Why it's still open: the vendor STEP contains <b>no small holes at all</b> — not one via — so Altium clearly suppressed them on export. Absence of a port hole in the model is therefore not evidence of absence on the board. The front-view outline drawing <em>does</em> show a circle at the mic location, which is why I lean front-firing.</p>
+<p><b>2. Where does the microSD card actually go in?</b> The STEP simplifies the socket to a flat 11.15 × 14.15 × 0.5 mm plate at x 33.68–44.83, y 15.84–29.99, which doesn't resolve the insertion direction. That's why both long edges get a continuous channel across y 14–75 and y 14–42 rather than a neat per-connector cutout. If the card turns out to be blocked, the fix is one parameter, not a redesign.</p>
 <hr>
 <h2>Provenance</h2>
-<p>Everything structural was <b>measured from the vendor STEP solid</b></p>
-<p>(<code>ES3C28P_3D.step</code>, Altium→OpenCASCADE, 2025-06-10) — not transcribed from a datasheet</p>
-<p>table: PCB outline, the 4 ⌀3.20 holes at (4,4)/(46,4)/(4,82)/(46,82), the 10.60 mm stack,</p>
-<p>glass face at Z+4.30, deepest back component at −6.30, USB-C at X 20.53–29.47, both rear</p>
-<p>switches and their plunger tips, the mic package at (40.0, 81.5), the WS2812 at (29.0, 45.6),</p>
-<p>all five 1.25 mm connectors, and the antenna keepout.</p>
-<p>Both shell parts are boolean-verified against that solid at <b>0.000 mm³ interference</b>, and</p>
-<p>the checker is self-tested each run by deliberately sinking the bezel 2 mm into the board</p>
-<p>(reports 1467.8 mm³ — so a real collision would not pass silently).</p>
+<p>Everything structural was <b>measured from the vendor STEP solid</b> (<code>ES3C28P_3D.step</code>, Altium→OpenCASCADE, 2025-06-10) — not transcribed from a datasheet table: PCB outline, the 4 ⌀3.20 holes at (4,4)/(46,4)/(4,82)/(46,82), the 10.60 mm stack, glass face at Z+4.30, deepest back component at −6.30, USB-C at X 20.53–29.47, both rear switches and their plunger tips, the mic package at (40.0, 81.5), the WS2812 at (29.0, 45.6), all five 1.25 mm connectors, and the antenna keepout.</p>
+<p>Both shell parts are boolean-verified against that solid at <b>0.000 mm³ interference</b>, and the checker is self-tested each run by deliberately sinking the bezel 2 mm into the board (reports 1467.8 mm³ — so a real collision would not pass silently).</p>
 </main>

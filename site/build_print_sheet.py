@@ -113,19 +113,42 @@ def convert(md: str) -> tuple[str, str]:
             if not in_list:
                 out.append("<ul>")
                 in_list = True
-            out.append(f"<li>{inline(m.group(1))}</li>")
+            item = [m.group(1).strip()]
             i += 1
+            while (i < len(lines) and lines[i].strip()
+                   and lines[i].startswith(("   ", "\t"))
+                   and not re.match(r"^\s*[-*]\s", lines[i])):
+                item.append(lines[i].strip())
+                i += 1
+            out.append(f"<li>{inline(' '.join(item))}</li>")
             continue
 
-        if ln.startswith("> "):
+        if ln.startswith(">"):
             close_list()
-            out.append(f'<div class="note">{inline(ln[2:])}</div>')
-            i += 1
+            q = []
+            while i < len(lines) and lines[i].startswith(">"):
+                q.append(lines[i].lstrip(">").strip())
+                i += 1
+            out.append(f'<div class="note">{inline(" ".join(q))}</div>')
             continue
 
+        # PARAGRAPHS ARE MULTI-LINE. Emitting one <p> per source line was wrong twice
+        # over: it broke every wrapped paragraph into separate blocks, and — worse —
+        # inline markup spanning a line break never matched, so `**bold\ntext**` shipped
+        # its literal asterisks to the page. Four of them were live before this was fixed.
+        # Gather the run of plain lines first, join, THEN apply inline markup.
         close_list()
-        out.append(f"<p>{inline(ln)}</p>")
-        i += 1
+        para = []
+        while i < len(lines):
+            l2 = lines[i]
+            if (not l2.strip() or l2.startswith("```") or l2.startswith("> ")
+                    or re.match(r"^(#{1,4})\s", l2) or re.match(r"^\s*[-*]\s", l2)
+                    or l2.lstrip().startswith("|")
+                    or (l2.startswith("---") and set(l2.strip()) == {"-"})):
+                break
+            para.append(l2.strip())
+            i += 1
+        out.append(f"<p>{inline(' '.join(para))}</p>")
 
     close_list()
     if in_code:
