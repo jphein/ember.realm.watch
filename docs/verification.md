@@ -58,7 +58,31 @@ It measured as "20 mm clear" because the check **point-sampled the centreline**,
 the single locus where that discrepancy is zero. A plug has width; its front corner hit
 the wedge.
 
-### 4. A test that could not fail at all
+### 4. `esphome config` passes with a broken `static_assert`
+
+The same shape in a *tool*, and it invalidated a verification instruction I had given.
+
+Adding a `static_assert` to a display lambda, I asked for it to be verified with
+`esphome config` — no device touched, returns `Configuration is valid!` with the two known
+GPIO45/46 strapping warnings and nothing else.
+
+**It also returns exactly that with the assert deliberately broken.** `config` validates
+YAML and *never builds the lambda*, so its success condition is entirely insensitive to
+whether the C++ compiles at all.
+
+`esphome compile` is the stage the change actually lives in, and also needs no device. It
+reported the assert firing, attributed to the **YAML line** with the arithmetic spelled out:
+
+```
+esphome/ember-satellite.yaml:3369:35: error: static assertion failed: MAXH is too tall
+for GRATE: the tallest flame reaches into the fuse rows and will be silently clipped flat.
+note: the comparison reduces to '(74 <= 73)'
+```
+
+> **Know which stage of a toolchain your change lives in, and verify at that stage.** A
+> green result from an earlier stage is not weak evidence — it is *no* evidence.
+
+### 5. A test that could not fail at all
 
 The clearance checker once returned a confident `CLEAR` that meant nothing: the vendor
 STEP lives in its own coordinate frame while the parts are in board coords, so the two
@@ -74,8 +98,15 @@ detector *still* said `0.000`.
 
 ## Corollaries earned the hard way
 
-**A test that cannot fail is not a test.** Prove the detector detects, with a case whose
-answer you already know, on every run.
+**A test that cannot fail is not a test** — and the refinement: a test that cannot fail *for
+the property you care about*, while passing for one you don't. Prove the detector detects,
+with a case whose answer you already know, on every run.
+
+**Prove it at the boundary, not just somewhere past it.** "Fails at 65" is much weaker than
+"passes at 64 and fails at 65", because the first is satisfied by an assert objecting to
+something adjacent. The flame-height assert was checked across three `GRATE` values — limits
+69, 64 and 56 computed independently — and the PASS/FAIL flip landed **exactly** on the
+limit in all eight cases.
 
 **Prefer measuring the artifact to reasoning about the source.** Four defects here were
 invisible in correct-looking source and obvious in the rendered output — including a "Buy
