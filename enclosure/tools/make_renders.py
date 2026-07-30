@@ -2,6 +2,16 @@
 SVG technical views  -> currentColor line art, themeable, namespaced ids, no text.
 PNG hero            -> shaded, coal background, 16:9.
 """
+import os as _os, sys as _sys
+# `./cadenv/bin/python tools/make_renders.py` — the command enclosure/README.md documents —
+# puts `tools/` on sys.path[0], NOT the enclosure directory, so the bare `import ember_case`
+# below fails from a clean checkout. It worked here only because a stale enclosure/__pycache__
+# was lying around from an earlier run in a different working directory. That is the
+# nastiest shape of unreproducible build: the documented command works on the machine that
+# has already run it and nowhere else. Anchor on this file's location rather than on the
+# caller's cwd, mirroring what ember_case.py already does to reach tools/.
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+
 from build123d import *
 import ember_case as E
 import numpy as np, os, math
@@ -23,7 +33,16 @@ stand, base  = E.desk_stand(), E.stand_base()
 # There is no diffuser any more. The LED window and the printed translucent disc that
 # seated in it were both deleted when the back gained its fine hex field — the WS2812's
 # light leaves through the hexes now. Four printable parts, not five.
-_raw  = Pos(52.750,-6.000,0.0) * import_step("../ES3C28P_3D/ES3C28P_3D.step")
+_STEP = os.path.join(_sys.path[0], "ES3C28P_3D", "ES3C28P_3D.step")
+if not os.path.exists(_STEP):
+    _sys.exit(f"missing vendor board model: {_STEP}\n"
+              f"  download it per enclosure/README.md — 17.7MB, deliberately not committed")
+# ANCHORED, not cwd-relative. This was `"../ES3C28P_3D/ES3C28P_3D.step"`, which resolves
+# correctly only when cwd is enclosure/tools — while README.md documents running it from
+# enclosure/. Two cwd assumptions in one file, both invisible to anyone whose shell happened
+# to be sitting in the right directory. Same root cause as the sys.path fix at the top: the
+# script's location is a fact, the caller's cwd is a guess.
+_raw  = Pos(52.750,-6.000,0.0) * import_step(_STEP)
 board = _raw                                     # full 1238-solid assembly
 # For line art, the full board projects ~thousands of edges (87 KB of SVG for one
 # view).  A reader needs the PCB + LCD + glass silhouette, not every 0402.  Pick
@@ -194,14 +213,27 @@ groups = [(*project(shell, BACK_EYE, up=(0,1,0), target=BACK_TGT), "shell")]
 # print-layout figure (shell open side up) mirrors it back again. An id like `btn-left`
 # would be correct in one figure, wrong in another, and silently wrong forever after
 # someone changes a camera. The coordinate cannot be mirrored; the position can.
-_pw = E.BUTTON_PAD_W
-def _pad_face(cx):
-    return Face(Wire.make_polygon([
-        (cx - _pw/2, E.PAD_Y0, E.BACK_Z - 0.04), (cx + _pw/2, E.PAD_Y0, E.BACK_Z - 0.04),
-        (cx + _pw/2, E.PAD_Y1, E.BACK_Z - 0.04), (cx - _pw/2, E.PAD_Y1, E.BACK_Z - 0.04),
-    ], close=True))
+# THE OUTLINE IS NOT RE-TYPED HERE, AND THAT IS THE POINT. This used to hand-write a
+# four-point rectangle from BUTTON_PAD_W / PAD_Y0 / PAD_Y1 — a second, independent copy of
+# geometry that lived in the figure rather than in the part. Both copies happened to be
+# rectangles, so nothing ever disagreed and nothing was ever caught; when JP asked for
+# hexagonal buttons the risk became concrete, because the figure is the only thing anyone
+# looks at and it would have kept drawing squares over a hexagonal case indefinitely. It now
+# reads `E.cap_geometry` and `E.cap_hex_pts`, the same two functions `back_shell()` calls, so
+# the figure cannot describe a button the case does not have.
+def _cap_rings(cx):
+    """Island outline plus the debossed face outline — two concentric hexes, which is what a
+    recessed hex button looks like from behind. The inner ring is at the recess FLOOR, so its
+    z is BACK_Z + deb (inward, toward the cavity), not BACK_Z - deb."""
+    cy, R, deb = E.cap_geometry(cx)
+    for _R, _z in ((R, E.BACK_Z), (R - E.CAP_INSET, E.BACK_Z + deb)):
+        yield Face(Wire.make_polygon(
+            [(x, y, _z - 0.04) for (x, y) in E.cap_hex_pts(cx, cy, _R)], close=True))
+
 for _name, _cx in (("btn-boot", E.BTN_BOOT_X), ("btn-reset", E.BTN_RESET_X)):
-    groups.append((*project(_pad_face(_cx), BACK_EYE, up=(0,1,0), target=BACK_TGT), _name))
+    for _i, _f in enumerate(_cap_rings(_cx)):
+        groups.append((*project(_f, BACK_EYE, up=(0,1,0), target=BACK_TGT),
+                       _name if _i == 0 else f"{_name}-cap"))
 write_svg(os.path.join(OUT,"case-back.svg"), groups, "case-back")
 
 # ============================== 3. PRINT LAYOUT (svg) ========================

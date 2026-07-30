@@ -15,7 +15,7 @@ cd scratch/hosyond-s3/ember-case && ../cadenv/bin/python ember_case.py
 | File | Qty | Print orientation | Supports | Notes |
 |---|---|---|---|---|
 | `ember-front-bezel.stl` | 1 | **front face DOWN** on the bed | **none** | The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are all bed-side chamfers, so they self-support. |
-| `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** | Button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Countersinks widen downward onto the bed. |
+| `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** | Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Countersinks widen downward onto the bed. **The debossed cap faces are bed-side recesses** — a few layers bridge over each, no supports. |
 | `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | Chamber ceiling is a **17 mm bridge** and the cable channel a **16 mm bridge** — leave bridging on (slicer default) and they're fine. |
 | `ember-stand-base.stl` | 1 | flat | none | Closes the speaker chamber. Press fit. |
 
@@ -252,7 +252,7 @@ below Fs does nothing and a mistuned one is worse than sealed.
 | Parameter | Default | Change it when |
 |---|---|---|
 | `FIT` | 0.35 | board is tight/loose in the pocket |
-| `HINGE_T` | 0.90 | **buttons feel stiff → try 0.70.** The pad must flex ~0.40 mm total (0.15 mm air gap + ~0.25 mm switch travel). 0.90 mm of PLA over a 9.5 mm cantilever is at the stiff end of workable — this is the parameter most likely to need a second print. |
+| `HINGE_T` | 0.90 | **buttons feel stiff → try 0.70.** The pad must flex ~0.40 mm total (0.15 mm air gap + ~0.25 mm switch travel). 0.90 mm of PLA over a ~9 mm cantilever is at the stiff end of workable — this is the parameter most likely to need a second print. Note the hex hinge is only `R/2 + 2·SLOT_W` wide (≈3.8 mm on the big cap) rather than the full pad width, so it is already more compliant than the old rectangular pad at the same thickness. |
 | `GLASS_GAP` | 0.40 | never reduce below 0.25 — see below |
 | `SLOT_CLR` | 0.40 | slab loose/tight in the stand |
 | `TILT` | 15° | viewing angle |
@@ -269,6 +269,12 @@ below Fs does nothing and a mistuned one is worse than sealed.
   path. This was a bug in the first iteration, caught before export.
 - **Button pads extend in +Y only.** The switches sit just 3.26 mm from the board edge, so a
   centred pad cut straight through the shell's bottom wall. Caught by rendering and looking.
+- **The caps are debossed, not raised.** They were raised first, which is the obvious reading
+  of "buttons you can feel" and is incompatible with this part's own print orientation: a
+  proud cap on a bed face is the *lowest* feature, so the shell would balance on two
+  hexagons with the whole back face 1.2 mm in the air. The bbox growing by exactly the cap
+  height is what exposed it. Recessing costs nothing, prints unsupported, and means nothing
+  resting on the case can hold BOOT low across a reset.
 - **Side channels are deliberately generous.** See the open question below.
 - **Shrinkage:** PLA ≈0.3 % over 86 mm = 0.13 mm/side, PETG ≈0.5 % = 0.22 mm/side — both
   inside the 0.35 mm pocket fit, so **no scaling compensation is needed**.

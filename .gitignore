@@ -18,3 +18,8 @@ __pycache__/
 *.swp
 *~
 .DS_Store
+
+# CAD toolchain venv — ~700MB of OpenCASCADE wheels, recreated in one command from
+# enclosure/tools/requirements.txt, which pins the exact set the shipped STLs were built
+# with. Note the name is cadenv, not venv: a generic venv rule does NOT match it.
+enclosure/cadenv/

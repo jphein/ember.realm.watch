@@ -92,10 +92,51 @@ WIN_MARGIN = 0.40    # bezel window oversize beyond the visible area
 BOSS_D     = 5.40    # <= 5.60 pad diameter, per the vendor keepout
 PILOT_D    = 2.50    # M3 self-tapper pilot
 SCREW_D    = 3.30    # M3 shank clearance through the shell
-BUTTON_PAD_W = 11.0   # pad width  (X)
-PAD_Y0, PAD_Y1 = 0.80, 10.30   # pad spans +Y only: the switches sit just 3.26mm
-                               # from the board edge, so a centred pad would cut
-                               # through the shell's bottom wall. Hinge at PAD_Y1.
+# ---- HEXAGONAL BUTTON CAPS ----
+# The pads were rectangles. JP: "i wanted the buttons to be hexagons not squares" — and
+# they should be, since every other aperture on this case is a hex cell.
+#
+# FLAT-TOP, NOT POINTY-TOP, AND THIS IS STRUCTURAL RATHER THAN AESTHETIC. The rest of the
+# case uses `RegularPolygon(R, 6, rotation=30)` (pointy-top) because that is the honeycomb
+# pitch. A button cannot: the pad is a living hinge, so it must stay attached along its +Y
+# edge, and a pointy-top hex has a VERTEX at +Y. Hinging on a point gives a hinge of zero
+# width, which is not a hinge — it is a tear. Flat-top puts a full edge of length R at +Y.
+# So the caps are the one place in the case where the hexes are rotated 30 degrees from the
+# lattice, and the reason is that a hinge needs a hem.
+#
+# The envelope is not free: the island's bottom edge cannot go below y=0.80 (the shell's
+# bottom wall is just outside the board edge and the switches sit only 3.26mm in), and the
+# slot's OUTER boundary must clear the fine hex field at y=11.0. A flat-top hex of
+# circumradius R spans R*sqrt(3) in Y, so R is pinned by those two facts, not chosen.
+BTN_R_BIG   = 5.20   # BOOT/volume. 10.40 across corners, 9.01 across flats.
+BTN_R_SMALL = 3.80   # RESET. "it can be smaller hexagon" — 7.60 across corners.
+PAD_Y0     = 0.80    # island bottom edge. Any lower cuts the shell's bottom wall.
+# DEBOSSED, NOT RAISED — and the print orientation decides this, not taste.
+#
+# The first version of these caps stood 1.20mm PROUD of the back face, because JP asked for
+# "big beautiful tactile buttons you can feel" and a boss is the obvious reading of that.
+# It cannot work: PRINT-SHEET.md prints this part BACK FACE DOWN with no supports, so a
+# proud cap is the LOWEST feature on the part. A 55 x 92mm shell would balance on two
+# hexagons totalling ~74mm2 with the whole back face 1.20mm in the air. The bbox even
+# confirmed it — the part grew from 14.40 to 15.60mm deep, exactly the cap height, which is
+# how the boss was caught. Raised features on a bed face are self-defeating; recessed ones
+# are free, because a few layers bridge over an 8mm void and nothing else changes. It is the
+# same reason the front bezel's debossed hexes print in ITS bed-face orientation.
+#
+# A debossed hexagon with a crisp rim, plus the 0.60mm slot moat around the island, is
+# genuinely findable — a fingertip resolves steps two orders of magnitude smaller than this.
+# It also matches the debossed hexagons JP asked for on the bezel, so the two faces speak
+# the same language rather than one embossing and the other engraving.
+#
+# AND IT REMOVES A HAZARD RATHER THAN MITIGATING ONE. Holding BOOT low across a reset enters
+# ROM download mode, which presents as a brick. Proud caps make that reachable by anything
+# resting on the case; recessed ones cannot be pressed by a flat object at all. The unequal
+# DEPTHS still give a thumb two independent discriminators in the dark — size and depth — on
+# a case that carries no lettering.
+DEBOSS_BIG   = 0.90   # BOOT/volume, the one you reach for
+DEBOSS_SMALL = 0.50   # RESET, deliberately shyer under the finger
+CAP_INSET  = 1.00    # cap circumradius is R - this, leaving a shoulder inside the island
+                     # edge so the raised cap can never bridge the slot and weld shut.
 HINGE_T    = 0.90    # living-hinge thickness
 SLOT_W     = 0.60    # printed-in-place slot around the button pads
 # LED_WIN_D / DIFF_D deleted with the rear glow window and the diffuser disc. The fine
@@ -141,6 +182,43 @@ def rrect_y(cx, cz, w, h, r, y0, depth):
 def cyl(x,y,z0,z1,d):
     return Pos(x,y,z0) * Cylinder(d/2, z1-z0,
                                   align=(Align.CENTER,Align.CENTER,Align.MIN))
+
+def cap_hex_pts(cx, cy, R):
+    """The six corners of a FLAT-top hexagon, in mm, counter-clockwise from +X.
+
+    ONE SOURCE FOR THE CAP OUTLINE. This exists because the outline was previously typed
+    twice — once as a solid here and once as a hand-written polygon in
+    `tools/make_renders.py` — and the two copies were free to disagree forever with nothing
+    to notice. They did: the solid and the figure were both rectangles, JP asked for
+    hexagons, and only the figure was ever looked at. A second hand-drawn copy of geometry
+    is not documentation of the geometry, it is a rumour about it.
+
+    Flat-top means a vertex at +/-X and a flat edge at +/-Y: 2R across corners, R*sqrt(3)
+    across flats. The +Y flat is the hinge, which is the whole reason for this orientation.
+    """
+    return [(cx + R*math.cos(math.radians(a)), cy + R*math.sin(math.radians(a)))
+            for a in range(0, 360, 60)]
+
+def cap_hex_top_y(cy, R):
+    """Y of the flat-top hexagon's +Y edge — where the hinge lives."""
+    return cy + R*math.sqrt(3)/2
+
+def cap_geometry(cx):
+    """(cy, R, deboss_depth) for the cap at board x=cx. THE single derivation.
+
+    Keyed on the coordinate rather than an index or a side, per the never-say-left-or-right
+    rule above: the apparent side flips between three figures of this same part, so a caller
+    that asks for "the big one" by position is correct in one figure and silently wrong in
+    the others. Asking by x cannot be mirrored by a camera.
+    """
+    big = (cx == BTN_BOOT_X)
+    R = BTN_R_BIG if big else BTN_R_SMALL
+    return (PAD_Y0 + R*math.sqrt(3)/2, R,
+            DEBOSS_BIG if big else DEBOSS_SMALL)
+
+def hexp(cx, cy, R, z0, z1):
+    """Flat-top hexagonal prism. Deliberately NOT rotation=30 — see BTN_R_BIG."""
+    return Pos(cx, cy, z0) * extrude(RegularPolygon(R, 6), z1 - z0)
 
 def cone(x,y,z0,z1,d0,d1):
     return Pos(x,y,z0) * Cone(d0/2, d1/2, z1-z0,
@@ -194,19 +272,31 @@ def back_shell():
     # LED, so its light leaves through ~30 small holes instead of one big one. That is a
     # better diffuser than the diffuser was — many small apertures scatter, one large one
     # just shows you the die — and it deletes a part, a seat, and a second filament.
-    # ---- printed-in-place button pushers ----
-    pw = BUTTON_PAD_W
-    for (cx,cy) in BTN:
-        x0,x1 = cx-pw/2, cx+pw/2
-        y0,y1 = PAD_Y0, PAD_Y1
-        # U-slot: free on -Y and both +/-X, hinge stays on the +Y side
-        p -= bx(x0-SLOT_W, x1+SLOT_W, y0-SLOT_W, y0, BACK_Z-1, CAV_FLOOR+1)
-        p -= bx(x0-SLOT_W, x0,        y0-SLOT_W, y1, BACK_Z-1, CAV_FLOOR+1)
-        p -= bx(x1,        x1+SLOT_W, y0-SLOT_W, y1, BACK_Z-1, CAV_FLOOR+1)
+    # ---- printed-in-place HEXAGONAL button pushers ----
+    for (cx, cy) in BTN:
+        cyh, R, deb = cap_geometry(cx)
+        ytop = cap_hex_top_y(cyh, R)
+        # A HEX RING, THEN THE HINGE PUT BACK. The old pad was three box cuts forming a U,
+        # which only works because a rectangle's sides are axis-aligned. A hexagon's are
+        # not, so the slot is the difference of two concentric hexes and the hinge is what
+        # you decline to cut. Wrapping the tab SLOT_W past each end of the +Y flat carries
+        # the hinge a little around both upper shoulders: cutting exactly to the corners
+        # would leave the hinge meeting the slot at a knife edge, which prints as a
+        # stress riser in the one feature here designed to flex.
+        ring = (hexp(cx, cyh, R + SLOT_W, BACK_Z-1, CAV_FLOOR+1)
+                - hexp(cx, cyh, R,        BACK_Z-1, CAV_FLOOR+1))
+        ring -= bx(cx - R/2 - SLOT_W, cx + R/2 + SLOT_W,
+                   cyh, ytop + SLOT_W + 1, BACK_Z-1, CAV_FLOOR+1)
+        p -= ring
         # thin the hinge from the inside
-        p -= bx(x0-SLOT_W, x1+SLOT_W, y1-0.5, y1+0.5, BACK_Z+HINGE_T, CAV_FLOOR+1)
+        p -= bx(cx - R/2 - SLOT_W, cx + R/2 + SLOT_W, ytop-0.5, ytop+0.5,
+                BACK_Z+HINGE_T, CAV_FLOOR+1)
         # pip that reaches the switch plunger
         p += cyl(cx,cy, CAV_FLOOR, BTN_TIP_Z-0.15, 4.00)
+        # DEBOSSED CAP FACE. Cut after the ring, inset CAP_INSET from the island edge so
+        # the recess never breaks into the slot and never undercuts the hinge — at
+        # R - CAP_INSET it stops 0.87mm short of the hinge line.
+        p -= hexp(cx, cyh, R - CAP_INSET, BACK_Z - 1.0, BACK_Z + deb)
     # ---- FINE HEX BACK. Replaces two arrays of slot vents. ----
     #
     # The patch is bounded by what is already in the back face, not by taste:
@@ -712,6 +802,45 @@ def _check_geometry():
 
     # 3. the slot must still hold it
     assert engagement >= 12.0, f"slot engagement {engagement:.1f}mm is too shallow to retain the slab"
+
+    # 4. THE BUTTON PADS MUST STILL BE ATTACHED.
+    #
+    # This is the one assert here that tests the thing rather than a proxy for it. The
+    # hexagonal slot is cut as a ring with a tab declined, and the failure mode is that the
+    # tab arithmetic is wrong and the ring closes — at which point the pad is no longer a
+    # printed-in-place hinge, it is a loose hexagon that falls out of the case on the print
+    # bed. A dimension check cannot see that, and neither can the boolean clearance check,
+    # for the reason recorded at 2b: a severed pad collides with nothing.
+    #
+    # Solid count answers it directly. The back shell is one connected body; sever a hinge
+    # and it becomes two, sever both and three. There is no arrangement of the numbers that
+    # satisfies this while the pads are detached.
+    _n = len(back_shell().solids())
+    assert _n == 1, (
+        f"back shell is {_n} solids, not 1 — a button pad has been cut free of its hinge "
+        f"and will fall out of the print. Check the hinge tab width against R/2 + SLOT_W.")
+
+    # 5. geometry the hex caps have to satisfy, each pinned by something real
+    for _d in (DEBOSS_BIG, DEBOSS_SMALL):
+        assert _d <= (CAV_FLOOR - BACK_Z) - 1.20, (
+            f"a {_d}mm deboss leaves under 1.20mm of pad above it out of "
+            f"{CAV_FLOOR-BACK_Z:.2f}mm; the pad still has to carry the press to the pip")
+    assert CAP_INSET >= 0.80, (
+        f"CAP_INSET {CAP_INSET}mm leaves less than two extrusion widths of shoulder; the "
+        f"raised cap can bridge the {SLOT_W}mm slot and weld the pad shut")
+    for _cx, _cy in BTN:
+        _cyh, _R, _ = cap_geometry(_cx)
+        # the slot's OUTER edge must clear the fine hex field, which starts at y=11.0
+        _slot_top = cap_hex_top_y(_cyh, _R + SLOT_W)
+        assert _slot_top <= 10.70, (
+            f"cap at x={_cx} pushes its slot to y={_slot_top:.2f}, into the hex field at "
+            f"y=11.0 — reduce R or raise the field")
+        # the plunger pip must sit wholly inside the island, and the island narrows with
+        # every millimetre away from its centre: half-width = R - |dy|/sqrt(3)
+        _halfw = _R - abs(_cy - _cyh)/math.sqrt(3)
+        assert _halfw >= 2.00 + 0.60, (
+            f"cap at x={_cx} is only {_halfw:.2f}mm half-wide at the switch (y={_cy}); the "
+            f"4.00mm pip needs {2.60:.2f}mm and would hang over the slot")
     return engagement, va_start, below
 
 
