@@ -207,6 +207,16 @@ def main() -> int:
     OUT.write_text(html)
     (DOCS / ".nojekyll").write_text("")
 
+    # The print sheet is generated here rather than maintained by hand, because
+    # `.nojekyll` means Pages serves docs/*.md as text/markdown — fine for the
+    # reference docs (their home is the repo), wrong for the one page that is read
+    # while a printer is running. Generating it from enclosure/PRINT-SHEET.md keeps
+    # the markdown canonical: same reason the STLs are output and ember_case.py is
+    # the artifact. A failure here fails the build rather than silently shipping a
+    # stale page.
+    import build_print_sheet
+    build_print_sheet.main()
+
     print(f"wrote {OUT}  ({len(html) / 1024:.0f} KB)")
     print(f"  art from    : {ART}")
     print(f"  sounds from : {SOUNDS}")

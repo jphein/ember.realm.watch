@@ -896,15 +896,64 @@ footer p{margin:.4rem 0}
     <b>Status: boolean-verified at 0.000&nbsp;mm³ interference against the vendor solid —
     first print pending.</b> That is a CAD result, not a fitted one: it says the geometry does
     not intersect, not that a printed part slides on. Tolerance stack-up, shrinkage and
-    filament behaviour are exactly what a first print is for. Five parts, none needing
-    supports, in
-    <a href="https://github.com/jphein/ember.realm.watch/tree/main/enclosure"
-       target="_blank" rel="noopener"><code>enclosure/</code></a> — with the
-    <a href="https://github.com/jphein/ember.realm.watch/blob/main/enclosure/PRINT-SHEET.md"
-       target="_blank" rel="noopener">print sheet</a> and the
-    <a href="https://github.com/jphein/ember.realm.watch/blob/main/docs/enclosure.md"
-       target="_blank" rel="noopener">design notes</a>.
+    filament behaviour are exactly what a first print is for.
   </div>
+
+  <h3>Print it</h3>
+  <p>
+    Five parts, <b>none needing supports</b>. The orientation column is the load-bearing one —
+    every part has a face that wants to be on the bed, and the overhangs are chamfered to
+    self-support in that orientation only.
+  </p>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Part</th><th>Print orientation</th><th>Why that way</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><a href="https://github.com/jphein/ember.realm.watch/raw/main/enclosure/ember-front-bezel.stl" download>ember-front-bezel.stl</a></td>
+        <td><b>front face down</b></td>
+        <td>The visible face is the bed face — use a smooth sheet. The mic flare and screen window are bed-side chamfers, so they self-support.</td>
+      </tr>
+      <tr>
+        <td><a href="https://github.com/jphein/ember.realm.watch/raw/main/enclosure/ember-back-shell.stl" download>ember-back-shell.stl</a></td>
+        <td><b>back face down</b>, open side up</td>
+        <td>The button pads and their living hinges print in the first ~8 layers; countersinks widen downward onto the bed.</td>
+      </tr>
+      <tr>
+        <td><a href="https://github.com/jphein/ember.realm.watch/raw/main/enclosure/ember-stand.stl" download>ember-stand.stl</a></td>
+        <td><b>bottom face down</b></td>
+        <td>The chamber ceiling is a 17&nbsp;mm bridge and the cable channel 16&nbsp;mm — leave bridging on and both are fine.</td>
+      </tr>
+      <tr>
+        <td><a href="https://github.com/jphein/ember.realm.watch/raw/main/enclosure/ember-stand-base.stl" download>ember-stand-base.stl</a></td>
+        <td>flat</td>
+        <td>Closes the speaker chamber. Press fit.</td>
+      </tr>
+      <tr>
+        <td><a href="https://github.com/jphein/ember.realm.watch/raw/main/enclosure/ember-diffuser.stl" download>ember-diffuser.stl</a></td>
+        <td>flat</td>
+        <td>Print in <b>translucent or natural</b> filament — this is the window the rear-firing LED has to get through.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>
+    Fasteners: <b>4 × M3×14 countersunk self-tappers, driven from the back</b>, so there are no
+    screw heads on the face you look at. Heat-set inserts are ruled out by measurement rather
+    than preference — the vendor's ⌀5.60&nbsp;mm pad caps the boss at ⌀5.40, and an M3 insert's
+    ⌀4.1 bore would leave a 0.6&nbsp;mm wall that splits.
+  </p>
+
+  <p>
+    <a href="print-sheet.html">Full print sheet</a> ·
+    <a href="https://github.com/jphein/ember.realm.watch/blob/main/enclosure/ember_case.py"
+       target="_blank" rel="noopener"><code>ember_case.py</code></a> —
+    the parametric source, which is the actual artifact; the STLs are output ·
+    <a href="https://github.com/jphein/ember.realm.watch/blob/main/docs/enclosure.md"
+       target="_blank" rel="noopener">design notes and verified board geometry</a>
+  </p>
 </section>
 
 <section class="wrap">

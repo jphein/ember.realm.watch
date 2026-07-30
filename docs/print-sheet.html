@@ -1,0 +1,252 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ember satellite case — print sheet — Ember</title>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<style>
+:root{
+  --bg:#0A0604; --panel:#140C07; --edge:rgba(255,168,30,.14);
+  --ink:#F6E7D2; --dim:#C9B49A; --faint:#8B7862;
+  --gold:#FFA81E; --flame:#E05A08;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme:light){
+  :root{
+    --bg:#FBF6EC; --panel:#FFFDF8; --edge:rgba(90,60,20,.16);
+    --ink:#2A1C12; --dim:#54402C; --faint:#7A6349;
+    --gold:#B5620A; --flame:#C24A08;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0A0604; --panel:#140C07; --edge:rgba(255,168,30,.14);
+  --ink:#F6E7D2; --dim:#C9B49A; --faint:#8B7862; --gold:#FFA81E; --flame:#E05A08;
+}
+:root[data-theme="light"]{
+  --bg:#FBF6EC; --panel:#FFFDF8; --edge:rgba(90,60,20,.16);
+  --ink:#2A1C12; --dim:#54402C; --faint:#7A6349; --gold:#B5620A; --flame:#C24A08;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  padding:3rem 1.25rem 5rem;
+}
+main{max-width:60rem; margin:0 auto}
+h1{font-size:clamp(1.7rem,4vw,2.5rem); line-height:1.15; margin:0 0 .4rem;
+   background:linear-gradient(100deg,#FFE8B4,var(--gold) 55%,var(--flame));
+   -webkit-background-clip:text; background-clip:text; color:transparent}
+h2{font-size:1.3rem; margin:2.6rem 0 .6rem; color:var(--gold)}
+h3{font-size:1.05rem; margin:1.9rem 0 .5rem}
+h4{font-size:.95rem; margin:1.4rem 0 .4rem; color:var(--dim)}
+p{margin:.7rem 0}
+a{color:var(--gold)}
+code{font-family:var(--mono); font-size:.86em; color:var(--gold)}
+pre{
+  font-family:var(--mono); font-size:.83rem; line-height:1.55; overflow-x:auto;
+  background:var(--panel); border:1px solid var(--edge); border-radius:10px;
+  padding:.9rem 1rem; margin:1.2rem 0; color:var(--dim);
+}
+pre code{color:inherit}
+hr{border:0; border-top:1px solid var(--edge); margin:2.4rem 0}
+ul{margin:.7rem 0; padding-left:1.3rem}
+li{margin:.3rem 0}
+.note{
+  background:var(--panel); border:1px solid var(--edge); border-left:3px solid var(--flame);
+  border-radius:8px; padding:.85rem 1rem; margin:1.2rem 0; color:var(--dim);
+}
+.tablewrap{
+  overflow-x:auto; margin:1.4rem 0; border:1px solid var(--edge);
+  border-radius:10px; background:var(--panel);
+}
+table{border-collapse:collapse; width:100%; min-width:520px; font-size:.92rem}
+th,td{text-align:left; padding:.7rem .9rem; border-bottom:1px solid var(--edge);
+      vertical-align:top}
+thead th{color:var(--gold); font-size:.78rem; letter-spacing:.06em;
+         text-transform:uppercase}
+tbody tr:last-child td{border-bottom:0}
+.back{
+  display:inline-block; margin-bottom:2rem; color:var(--faint);
+  text-decoration:none; font-size:.9rem;
+}
+.back:hover{color:var(--gold)}
+@media print{
+  :root{
+    --bg:#fff; --panel:#fff; --edge:#bbb; --ink:#111; --dim:#333;
+    --faint:#555; --gold:#8a4a00; --flame:#8a4a00;
+  }
+  body{padding:0; font-size:11pt}
+  h1{color:#111; -webkit-text-fill-color:#111; background:none}
+  .back{display:none}
+  pre,.tablewrap,.note{break-inside:avoid}
+  h2,h3{break-after:avoid}
+  a{color:#111; text-decoration:underline}
+}
+</style>
+<main>
+<a class="back" href="./">&larr; Ember</a>
+<h1>Ember satellite case — print sheet</h1>
+<p>Board: <b>LCDWIKI/QDtech ES3C28P</b> (Hosyond 2.8" ESP32-S3).</p>
+<p>Source of truth: <code>ember_case.py</code> (build123d). The STLs are output, not the artifact.</p>
+<p>Rebuild with:</p>
+<pre>
+cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
+</pre>
+<hr>
+<h2>Parts</h2>
+<div class="tablewrap"><table><thead><tr>
+<th>File</th>
+<th>Qty</th>
+<th>Print orientation</th>
+<th>Supports</th>
+<th>Notes</th>
+</tr></thead><tbody>
+<tr><td><code>ember-front-bezel.stl</code></td><td>1</td><td><b>front face DOWN</b> on the bed</td><td><b>none</b></td><td>The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are all bed-side chamfers, so they self-support.</td></tr>
+<tr><td><code>ember-back-shell.stl</code></td><td>1</td><td><b>back face DOWN</b>, open side up</td><td><b>none</b></td><td>Button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Countersinks widen downward onto the bed.</td></tr>
+<tr><td><code>ember-stand.stl</code></td><td>1</td><td><b>bottom face DOWN</b></td><td><b>none</b></td><td>Chamber ceiling is a <b>17 mm bridge</b> and the cable channel a <b>16 mm bridge</b> — leave bridging on (slicer default) and they're fine.</td></tr>
+<tr><td><code>ember-stand-base.stl</code></td><td>1</td><td>flat</td><td>none</td><td>Closes the speaker chamber. Press fit.</td></tr>
+<tr><td><code>ember-diffuser.stl</code></td><td>1</td><td>flat</td><td>none</td><td>Print in <b>translucent / natural / ember-orange</b> filament — this is the WS2812 glow window.</td></tr>
+</tbody></table></div>
+<p>Outer sizes: slab (bezel + shell assembled) <b>55.9 × 91.9 × 17.4 mm</b>; stand <b>64 × 64 × 40 mm</b>.</p>
+<p>Material use ≈ 122 cm³ total (~150 g).</p>
+<hr>
+<h2>Slicer settings</h2>
+<div class="tablewrap"><table><thead><tr>
+<th></th>
+<th>Bezel</th>
+<th>Shell</th>
+<th>Stand</th>
+<th>Base / diffuser</th>
+</tr></thead><tbody>
+<tr><td>Layer height</td><td><b>0.16 mm</b></td><td>0.20 mm</td><td>0.20 mm</td><td>0.20 mm</td></tr>
+<tr><td>Perimeters</td><td>3</td><td>3</td><td><b>4</b></td><td>3</td></tr>
+<tr><td>Infill</td><td>15 % gyroid</td><td>15 % gyroid</td><td><b>25–30 %</b></td><td>20 %</td></tr>
+<tr><td>Supports</td><td>no</td><td>no</td><td>no</td><td>no</td></tr>
+<tr><td>Bridging</td><td>—</td><td>—</td><td><b>on</b></td><td>—</td></tr>
+</tbody></table></div>
+<p>The bezel gets the fine layer height because its front face is the one you look at, and</p>
+<p>because the mic bore is only ⌀2.40 mm — at 0.2 mm layers it starts to close up.</p>
+<p>The stand wants <b>more walls and more infill than feels necessary</b>: it is a speaker</p>
+<p>enclosure, and cabinet stiffness/mass is what stops a 2 W driver sounding like a rattle.</p>
+<p>Heavier is better here.</p>
+<p><b>Filament:</b> matte <b>charcoal/coal PLA</b> for bezel + shell — best surface finish and the</p>
+<p>tightest dimensional accuracy, which matters because the board pocket is a 0.35 mm fit.</p>
+<p>Use <b>PETG</b> instead only if it will sit in direct sun (PLA creeps at ~50 °C).</p>
+<p>Diffuser in translucent or ember-orange so the glow reads warm.</p>
+<hr>
+<h2>Fasteners</h2>
+<p><b>4 × M3 × 14 mm countersunk (flat-head) self-tapping</b>, driven <b>from the back</b>, so no</p>
+<p>screw heads appear on the front face.</p>
+<p>Load path: screw head countersunk in the back shell → 5.5 mm standoff → through the PCB's</p>
+<p>⌀3.20 hole → <b>self-taps into a blind ⌀2.50 pilot in the bezel boss</b>.</p>
+<ul>
+<li>14 mm is right: the tip lands 4.3 mm into the bezel boss with 1.9 mm of pilot spare, and</li>
+</ul>
+<p>  1.5 mm of solid skin remains under the front face. <b>16 mm bottoms out — don't.</b></p>
+<ul>
+<li><b>Heat-set inserts will NOT fit.</b> The vendor specifies a ⌀5.60 pad around each mounting</li>
+</ul>
+<p>  hole, so bosses are capped at ⌀5.40. An M3 insert needs a ⌀4.0–4.2 bore, leaving a 0.6 mm</p>
+<p>  wall that will split. Self-tappers only.</p>
+<ul>
+<li>The boss OD (5.40) is inside the ⌀5.60 pad, so nothing bridges the annular ring. No</li>
+</ul>
+<p>  washers needed — but if you substitute a metal-headed screw with a wide flange, add a</p>
+<p>  nylon washer.</p>
+<p>Stand base: press fit. Seal the seam with a bead of silicone or a strip of tape — it needs</p>
+<p>to be <b>airtight, not structural</b>.</p>
+<hr>
+<h2>Speaker</h2>
+<p>Designed around a <b>⌀28 mm driver</b> (8 Ω; the board's amp does 1.5 W/8 Ω or 2 W/4 Ω).</p>
+<p>Sealed chamber ≈ <b>26 cm³</b> in the stand, firing forward through the ⌀30 mm round grille.</p>
+<ul>
+<li>The driver seats against the <b>inside</b> of the front wall in a ⌀29 × 2.2 mm recess.</li>
+<li>Wires exit through the cable channel and up into the slab's slot.</li>
+<li>The ES3C28P <b>speaker header is unpopulated</b> — you need a 1.25 mm 2P pigtail.</li>
+<li>Changing driver: edit <code>DRIVER_D</code>, <code>GRILLE_FIELD</code>, <code>dz</code> in <code>ember_case.py</code> and re-run.</li>
+</ul>
+<p>  A ⌀40 driver fits the chamber footprint; you'd raise <code>GRILLE_FIELD</code> to ~42 and widen the</p>
+<p>  stand's front wall clearances.</p>
+<p>⚠️ <b>Keep the driver magnet away from the top 8 mm of the board's back face</b> —</p>
+<p><code>ANT = (17.57, 32.21, 80.04, 85.70)</code> is the PCB Wi-Fi antenna. The stand geometry already</p>
+<p>puts the magnet ~70 mm away, so this only matters if you relocate the speaker into the slab.</p>
+<hr>
+<h2>Assembly order</h2>
+<p>1. Plug the speaker pigtail into the board's <b>SPEAKER</b> 1.25 mm 2P header (long edge).</p>
+<p>2. Seat the driver in the stand, wires out through the cable channel, press on</p>
+<p>   <code>ember-stand-base</code>, seal the seam.</p>
+<p>3. Lay the board <b>face down into the bezel</b>. The glass does <b>not</b> touch the bezel —</p>
+<p>   there is a deliberate 0.40 mm gap. The four bosses land on the PCB's top face.</p>
+<p>4. Drop the back shell on. Check the five 1.25 mm connectors and the microSD sit in the</p>
+<p>   side channels before pulling anything tight.</p>
+<p>5. Four M3 × 14 countersunk from the back. Snug, not hard — you are clamping a PCB.</p>
+<p>6. Optional: press <code>ember-diffuser</code> into the ⌀16 seat around the rear glow window.</p>
+<p>7. Slide the slab into the stand slot; route the USB-C cable down the channel and out the back.</p>
+<hr>
+<h2>Tunables (edit + re-run)</h2>
+<div class="tablewrap"><table><thead><tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Change it when</th>
+</tr></thead><tbody>
+<tr><td><code>FIT</code></td><td>0.35</td><td>board is tight/loose in the pocket</td></tr>
+<tr><td><code>HINGE_T</code></td><td>0.90</td><td><b>buttons feel stiff → try 0.70.</b> The pad must flex ~0.40 mm total (0.15 mm air gap + ~0.25 mm switch travel). 0.90 mm of PLA over a 9.5 mm cantilever is at the stiff end of workable — this is the parameter most likely to need a second print.</td></tr>
+<tr><td><code>GLASS_GAP</code></td><td>0.40</td><td>never reduce below 0.25 — see below</td></tr>
+<tr><td><code>SLOT_CLR</code></td><td>0.40</td><td>slab loose/tight in the stand</td></tr>
+<tr><td><code>TILT</code></td><td>15°</td><td>viewing angle</td></tr>
+<tr><td><code>GRILLE_SLOT_W</code> / <code>GRILLE_PITCH</code> / <code>GRILLE_FIELD</code></td><td>2.2 / 3.4 / 30</td><td>the grille is a clean parameter block, ready for a motif to replace it</td></tr>
+</tbody></table></div>
+<hr>
+<h2>Why some numbers are what they are</h2>
+<ul>
+<li><b><code>GLASS_GAP = 0.40</code> — the bezel never touches the capacitive glass.</b> The vendor tolerances</li>
+</ul>
+<p>  the LCD at 2.3 ±0.1 and the touch panel at 1.0 ±0.1, so the glass front face can sit up to</p>
+<p>  0.2 mm high. A rigid printed bezel bearing on glass is how you crack a display. The entire</p>
+<p>  clamping load runs bezel → bosses → PCB → standoffs → shell; the glass is never in the load</p>
+<p>  path. This was a bug in the first iteration, caught before export.</p>
+<ul>
+<li><b>Button pads extend in +Y only.</b> The switches sit just 3.26 mm from the board edge, so a</li>
+</ul>
+<p>  centred pad cut straight through the shell's bottom wall. Caught by rendering and looking.</p>
+<ul>
+<li><b>Side channels are deliberately generous.</b> See the open question below.</li>
+<li><b>Shrinkage:</b> PLA ≈0.3 % over 86 mm = 0.13 mm/side, PETG ≈0.5 % = 0.22 mm/side — both</li>
+</ul>
+<p>  inside the 0.35 mm pocket fit, so <b>no scaling compensation is needed</b>.</p>
+<hr>
+<h2>Two things to check on the physical board</h2>
+<p><b>1. Which way does the mic fire?</b> — 20 seconds with the board in hand.</p>
+<p>Look at the <b>front</b> face, in the bare strip at the end <b>away from the USB-C</b>, about</p>
+<p><b>10 mm in from one long edge and ~4.5 mm from the short edge</b> (just inboard of the</p>
+<p>top-right mounting hole). Is there a tiny hole, ~0.5–1 mm, through the PCB?</p>
+<ul>
+<li><b>Hole present</b> → the mic fires forward. The bezel's ⌀2.40 port and its collar are doing</li>
+</ul>
+<p>  the work, exactly as designed.</p>
+<ul>
+<li><b>No hole</b> → the mic fires rearward, and the ⌀3.00 relief through the back shell behind</li>
+</ul>
+<p>  the mic is what's carrying it.</p>
+<p><b>The case provides both paths</b>, so it works either way — but knowing which one lets you</p>
+<p>tune it (and tells you which opening not to obstruct when mounting).</p>
+<p>Why it's still open: the vendor STEP contains <b>no small holes at all</b> — not one via — so</p>
+<p>Altium clearly suppressed them on export. Absence of a port hole in the model is therefore</p>
+<p>not evidence of absence on the board. The front-view outline drawing <em>does</em> show a circle at</p>
+<p>the mic location, which is why I lean front-firing.</p>
+<p><b>2. Where does the microSD card actually go in?</b> The STEP simplifies the socket to a flat</p>
+<p>11.15 × 14.15 × 0.5 mm plate at x 33.68–44.83, y 15.84–29.99, which doesn't resolve the</p>
+<p>insertion direction. That's why both long edges get a continuous channel across y 14–75 and</p>
+<p>y 14–42 rather than a neat per-connector cutout. If the card turns out to be blocked, the fix</p>
+<p>is one parameter, not a redesign.</p>
+<hr>
+<h2>Provenance</h2>
+<p>Everything structural was <b>measured from the vendor STEP solid</b></p>
+<p>(<code>ES3C28P_3D.step</code>, Altium→OpenCASCADE, 2025-06-10) — not transcribed from a datasheet</p>
+<p>table: PCB outline, the 4 ⌀3.20 holes at (4,4)/(46,4)/(4,82)/(46,82), the 10.60 mm stack,</p>
+<p>glass face at Z+4.30, deepest back component at −6.30, USB-C at X 20.53–29.47, both rear</p>
+<p>switches and their plunger tips, the mic package at (40.0, 81.5), the WS2812 at (29.0, 45.6),</p>
+<p>all five 1.25 mm connectors, and the antenna keepout.</p>
+<p>Both shell parts are boolean-verified against that solid at <b>0.000 mm³ interference</b>, and</p>
+<p>the checker is self-tested each run by deliberately sinking the bezel 2 mm into the board</p>
+<p>(reports 1467.8 mm³ — so a real collision would not pass silently).</p>
+</main>

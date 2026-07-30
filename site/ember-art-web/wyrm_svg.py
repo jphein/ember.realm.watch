@@ -34,7 +34,26 @@ import sys
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DEVICE_ART = "/home/jp/Projects/ha/esphome/art/dragon.py"
+
+# The device generator moves: it started in ~/Projects/ha/esphome/art/ and moved
+# to ember.realm.watch when that repo became authoritative, at which point a
+# hardcoded path here died with a bare FileNotFoundError six frames deep. Search
+# in priority order and say which one was used, so the next move is a one-line
+# addition and a clear message instead of a traceback.
+#
+# NOTE the directory name `esphome/art/` is load-bearing and must not be renamed:
+# the generated block in ember-satellite.yaml references it.
+DEVICE_ART_CANDIDATES = [
+    "/home/jp/Projects/ember.realm.watch/esphome/art/dragon.py",
+    "/home/jp/Projects/ha/esphome/art/dragon.py",
+]
+DEVICE_ART = next((c for c in DEVICE_ART_CANDIDATES if os.path.exists(c)), None)
+if DEVICE_ART is None:
+    raise SystemExit(
+        "cannot find the device generator dragon.py. Looked in:\n  "
+        + "\n  ".join(DEVICE_ART_CANDIDATES)
+        + "\nThe web art is TRACED from it, so there is nothing to draw without "
+          "it. Add the new location to DEVICE_ART_CANDIDATES.")
 
 # ---- import the device generator without running its main() ----
 _spec = importlib.util.spec_from_file_location("device_dragon", DEVICE_ART)
@@ -761,6 +780,7 @@ def verify_silhouette():
 if __name__ == "__main__":
     open(os.path.join(HERE, "wyrm.svg"), "w").write(hero("dark"))
     open(os.path.join(HERE, "wyrm-light.svg"), "w").write(hero("light"))
+    print("traced from %s" % DEVICE_ART)
     print("wyrm.svg      %6d bytes" % os.path.getsize(os.path.join(HERE, "wyrm.svg")))
     print("wyrm-light.svg%6d bytes" % os.path.getsize(os.path.join(HERE, "wyrm-light.svg")))
     print()

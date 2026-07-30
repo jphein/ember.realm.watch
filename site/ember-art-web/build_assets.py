@@ -116,30 +116,34 @@ def favicon(size=64):
 ''')
 
 
+FONTSTACK = ("ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif")
+
+
 # ------------------------------------------------------------ states strip ---
-def states_strip():
+def states_strip(labels=True):
     """Five panels, labelled at a size a human reads rather than an engineer
     squints at. Labels are <text>, so they stay crisp at any zoom and cost no
     font download — the generic family is resolved by the viewer."""
     pw, ph = W.VB_W, W.VB_H
-    lab_h = 76.0
+    lab_h = 76.0 if labels else 0.0
     rows = []
     for i, (name, sub, theme, rot, jaw, eye, glow) in enumerate(W.STATES):
         t = W.THEMES[theme]
-        uid = "ws%d-" % i
+        uid = ("ws%d-" if labels else "wsb%d-") % i
         y = i * (ph + lab_h)
         body = W.wyrm_layer(t, uid, jaw, 0, 0, eye=eye, rot=rot)
+        lab = f'''
+    <text x="26" y="{ph + 34:.0f}" fill="{PAL['gold']}"
+          font-family="{FONTSTACK}"
+          font-size="30" font-weight="600">{i} &#183; {name}</text>
+    <text x="26" y="{ph + 62:.0f}" fill="{PAL['dim']}"
+          font-family="{FONTSTACK}"
+          font-size="24">{sub}</text>''' if labels else ""
         rows.append(f'''  <g transform="translate(0 {y:.0f})">
 {W.defs(t, uid, hy0=W.OY, hy1=W.OY + (D.SHOULDER[1] + 2) * S)}
     <rect width="{pw:.0f}" height="{ph:.0f}" fill="{t['bg']}"/>
 {W.hearth_layer(t, uid, pw, ph)}
-{body}
-    <text x="26" y="{ph + 34:.0f}" fill="{PAL['gold']}"
-          font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif"
-          font-size="30" font-weight="600">{i} &#183; {name}</text>
-    <text x="26" y="{ph + 62:.0f}" fill="{PAL['dim']}"
-          font-family="ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif"
-          font-size="24">{sub}</text>
+{body}{lab}
   </g>''')
     h = len(W.STATES) * (ph + lab_h)
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {pw:.0f} {h:.0f}" '
@@ -152,15 +156,21 @@ def states_strip():
 def startle():
     """The hero, but it wakes when you touch it. Same gesture as the hardware.
 
-    Triggers are :hover, :focus-visible and :active together. Hover alone misses
-    touch and keyboard; :active covers a tap; focus-visible covers keyboard, and
-    tabindex on the <svg> is what makes that reachable at all. There is no JS
-    fallback because there is no JS — if none of the three fire, the page simply
-    shows a drowsy dragon, which is a fine resting state rather than a broken one.
+    Driven from the CONTAINER: put class="ember-wake" on the hero wrapper and it
+    fires on that element's :hover / :focus-visible / :focus-within / :active.
+    Bigger hit area than the svg alone, and on touch the whole card is the
+    target. `.is-awake` on any ancestor does the same thing programmatically.
+    The svg carries no tabindex — the container owns focus, so there is one tab
+    stop for one thing. No JS anywhere; if nothing fires the page shows a drowsy
+    dragon, which is a resting state rather than a broken one.
 
-    prefers-reduced-motion is honoured by dropping the transition and the idle
-    breath; the pose still changes, so the affordance survives for someone who
-    has asked the machine to stop moving things.
+    No prefers-reduced-motion block here on purpose: the page owns that.
+
+    EVERY RULE IS SCOPED UNDER .ember-art. An inline <svg>'s <style> is not
+    scoped to the svg — it is a stylesheet in the host document, so a bare
+    `.hearth { opacity: .8 }` would restyle anything on the page that happens to
+    use that class name. The class HOOKS stay as documented; only my rules are
+    fenced in.
     """
     t = W.THEMES["dark"]
     uid = "wk-"
@@ -177,7 +187,7 @@ def startle():
       <path class="maw" d="{g_open['maw']}" fill="{PAL['hot']}"/>
     </g>'''
     style = f'''  <style>
-    .wyrm .headneck {{
+    .ember-art .wyrm .headneck {{
       transform-origin: {px:.1f}px {py:.1f}px;
       transform: rotate(-24deg);
       transition: transform 420ms cubic-bezier(.16,1.2,.3,1);
@@ -188,17 +198,17 @@ def startle():
        Swapping opacity is the classic limited-animation answer and it reads as a
        snap at these durations. The shut head MUST be faded out as the open one
        comes in — leaving it visible showed both jaws at once, a doubled head. */
-    .wyrm .jaw-open {{ opacity: 0; transition: opacity 120ms linear; }}
-    .wyrm .jaw-shut {{ opacity: 1; transition: opacity 120ms linear; }}
-    .wyrm .eye {{ opacity: .45; transition: opacity 200ms linear; }}
-    .wyrm .eye-glow {{ opacity: 0; transition: opacity 260ms linear; }}
-    .hearth {{ opacity: .8; transition: opacity 500ms ease-out; }}
+    .ember-art .wyrm .jaw-open {{ opacity: 0; transition: opacity 120ms linear; }}
+    .ember-art .wyrm .jaw-shut {{ opacity: 1; transition: opacity 120ms linear; }}
+    .ember-art .wyrm .eye {{ opacity: .45; transition: opacity 200ms linear; }}
+    .ember-art .wyrm .eye-glow {{ opacity: 0; transition: opacity 260ms linear; }}
+    .ember-art .hearth {{ opacity: .8; transition: opacity 500ms ease-out; }}
     /* the idle breath: the creature is alive before you touch it */
-    @keyframes emberBreath {{
+    @keyframes ember-wyrm-breath {{
       0%,100% {{ opacity: .72; }}
       50%     {{ opacity: 1; }}
     }}
-    .wyrm .body {{ animation: emberBreath 6s ease-in-out infinite; }}
+    .ember-art .wyrm .body {{ animation: ember-wyrm-breath 6s ease-in-out infinite; }}
 
     /* WAKE — driven from the CONTAINER, not the svg.
        Put class="ember-wake" on the hero container and it triggers on the whole
@@ -206,38 +216,38 @@ def startle():
        carries no tabindex, so the container owning focus does not create a
        second tab stop for one thing.
        `.is-awake` on any ancestor does the same thing programmatically. */
-    .ember-wake:hover .wyrm .headneck,
-    .ember-wake:focus-visible .wyrm .headneck,
-    .ember-wake:focus-within .wyrm .headneck,
-    .ember-wake:active .wyrm .headneck,
-    .is-awake .wyrm .headneck {{ transform: rotate(2deg); }}
+    .ember-wake:hover .ember-art .wyrm .headneck,
+    .ember-wake:focus-visible .ember-art .wyrm .headneck,
+    .ember-wake:focus-within .ember-art .wyrm .headneck,
+    .ember-wake:active .ember-art .wyrm .headneck,
+    .is-awake .ember-art .wyrm .headneck {{ transform: rotate(2deg); }}
 
-    .ember-wake:hover .wyrm .jaw-shut,
-    .ember-wake:focus-visible .wyrm .jaw-shut,
-    .ember-wake:focus-within .wyrm .jaw-shut,
-    .ember-wake:active .wyrm .jaw-shut,
-    .is-awake .wyrm .jaw-shut {{ opacity: 0; }}
+    .ember-wake:hover .ember-art .wyrm .jaw-shut,
+    .ember-wake:focus-visible .ember-art .wyrm .jaw-shut,
+    .ember-wake:focus-within .ember-art .wyrm .jaw-shut,
+    .ember-wake:active .ember-art .wyrm .jaw-shut,
+    .is-awake .ember-art .wyrm .jaw-shut {{ opacity: 0; }}
 
-    .ember-wake:hover .wyrm .jaw-open,
-    .ember-wake:focus-visible .wyrm .jaw-open,
-    .ember-wake:focus-within .wyrm .jaw-open,
-    .ember-wake:active .wyrm .jaw-open,
-    .ember-wake:hover .wyrm .eye,
-    .ember-wake:focus-visible .wyrm .eye,
-    .ember-wake:focus-within .wyrm .eye,
-    .ember-wake:active .wyrm .eye,
-    .ember-wake:hover .wyrm .eye-glow,
-    .ember-wake:focus-visible .wyrm .eye-glow,
-    .ember-wake:focus-within .wyrm .eye-glow,
-    .ember-wake:active .wyrm .eye-glow,
-    .ember-wake:hover .hearth,
-    .ember-wake:focus-visible .hearth,
-    .ember-wake:focus-within .hearth,
-    .ember-wake:active .hearth,
-    .is-awake .wyrm .jaw-open,
-    .is-awake .wyrm .eye,
-    .is-awake .wyrm .eye-glow,
-    .is-awake .hearth {{ opacity: 1; }}
+    .ember-wake:hover .ember-art .wyrm .jaw-open,
+    .ember-wake:focus-visible .ember-art .wyrm .jaw-open,
+    .ember-wake:focus-within .ember-art .wyrm .jaw-open,
+    .ember-wake:active .ember-art .wyrm .jaw-open,
+    .ember-wake:hover .ember-art .wyrm .eye,
+    .ember-wake:focus-visible .ember-art .wyrm .eye,
+    .ember-wake:focus-within .ember-art .wyrm .eye,
+    .ember-wake:active .ember-art .wyrm .eye,
+    .ember-wake:hover .ember-art .wyrm .eye-glow,
+    .ember-wake:focus-visible .ember-art .wyrm .eye-glow,
+    .ember-wake:focus-within .ember-art .wyrm .eye-glow,
+    .ember-wake:active .ember-art .wyrm .eye-glow,
+    .ember-wake:hover .ember-art .hearth,
+    .ember-wake:focus-visible .ember-art .hearth,
+    .ember-wake:focus-within .ember-art .hearth,
+    .ember-wake:active .ember-art .hearth,
+    .is-awake .ember-art .wyrm .jaw-open,
+    .is-awake .ember-art .wyrm .eye,
+    .is-awake .ember-art .wyrm .eye-glow,
+    .is-awake .ember-art .hearth {{ opacity: 1; }}
 
     /* NO prefers-reduced-motion block here on purpose. The page carries a global
        `* {{ animation-duration: .001ms !important }}` rule; a second one here
@@ -253,7 +263,8 @@ def startle():
     return (f'<svg xmlns="http://www.w3.org/2000/svg" '
             f'viewBox="0 0 {W.VB_W:.0f} {W.VB_H:.0f}" role="img" '
             f'aria-label="Ember, a hearth-wyrm. Point at it and it wakes.">\n'
-            + style + "\n".join(parts) + "\n</svg>\n")
+            + style + '  <g class="ember-art">\n'
+            + "\n".join(parts) + "\n  </g>\n</svg>\n")
 
 
 # ------------------------------------------------------------ winged variant --
@@ -289,7 +300,8 @@ def winged():
 def main():
     out = {
         "favicon.svg": favicon(),
-        "wyrm-states.svg": states_strip(),
+        "wyrm-states.svg": states_strip(True),
+        "wyrm-states-bare.svg": states_strip(False),
         "wyrm-startle.svg": startle(),
         "wyrm-winged.svg": winged(),
     }
@@ -383,6 +395,15 @@ toggling <code>.is-awake</code> on any ancestor. Honours
 pose — the one rejected for the device because it fought a 240&times;76 band. In a
 1:1 box it is exactly right, and it degrades into a glowing ember rather than into
 mud.</p>
+
+<h2>Open Graph card &mdash; 1200&times;630</h2>
+<div class="card">""" + (rd("og-card.svg") if os.path.exists(os.path.join(HERE,"og-card.svg")) else "") + """</div>
+<p class="hint">The most-viewed asset here: it renders in HN, Reddit, Slack,
+Discord and iMessage for people who never open the page. Built by
+<code>og_card.py</code>, which also prints the <code>og:image:alt</code> text and
+checks the constraints that actually break these &mdash; exact size, the 2:1
+centre crop, edge contrast against dark chrome, and that the creature stays out
+of the type column.</p>
 
 <h2>The five states</h2>
 <div class="card">""" + rd("wyrm-states.svg") + """</div>

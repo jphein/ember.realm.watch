@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1136 528" role="img" aria-label="Ember, a hearth-wyrm. Point at it and it wakes.">
   <style>
-    .wyrm .headneck {
+    .ember-art .wyrm .headneck {
       transform-origin: 352.0px 296.0px;
       transform: rotate(-24deg);
       transition: transform 420ms cubic-bezier(.16,1.2,.3,1);
@@ -11,17 +11,17 @@
        Swapping opacity is the classic limited-animation answer and it reads as a
        snap at these durations. The shut head MUST be faded out as the open one
        comes in — leaving it visible showed both jaws at once, a doubled head. */
-    .wyrm .jaw-open { opacity: 0; transition: opacity 120ms linear; }
-    .wyrm .jaw-shut { opacity: 1; transition: opacity 120ms linear; }
-    .wyrm .eye { opacity: .45; transition: opacity 200ms linear; }
-    .wyrm .eye-glow { opacity: 0; transition: opacity 260ms linear; }
-    .hearth { opacity: .8; transition: opacity 500ms ease-out; }
+    .ember-art .wyrm .jaw-open { opacity: 0; transition: opacity 120ms linear; }
+    .ember-art .wyrm .jaw-shut { opacity: 1; transition: opacity 120ms linear; }
+    .ember-art .wyrm .eye { opacity: .45; transition: opacity 200ms linear; }
+    .ember-art .wyrm .eye-glow { opacity: 0; transition: opacity 260ms linear; }
+    .ember-art .hearth { opacity: .8; transition: opacity 500ms ease-out; }
     /* the idle breath: the creature is alive before you touch it */
-    @keyframes emberBreath {
+    @keyframes ember-wyrm-breath {
       0%,100% { opacity: .72; }
       50%     { opacity: 1; }
     }
-    .wyrm .body { animation: emberBreath 6s ease-in-out infinite; }
+    .ember-art .wyrm .body { animation: ember-wyrm-breath 6s ease-in-out infinite; }
 
     /* WAKE — driven from the CONTAINER, not the svg.
        Put class="ember-wake" on the hero container and it triggers on the whole
@@ -29,44 +29,45 @@
        carries no tabindex, so the container owning focus does not create a
        second tab stop for one thing.
        `.is-awake` on any ancestor does the same thing programmatically. */
-    .ember-wake:hover .wyrm .headneck,
-    .ember-wake:focus-visible .wyrm .headneck,
-    .ember-wake:focus-within .wyrm .headneck,
-    .ember-wake:active .wyrm .headneck,
-    .is-awake .wyrm .headneck { transform: rotate(2deg); }
+    .ember-wake:hover .ember-art .wyrm .headneck,
+    .ember-wake:focus-visible .ember-art .wyrm .headneck,
+    .ember-wake:focus-within .ember-art .wyrm .headneck,
+    .ember-wake:active .ember-art .wyrm .headneck,
+    .is-awake .ember-art .wyrm .headneck { transform: rotate(2deg); }
 
-    .ember-wake:hover .wyrm .jaw-shut,
-    .ember-wake:focus-visible .wyrm .jaw-shut,
-    .ember-wake:focus-within .wyrm .jaw-shut,
-    .ember-wake:active .wyrm .jaw-shut,
-    .is-awake .wyrm .jaw-shut { opacity: 0; }
+    .ember-wake:hover .ember-art .wyrm .jaw-shut,
+    .ember-wake:focus-visible .ember-art .wyrm .jaw-shut,
+    .ember-wake:focus-within .ember-art .wyrm .jaw-shut,
+    .ember-wake:active .ember-art .wyrm .jaw-shut,
+    .is-awake .ember-art .wyrm .jaw-shut { opacity: 0; }
 
-    .ember-wake:hover .wyrm .jaw-open,
-    .ember-wake:focus-visible .wyrm .jaw-open,
-    .ember-wake:focus-within .wyrm .jaw-open,
-    .ember-wake:active .wyrm .jaw-open,
-    .ember-wake:hover .wyrm .eye,
-    .ember-wake:focus-visible .wyrm .eye,
-    .ember-wake:focus-within .wyrm .eye,
-    .ember-wake:active .wyrm .eye,
-    .ember-wake:hover .wyrm .eye-glow,
-    .ember-wake:focus-visible .wyrm .eye-glow,
-    .ember-wake:focus-within .wyrm .eye-glow,
-    .ember-wake:active .wyrm .eye-glow,
-    .ember-wake:hover .hearth,
-    .ember-wake:focus-visible .hearth,
-    .ember-wake:focus-within .hearth,
-    .ember-wake:active .hearth,
-    .is-awake .wyrm .jaw-open,
-    .is-awake .wyrm .eye,
-    .is-awake .wyrm .eye-glow,
-    .is-awake .hearth { opacity: 1; }
+    .ember-wake:hover .ember-art .wyrm .jaw-open,
+    .ember-wake:focus-visible .ember-art .wyrm .jaw-open,
+    .ember-wake:focus-within .ember-art .wyrm .jaw-open,
+    .ember-wake:active .ember-art .wyrm .jaw-open,
+    .ember-wake:hover .ember-art .wyrm .eye,
+    .ember-wake:focus-visible .ember-art .wyrm .eye,
+    .ember-wake:focus-within .ember-art .wyrm .eye,
+    .ember-wake:active .ember-art .wyrm .eye,
+    .ember-wake:hover .ember-art .wyrm .eye-glow,
+    .ember-wake:focus-visible .ember-art .wyrm .eye-glow,
+    .ember-wake:focus-within .ember-art .wyrm .eye-glow,
+    .ember-wake:active .ember-art .wyrm .eye-glow,
+    .ember-wake:hover .ember-art .hearth,
+    .ember-wake:focus-visible .ember-art .hearth,
+    .ember-wake:focus-within .ember-art .hearth,
+    .ember-wake:active .ember-art .hearth,
+    .is-awake .ember-art .wyrm .jaw-open,
+    .is-awake .ember-art .wyrm .eye,
+    .is-awake .ember-art .wyrm .eye-glow,
+    .is-awake .ember-art .hearth { opacity: 1; }
 
     /* NO prefers-reduced-motion block here on purpose. The page carries a global
        `* { animation-duration: .001ms !important }` rule; a second one here
        would be a second authority on the same question, and if it ever grew an
        !important the two would fight. The page wins. */
   </style>
+  <g class="ember-art">
   <defs>
     <!-- userSpaceOnUse, NOT the default objectBoundingBox: the head, neck and
          body are separate paths, and per-path bounding boxes gave each its own
@@ -167,5 +168,6 @@
       <path class="head" d="M125.64 142.99Q122.27 134.16 121.01 135.25Q119.75 136.34 118.94 137.80Q118.13 139.25 117.87 140.90Q117.60 142.55 117.92 144.18Q118.23 145.82 119.08 147.25Q119.94 148.68 121.23 149.73Q122.53 150.79 124.10 151.33Q125.68 151.88 125.53 142.43Q125.39 132.97 126.13 132.60Q126.86 132.22 127.57 131.85Q128.28 131.48 128.98 131.11Q129.68 130.74 130.38 130.37Q131.08 130.00 131.79 129.63Q132.50 129.26 133.23 128.88Q133.96 128.51 134.71 128.13Q135.47 127.75 136.27 127.37Q137.07 126.99 137.91 126.60Q138.76 126.21 139.65 125.81Q140.55 125.42 141.50 125.02Q142.45 124.62 143.43 124.21Q144.42 123.81 145.45 123.40Q146.48 122.99 147.55 122.57Q148.62 122.16 149.72 121.74Q150.82 121.32 151.96 120.89Q153.09 120.47 154.25 120.05Q155.41 119.62 156.59 119.19Q157.78 118.77 158.98 118.34Q160.18 117.92 161.40 117.49Q162.62 117.07 163.81 116.65Q164.99 116.24 166.11 115.82Q167.24 115.41 168.38 114.98Q169.52 114.55 170.73 114.10Q171.95 113.65 173.23 113.18Q174.52 112.72 175.88 112.25Q177.24 111.78 178.68 111.31Q180.11 110.84 181.63 110.39Q183.15 109.93 184.74 109.50Q186.34 109.06 188.02 108.66Q189.70 108.25 191.45 107.90Q193.19 107.54 194.89 107.23Q196.58 106.93 198.21 106.65Q199.84 106.37 201.50 106.11Q203.16 105.84 204.88 105.60Q206.59 105.36 208.35 105.15Q210.12 104.94 211.92 104.77Q213.73 104.59 215.58 104.46Q217.43 104.33 219.32 104.24Q221.21 104.16 223.13 104.14Q225.06 104.11 227.02 104.16Q228.99 104.20 230.94 104.31Q232.89 104.42 234.80 104.57Q236.71 104.71 238.60 104.88Q240.50 105.05 242.41 105.25Q244.33 105.46 246.27 105.71Q248.20 105.97 250.14 106.28Q252.09 106.60 254.04 106.98Q255.99 107.37 257.94 107.84Q259.89 108.31 261.82 108.88Q263.76 109.44 265.68 110.12Q267.59 110.79 269.50 111.59Q271.40 112.39 273.36 113.37Q275.32 114.35 277.25 115.51Q279.18 116.68 280.94 117.93Q282.70 119.18 284.29 120.47Q285.87 121.77 287.30 123.07Q288.73 124.38 290.02 125.68Q291.32 126.97 292.49 128.23Q293.67 129.50 294.76 130.71Q295.85 131.93 296.86 133.08Q297.87 134.22 298.82 135.29Q299.78 136.36 300.82 137.42Q301.87 138.49 292.10 161.72Q282.32 184.96 286.76 185.18Q291.20 185.40 295.45 184.09Q299.70 182.77 303.24 180.09Q306.78 177.40 309.19 173.66Q311.60 169.93 312.58 165.59Q313.57 161.26 313.01 156.85Q312.46 152.44 310.43 148.48Q308.40 144.53 291.26 163.02Q274.13 181.51 272.52 180.87Q270.92 180.22 269.25 179.53Q267.58 178.84 265.98 178.19Q264.39 177.55 262.87 176.96Q261.35 176.37 259.92 175.85Q258.49 175.32 257.16 174.85Q255.83 174.39 254.61 173.98Q253.39 173.58 252.29 173.24Q251.19 172.90 250.21 172.60Q249.24 172.31 248.38 172.05Q247.52 171.78 246.62 171.46Q245.73 171.14 244.71 170.71Q243.68 170.29 242.62 169.81Q241.56 169.33 240.47 168.82Q239.37 168.31 238.26 167.78Q237.14 167.24 236.00 166.70Q234.86 166.15 233.70 165.61Q232.54 165.06 231.36 164.53Q230.19 163.99 229.00 163.49Q227.81 162.98 226.62 162.50Q225.42 162.03 224.26 161.60Q223.11 161.18 222.00 160.80Q220.89 160.43 219.76 160.07Q218.63 159.71 217.45 159.37Q216.27 159.03 215.05 158.71Q213.83 158.38 212.58 158.08Q211.32 157.77 210.04 157.49Q208.75 157.21 207.45 156.94Q206.15 156.68 204.83 156.44Q203.52 156.20 202.20 155.98Q200.89 155.76 199.59 155.56Q198.29 155.36 197.13 155.18Q195.96 155.00 194.88 154.85Q193.81 154.70 192.71 154.59Q191.60 154.47 190.45 154.39Q189.30 154.31 188.10 154.25Q186.91 154.20 185.67 154.17Q184.43 154.15 183.15 154.14Q181.87 154.13 180.56 154.13Q179.24 154.14 177.88 154.15Q176.53 154.16 175.14 154.17Q173.75 154.18 172.38 154.17Q171.01 154.16 169.72 154.13Q168.44 154.10 167.20 154.06Q165.96 154.03 164.73 154.00Q163.50 153.96 162.29 153.93Q161.07 153.90 159.87 153.87Q158.68 153.83 157.50 153.80Q156.32 153.77 155.17 153.73Q154.02 153.70 152.90 153.66Q151.78 153.62 150.70 153.57Q149.61 153.53 148.56 153.48Q147.52 153.43 146.53 153.38Q145.54 153.32 144.61 153.25Q143.69 153.19 142.81 153.12Q141.94 153.05 141.10 152.97Q140.26 152.90 139.45 152.82Q138.64 152.75 137.84 152.67Q137.05 152.59 136.26 152.51Q135.48 152.43 134.69 152.35Q133.90 152.28 133.11 152.20Q132.31 152.12 131.49 152.05Q130.68 151.97 129.84 151.90Q129.01 151.83 125.64 142.99Z M129.03 168.22Q127.76 160.45 126.55 161.13Q125.34 161.81 124.43 162.86Q123.52 163.91 123.03 165.21Q122.54 166.51 122.52 167.90Q122.50 169.29 122.96 170.60Q123.42 171.91 124.30 172.99Q125.18 174.06 126.37 174.77Q127.57 175.48 129.04 167.74Q130.50 160.00 131.31 159.91Q132.12 159.82 132.92 159.73Q133.72 159.64 134.51 159.55Q135.30 159.45 136.09 159.36Q136.87 159.27 137.65 159.18Q138.43 159.09 139.21 159.00Q139.99 158.91 140.78 158.82Q141.56 158.73 142.34 158.64Q143.13 158.55 143.92 158.46Q144.71 158.37 145.51 158.28Q146.31 158.18 147.12 158.09Q147.93 158.00 148.76 157.91Q149.58 157.82 150.42 157.73Q151.26 157.63 152.12 157.54Q152.98 157.45 153.86 157.35Q154.74 157.26 155.65 157.17Q156.56 157.07 157.48 156.98Q158.40 156.88 159.34 156.79Q160.27 156.69 161.22 156.60Q162.16 156.50 163.12 156.40Q164.07 156.31 165.04 156.21Q166.00 156.11 166.98 156.02Q167.96 155.92 168.95 155.82Q169.94 155.72 170.94 155.62Q171.94 155.53 172.96 155.43Q173.98 155.33 175.01 155.23Q176.04 155.14 177.08 155.04Q178.13 154.94 179.19 154.84Q180.25 154.75 181.33 154.65Q182.40 154.56 183.50 154.46Q184.59 154.36 185.70 154.27Q186.81 154.17 187.95 154.08Q189.09 153.99 190.26 153.90Q191.43 153.80 192.62 153.72Q193.82 153.63 195.04 153.54Q196.26 153.45 197.50 153.36Q198.74 153.28 200.00 153.19Q201.26 153.11 202.53 153.02Q203.81 152.94 205.09 152.85Q206.37 152.77 207.66 152.68Q208.95 152.59 210.25 152.50Q211.55 152.42 212.84 152.33Q214.14 152.24 215.44 152.15Q216.73 152.06 218.03 151.96Q219.32 151.87 220.60 151.77Q221.88 151.67 223.15 151.57Q224.43 151.47 225.68 151.36Q226.94 151.26 228.18 151.15Q229.42 151.04 230.66 150.93Q231.90 150.81 233.15 150.70Q234.39 150.58 235.64 150.46Q236.88 150.34 238.13 150.21Q239.38 150.09 240.63 149.96Q241.88 149.84 243.14 149.71Q244.39 149.58 245.65 149.45Q246.90 149.32 248.16 149.19Q249.42 149.06 250.69 148.92Q251.95 148.79 253.21 148.66Q254.48 148.53 255.75 148.39Q257.02 148.26 258.29 148.13Q259.56 148.00 260.84 147.86Q262.11 147.73 263.39 147.60Q264.67 147.47 265.94 147.34Q267.22 147.22 271.26 165.69Q275.30 184.16 278.11 182.38Q280.93 180.59 282.97 177.95Q285.01 175.31 286.02 172.14Q287.03 168.96 286.89 165.63Q286.76 162.30 285.49 159.21Q284.22 156.13 281.98 153.67Q279.73 151.20 276.78 149.65Q273.83 148.11 271.30 166.84Q268.78 185.58 267.52 185.56Q266.25 185.53 264.99 185.51Q263.73 185.49 262.46 185.47Q261.20 185.45 259.93 185.43Q258.66 185.41 257.39 185.39Q256.12 185.37 254.85 185.35Q253.58 185.33 252.30 185.31Q251.02 185.29 249.74 185.27Q248.46 185.25 247.18 185.23Q245.90 185.21 244.61 185.18Q243.32 185.16 242.04 185.14Q240.75 185.11 239.46 185.08Q238.16 185.06 236.87 185.03Q235.58 185.00 234.28 184.96Q232.98 184.93 231.69 184.89Q230.39 184.86 229.09 184.81Q227.79 184.77 226.48 184.73Q225.18 184.69 223.86 184.64Q222.55 184.59 221.23 184.55Q219.91 184.50 218.58 184.45Q217.25 184.40 215.93 184.35Q214.60 184.29 213.27 184.24Q211.95 184.19 210.63 184.13Q209.30 184.07 207.99 184.01Q206.68 183.95 205.37 183.89Q204.07 183.83 202.78 183.77Q201.49 183.70 200.22 183.63Q198.95 183.57 197.69 183.50Q196.44 183.42 195.21 183.35Q193.98 183.28 192.77 183.20Q191.57 183.12 190.39 183.04Q189.22 182.96 188.06 182.88Q186.91 182.79 185.77 182.71Q184.64 182.62 183.52 182.52Q182.40 182.43 181.31 182.33Q180.21 182.23 179.13 182.13Q178.05 182.03 176.98 181.92Q175.92 181.82 174.88 181.71Q173.83 181.60 172.80 181.49Q171.77 181.38 170.76 181.27Q169.75 181.16 168.75 181.05Q167.75 180.93 166.77 180.82Q165.79 180.70 164.82 180.59Q163.85 180.48 162.90 180.36Q161.94 180.25 161.00 180.13Q160.06 180.02 159.13 179.91Q158.20 179.80 157.28 179.69Q156.36 179.57 155.45 179.46Q154.54 179.36 153.66 179.25Q152.77 179.14 151.90 179.02Q151.04 178.91 150.19 178.80Q149.34 178.69 148.51 178.58Q147.68 178.47 146.87 178.36Q146.05 178.25 145.25 178.13Q144.45 178.02 143.66 177.91Q142.87 177.80 142.08 177.68Q141.30 177.57 140.52 177.46Q139.74 177.35 138.96 177.23Q138.18 177.12 137.40 177.01Q136.62 176.90 135.84 176.78Q135.06 176.67 134.28 176.56Q133.49 176.45 132.70 176.34Q131.91 176.22 131.10 176.11Q130.30 176.00 129.03 168.22Z M171.20 115.20L208.00 97.60L244.00 105.60L220.00 123.20Z M232.00 102.40L256.00 92.80L339.20 72.00L276.00 110.40Z M244.00 124.80L268.00 118.40L340.80 113.60L280.00 139.20Z M260.00 145.60L304.00 137.60L312.00 168.00L272.00 179.20Z" fill="url(#wk-skull)"/>
       <path class="maw" d="M134.39 148.25Q134.31 148.29 133.66 156.89Q133.00 165.50 134.09 166.75Q135.19 168.00 196.50 166.89Q257.81 165.78 258.77 164.58Q259.73 163.37 258.30 162.19Q256.88 161.00 195.67 154.61Q134.47 148.22 134.39 148.25Z" fill="#FFE8B4"/>
     </g>
+  </g>
   </g>
 </svg>
