@@ -22,8 +22,14 @@ Two things came out of the search that are worth more than a mediocre STL:
    `ES3C28P_3D.step`. Verified genuine: an Altium→OpenCASCADE export dated 2025-06-10
    carrying `PRODUCT('PCB','PCB')`, with the real connectors modelled by part name
    (`MOLEX1.25-WS-2P`, `MOLEX1.25-WS-4P`, `MOLEX1.25-LS-2P`, `FPC0.5_2H-S-W-6P`,
-   `C_0603`). **This makes designing beat adapting** — the mic port, speaker header,
-   SD mouth, BOOT/RESET positions and rear LED all land correctly by construction.
+   `C_0603`). **This makes designing beat adapting** — the board outline, corner radii,
+   mounting holes, glass footprint, USB-C body, speaker header, SD mouth and rear LED all
+   land correctly by construction, and the shells can be clearance-checked against the
+   real solid by boolean intersection rather than against a transcribed table.
+
+   **It does not give you everything, and the two it withholds are load-bearing.** The
+   microphone port and the BOOT/RESET switch positions are *not* in this file — both had
+   to be established another way. See the caveat below before trusting it for a feature.
 
    *Deliberately not committed here.* 17.7 MB of generated CAD does not belong in a
    firmware repo; fetch it from the vendor. Note lcdwiki.com serves an **expired TLS
