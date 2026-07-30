@@ -1011,23 +1011,38 @@ footer p{margin:.4rem 0}
   </div>
 
   <p>
-    Two things about the speaker are worth knowing before you print, because both came from
-    JP looking at the actual hardware rather than from the model. The driver is a
-    <b>40 × 27&nbsp;mm rectangle held on with adhesive tape</b>, not a round flanged unit — so
-    the grille field is rectangular and there is <em>no recess</em>. Tape needs a flat,
-    continuous surface to bond to; a pocket deep enough to seat a flange leaves the adhesive
-    bridging a step, which is where the bond fails first. All that remains is a
-    0.60&nbsp;mm locating lip around the outline, deep enough to stop it sliding while the
-    glue grabs.
+    The speaker took <b>three revisions to mount correctly</b>, and every correction came
+    from looking at the actual part rather than at the model. It is not a bare driver — it is
+    a <b>sealed-back module</b>: a plastic box carrying its own rear cavity, 40 × 27&nbsp;mm and
+    10&nbsp;mm thick, with a diaphragm on one face and <b>double-sided tape on the back</b>.
   </p>
 
   <p>
-    And the sealed chamber had <b>no way out for the driver's own wires</b> — its only opening
-    was the bottom, closed by the base plate, which is correct for a sealed box and useless for
-    a wired one. There is now a 6 × 5&nbsp;mm pass-through into the board's cable route.
-    <b>Seal it after wiring</b>: an unsealed hole turns the sealed box into a leaky one and
-    costs exactly the low end the chamber exists to produce. It is sized for a bead of sealant
-    rather than a press fit, because a hole tight enough to grip a wire abrades its insulation.
+    That last detail inverts the mount, and it is why the first two attempts were wrong. A
+    baffle-mounted driver needs its adhesive on the face that <em>meets the baffle</em>; this
+    one has it on the opposite side, so the bonding surface cannot be the front wall at all.
+    The design now puts a flat <b>tape pad</b> standing 0.80&nbsp;mm proud of the chamber's
+    <em>rear</em> wall — raised deliberately, so the adhesive meets one continuous plane with
+    no fillet or print artefact to interrupt the bond — and leaves the baffle's inner face
+    completely alone.
+  </p>
+
+  <p>
+    It also inverts what the enclosure is <em>for</em>. Chamber depth is now
+    <b>derived rather than chosen</b>: baffle + 2.50&nbsp;mm front gap + 10&nbsp;mm module +
+    pad. It had been pushed as deep as the slab slot allowed, to maximise sealed volume —
+    correct for a baffle-mounted driver, and wrong here. With the module taped to the rear
+    wall, extra depth is not extra enclosure, it is <b>extra air in front of the
+    diaphragm</b>, which is a cavity resonance.
+  </p>
+
+  <p>
+    And the chamber had <b>no way out for the module's own wires</b> — its only opening was the
+    bottom, closed by the base plate, which is correct for a sealed box and useless for a wired
+    one. There is now a 6 × 5&nbsp;mm pass-through into the board's cable route.
+    <b>Seal it after wiring</b>, though for a subtler reason than it first appears: not to hold
+    bass inside a rear chamber, but to stop the <em>front</em> cavity venting anywhere except
+    through the slots. A leak there lets the front wave escape and cancel, which costs level.
   </p>
 
   <p>

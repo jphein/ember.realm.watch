@@ -92,10 +92,13 @@ Speaker header is rated **1.5 W / 8 Ω or 2 W / 4 Ω** and ships as an unpopulat
 actual / 500 mA max.
 
 **Verified vs inferred.** Every dimension is read off the drawing. The
-**front-facing mic port** is inferred — from a PCB through-hole on the front view at
-the mic's location, in a strip the glass deliberately doesn't cover, cross-checked
-against the back-side photo. Strongly corroborated, but worth five seconds of eyeball
-on the physical board. The left/right handedness of the two long edges rests on a
+**front-facing mic port is now CONFIRMED** — JP inspected the physical board and the
+product photos: the microphone fires forward, through the front face, and the hole is
+visible. It had been inferred from a PCB through-hole on the front view at the mic's
+location, in a strip the glass deliberately doesn't cover, cross-checked against the
+back-side photo — and the vendor STEP could never settle it, because that export
+contains **no small holes at all, not one via**. So the model's silence was never
+evidence of absence. Five seconds of looking closed what a 17 MB CAD file could not. The left/right handedness of the two long edges rests on a
 drawing-convention assumption; what's solid is the **pairing** — speaker and microSD
 are on **opposite** long edges, and the mic is at the end **opposite** the USB-C.
 

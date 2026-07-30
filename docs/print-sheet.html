@@ -156,71 +156,41 @@ cd scratch/hosyond-s3/ember-case &amp;&amp; ../cadenv/bin/python ember_case.py
 <p>to be <b>airtight, not structural</b>.</p>
 <hr>
 <h2>Speaker</h2>
-<p>Cut for a <b>rectangular 40 × 27 mm driver with rounded corners</b>, adhesive-mounted</p>
-<p>(8 Ω; the board's amp does 1.5 W/8 Ω or 2 W/4 Ω). Sealed chamber ≈ <b>32 cm³</b> in the</p>
-<p>stand, firing forward through a <b>37 × 24 mm slotted grille</b>.</p>
-<div class="note"><b>Revised from a ⌀28 mm round driver.</b> The first cut assumed a round, flanged</div>
-<div class="note">driver seated in a ⌀29 × 2.2 mm recess. JP's actual speaker is a 40 × 27 rectangle</div>
-<div class="note">held on with <b>adhesive tape</b>, which inverts two requirements: the grille field had</div>
-<div class="note">to become rectangular, and the recess had to go. Tape needs a **flat, continuous</div>
-<div class="note">surface** to bond to — a pocket deep enough to seat a flange leaves the adhesive</div>
-<div class="note">bridging a step, which is where the bond fails first.</div>
+<p>It is a <b>sealed-back module</b>, not a bare driver: a plastic box carrying its own rear</p>
+<p>cavity, diaphragm on one face, JST-1.25 2-pin pigtail, <b>double-sided tape on the back</b>.</p>
+<p><b>40 × 27 mm footprint, 10 mm thick</b> (measured).</p>
+<div class="note"><b>That inverts the mount, and it took three revisions to get right.</b> The first cut</div>
+<div class="note">assumed a round ⌀28 flanged driver in a recess. The second made it a 40 × 27 rectangle</div>
+<div class="note">and kept a shallow lip on the baffle. Both were wrong, because a baffle-mounted driver</div>
+<div class="note">needs adhesive on the face that <em>meets the baffle</em> — and this one has it on the</div>
+<div class="note">opposite side. The bonding surface cannot be the front wall at all.</div>
+<p><b>How it mounts.</b> A flat <b>tape pad</b> stands 0.80 mm proud of the chamber's rear wall,</p>
+<p>40 × 27 with matching corner radius. Stick the module's taped back to it; the diaphragm</p>
+<p>then faces forward at the grille. The pad is <em>raised</em> deliberately, so the adhesive meets</p>
+<p>one continuous plane — no fillet, no print artefact at the wall/floor junction to</p>
+<p>interrupt the bond. <b>The baffle's inner face is left completely alone</b>: the module never</p>
+<p>touches it, and anything cut there would only put a cavity edge in front of the diaphragm.</p>
+<p><b>Chamber depth is now derived, not chosen.</b> Baffle + 2.50 mm front gap + 10 mm module +</p>
+<p>0.80 mm pad + margin → rear wall at <b>19.3 mm</b>. Previously it was pushed to 22.0 "as deep</p>
+<p>as the slab slot allows", maximising sealed volume — the right goal for a baffle-mounted</p>
+<p>driver and the wrong one here. With the module taped to the rear wall, extra depth is not</p>
+<p>extra enclosure, it is <b>extra air in front of the diaphragm</b>, which is a cavity</p>
+<p>resonance. There is an assert in the source so this can never silently foul the slot.</p>
+<p>⚠️ <b>Two corrections to earlier advice in this file, now that the module is known:</b></p>
 <ul>
-<li>The front wall's inner face is <b>flat</b> where the speaker lands. Only a **0.60 mm</li>
+<li><b>Skip the wadding.</b> It was recommended to damp standing waves in the sealed chamber.</li>
 </ul>
-<p>  deep, 1.20 mm wide locating lip** is cut around the driver's outline: enough to stop</p>
-<p>  it sliding while the adhesive grabs, too shallow to interrupt the bonded area.</p>
+<p>  A sealed-back module brings its own rear volume, so there is no rear chamber to damp —</p>
+<p>  stuffing the front cavity would just absorb output on its way to the grille.</p>
 <ul>
-<li>Chamber ceiling was raised <b>34 → 37 mm</b> for the taller driver. At 34 the chamber was</li>
+<li><b>Sealing still matters, for a different reason.</b> Not to hold bass in a rear chamber,</li>
 </ul>
-<p>  30 mm tall and a 27 mm driver left 1.5 mm a side. The sealed volume went 27.5 → 30 cm³,</p>
-<p>  which helps the low end (and 22.0mm of depth takes it to 32.1).</p>
-<ul>
-<li><b>Wire pass-through: a 6 × 5 mm channel</b> from inside the chamber (y=19) back to y=30,</li>
-</ul>
-<p>  meeting the board's cable route. From there the wire follows the same path up to the</p>
-<p>  slot. ⚠️ <b>Seal it after wiring</b> — silicone, hot glue or putty. An unsealed hole turns</p>
-<p>  the sealed box into a leaky one and costs exactly the low end the chamber exists to</p>
-<p>  produce. It is sized for a bead of sealant rather than a press fit, because a hole</p>
-<p>  tight enough to grip the wire abrades the insulation.</p>
-<h3>Making it louder</h3>
-<p>The bottleneck was never the box volume — it was the <b>baffle</b>. A slot behaves like a</p>
-<p>short duct and its impedance scales with length ÷ width, so 2.20 mm slots through a</p>
-<p>4.00 mm wall (<b>1.82:1</b>) made the sound squeeze through slits nearly twice as deep as</p>
-<p>they were wide. Three changes, in order of how much they buy:</p>
-<p>1. <b>The baffle is recessed to 2.20 mm</b> in the grille region only, cut from the</p>
-<p>   <em>outside</em> so the inner face the speaker tapes to stays flat and unbroken. Slot aspect</p>
-<p>   goes 1.82:1 → <b>1.00:1</b>, roughly halving the impedance.</p>
-<p>2. <b>Slots widened 2.20 → 2.60 mm</b> at the same 3.40 mm pitch. Open area over the field</p>
-<p>   goes 65% → <b>76%</b>, which puts it <em>above</em> the driver's effective radiating area</p>
-<p>   (~700 mm²) instead of below it. 0.80 mm of material remains between slots — still</p>
-<p>   printable.</p>
-<p>3. <b>0.60 mm flare on each slot mouth.</b> A sharp-edged slot sheds vortices and chuffs at</p>
-<p>   level. The flare opens downward-outward, so it is self-supporting in the stand's</p>
-<p>   print orientation and costs nothing.</p>
-<p>Chamber also went 21.0 → 22.0 mm deep (<b>30.3 → 32.1 cm³</b>). That is as far as it safely</p>
-<p>goes — the slab slot's front face sits at y ≈ 24.9 at the floor. Modest, and it matters</p>
-<p>less than it sounds: sealed volume sets the low-frequency corner, and with a driver whose</p>
-<p>Fs is ~650 Hz the box was never what limited output.</p>
-<p><b>Two free things you should do at assembly:</b></p>
-<ul>
-<li><b>Loosely fill the chamber with polyester wadding</b> (pillow stuffing, a pinch — not</li>
-</ul>
-<p>  packed). It damps standing waves in a box whose dimensions are all similar, and makes</p>
-<p>  the enclosure behave as if it were ~10–15% larger.</p>
-<ul>
-<li><b>Seal every joint.</b> In a box this small, leaks cost more output than anything above</li>
-</ul>
-<p>  buys back: the wire pass-through, the base plate seam, and the perimeter of the driver</p>
-<p>  itself. The adhesive tape <em>is</em> the driver's gasket — lay it continuous, not in dabs.</p>
-<p><b>Print the stand with more walls and infill than feels necessary</b> (5–6 perimeters,</p>
-<p>30%+). It is a speaker cabinet; panel resonance is audible as boxiness, and stiffness is</p>
-<p>the only thing that stops a 2 W driver exciting a 64 mm panel.</p>
-<p><b>Not done, and deliberately:</b> a bass-reflex port. At this volume a printable port tunes</p>
-<p>to roughly 390–460 Hz, which is only useful if it lands just below the driver's Fs — and</p>
-<p>that number is unknown. A port tuned below Fs does nothing, and a mistuned one is worse</p>
-<p>than sealed. If you measure Fs and want one, the arithmetic is</p>
-<p><code>Fb = (c/2π)·√(A / (V·Leff))</code> with <code>Leff = L + 0.85·d</code>.</p>
+<p>  but to stop the <em>front</em> cavity venting anywhere except through the slots. Any leak lets</p>
+<p>  the front wave escape and cancel, which costs level. So still seal the wire</p>
+<p>  pass-through and the base seam — the reason changed, the instruction didn't.</p>
+<p>The **volume figures earlier in this file are about a rear chamber that no longer exists</p>
+<p>in the acoustic sense.** They still describe the printed void; they no longer describe</p>
+<p>what the module is loading into.</p>
 <ul>
 <li>The ES3C28P <b>speaker header is unpopulated</b> — you need a 1.25 mm 2P pigtail.</li>
 <li>Changing driver: edit <code>DRIVER_W</code>, <code>DRIVER_H</code>, <code>DRIVER_R</code> in <code>ember_case.py</code> and re-run.</li>

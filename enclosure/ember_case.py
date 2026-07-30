@@ -196,6 +196,25 @@ DRIVER_CLR = 0.60                  # locating clearance per side, print toleranc
 # where an adhesive bond fails first. So the wall face stays flat and only a shallow
 # LOCATING LIP is cut: deep enough to stop the speaker sliding while the adhesive
 # grabs, too shallow to interrupt the bonded area.
+# >>> THE TAPE IS ON THE SPEAKER'S BACK — its NON-radiating face. <<<
+# That is the third revision of this mount and it inverts it again. A baffle-mounted
+# driver needs adhesive on the face that meets the baffle; this one has it on the
+# opposite side. So the surface it bonds to cannot be the front wall — it has to be a
+# flat pad BEHIND the driver, with the diaphragm facing forward at the grille.
+#
+# Consequence: the chamber's REAR wall becomes the mounting surface, and the driver's
+# thickness sets how close its diaphragm sits to the baffle. A large air gap in front of
+# a diaphragm is a resonant cavity, so that distance wants to be small and deliberate.
+DRIVER_T   = 10.00                 # MEASURED (JP). It is a SEALED-BACK MODULE, not a
+                                   # bare driver: a plastic box carrying its own rear
+                                   # cavity, with the diaphragm on one face and a
+                                   # JST-1.25 pigtail. That is why the stand's chamber
+                                   # volume barely matters acoustically — the module
+                                   # brings its own. What matters is the FRONT: keep the
+                                   # cavity between diaphragm and grille small, and stop
+                                   # it leaking anywhere except through the slots.
+FRONT_GAP  = 2.50                  # diaphragm -> baffle. Small on purpose.
+PAD_PROUD  = 0.80                  # pad stands off the wall so nothing else fouls the tape
 LIP_DEPTH  = 0.60                  # alignment only; the tape does the work
 LIP_WIDTH  = 1.20                  # the groove is a thin outline, not a pocket
 SLOT_CY  = 34.0                    # slot centreline Y at the floor
@@ -243,7 +262,15 @@ def desk_stand():
     # leans back at TILT. Volume 30.3 -> 32.1cm3. Modest, and free — the sealed volume
     # only sets the low-frequency corner, and on a driver with Fs ~650Hz the box is not
     # what is limiting output. The baffle was.
-    cy0,cy1 = ST_WALL,   22.0
+    # Rear wall now DERIVED, not chosen: baffle + front gap + driver body + the pad it
+    # tapes to. Previously 22.0 was "as deep as the slab slot allows", which maximised
+    # sealed volume — the right goal for a baffle-mounted driver and the wrong one here.
+    # With the driver taped to the rear wall, extra depth is not extra enclosure, it is
+    # extra AIR IN FRONT OF THE DIAPHRAGM, i.e. a cavity resonance.
+    cy0 = ST_WALL
+    cy1 = ST_WALL + FRONT_GAP + DRIVER_T + PAD_PROUD + 2.0
+    assert cy1 <= 24.0, f"chamber rear {cy1} would foul the slab slot at ~24.9"
+
     # Ceiling raised 34.0 -> 37.0 for the rectangular driver. At 34 the chamber was
     # 30mm tall and a 27mm driver left 1.5mm a side — no room for a seat lip. At 37 it
     # is 33mm tall, the seat clears by ~2.5mm, and the sealed volume goes 27.5 -> 30cm3,
@@ -254,17 +281,18 @@ def desk_stand():
     # driver seat on the INSIDE of the front wall + grille through it
     # Centred in the taller chamber: (ST_WALL + 37.0) / 2
     dz = 20.5
-    # Locating lip: the outline of the driver as a thin shallow groove, so the wall
-    # inside it stays flat and unbroken for the tape. outer - inner = a ring.
-    lip_o = rrect_y(ST_W/2, dz,
-                    DRIVER_W + 2*DRIVER_CLR, DRIVER_H + 2*DRIVER_CLR,
-                    DRIVER_R + DRIVER_CLR, cy0 + 0.01, LIP_DEPTH)
-    lip_i = rrect_y(ST_W/2, dz,
-                    DRIVER_W + 2*DRIVER_CLR - 2*LIP_WIDTH,
-                    DRIVER_H + 2*DRIVER_CLR - 2*LIP_WIDTH,
-                    max(DRIVER_R + DRIVER_CLR - LIP_WIDTH, 0.6),
-                    cy0 - 0.5, LIP_DEPTH + 1.0)
-    p -= (lip_o - lip_i)
+    # TAPE PAD on the chamber's rear wall, standing PAD_PROUD off it so the adhesive
+    # meets one continuous flat plane and nothing — no fillet, no print artefact at the
+    # wall/floor junction — interrupts the bond. Added, not subtracted: this is the one
+    # feature in the stand that is material rather than a void.
+    pad = rrect_y(ST_W/2, dz,
+                  DRIVER_W + 2*DRIVER_CLR, DRIVER_H + 2*DRIVER_CLR,
+                  DRIVER_R + DRIVER_CLR,
+                  cy1 - PAD_PROUD, PAD_PROUD)
+    p += pad
+    # The baffle's inner face is now deliberately LEFT ALONE — no lip, no recess. The
+    # driver never touches it, and anything cut there would only add a cavity edge in
+    # front of the diaphragm.
     field = rrect_y(ST_W/2, dz,
                     DRIVER_W - 2*GRILLE_INSET, DRIVER_H - 2*GRILLE_INSET,
                     max(DRIVER_R - GRILLE_INSET, 0.8),
