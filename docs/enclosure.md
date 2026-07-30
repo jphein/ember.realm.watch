@@ -29,6 +29,32 @@ Two things came out of the search that are worth more than a mediocre STL:
    firmware repo; fetch it from the vendor. Note lcdwiki.com serves an **expired TLS
    certificate**, so `curl -k` is required.
 
+   > **⚠️ Standing caveat — the STEP is an OUTLINE model, and absence in it proves
+   > nothing.**
+   >
+   > This export is trustworthy for **where things are** and silent about **what things
+   > are**. Its 159 distinct `PRODUCT` names are passives by reference designator, the
+   > microSD cage, the WS2812, and the Molex/FPC connectors by part number — and that is
+   > close to all of it. Known omissions so far:
+   >
+   > - **No small holes. Not one via.** So it cannot show the microphone's acoustic
+   >   port, which is a real front-facing hole on the real board.
+   > - **No switches of any kind** — no `K1`, no `K2`, no switch body anywhere in the
+   >   assembly. The two tact switches that are the device's only physical inputs are
+   >   simply not in the file.
+   > - **The microSD is a simplified plate**, not a modelled cage.
+   >
+   > Both of the first two cost real time: the mic port was called "probably absent"
+   > from the model's silence and settled in five seconds by looking at the board, and
+   > the switch positions had to be measured off the PCB outline because the switches
+   > themselves are not there to measure.
+   >
+   > **The rule, not the anecdotes:** measure *positives* from this file and never infer
+   > *negatives* from it. If a feature matters and the STEP does not show it, that is a
+   > statement about the export, not about the hardware — go and look at the board. A
+   > boolean check against this solid can only tell you that two things collide, never
+   > that a thing exists.
+
 2. **The board is dimensionally drop-in with the "Cheap Yellow Display"**
    (ESP32-2432S028) — identical outline, identical hole pattern, identical edge inset,
    same standard 2.8" panel. So the large CYD case ecosystem is a legitimate
@@ -75,9 +101,29 @@ continuous front rim.
 Portrait, viewed from the front, **USB-C at the bottom** (confirmed against the
 vendor's annotated board photo, §4.1 Figure 4.1):
 
-- **Bottom short edge** — USB-C **dead centre at 25.0 mm**, with **RESET** and **BOOT**
-  flanking at **13.44 mm** and **36.57 mm** across the 50 mm width, each **3.26 mm**
-  in from the edge.
+- **Bottom short edge** — USB-C **dead centre at 25.0 mm**, with two tact switches
+  flanking it across the 50 mm width, each **3.26 mm** in from the edge. The pairing is
+  **RESET at x = 13.45 mm** and **BOOT at x = 36.58 mm**, and it is now confirmed on
+  hardware rather than inferred: pressing them on the bare board brings the volume
+  overlay up from the one on the **microSD side**, and the microSD cage spans
+  x 33.68–44.83, so the readable switch is the high-x one. `ember_case.py` carries this
+  as `BTN_RESET_X` / `BTN_BOOT_X`.
+
+  > **Refer to these by coordinate or by constant, never by left/right.** Which side
+  > each appears on flips with the view: a back three-quarter mirrors the board, and a
+  > figure of the shell in print orientation (open side up) mirrors it back again. Get
+  > it backwards and the big inviting thumb cap ends up over **RESET**.
+
+  **They are not equivalent, and only one is an input.** BOOT is GPIO0 and is the
+  entire hardware input budget for this board — short press summons the volume overlay
+  and steps it, long press opens the power menu. RESET is hardwired to `CHIP_PU`: it
+  reboots the MCU *and* the LCD, and firmware **cannot read it at all**. The only other
+  free broken-out pins are GPIO 2, 14 and 21, and reaching them means soldering.
+
+  > **⚠️ Holding BOOT low across a reset enters ROM download mode**, which looks
+  > exactly like a bricked device. Any enclosure that exposes both switches must
+  > guarantee neither pusher can stick depressed and that one thumb cannot press both
+  > at once.
 - **Top front bezel strip** — the **microphone acoustic port**, **4.0 mm** from the
   short edge and **10.0 mm** from one long edge, sitting between the two mounting
   holes. The mic component is on the back; the port vents **forward** through the PCB.
@@ -154,8 +200,13 @@ placed but slightly short.
 1. **Put the mic port in the front bezel**, in the top strip — not the side, not the
    back. This is the requirement no existing case satisfies.
 2. **Don't clamp the long edges** (§1). Land the front lip on the short-end strips.
-3. **Give the rear LED somewhere to go** — a diffuser window, or a bounce gap between
-   the back cover and the wall. Otherwise Ember loses its status glow entirely.
+3. **Give the rear LED somewhere to go.** Otherwise Ember loses its status glow
+   entirely. *Since resolved:* this was first a ⌀12 mm window with a separate printed
+   translucent disc seated in it, and is now a field of 127 hex apertures across the
+   back — 3.2 mm across the flats on a 0.8 mm web, 55% open. Many small openings scatter;
+   one large bore just shows you the die. That deleted a part, a seat and a second
+   filament, and the case is printed in white, so the shell is translucent enough to
+   glow between the holes as well as through them.
 
 And one that isn't about the board: **size the speaker chamber to the driver, not to
 the case.** A sealed enclosure behind a 28–40 mm driver, firing forward through a
