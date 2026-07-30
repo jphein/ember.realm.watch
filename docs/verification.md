@@ -99,6 +99,28 @@ whenever the speaker is stopped rather than at enumerated sites; gate the amp on
 speaker. Each covered failure modes nobody had enumerated, and the tell that the shape was
 right is that the *specific* guards became redundant.
 
+**A cost argument a profiler can dissolve is worse than none.** A hex field behind the
+flames was rejected twice on cost — first at +2000–3000 runs/frame, then on a per-pixel
+argument — and *both reasons evaporated under measurement*. The runs axis does not bill
+(`horizontal_line` is a bare per-pixel loop with no span fast path) and per-pixel does not
+grow either, because the row is pre-assembled into `drow[]` by span memsets, which a
+background field would reuse. The real objection was never cost: **the flame band is a
+status display read at a glance across a room, and texturing its background degrades the
+figure-ground contrast that is the band's entire function.** Argue on the axis that actually
+decides it, or someone with a profiler will overturn a correct conclusion.
+
+**Refuse to inherit a conclusion whose stated reason has been retracted.** When the runs
+figure was withdrawn, the rejection it supported was re-examined rather than kept — even
+though the rejection turned out to be right. A conclusion held for a reason you have
+abandoned is indistinguishable from one held for no reason.
+
+**Do not propose a middle option you have not looked at.** "Squashed hexes at GRATE=3, no
+`base_row` move, no `MAXH` change, strictly better" was suggested untested — by the same
+person who had just criticised an untested cost estimate. Implemented and rendered, it cost
++96 runs and tiling passed, and it **did not read as a honeycomb at all**: at three rows a
+hexagon has no room for a silhouette and renders as a perforated dark rule, visually
+identical to the option it was meant to beat. The original instinct it overrode was correct.
+
 **A falsified conditional is worse than an open question**, because it reads as analysis.
 If "if X dominates, then Y" resolves false, delete it — do not leave it in a document
 looking measured.
