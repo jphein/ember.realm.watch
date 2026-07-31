@@ -69,7 +69,7 @@ and a `../cadenv` that does not exist. See [`README.md`](README.md) for first-ti
 |---|---|---|---|---|
 | `ember-front-bezel.stl` | 1 | **front face DOWN** on the bed — ✅ **the STL is now exported already in this orientation, so load and print; no flip needed** (issue #25: it used to export face-UP, standing the part on four ⌀5.40 boss tips totalling 71.9 mm² with the whole 1847.9 mm² face in the air) | **none** | The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are bed-side chamfers, so they self-support. **The debossed honeycomb and the wyrm mark are bed-side recesses**, 0.48 mm deep — exactly three layers at this part's 0.16 mm — and print as bridged voids, which is *why* they are recesses: on a bed face, relief only goes inward. |
 | `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** *(measured)* | ⛔ **Set gap-closing radius / hole horizontal expansion to 0 before slicing — see below, a default will weld the buttons shut.** Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Counterbores are flat-floored ⌀5.80 pockets opening onto the bed. (This line said "countersinks widen downward" — a leftover from the deleted conical version; the head is cylindrical.) **Labels** (`SD`, `MIC`, `VOL`, power symbol) are debossed **0.40 mm = 2 layers at the shell's own 0.20** (was 0.48 = 3 layers at the *bezel's* 0.16 — issue #26), and the two cap labels sit at the bottom of bridged recesses, so they are the first thing sag will blur. **The debossed cap faces are bed-side recesses and they bridge 13.27 mm (BOOT) / 8.27 (RESET)** — expect visible sag in the middle of both, and run the fan at 100 % for the first ~5 layers. |
-| `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | ⚠️ **REPRINT — this part is 16 mm taller than the one you have** (issues #29/#30/#31, see *The plinth* below). Chamber ceiling is a **17 mm bridge**, the speaker-wire channel a **16 mm bridge**, and the **cable egress** a **6 mm bridge** (14 mm wide, but rounded R4 corners leave only 6 mm flat) — leave bridging on (slicer default) and all three are fine. The plinth is **solid in the model on purpose**: a hollow one would have made the cradle floor bridge ~56 mm, whereas a solid one is just infill and the transition needs no bridge at all. Set infill by the *slicer*, not by hollowing the CAD. The **finger scoop** in the rear slot wall opens *upward*, so every wall is near-vertical: no bridge. (It is **one** opening, x 13.94–50.51, not two — `SCALLOP_MIN_RIB` merges them.) The **rear rim is now notched** across x 13.20–50.23 down to z 43.62 so you can reach the caps; the two full-height zones either side of it are what still holds the slab. The **wire saddle** merges into the notch's right-hand end — deliberate, same rule. |
+| `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | ⚠️ **REPRINT — this part is 16 mm taller than the one you have, and its grille is finer** (issues #29/#30/#31 + #28, see *The plinth* below). **Bridges, quoted by the span the printer actually crosses — the *narrow* dimension, since a bridge is laid the short way:** chamber ceiling **15.3 mm**, speaker-wire channel **24.7 mm** (both unchanged, both printed fine for JP), cable egress **6.0 mm**. ⚠️ **And one that will droop: the baffle recess's straight top edge is a 37.1 mm bridge**, 2.2 mm wide, at z ≈ 50.5 — it is *not* a grille aperture and the #28 rescale did not touch it, because it is a single pocket rather than a lattice. Expect visible sag in that one strip; it is cosmetic and it is a known open item. **The egress figure is 6.0 and not 14** because the channel's R4 corners taper the void closed over the last 4 mm, leaving only 6 mm genuinely flat at the top — and it is a **true bridge** rather than an anchored ledge, because the channel is open through the plinth's full depth beneath it, so there is no material behind the span. Leave bridging on (slicer default). The plinth is **solid in the model on purpose**: a hollow one would have made the cradle floor bridge ~56 mm, whereas a solid one is just infill and the transition needs no bridge at all. Set infill by the *slicer*, not by hollowing the CAD. ✅ **The gap-closing / hole-horizontal-expansion warning on the shell row does NOT extend to this part's new features** — the egress is 14 mm wide and the corridor 18, three orders off anything that setting welds shut. Two features depend on it, not three; the grille's 0.90 mm webs are the ones to worry about. The **finger scoop** in the rear slot wall opens *upward*, so every wall is near-vertical: no bridge. (It is **one** opening, x 13.94–50.51, not two — `SCALLOP_MIN_RIB` merges them.) The **rear rim is now notched** across x 13.20–50.23 down to z 43.62 so you can reach the caps; the two full-height zones either side of it are what still holds the slab. The **wire saddle** merges into the notch's right-hand end — deliberate, same rule. |
 | `ember-stand-base.stl` | 1 | flat | none | Closes the speaker chamber. Press fit. ⚠️ **Resized in `89001ea` — reprint if you made one earlier.** |
 
 Outer sizes: slab (bezel + shell assembled) **55.9 × 91.9 × 17.4 mm**; stand
@@ -351,9 +351,24 @@ floor thickness. The port has to sit higher.
 | | |
 |---|---|
 | Stand height | **56.0 mm** (cradle 40.0 + **plinth 16.0**) |
-| Straight corridor, port → desk | **43.40 mm** for a 40 mm requirement — **+3.40 margin** |
+| Straight corridor, port → desk | **43.40 mm** for a 40 mm requirement |
 | End of the rigid run | y = 26.47, **3.28 mm above the desk**, still heading forward |
+| Required there | **2.25 mm** = `CABLE_OD/2` — see below — so **1.03 mm of margin** |
 | Cable meets the desk | y = 25.59, i.e. 25.6 mm behind the front face |
+
+**⚠️ What must clear the desk is the cable's CENTRELINE, not its tip.** A tail whose lowest
+surface just grazes the desk is a tail whose axis is half a diameter *below* it — meaning the
+last few millimetres of the **rigid** run are already being deflected, which is the exact load
+path that levers the device out of the slot. That `CABLE_OD/2` term is the difference between a
+clearance and a coincidence, and it is what puts the derived floor at **54.97 mm** rather than
+52.72.
+
+> **Both figures that circulated during this work reconcile exactly on that term**, which is how
+> it was found. The port's offset from the slab mid-plane was disputed in sign — 1.152 mm of
+> height rides on it — and the two candidate heights turned out to be the two signs, each plus
+> 2.25: **54.97** (port on the back-shell side, which is the settled and correct one) and
+> **53.82** (the other). Neither was a rival model. The settled sign is the one needing the
+> *taller* stand, because the back of a backward-leaning slab is its **low** side.
 
 **Nothing in the cradle moved.** The slot, the well, the sealed chamber, the grille, the
 driver seat and the wire route are the same geometry at the same numbers — the plinth is
@@ -465,32 +480,45 @@ duct and its impedance scales with length ÷ width, so 2.20 mm slots through a 4
 1. **The baffle is recessed to 2.20 mm** in the grille region only, cut from the *outside*
    so the inner face stays flat. Slot aspect 1.82:1 → **1.00:1**, roughly halving the
    impedance.
-2. **The grille is a hexagonal honeycomb** — 33 cells placed, **27 open apertures** after the
-   field's rounded corners clip them, **6.50 mm across the flats** on a
-   7.40 mm pitch (3.75 mm circumradius), 0.90 mm web. Open area **673.0 mm²** nominal, solved
-   *numerically* to match the slot array it replaces exactly, so the change is aesthetic
-   rather than acoustic.
+2. **The grille is a hexagonal honeycomb** — 59 cells placed, **53 open apertures** after the
+   field's rounded corners clip them, **4.50 mm across the flats** on a
+   5.40 mm pitch (2.598 mm circumradius), 0.90 mm web, in a 38 × 25 field.
 
-   > ✅ **Re-derived on the flared geometry.** That 673.0 mm² described the *un-flared* field,
-   > and the mouth is not un-flared — see item 3. Rastered in the X–Z plane at 0.01 mm, which
-   > *is* the aperture plane because the bores run in Y:
+   > ⚠️ **Rescaled in `980598d` (issue #28) — these numbers replace the 6.50 AF / 33-cell /
+   > 27-aperture figures this section carried before, which described the part JP printed and
+   > was unhappy with.** The complaint was *"sagging/messy but holes are open"*: the apertures
+   > **formed**, so the defect was **droop, not collapse**, and droop scales with unsupported
+   > **span length**. Two levers, both applied — `GRILLE_FLARE` 0.60 → **0.25**, which restores
+   > the 0.90 mm webs at the mouth that anchor each span, and `HEX_R` down so across-flats is
+   > exactly 4.50. Measured downward-facing span at the aperture band: **35.283 mm in one run →
+   > 4.567 mm in eight. 87 % shorter.**
    >
-   > | | area | openings |
-   > |:--|--:|--:|
-   > | **Throat** — un-flared cells ∩ field, the acoustic restriction | **678.0 mm²** | **27** |
-   > | **Mouth** — flared cells ∩ field, the face you touch | **886.1 mm²** | **1** |
-   > | the field itself (37 × 24, r1.5) | 886.1 mm² | — |
+   > **Counter-intuitive and worth keeping:** a finer lattice is *less* open per unit field,
+   > because `HEX_WEB = 0.90` is a print floor that does not scale with the cells —
+   > `(a/(a+w))²` goes 0.7714 → 0.6944. So shrinking the holes **spends** open area, which is
+   > why `GRILLE_INSET` went 1.5 → 1.0 to grow the field and pay for it.
+
+   Re-measured on the current geometry, in the X–Z plane, which *is* the aperture plane
+   because the bores run in Y:
+
+   | | area | openings |
+   |:--|--:|--:|
+   | **Throat** — un-flared cells ∩ field, the acoustic restriction | **640.8 mm²** | **53** |
+   | **Mouth** — flared cells ∩ field, the face you touch | **779.2 mm²** | **53** |
+   | the field itself (38 × 25, r2.0) | 946.6 mm² | — |
+
+   > **The mouth is 53 separate apertures now, and that is the visible change.** At the old
+   > 0.60 flare the mouth webs were consumed entirely and the whole field read as **one
+   > 886 mm² opening** with a honeycomb sitting 0.40 mm behind it — finer cells would have
+   > changed nothing you could see. At 0.25 the mouth web is **0.4670 mm** and survives, so the
+   > honeycomb is a honeycomb from outside. `GRILLE_MOUTH_WEB` asserts ≥ 0.45 **or** fully
+   > merged, and nothing in between: a 0.1 mm fin is the one outcome that is neither.
    >
-   > **The throat figure holds: 678.0 against the stated 673.0, +0.7 %**, so the acoustic solve
-   > survives and the driver's ~700 mm² radiating area is 97 % matched. **The mouth is the
-   > entire field** — 886.1 of 886.1 mm², one aperture, because the flared cells cover the
-   > rounded rect completely. From outside this is not 33 chamfered holes; it is one 37 × 24
-   > opening with the honeycomb set 0.40 mm behind it.
-   >
-   > And **33 cells produce 27 openings**, not 33 — six are clipped by the field's rounded
-   > corners. `len(_cells.solids()) >= 30` counts the *cutting tools*, not the holes in the
-   > part: right for the question it asks (have the cells fused?) and not a count of apertures.
-   > Smallest surviving opening 12.85 mm², so no clipped slivers.
+   > ⚠️ **The acoustic solve is now 4.8 % under target, and that is a cost, not a rounding.**
+   > The baffle was solved numerically for **673.0 mm²**; the throat measures **640.8**. It was
+   > +0.7 % before the rescale. On a sealed-back module with Fs ≈ 650 Hz this is inaudible —
+   > the baffle aspect ratio, fixed in item 1, was worth an order of magnitude more — but it is
+   > spent, not free, and if the field is ever rescaled again it should be spent knowingly.
 
    **They are not louvers.** Both patterns are straight-through bores; the raked slots were
    angled *in the plane* of the wall, not through its thickness, so nothing about the angle
@@ -610,10 +638,13 @@ below Fs does nothing and a mistuned one is worse than sealed.
 | `GLASS_GAP` | 0.40 | never reduce below 0.25 — see below |
 | `SLOT_CLR` | 0.40 | slab loose/tight in the stand |
 | `TILT` | 15° | viewing angle |
-| `GRILLE_STYLE` | `"hex"` | `"ridge"` swaps the 33-hex field for lyra's raked dorsal-spine motif. **Both are solved to the same 673 mm² nominal open area** (the hex field's throat measures 678.0 mm², +0.7 %), so this is aesthetic, not acoustic — the rake never did acoustic work, since these are straight-through bores raked *in the plane* of the wall, not louvered vanes angled through its thickness |
+| `GRILLE_STYLE` | `"hex"` | `"ridge"` swaps the 59-hex field for lyra's raked dorsal-spine motif. Both were solved to the same **673 mm²** nominal open area; the hex field's throat now measures **640.8 mm² (−4.8 %)** after the AF 4.50 rescale. Aesthetic, not acoustic — the rake never did acoustic work, since these are straight-through bores raked *in the plane* of the wall, not louvered vanes angled through its thickness |
+| `HEX_R` / `HEX_WEB` | 2.598 / 0.90 | across-flats **4.50** (= `√3·HEX_R`), pitch 5.40. ⚠️ **`HEX_WEB` is a print floor and does not scale with the cells** — shrinking the hexes spends open area, it does not save it |
+| `GRILLE_FLARE` | 0.25 | outward taper at the mouth. **0.25 keeps the mouth webs (0.467 mm) so the honeycomb reads as one; ≥ 0.5196 merges the whole field into a single opening.** `GRILLE_MOUTH_WEB` permits either and forbids the fin in between |
 | `SCALLOP_D` / `SCALLOP_Z0` | 12.0 / 5.0 | the finger pockets over the button caps. Since the #31 rim notch these only govern the part of the scoop that dips *below* the notch floor — extra depth under the cap. Deeper reaches further behind the slab and eats the stand's rear wall; there is an assert holding 3 mm of wall |
-| `STAND_TOTAL_H` | **56.0** | the whole stand. `PLINTH_H` derives as `56.0 − ST_H`, so the two cannot drift. ⚠️ **Do not lower it** — the assert names two unreconciled derivations (53.82, 54.97) that it must clear |
-| `CABLE_RIGID` | 40.0 | JP's measurement: plug tip → first bend. Drives `STAND_TOTAL_H`. If a different cable is used, re-measure this, not the height |
+| `STAND_TOTAL_H` | **56.0** | the whole stand. `PLINTH_H` derives as `56.0 − ST_H`, so the two cannot drift. The derived floor is **54.97**, so there is 1.03 mm of headroom for build tolerance and cable-OD uncertainty |
+| `CABLE_RIGID` | 40.0 | JP's measurement: plug tip → first bend. Drives `STAND_TOTAL_H`. If a different cable is used, re-measure **this**, not the height |
+| `CABLE_OD` | 4.5 | ⚠️ **assumed, not measured.** It buys the cable's *centreline* `OD/2` of clearance over the desk, so the sensitivity is exactly half: every mm of OD is 0.5 mm of stand height |
 | `EGRESS_W` / `EGRESS_H` | 14.0 / 10.0 | the cable channel at desk level. `EGRESS_H` also sets how deep the tail corridor runs, and the corridor drifts *forward* toward the chamber shaft as it descends — there is an overlap-or-clear assert on the wall between them |
 | `TAIL_W` / `TAIL_Y` | 18.0 / 8.0 | the corridor from the well down into the plinth. **`TAIL_Y` is the constrained one**: at 10.0 it leaves a 0.95 mm fin against the chamber shaft |
 | `BEZEL_DEBOSS` | 0.48 | how deep the honeycomb and wyrm cut into the front face. **Keep it an exact multiple of the bezel's 0.16 mm layer height** — it was 0.45, which is 2.8125 layers, so the recess floor landed wherever the slicer's rounding fell rather than on a real layer boundary. An assert holds ≥2.00 mm of bezel over the glass, so there is headroom, but this is the face you look at |
