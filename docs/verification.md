@@ -2212,3 +2212,19 @@ of any reorder is not "is the new order correct" but "what was already broken in
 And underneath it: the clearance check had **never actually run in a worktree**. Nobody noticed,
 because the STLs appeared anyway. §28 again — a check that could not run, read as a check that
 found nothing.
+
+#### A failure that proves your guard works can be a regression you just caused
+
+The worktree builds started dying at the STEP import the moment export was gated. Read locally
+that is a *success*: the run failed, nothing was published, the guard did its job — it was
+reported as "a third negative control, for free". Read globally it is a regression that stops
+every agent outside the main checkout from producing an STL at all.
+
+**Both readings are supported by the same observation, and the reassuring one arrives first**,
+because it is the one you were looking for. A guard under test turns every failure into
+apparent evidence for the guard. The discriminator is not "did it fail correctly" but "would
+this have failed *before my change*" — and here it would not have, because the write used to
+happen first.
+
+Ask it of any newly-added gate: of the things it is now blocking, how many is it *supposed*
+to block?
