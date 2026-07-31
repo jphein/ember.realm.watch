@@ -231,6 +231,12 @@ duct and its impedance scales with length ÷ width, so 2.20 mm slots through a 4
    *numerically* to match the slot array it replaces exactly, so the change is aesthetic
    rather than acoustic.
 
+   > ⚠️ **That 673.0 mm² is the *un-flared* field, and the mouth is not un-flared** — see
+   > item 3. The open area a visitor's finger meets is larger, and it is **being re-derived
+   > on the flared geometry**. Treat the figure as correct for the bores and *pending* for the
+   > mouth. It is deliberately not corrected to a number computed here: a fresh wrong figure
+   > would be worse than an honestly pending one.
+
    **They are not louvers.** Both patterns are straight-through bores; the raked slots were
    angled *in the plane* of the wall, not through its thickness, so nothing about the angle
    ever steered sound. That is precisely why the pattern was free to change.
@@ -244,8 +250,34 @@ duct and its impedance scales with length ÷ width, so 2.20 mm slots through a 4
    `GRILLE_STYLE = "ridge"` restores the raked dorsal-ridge array (9 slots, 24° rake,
    3.20 → 2.50 mm taper, also 673 mm²).
 
-3. **0.60 mm flare on each slot mouth.** A sharp-edged slot sheds vortices and chuffs at
-   level; the flare opens outward and is self-supporting in the print orientation.
+3. **0.60 mm flare on the bores — and at that value the mouths deliberately merge into one
+   opening.** A sharp-edged bore sheds vortices and chuffs at level; the flare opens outward
+   and is self-supporting in the print orientation. It does both of those jobs merged.
+
+   The flare grows each cell's across-flats by `2·flare·cos30°`, so **merging begins at
+   `HEX_WEB/√3 = 0.5196`** against the 7.3952 mm pitch. At 0.60 the flared cells interpenetrate
+   by 0.1392 mm, and **the outer 0.40 mm of the baffle is therefore a single aperture with the
+   hex pattern set back behind it.** From outside you are looking at one recessed opening, not
+   at 33 chamfered ones.
+
+   **That is a choice between three options, not a dial**, because *any* flare puts the web at
+   the mouth under `HEX_WEB`'s own 0.90 mm floor:
+
+   | flare | web at the mouth | |
+   |:--|:--|:--|
+   | `0` | 0.900 mm | keeps the floor, loses the relief entirely |
+   | `0.2598` | 0.450 mm | printable, but a 0.45 mm feature on a part whose declared floor is 0.90 |
+   | **`0.60`** *(shipped)* | *merged* | **no sliver at all** — a deliberate 0.40 mm recessed mouth |
+
+   ⚠️ **`0.45` is the trap and it was nearly taken.** It leaves **0.1206 mm** of web — a fin too
+   thin to print and too thick to be a clean merge, i.e. the one option that is neither. Worse,
+   it would have made the cell-count assert start *passing* while the printer still merged the
+   mouth. If you are tempted to "restore the individual chamfers", that is the value you will
+   reach for, and it is the wrong one.
+
+   > **The cell-count assert cannot see any of this.** It is computed on the *un-flared* field,
+   > so it counts 33 separate cells no matter what the flare does to the mouth. It is guarding
+   > the wrong object — the cells that merge are the flared ones.
 
 **At assembly:**
 

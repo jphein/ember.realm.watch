@@ -198,10 +198,24 @@ cd enclosure &amp;&amp; ./cadenv/bin/python ember_case.py
 <p>⚠️ <em>This subsection was lost once already: rewriting the Speaker section for the sealed-back module replaced a span that happened to contain it. Restored, and updated.</em></p>
 <p>The bottleneck was never the box volume, it was the <b>baffle</b>. A slot behaves like a short duct and its impedance scales with length ÷ width, so 2.20 mm slots through a 4.00 mm wall (<b>1.82:1</b>) made the sound squeeze through slits nearly twice as deep as they were wide.</p>
 <p>1. <b>The baffle is recessed to 2.20 mm</b> in the grille region only, cut from the <em>outside</em> so the inner face stays flat. Slot aspect 1.82:1 → <b>1.00:1</b>, roughly halving the impedance. 2. <b>The grille is a hexagonal honeycomb</b> — 33 hexes, <b>6.50 mm across the flats</b> on a 7.40 mm pitch (3.75 mm circumradius), 0.90 mm web. Open area <b>673.0 mm²</b>, solved <em>numerically</em> to match the slot array it replaces exactly, so the change is aesthetic rather than acoustic.</p>
+<p>&gt; ⚠️ **That 673.0 mm² is the <em>un-flared</em> field, and the mouth is not un-flared<b> — see &gt; item 3. The open area a visitor's finger meets is larger, and it is </b>being re-derived &gt; on the flared geometry**. Treat the figure as correct for the bores and <em>pending</em> for the &gt; mouth. It is deliberately not corrected to a number computed here: a fresh wrong figure &gt; would be worse than an honestly pending one.</p>
 <p><b>They are not louvers.</b> Both patterns are straight-through bores; the raked slots were angled <em>in the plane</em> of the wall, not through its thickness, so nothing about the angle ever steered sound. That is precisely why the pattern was free to change.</p>
 <p>Hex is the better engineering answer at equal open area, for two reasons: it is the <b>optimal packing</b> for a given web thickness, so it reaches the target with more material left between holes than parallel slots do; and it is <b>isotropic</b> — a slot array is slightly stiffer across the bars than along them, a hex field has no preferred direction.</p>
 <p><code>GRILLE_STYLE = "ridge"</code> restores the raked dorsal-ridge array (9 slots, 24° rake, 3.20 → 2.50 mm taper, also 673 mm²).</p>
-<p>3. <b>0.60 mm flare on each slot mouth.</b> A sharp-edged slot sheds vortices and chuffs at level; the flare opens outward and is self-supporting in the print orientation.</p>
+<p>3. <b>0.60 mm flare on the bores — and at that value the mouths deliberately merge into one opening.</b> A sharp-edged bore sheds vortices and chuffs at level; the flare opens outward and is self-supporting in the print orientation. It does both of those jobs merged.</p>
+<p>The flare grows each cell's across-flats by <code>2·flare·cos30°</code>, so <b>merging begins at <code>HEX_WEB/√3 = 0.5196</code></b> against the 7.3952 mm pitch. At 0.60 the flared cells interpenetrate by 0.1392 mm, and <b>the outer 0.40 mm of the baffle is therefore a single aperture with the hex pattern set back behind it.</b> From outside you are looking at one recessed opening, not at 33 chamfered ones.</p>
+<p><b>That is a choice between three options, not a dial</b>, because <em>any</em> flare puts the web at the mouth under <code>HEX_WEB</code>'s own 0.90 mm floor:</p>
+<div class="tablewrap"><table><thead><tr>
+<th>flare</th>
+<th>web at the mouth</th>
+<th></th>
+</tr></thead><tbody>
+<tr><td><code>0</code></td><td>0.900 mm</td><td>keeps the floor, loses the relief entirely</td></tr>
+<tr><td><code>0.2598</code></td><td>0.450 mm</td><td>printable, but a 0.45 mm feature on a part whose declared floor is 0.90</td></tr>
+<tr><td><b><code>0.60</code></b> <em>(shipped)</em></td><td><em>merged</em></td><td><b>no sliver at all</b> — a deliberate 0.40 mm recessed mouth</td></tr>
+</tbody></table></div>
+<p>⚠️ <b><code>0.45</code> is the trap and it was nearly taken.</b> It leaves <b>0.1206 mm</b> of web — a fin too thin to print and too thick to be a clean merge, i.e. the one option that is neither. Worse, it would have made the cell-count assert start <em>passing</em> while the printer still merged the mouth. If you are tempted to "restore the individual chamfers", that is the value you will reach for, and it is the wrong one.</p>
+<p>&gt; <b>The cell-count assert cannot see any of this.</b> It is computed on the <em>un-flared</em> field, &gt; so it counts 33 separate cells no matter what the flare does to the mouth. It is guarding &gt; the wrong object — the cells that merge are the flared ones.</p>
 <p><b>At assembly:</b></p>
 <ul>
 <li><b>Skip the wadding.</b> A sealed-back module brings its own rear volume, so there is no rear</li>

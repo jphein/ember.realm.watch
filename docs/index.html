@@ -1336,10 +1336,27 @@ footer p{margin:.4rem 0}
   </div>
 
   <div class="note">
-    <b>Status: boolean-verified at 0.000&nbsp;mm³ interference against the vendor solid —
-    first print pending.</b> That is a CAD result, not a fitted one: it says the geometry does
-    not intersect, not that a printed part slides on. Tolerance stack-up, shrinkage and
-    filament behaviour are exactly what a first print is for.
+    <b>Status: boolean-verified at 0.000&nbsp;mm³ interference against the vendor solid.
+    One part of four has been printed</b> — <code>ember-front-bezel</code>, and its dimensions
+    look right on the bed.
+    <p style="margin:.6rem 0 0">
+      <b>That is an operator's impression of one part, and the caveat it does not touch is the
+      one that mattered.</b> "The dimensions look good" says the bezel came off the plate the
+      size it was drawn. It says nothing about <em>tolerance stack-up</em> — bezel against
+      board, against four M3 self-tappers, against 2.3&nbsp;±0.1&nbsp;mm of LCD and
+      1.0&nbsp;±0.1 of touch panel — because <strong>nothing has been assembled yet</strong>.
+      Shrinkage and filament behaviour are still open for the same reason. A CAD result says
+      the geometry does not intersect; a printed part that has not met the thing it wraps still
+      does not say it fits.
+    </p>
+    <p style="margin:.6rem 0 0">
+      ⛔ <b>The stand has deliberately not been printed</b>, and should not be: the
+      speaker-wire pass into the sealed chamber is blocked in the committed STL by a
+      0.50&nbsp;mm skin of the tape pad, leaving a slit 0.40&nbsp;mm tall where a 1.2–2.0&nbsp;mm
+      lead has to pass. It is 93&nbsp;cm³ — three quarters of the whole print — so it is the
+      one part where printing ahead of the fix is expensive. The back shell is simply not
+      printed yet.
+    </p>
   </div>
 
   <p>
@@ -1798,6 +1815,31 @@ footer p{margin:.4rem 0}
     straight-through bores; the earlier slots were raked <em>in the plane</em> of the wall,
     not angled through its thickness, so nothing about the angle ever steered sound.
   </p>
+
+  <div class="note">
+    <b>What you actually see from the outside is one opening, not thirty-three — and that is
+    chosen.</b> Each bore is flared 0.60&nbsp;mm at the mouth to break the sharp arris, which
+    sheds vortices and chuffs at level. But the flare grows a cell faster than the pitch allows:
+    merging begins at <code>web/√3 = 0.5196</code>, and at 0.60 the flared cells interpenetrate
+    by 0.14&nbsp;mm. So <strong>the outer 0.40&nbsp;mm of the baffle is a single aperture with
+    the honeycomb set back behind it.</strong> The 673&nbsp;mm² above describes the bores; the
+    open area at the mouth is larger and is being re-derived rather than guessed at here.
+    <p style="margin:.6rem 0 0">
+      <b>It is a three-way choice, not a dial, and the middle option is the trap.</b> Any flare
+      at all puts the web at the mouth under the 0.90&nbsp;mm floor the rest of the part
+      declares. Zero keeps the floor and loses the relief. <b>0.45</b> — the obvious
+      compromise, and the one nearly taken — leaves <b>0.12&nbsp;mm</b> of web: a fin too thin
+      to print and too thick to be a clean merge, the one value that is neither. 0.60 commits:
+      no sliver anywhere, at the price of a recessed pattern.
+    </p>
+    <p style="margin:.6rem 0 0">
+      <b>And the check that should have caught it counts the wrong object.</b> The assert on
+      cell count is computed on the <em>un-flared</em> field, so it reports 33 separate cells
+      whatever the flare does to the mouth — it would have gone on passing at 0.45 while the
+      printer merged them anyway. A check upstream of the feature it is about is the same
+      failure as a check downstream of it; both are arithmetic pointed away from the part.
+    </p>
+  </div>
 
   <p>
     At equal open area hex is the better answer twice over: it is the <b>optimal packing</b>

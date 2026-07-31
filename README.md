@@ -290,6 +290,13 @@ the outside.
 
 So there is one now. **Four parts, none needing supports**, in [`enclosure/`](enclosure/):
 
+> ⛔ **Three of the four are ready for a bed; `ember-stand.stl` is not.** The speaker-wire pass
+> into the sealed chamber is blocked in the committed STL by a 0.50 mm skin of the tape pad,
+> leaving a 0.40 mm slit where a 1.2–2.0 mm lead has to pass. A fix is in flight. The stand is
+> three quarters of the material, so this is the one part worth waiting on — see
+> [`enclosure/PRINT-SHEET.md`](enclosure/PRINT-SHEET.md). `ember-front-bezel.stl` has been
+> printed and its dimensions look right; nothing has been assembled yet.
+
 | | |
 |---|---|
 | `ember-front-bezel.stl` | front face down. Carries the ⌀2.40 mm mic port, the screen window, a debossed honeycomb and the hearth-wyrm |
