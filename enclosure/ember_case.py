@@ -37,28 +37,93 @@ HOLES           = [(4.0,4.0),(46.0,4.0),(4.0,82.0),(46.0,82.0)]   # d3.20, pad d
 GLASS_Y         = (8.40, 77.60)     # glass spans full 50mm width
 VA              = (3.20, 46.80, 16.81, 74.86)   # visible area x0,x1,y0,y1
 MIC             = (40.00, 81.50)    # mic package centre, in the top bare strip
+# ---- THE ONE ABSOLUTE BIT.  EVERYTHING ELSE ABOUT X IN THIS FILE IS RELATIVE. ----
+#
+# ⚠️ READ THIS BEFORE ADDING ANY "IS THE BOARD MIRRORED?" CHECK, because the obvious ones cannot
+# work.  The alignment assert compares the board's bounding box to X 0..50 — and a mirrored
+# board has the IDENTICAL bounding box, so that check is structurally incapable of failing.
+# Less obviously, so is every RELATIVE claim: "BOOT shares its long edge with the microSD" is
+# true in the mirrored world too, because mirroring moves both.  A relative predicate is
+# mirror-invariant BY CONSTRUCTION.  You cannot detect a reflection from the model alone.
+#
+# So exactly one fact here is anchored to a PHYSICAL OBSERVATION and nothing else, and every
+# relative assert in _check_geometry() hangs off it.  The relative ones then earn their place by
+# catching a PARTIAL mirror — one feature moved without the others — which is the failure that
+# actually happened (the switches were swapped relative to the socket).
+#
+# PROVENANCE: set from JP's physical board and the printed parts, 2026-07-30 — NOT from the
+# vendor STEP and NOT from the outline drawing, both of which were read the wrong way round at
+# least once each that day.  Corroborated afterwards by the STEP's own mic face at
+# X 39.21..40.81, Y 80.15..82.85 -> centre (40.01, 81.50), which agrees to 0.01mm.
+#
+# ⚠️ Added after a mirror was SUSPECTED AND RULED OUT.  Nobody should later read this block as
+# evidence that a reflection ever occurred — it did not.  It is here because the hole existed.
+# If this constant is ever re-measured and comes back the other way, EVERY x in section 1
+# mirrors, not just this line.
+MIC_ON_HIGH_X   = True
 USB_X           = (20.53, 29.47)    # USB-C body, centred on 25.00
 USB_Z           = (-4.85, -1.60)
-# Rear-facing tact switches. WHICH IS WHICH — settled on the bench, 2026-07-30, because
-# nothing in the model could say. The vendor STEP carries designators for plenty of parts
-# (C10, SD_CARD1, MOLEX1.25-…, the WS2812 library part) but contains NO K1/K2 and no switch
-# part at all — the same export suppression that hid the mic hole. Twice that file has been
-# silent on exactly the feature we needed.
+# ---- microSD SOCKET.  MEASURED FROM THE STEP'S *FACES*, NOT ITS SOLIDS. ----
 #
-# JP pressed both on the bare board: the one that raises the volume overlay is on the
-# microSD side. SD_PLATE spans x 33.68..44.83, i.e. high-x, so:
+# ⚠️ WHAT USED TO BE HERE WAS NOT THE SOCKET.  `SD_PLATE = (33.68,44.83,15.84,29.99)` was taken
+# from the largest back-side SOLID in the vendor STEP: an 11.15 x 14.15mm plate standing 0.50mm
+# off the PCB.  A microSD socket is 1.4-2.8mm tall, so 0.50mm was never a socket — it is a
+# footprint placeholder, and JP, holding the board, identified it as the LCD driver flex.
 #
-#   x = 36.58  ->  K2 / BOOT / GPIO0  -- the ONLY readable input. Short press = volume
-#                  overlay + step, long press = power menu. Gets the BIG hex cap.
-#   x = 13.45  ->  K1 / RESET         -- hardwired to CHIP_PU, unreadable by firmware,
-#                  reboots the MCU *and* the LCD. Gets the SMALL hex cap.
+# The real socket IS in the same STEP, authored as a stack of ZERO-THICKNESS FACES.  That is why
+# a census of `.solids()` could not find it: it has no solid, no volume, and no height to filter
+# on.  ⚠️ A SEARCH FOR THE WRONG KIND OF OBJECT RETURNS A CONFIDENT ABSENCE.  Searching
+# `.faces()` instead gives four stacked rectangles:
+#
+#     X 2.53..17.53   Y 43.70..58.36   Z -1.60..-3.45      15.00 x 14.66 x 1.85mm
+#
+# 1.85mm tall — a real socket.  Corroborated independently by the vendor outline drawing, whose
+# bottom dimension chain 11.82 + 15.97 + 35.03 closes exactly on Y=86 and puts the socket
+# centreline at Y 50.955; the STEP faces give 51.03.  Two unrelated instruments, 0.3mm apart.
+#
+# The mouth faces the X=0 edge (the body stops 2.53mm short of it), so THE CARD TRAVELS
+# PARALLEL TO THE PCB AND EXITS THROUGH THE SIDE.  The opening is therefore a side-wall slit,
+# like the connector channels — not a hole in the back face.
+#
+# >>> THIS IS THE LANDMARK THE BUTTON ASSIGNMENT IS DERIVED FROM.  Do not edit it without
+#     reading the block below. <<<
+SD_SOCKET       = (2.53, 17.53, 43.70, 58.36)   # x0,x1,y0,y1
+SD_SOCKET_Z     = (-3.45, -1.60)
+SD_CARD_W       = 11.00              # microSD card width, across the direction of travel
+
+# Rear-facing tact switches. WHICH IS WHICH — DERIVED FROM THE SOCKET, NOT TYPED, and the
+# reason is the entire bug this block used to contain.  The vendor STEP carries designators for
+# plenty of parts (C10, SD_CARD1, MOLEX1.25-…, the WS2812 library part) but contains NO K1/K2
+# and no switch part at all — the same export suppression that hid the mic hole and the socket.
+#
+# JP's bench test, on the bare board: "volume button is on sd card side."  That observation was
+# always correct.  ⚠️ WHAT WAS WRONG WAS THE LANDMARK IT WAS DECODED THROUGH.  The old comment
+# reasoned "SD_PLATE spans x 33.68..44.83, i.e. high-x, so x = 36.58 -> BOOT" — and SD_PLATE was
+# the LCD driver flex.  A correct physical fact, a correct inference, and a fictional anchor;
+# the answer came out mirrored.  Read against the real socket at x 2.53..17.53 the same bench
+# test gives the OPPOSITE assignment, which is what JP saw on the printed part.
+#
+# So it is COMPUTED now.  A comment has to be re-decoded by a human every time it is trusted,
+# and this one was re-decoded wrongly.  Code is decoded once.
+_SD_CX          = (SD_SOCKET[0] + SD_SOCKET[1]) / 2.0
+_BTN_XS         = sorted(x for (x, _y) in [(13.45,3.26),(36.58,3.26)])
+BTN             = [(13.45,3.26),(36.58,3.26)]
+# the volume switch shares its long edge with the socket; the other switch is RESET.
+BTN_BOOT_X      = _BTN_XS[0]  if _SD_CX < BW/2 else _BTN_XS[-1]   # big cap, the only readable switch
+BTN_RESET_X     = _BTN_XS[-1] if _SD_CX < BW/2 else _BTN_XS[0]    # small cap
+#
+#   BOOT  = K2 / GPIO0  -- the ONLY readable input. Short press = volume overlay + step,
+#           long press = power menu. Gets the BIG hex cap.
+#   RESET = K1          -- hardwired to CHIP_PU, unreadable by firmware, reboots the MCU
+#           *and* the LCD. Gets the SMALL hex cap.
 #
 # ⚠️ Holding BOOT low ACROSS a reset enters ROM download mode, which looks like a brick.
 # With two pressable caps that is reachable by accident, so neither cap may be able to
 # stick depressed, and one thumb must not span both.
-BTN             = [(13.45,3.26),(36.58,3.26)]
-BTN_RESET_X     = 13.45              # small cap
-BTN_BOOT_X      = 36.58              # big cap, the only readable switch
+#
+# ⚠️ THE COST OF GETTING THIS BACKWARDS IS ASYMMETRIC, which is why it is derived and asserted
+# rather than trusted: the generous thumb-sized cap over HARDWARE RESET is a device that reboots
+# when you reach for the volume.  An easy RESET is an annoyance; a RESET you cannot avoid is not.
 #
 # >>> NEVER SPECIFY THESE AS "LEFT" OR "RIGHT". USE THE COORDINATES. <<<
 #
@@ -98,7 +163,13 @@ LED             = (29.00, 45.60)    # WS2812B 5x5, on the BACK, fires rearward
 ANT             = (17.57, 32.21, 80.04, 85.70)  # PCB antenna -- KEEPOUT, no metal
 CONN_R         = [(32.54,40.19),(44.84,54.99),(62.69,72.84)]  # X=50 edge connectors
 CONN_L         = [(21.07,25.32),(29.91,40.06)]                # X=0  edge connectors
-SD_PLATE       = (33.68,44.83,15.84,29.99)  # microSD, simplified in the STEP
+CONN_R_EDGE_X  = BW      # the long edge CONN_R sits on
+CONN_L_EDGE_X  = 0.0     # the long edge CONN_L sits on
+# ⚠️ NOT THE MICROSD.  This is the 0.50mm-tall placeholder the old `SD_PLATE` name was attached
+# to — the LCD driver flex, per JP.  It is kept ONLY as a keepout: it is the thing the phantom
+# opening was exposing, so anything that cuts the X=BW wall must be checked against it.  The
+# real socket is `SD_SOCKET`, 30mm away across the board and 28mm along it.
+LCD_FLEX       = (33.68,44.83,15.84,29.99)
 
 # ============================================================================
 # 2. CASE PARAMETERS  -- tune these
@@ -111,43 +182,71 @@ WIN_MARGIN = 0.40    # bezel window oversize beyond the visible area
 BOSS_D     = 5.40    # <= 5.60 pad diameter, per the vendor keepout
 PILOT_D    = 2.50    # M3 self-tapper pilot
 SCREW_D    = 3.30    # M3 shank clearance through the shell
-# ---- COUNTERSINK, SIZED TO A NAMED HEAD RATHER THAN TO AN ANGLE ----
+# ---- COUNTERBORE, SIZED TO A MEASURED HEAD ----
 #
-# It was `cone(..., BACK_Z+1.70, 6.40, SCREW_D)`, whose included angle is
-# 2*atan(1.55/1.70) = 84.7deg against a standard 90deg flat head. A head STEEPER than its hole
-# never touches the flanks: it bears on a line — its own top rim against the cone — instead of
-# on the full conical seat, at several times the intended contact stress, on a fastener a person
-# torques by feel, and the crater lands on the VISIBLE back face.
+# JP's screws are SOCKET CAP with a hex recess, so the head is a CYLINDER. This is a
+# flat-bottomed counterbore, not a cone.
 #
-# ⚠️ AND "MAKE THE ANGLE 90deg" IS NOT THE FIX. My own audit recommended widening the mouth to
-# 6.70 to get 90deg, and that is WORSE: with the flanks parallel but the mouth wider than the
-# head, a 6.00 head sinks 0.35mm instead of 0.22 and STILL rim-contacts. Computed:
+# HISTORY, in one line, because it explains why this used to be forty: it was a 90deg conical
+# countersink with a long derivation about included angles, DIN 965 versus ISO 10642 heads, and
+# why fixing the angle without also fixing the mouth diameter still leaves the head bearing on
+# its rim. All of it solved for a conical seat this fastener does not have. It is DELETED rather
+# than adapted — a comment explaining a 90deg cone sitting next to a counterbore is precisely the
+# stale-rationale failure this repo keeps logging.
 #
-#     countersink              angle  | 6.00 head        | 6.40 head        | 6.72 head
-#     d6.40 x 1.70 (as built)   84.7  | -0.22 rim        | flush, rim       | proud
-#     d6.70 x 1.70 (my "fix")   90.0  | -0.35 rim        | -0.15 rim        | proud
-#     d6.40 x 1.55 (this)       90.0  | -0.20 rim        | FLUSH, FULL SEAT | proud
+# A counterbore is also the more forgiving feature, which is worth knowing before anyone
+# "improves" it back: a flat floor seats a cylindrical head on its FULL ANNULAR UNDERSIDE
+# regardless of small diameter errors, where a cone punishes any angle mismatch by concentrating
+# the load on a line. And a flat floor at a layer boundary is exactly what an FDM printer makes
+# well, so the staircase-of-annular-steps problem the cone had disappears.
 #
-# A FULL CONICAL SEAT NEEDS TWO THINGS AT ONCE — 90deg AND mouth == head diameter. Fixing the
-# angle alone while leaving the diameter free is the same shape as every fault in
-# docs/verification.md: the corrected property was not the one that governed the outcome.
+# ⚠️ EVERY NUMBER IN THE FASTENER CHAIN IS MEASURED. Calipered by JP on the actual screws,
+# 2026-07-30. The ISO 4762 table agrees with both figures, but the table is not the source — this
+# is the only part of this design where no input is nominal, and that is worth preserving. If a
+# screw ever does not fit, no assumption is hiding in here.
+SCREW_SPEC      = "M3 x 0.5 x 12 ISO 4762 socket cap, hex recess"
+SCREW_HEAD_D    = 5.50   # MEASURED, JP, 2026-07-30
+SCREW_HEAD_H    = 3.00   # MEASURED, JP, 2026-07-30
+SCREW_LEN       = 12.00  # UNDER-HEAD length, which is how ISO 4762 is dimensioned. ⚠️ A
+                         # countersunk screw's stated length INCLUDES its head; a socket cap's
+                         # does not. That difference is why a 12mm cap out-performs the 14mm
+                         # countersunk this used to specify.
+LAYER_H         = 0.16   # PRINT-SHEET's layer height for the shell parts. NAMED because three
+                         # separate features are whole multiples of it and each used to say so
+                         # only in a comment.
+CBORE_CLR       = 0.30   # diametral clearance, 0.15 a side
+CBORE_D         = SCREW_HEAD_D + CBORE_CLR              # 5.80
+# DEPTH IS A WHOLE NUMBER OF LAYERS, AND IT ROUNDS *DEEPER* THAN FLUSH.
+# JP chose flush, which wants 3.00 — but 3.00 is 18.75 layers at 0.16 and a floor cannot land
+# mid-layer. 18 layers (2.88) leaves the head 0.12mm PROUD, and proud is the one failure that
+# matters: it stops the part sitting flat and stops the screw clamping. 19 layers (3.04) sinks it
+# 0.04mm BELOW flush, which is invisible and harmless. Same asymmetry the old cone block found by
+# a different route — sunk beats proud — so the rounding goes toward sunk.
+CBORE_DEPTH     = 19 * LAYER_H                          # 3.04
+# ---- BOSS FLARE.  THIS EXISTS BECAUSE THE HEAD IS 3.00mm TALL.  DO NOT REMOVE IT. ----
 #
-# So the head is NAMED and the depth follows from it. 6.40 is chosen over 6.00 deliberately:
-# a head LARGER than the mouth sits PROUD, which stops the part sitting flat and stops the screw
-# clamping, and proud is worse than sunk. At 6.40 a DIN 965 M3 head (6.0 max) sinks 0.20mm —
-# no worse than today — and a 6.40 head seats fully. ⚠️ An ISO 10642 socket countersunk M3
-# (6.72 head) would sit proud; if that is the screw, this becomes 6.72 / 1.71.
-CSK_HEAD_D     = 6.40    # THE HEAD THIS IS CUT FOR. State the screw, not just the angle.
-CSK_HEAD_ANGLE = 90.0    # ISO/DIN countersunk flat head, included
-CSK_OVER       = 0.01    # cone starts this far outside the face, so no coplanar seam
-CSK_DEPTH      = 1.55    # was 1.70. Asserted against the head angle below — not derived from
-                         # it, so the assert can actually fail.
-assert abs(((CSK_HEAD_D + 2*CSK_OVER - SCREW_D) / 2) / (CSK_DEPTH + CSK_OVER)
-           - math.tan(math.radians(CSK_HEAD_ANGLE / 2))) < 1e-9, (
-    f"the countersink's radial rate does not match a {CSK_HEAD_ANGLE}deg head: mouth "
-    f"{CSK_HEAD_D}, depth {CSK_DEPTH}, bore {SCREW_D} give an included angle of "
-    f"{2*math.degrees(math.atan(((CSK_HEAD_D + 2*CSK_OVER - SCREW_D)/2)/(CSK_DEPTH+CSK_OVER))):.2f}"
-    f"deg. A head steeper than its hole bears on a line, not on the cone")
+# A flush 3.04mm pocket floors at z -6.66, which is 0.44mm PAST CAV_FLOOR — out of the solid back
+# slab and into the cavity, where the only material is the screw boss. At BOSS_D = 5.40 the
+# CBORE_D = 5.80 bore is WIDER THAN THE THING IT IS CUTTING, so it removes the boss root and
+# leaves the head nothing to bear on. ⚠️ A POCKET DEEPER THAN THE SLAB IT IS CUT INTO STOPS BEING
+# A POCKET. Nothing else in this file could have caught that: every other check compares the PART
+# to the BOARD, and this is the part disagreeing with itself.
+#
+# ⚠️ THE PERMISSION FOR THE FLARE IS A DISTINCTION, NOT A LICENCE: the vendor's d5.60 pad keepout
+# applies AT THE PCB FACE, not below it. So the boss stays 5.40 where it touches the board and
+# widens only underneath, in free space. Anyone "restoring" it to a uniform 5.40 to match the
+# keepout comment will silently delete the head's seat.
+#
+# Bounded above by the button slots, not by taste. The slots pass within 9.49mm (RESET) and
+# 12.38mm (BOOT) of a boss centre — the hex has NARROWED by the time it reaches the boss's y, so
+# the naive x-extent overstates the conflict. 8.40 clears the tighter one by 1.09mm.
+BOSS_FLARE_D    = 8.40   # boss diameter at CAV_FLOOR, tapering to BOSS_D at the PCB face
+BOSS_MIN_ANN    = 1.00   # minimum annular bearing width under the head, at the bore floor
+# ⚠️ AND THE BINDING CONSTRAINT IS NO LONGER THE ONE EVERYONE REACHES FOR. The wall from a screw
+# hole to the outer corner arc was 2.533mm with the old d6.42 cone mouth and is 2.843mm with this
+# d5.80 bore — the counterbore is LESS binding there, because a socket cap head (5.50) is smaller
+# than the countersunk head (6.00) whose 90deg cone needed a 6.42 mouth. The arc was the right
+# worry for the cone and is the wrong worry for this. Depth against the 2.60mm wall is what bites.
 # ---- HEXAGONAL BUTTON CAPS ----
 # The pads were rectangles. JP: "i wanted the buttons to be hexagons not squares" — and
 # they should be, since every other aperture on this case is a hex cell.
@@ -175,14 +274,82 @@ assert abs(((CSK_HEAD_D + 2*CSK_OVER - SCREW_D) / 2) / (CSK_DEPTH + CSK_OVER)
 # answer are the same number.
 BTN_R_BIG   = 8.6603  # BOOT/volume. 17.32 across corners, 15.00 across flats.
 BTN_R_SMALL = 5.7735  # RESET. "it can be smaller hexagon" — 11.55 corners, 10.00 flats.
-# ISLAND CENTRES ARE OFFSET FROM THE SWITCHES, and the countersinks force it. The M3
-# countersinks at (4,4) and (46,4) open to 6.40mm at the outer face, occupying x 0.80..7.20 and
-# 42.80..49.20. A 17.32mm-wide island centred on the switch at 36.58 would span 27.92..45.24
-# and eat into the second one. Shifting the ISLAND inboard is free because the hinge line runs
-# across X and the PIP stays on the switch — only the decorative hex moves.
-CAP_CX_BOOT  = 33.05  # island centre; switch is at BTN_BOOT_X = 36.58
-CAP_CX_RESET = 14.51  # island centre; switch is at BTN_RESET_X = 13.45
-PAD_Y0     = 0.80    # island bottom edge. Any lower cuts the shell's bottom wall.
+# ISLAND CENTRES ARE OFFSET FROM THE SWITCHES, and the screw heads force it. The M3 heads at
+# (4,4) and (46,4) open to HEAD_MOUTH_D at the outer face. A 17.32mm-wide island centred on the
+# switch at 36.58 would span 27.92..45.24 and eat into the high-x one. Shifting the ISLAND
+# inboard is free because the hinge line runs across X and the PIP stays on the switch — only
+# the decorative hex moves.
+#
+# ⚠️ THESE WERE TWO HAND-TYPED NUMBERS WHOSE JUSTIFICATION THE FILE DID NOT COMPUTE, and that
+# made them a trap in two directions at once. The switches swapped sides (see the BTN block) and
+# the screw recess changed shape — either alone silently invalidates a literal, and nothing here
+# would have objected. So they are SOLVED from the clearance that motivated them:
+#
+#   * the binding dimension is the SLOT's outer edge, not the island's: the ring cut reaches
+#     R + SLOT_W, and that is what can break into the head recess.
+#   * ISLAND_SLOT_CLR reproduces the shipped BOOT island to 0.01mm (33.04 solved vs 33.05
+#     typed), which is the case the original comment names as the forcing one. The shipped RESET
+#     island was 0.44mm more generous than the rule; it was never the binding side.
+SLOT_W          = 0.60   # printed-in-place slot around the button pads. Declared HERE because
+                         # the island solve below needs it — it used to sit 70 lines further on.
+PAD_Y0          = 0.80   # island bottom edge. Any lower cuts the shell's bottom wall. Declared
+                         # HERE because _island_cx() needs it — it used to sit below the islands.
+def _cap_cy(R):
+    """Island/cap centre y for a cap of circumradius R. THE single derivation.
+
+    ⚠️ Extracted because two places now need it and this file has already been bitten once by
+    exactly that: HEX_FIELD_Y0 exists because _hex_panel() moved to 19.00 while the assert
+    checking it still read a hardcoded 11.0, so the assert fired against a boundary the part no
+    longer had. cap_geometry() and _island_cx() must not each carry their own copy of this."""
+    return PAD_Y0 + R*math.sqrt(3)/2
+ISLAND_SLOT_CLR = 0.49   # wall between the slot and the d5.80 counterbore bore
+FLARE_SLOT_CLR  = 0.80   # wall between the slot and the d8.40 boss flare. Larger because this
+                         # one is a load path — the boss carries the screw — where the bore wall
+                         # is only cosmetic. Two extrusions at a 0.4 nozzle.
+def _island_cx(cx, R):
+    """Island centre for a cap of circumradius R whose switch is at x=cx.
+
+    Returns cx unchanged when nothing is in the way, otherwise the nearest position that clears
+    BOTH obstructions near each screw hole. Leaving it concentric is always preferred: the pip
+    stays on the switch while only the decorative hex moves, and the hex narrows toward its bottom
+    flat exactly where the pip sits, so the legal offset window is under 1mm wide.
+
+    ⚠️ THE TWO OBSTRUCTIONS ARE DIFFERENT SHAPES AT DIFFERENT DEPTHS AND A SINGLE max() IS WRONG.
+    The slot is cut from BACK_Z-1 up to CAV_FLOOR+1, so it passes BOTH:
+
+      * the d5.80 counterbore bore, deep in the back slab, at the slot's full circumradius;
+      * the d8.40 boss flare, up in the cavity — WIDER, but the slot has NARROWED by the time it
+        reaches the boss's y, because a flat-top hex loses 1/sqrt(3) of half-width per unit of y
+        away from its own centre. The boss sits at y=4.0 and the big cap's hex centres at y=8.30,
+        so 4.30mm of narrowing turns a 9.26 half-width into 6.78.
+
+    Taking max(bore, flare) against the naive x-extent — my first attempt — pushed the big island
+    to 17.95, an offset of 4.50 from its switch, which is outside that sub-millimetre pip window:
+    it would have moved the pip off the island entirely to dodge a collision that the narrowing
+    means does not happen. AN OVER-CONSERVATIVE CONSTRAINT IS STILL A WRONG ONE."""
+    reach = R + SLOT_W                                    # slot circumradius (its widest)
+    cyh   = _cap_cy(R)
+    narrow = max(0.0, reach - abs(HOLES[0][1] - cyh)/math.sqrt(3))   # half-width at the boss's y
+    _b = []
+    for hx in (HOLES[0][0], HOLES[1][0]):
+        _b.append((hx, CBORE_D/2      + ISLAND_SLOT_CLR + reach))
+        _b.append((hx, BOSS_FLARE_D/2 + FLARE_SLOT_CLR  + narrow))
+    lo = max(hx + k for (hx, k) in _b if hx < BW/2)
+    hi = min(hx - k for (hx, k) in _b if hx > BW/2)
+    # ⚠️ ROUND AWAY FROM THE RECESS, NOT TO NEAREST. This line was `round(..., 2)` and the
+    # assert in _check_geometry() 0g caught it on the first build: the solve wanted 16.9603 and
+    # round-to-nearest tidied it to 16.96, SPENDING 0.0003mm of the clearance it had just
+    # computed. The number was wrong by three ten-thousandths of a millimetre and it was still a
+    # real violation, because a value sitting ON a constraint boundary has no slack to round
+    # into. Whenever a rounded number IS a clearance, the direction of the rounding is part of
+    # the constraint. Kept at 2dp because these are read by humans in renders and sheets.
+    if cx < lo: return math.ceil(lo * 100) / 100
+    if cx > hi: return math.floor(hi * 100) / 100
+    return cx
+CAP_CX_BOOT  = _island_cx(BTN_BOOT_X,  BTN_R_BIG)    # island centre; switch at BTN_BOOT_X
+CAP_CX_RESET = _island_cx(BTN_RESET_X, BTN_R_SMALL)  # island centre; switch at BTN_RESET_X
+# PAD_Y0 moved UP to the island-solve block -- _island_cx() needs it. A second
+# definition here would shadow it and the two cy derivations would silently diverge.
 # The back hex field's lower boundary, NAMED because two places need it and they disagreed:
 # _hex_panel() was moved to 19.00 for the thumb-sized caps while the assert that checks the
 # caps clear the field still read a hardcoded 11.0 — so the assert fired against a boundary
@@ -245,7 +412,8 @@ HINGE_T    = 0.90    # living-hinge thickness
 # Findability is already differentiated by size and deboss depth, which cost no strain at all.
 HINGE_L_BOOT  = 1.20
 HINGE_L_RESET = 2.00
-SLOT_W     = 0.60    # printed-in-place slot around the button pads
+# SLOT_W moved UP to the island-solve block — `_island_cx()` needs it. A second definition here
+# would shadow it and the islands would silently solve against a stale width.
 # LED_WIN_D / DIFF_D deleted with the rear glow window and the diffuser disc. The fine
 # hex field on the back now carries the WS2812's light, and JP is printing in WHITE — a
 # translucent shell, so the glow leaves through the wall as well as the holes. Many small
@@ -302,7 +470,7 @@ def cyl(x,y,z0,z1,d):
 # lands on its own logo. Same trap that killed the raised button caps on the back shell, in
 # the same session, on the opposite face — which is the tell that it is a property of the
 # process rather than a one-off mistake: on a bed face, relief only goes inward.
-BEZEL_DEBOSS = 0.48   # every debossed feature on the front face. EXACTLY 3 layers at the
+BEZEL_DEBOSS = 3 * LAYER_H  # every debossed feature on the front face. EXACTLY 3 layers at the
                       # 0.16mm PRINT-SHEET specifies for this part. It was 0.45, which is
                       # 2.8125 layers — the recess floor landed mid-layer and the comment
                       # claimed "3 layers at 0.15", a layer height this part does not use. Two
@@ -619,7 +787,7 @@ def cap_geometry(cx):
     """
     big = (cx == BTN_BOOT_X)
     R = BTN_R_BIG if big else BTN_R_SMALL
-    return (PAD_Y0 + R*math.sqrt(3)/2, R,
+    return (_cap_cy(R), R,
             DEBOSS_BIG if big else DEBOSS_SMALL)
 
 def hexp(cx, cy, R, z0, z1):
@@ -724,25 +892,81 @@ def front_bezel():
 # ============================================================================
 # 5. BACK SHELL
 # ============================================================================
+# ============================================================================
+# SIDE-WALL OPENINGS — DERIVED FROM THE COMPONENTS THEY EXIST TO CLEAR
+# ============================================================================
+#
+# ⚠️ THIS IS THE FIX FOR THE FAILURE THAT CAUSED THE REPRINT, and it is structural rather than
+# numeric. The channels used to be two hand-typed literals:
+#
+#     [(14.0,40.5),(44.0,56.0),(62.0,75.0)]     and     [(14.0,26.0),(29.0,42.0)]
+#
+# and the constant that NAMED the feature they served — the old `SD_PLATE` — had NO CONSUMERS.
+# `grep` found it in its own definition and two comments, nothing else. So the coordinate and
+# the opening were never connected by anything except a human reading both.
+#
+# ⚠️ A CONSTANT WITH NO CONSUMER CANNOT BE WRONG IN A WAY ANYTHING DETECTS. Nothing recomputes
+# when it changes, no assert compares it to the geometry, and its only reader is a person who
+# has to re-derive the link every time. That is why a 26.50mm opening with 18.54mm of nothing
+# behind it survived every check in this file: the checks all compare the PART to the BOARD, and
+# an opening over a component that isn't there is agreement, not conflict.
+#
+# Now the spans are computed from CONN_R / CONN_L / SD_SOCKET. A wrong coordinate MOVES an
+# opening, and `_check_geometry()` asserts the converse — every span must have a component
+# behind it. The dead-`GRILLE_SLOT_W` hazard this file already logs, one screenful above
+# CAP_CX_BOOT, is the same shape; it recurred anyway, so this time the link is code.
+CHAN_PAD      = 1.00   # lead-in each side of a connector footprint. The shipped non-phantom
+                       # channels had 0.84 / 0.69 / 0.91, so 1.00 is not a tightening.
+CHAN_RIB      = 1.20   # thinnest wall allowed between two openings; under this they MERGE
+                       # rather than leaving a stringy fin. Three extrusions at a 0.4 nozzle.
+SD_SLIT_INSET = 0.50   # slit is the socket span less this, so it cannot undercut the socket's
+                       # own side walls while still clearing SD_CARD_W plus a finger.
+
+def _merge_spans(spans, min_rib):
+    """Sort, then merge any pair separated by less than min_rib.
+
+    A rib thinner than a few extrusion widths is not a wall, it is a defect that happens to
+    have a dimension — the same reasoning desk_stand() applies to its finger pockets."""
+    out = []
+    for a, b in sorted(spans):
+        if out and a - out[-1][1] < min_rib:
+            out[-1] = (out[-1][0], max(out[-1][1], b))
+        else:
+            out.append([a, b])
+    return [(a, b) for a, b in out]
+
+def side_channels():
+    """(spans on the x=BW edge, spans on the x=0 edge), derived from the component tables.
+
+    The microSD slit goes on WHICHEVER EDGE THE SOCKET IS ON — read from SD_SOCKET, not typed.
+    That is deliberate: the last time this was decided by a human reading a coordinate, the
+    coordinate was a placeholder and the opening landed on the far side of the board."""
+    hi = [(y0 - CHAN_PAD, y1 + CHAN_PAD) for (y0, y1) in CONN_R]
+    lo = [(y0 - CHAN_PAD, y1 + CHAN_PAD) for (y0, y1) in CONN_L]
+    slit = (SD_SOCKET[2] + SD_SLIT_INSET, SD_SOCKET[3] - SD_SLIT_INSET)
+    (lo if _SD_CX < BW/2 else hi).append(slit)
+    return _merge_spans(hi, CHAN_RIB), _merge_spans(lo, CHAN_RIB)
+
 def back_shell():
     p  = rbox(OX0,OX1,OY0,OY1, BACK_Z, SEAM_Z, OUT_R)
     # board + glass pocket, and the back-component cavity, in one cut
     p -= rbox(PK0,PK1,PY0,PY1, CAV_FLOOR, SEAM_Z+1, POCK_R)
     # screw standoffs up to the PCB back face
     for (hx,hy) in HOLES:
-        p += cyl(hx,hy, CAV_FLOOR, PCB_BOT, BOSS_D)
+        # FLARED boss: BOSS_D at the PCB face (the vendor keepout applies THERE), widening to
+        # BOSS_FLARE_D underneath so the counterbore has something to floor on. See BOSS_FLARE_D.
+        p += cone(hx,hy, CAV_FLOOR, PCB_BOT, BOSS_FLARE_D, BOSS_D)
         p -= cyl(hx,hy, BACK_Z-0.01, PCB_BOT+0.01, SCREW_D)
-        # mouth is CSK_HEAD_D *at the face*: the cone starts CSK_OVER outside it, so it is
-        # opened by 2*CSK_OVER to compensate. See the CSK_* block for why the head is named.
-        p -= cone(hx,hy, BACK_Z-CSK_OVER, BACK_Z+CSK_DEPTH,
-                  CSK_HEAD_D + 2*CSK_OVER, SCREW_D)                 # countersink
+        # COUNTERBORE for a cylindrical head. Flat floor, CBORE_DEPTH deep = 19 layers.
+        p -= cyl(hx,hy, BACK_Z-0.01, BACK_Z+CBORE_DEPTH, CBORE_D)
     # ---- USB-C opening + cable relief (bottom short edge) ----
     p -= bx(18.0,32.0, OY0-1, PY0+0.5, -6.60,-0.60)
     p -= bx(15.5,34.5, OY0-1, OY0+1.6, -8.20, 0.40)      # outside relief for overmould
-    # ---- side channels: connectors + microSD.  Deliberately generous. ----
-    for (a,b) in [(14.0,40.5),(44.0,56.0),(62.0,75.0)]:
+    # ---- side channels: connectors + the microSD slit.  DERIVED — see side_channels(). ----
+    _hi, _lo = side_channels()
+    for (a,b) in _hi:
         p -= bx(BW+FIT-0.01, OX1+1, a,b, CAV_FLOOR, PCB_BOT)
-    for (a,b) in [(14.0,26.0),(29.0,42.0)]:
+    for (a,b) in _lo:
         p -= bx(OX0-1, PK0+0.01, a,b, CAV_FLOOR, PCB_BOT)
     # ---- mic BACK relief: works whichever way the port faces ----
     p -= cyl(MIC[0],MIC[1], BACK_Z-1, CAV_FLOOR+0.01, 3.00)
@@ -1714,6 +1938,131 @@ def _bearing_footprint():
 
 def _check_geometry():
     import math
+    # ------------------------------------------------------------------
+    # 0. HANDEDNESS AND THE OPENING/COMPONENT LEDGER.
+    #
+    # These exist because of the 2026-07-30 reprint. The faults were: an opening cut over a
+    # component that was not the one it was named for, and a switch pair assigned by re-reading
+    # a comment. Neither is a clearance, so nothing in sections 1..n below could see either.
+    # ------------------------------------------------------------------
+    # 0a. the anchored bit. See the MIC_ON_HIGH_X block for why this cannot be derived.
+    assert (MIC[0] > BW/2) == MIC_ON_HIGH_X, (
+        f"MIC x={MIC[0]} is on the {'high' if MIC[0] > BW/2 else 'low'}-x half but "
+        f"MIC_ON_HIGH_X={MIC_ON_HIGH_X}. This is the ONLY absolute x fact in the file and it is "
+        f"set from a physical measurement. If the board really is mirrored, mirror ALL of "
+        f"section 1 — do not flip this line to make the build pass")
+    # 0b. A COUNT CANNOT BE MIRRORED. This is the only handedness-invariant instrument anyone
+    #     produced for this board: three connectors on one long edge, two on the other.
+    #     ⚠️ It did NOT catch the fault it was written during — a handedness-free measurement of
+    #     the WRONG FEATURE is still wrong, and what was misidentified was the socket, not the
+    #     edges. Kept because the invariant is real, with its limit recorded so nobody mistakes
+    #     it for a mirror detector.
+    assert len(CONN_R) == 3 and len(CONN_L) == 2, (
+        f"the long edges carry {len(CONN_R)}/{len(CONN_L)} connectors, not 3/2 — either the "
+        f"board data changed or the two tables have been swapped")
+    assert (CONN_R_EDGE_X > BW/2) == (MIC[0] > BW/2), (
+        "the three-connector edge and the mic must be the same long edge")
+    # 0c. PARTIAL-MIRROR CATCHERS. Each is relative, so none detects a whole-board reflection
+    #     (see 0a) — but a whole-board reflection is not what went wrong. ONE FEATURE MOVING
+    #     WITHOUT THE OTHERS is, and that is exactly what these see.
+    assert (BTN_BOOT_X < BW/2) == (_SD_CX < BW/2), (
+        f"BOOT is at x={BTN_BOOT_X} and the microSD socket centres on x={_SD_CX:.2f}. JP's bench "
+        f"test is 'volume button is on sd card side', so they MUST share a long edge. The big "
+        f"thumb cap on hardware RESET is a device that reboots when you reach for the volume")
+    assert (BTN_RESET_X > BW/2) == (MIC[0] > BW/2), (
+        "RESET must share its long edge with the mic (the edge the socket is NOT on)")
+    assert BTN_BOOT_X != BTN_RESET_X and {BTN_BOOT_X, BTN_RESET_X} == {x for x, _ in BTN}, (
+        "the two switch x's must be exactly the two entries in BTN, once each")
+    # 0d. THE OPENING/COMPONENT LEDGER — the assert the old code could not have had.
+    #     Every side-wall span must have a component behind it. An opening over empty board is
+    #     invisible to a clearance check: nothing collides, so it reads as agreement.
+    _hi, _lo = side_channels()
+    for _edge, _spans, _conns in (("x=%g" % BW, _hi, list(CONN_R)), ("x=0", _lo, list(CONN_L))):
+        # Anything that may LEGITIMATELY sit behind an opening on this edge.
+        _behind_ok = list(_conns)
+        if (_SD_CX < BW/2) == (_edge == "x=0"):
+            _behind_ok.append((SD_SOCKET[2], SD_SOCKET[3]))
+        for (_a, _b) in _spans:
+            assert any(not (k[1] < _a or k[0] > _b) for k in _behind_ok), (
+                f"{_edge} edge has an opening at Y {_a:.2f}..{_b:.2f} with NO component behind "
+                f"it. This is the phantom-opening failure: the old Y 14.0..40.5 channel had "
+                f"18.54mm of nothing behind it and every check passed")
+        # ⚠️ The two directions are NOT symmetric, and conflating them is a bug. A CONNECTOR has
+        # a plug that must pass THROUGH the wall, so it must be WHOLLY exposed. The SOCKET must
+        # not be: only a card aperture passes, and opening the full 14.66mm body would undercut
+        # the socket's own side walls. 0f checks the socket's aperture separately, against the
+        # card rather than against the body.
+        for _k in _conns:
+            assert any(_a <= _k[0] and _k[1] <= _b for (_a, _b) in _spans), (
+                f"{_edge} edge connector at Y {_k[0]:.2f}..{_k[1]:.2f} is not wholly inside any "
+                f"opening — it is walled in, which is how the microSD shipped")
+    # 0e. the phantom's victim must stay covered. LCD_FLEX is the 0.5mm placeholder the old
+    #     SD_PLATE name was attached to; the X=BW openings are the only ones that can reach it.
+    for (_a, _b) in _hi:
+        assert _b <= LCD_FLEX[2] or _a >= LCD_FLEX[3], (
+            f"x={BW:g} opening Y {_a:.2f}..{_b:.2f} overlaps LCD_FLEX Y {LCD_FLEX[2]}.."
+            f"{LCD_FLEX[3]} — that is the exact opening JP reported as 'an extra opening we "
+            f"don't need where the digitizer circuit is'")
+    # 0f. the slit has to pass a card, not just clear the socket body.
+    _slit = [s for s in (_lo if _SD_CX < BW/2 else _hi)
+             if s[0] <= (SD_SOCKET[2]+SD_SOCKET[3])/2 <= s[1]]
+    assert len(_slit) == 1, "the microSD slit did not resolve to exactly one opening"
+    _sw = _slit[0][1] - _slit[0][0]
+    assert _sw >= SD_CARD_W + 2*0.60, (
+        f"microSD slit is {_sw:.2f}mm along Y — a {SD_CARD_W}mm card plus a finger needs "
+        f">={SD_CARD_W + 1.2:.2f}. JP asked for 'a finger friendly slit'")
+    # 0g. the islands must clear BOTH obstructions near each screw hole. _island_cx() solves for
+    #     this, so this asserts the SOLVE rather than restating it — a second hand-typed number
+    #     here would be the very thing that block was rewritten to remove.
+    for _cx in (BTN_BOOT_X, BTN_RESET_X):
+        _cyh, _R, _ = cap_geometry(_cx)
+        _icx   = cap_center_x(_cx)
+        _reach = _R + SLOT_W
+        _narrow = max(0.0, _reach - abs(HOLES[0][1] - _cyh)/math.sqrt(3))
+        for _hx in (HOLES[0][0], HOLES[1][0]):
+            _d = abs(_icx - _hx)
+            for _nm, _w, _r, _need in (("counterbore bore", _reach, CBORE_D/2,      ISLAND_SLOT_CLR),
+                                       ("boss flare",       _narrow, BOSS_FLARE_D/2, FLARE_SLOT_CLR)):
+                _clr = _d - _w - _r
+                assert _clr >= _need - 1e-9, (
+                    f"button island at x={_icx} (switch {_cx}) leaves only {_clr:.3f}mm between "
+                    f"its slot and the {_nm} at x={_hx} — need {_need}")
+    # 0h. THE HEAD MUST HAVE A CONTINUOUS ANNULAR SEAT AT THE COUNTERBORE FLOOR.
+    #     ⚠️ Asserting the diameters and the depth separately does NOT cover this: each of
+    #     d5.40 boss / d5.80 bore / 3.04 deep is individually sensible, and together they leave
+    #     the head bearing on nothing. The property is the ANNULUS, so the annulus is the assert.
+    def _seat_annulus(depth):
+        """Annular bearing width under the head for a counterbore of this depth. Negative means
+        the bore is wider than the material there, i.e. there is no seat at all."""
+        _z = BACK_Z + depth
+        if _z <= CAV_FLOOR:                       # still in the solid back slab
+            return (BOSS_FLARE_D - CBORE_D)/2      # slab is full width; report the flare's
+        _f = (_z - CAV_FLOOR) / (PCB_BOT - CAV_FLOOR)
+        return ((BOSS_FLARE_D + _f*(BOSS_D - BOSS_FLARE_D)) - CBORE_D)/2
+    _ann = _seat_annulus(CBORE_DEPTH)
+    assert _ann >= BOSS_MIN_ANN, (
+        f"a {CBORE_DEPTH:.2f}mm counterbore floors at z {BACK_Z+CBORE_DEPTH:.2f} where the boss "
+        f"leaves only {_ann:.3f}mm of annulus under a d{SCREW_HEAD_D} head — need {BOSS_MIN_ANN}. "
+        f"CAV_FLOOR is {CAV_FLOOR}, so a pocket past it is cutting the boss, not the wall")
+    # CONTROL — the detector must be shown to FIRE. A check that has never produced a failure is
+    # not evidence (verification.md 13). Two positives, and note what the second one shows:
+    _unflared = (BOSS_D - CBORE_D)/2
+    assert _unflared < BOSS_MIN_ANN, "annulus control did not fail on the un-flared d5.40 boss"
+    assert _seat_annulus(CBORE_DEPTH + 1.00) < BOSS_MIN_ANN, (
+        "annulus control did not fail with the head pushed 1.00mm deeper")
+    # ⚠️ +0.50mm deeper does NOT fail, and that is reported rather than tuned away: the flare's
+    # taper is gentle (3.00mm of diameter over 5.50mm of depth), so it absorbs half a millimetre
+    # and the threshold is +0.66. Stating the real sensitivity beats picking a perturbation that
+    # happens to trip. The un-flared control above is the sharp one — it reproduces the exact
+    # shipped defect and comes out NEGATIVE, i.e. bore wider than boss, no seat whatsoever.
+    # 0i. thread engagement. Socket-cap length is measured UNDER the head, so sinking the head
+    #     flush COSTS NOTHING and in fact buys engagement back.
+    _eng = min(SCREW_LEN - (-BACK_Z - CBORE_DEPTH), SEAM_Z + 1.5)
+    assert _eng >= 3.0, (
+        f"only {_eng:.2f}mm of thread engagement ({_eng/3.0:.2f}xD) for an M3 — under 1 diameter "
+        f"is a stripped boss. Screw {SCREW_LEN}mm, non-engaging stack "
+        f"{-BACK_Z - CBORE_DEPTH:.2f}mm")
+    assert _eng <= SEAM_Z + 1.5, "the screw bottoms out on the end of the pilot before it clamps"
     # 1. the stand must not occlude any of the visible area
     engagement = (ST_H - SLOT_FLOOR) / math.cos(math.radians(TILT))
     va_start = VA[2] - OY0
