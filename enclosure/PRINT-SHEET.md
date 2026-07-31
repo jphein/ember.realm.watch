@@ -1,5 +1,29 @@
 # Ember satellite case — print sheet
 
+> # ⛔ DO NOT PRINT `ember-stand.stl` YET
+>
+> **The speaker-wire pass into the sealed chamber is blocked by the tape pad**, in the STL
+> currently committed. Measured off `ember-stand.stl` by ray-casting the mesh, not inferred
+> from the source:
+>
+> | | |
+> |:--|:--|
+> | Nominal pass | 6.00 × 5.00 mm, cut from y = 19.0 |
+> | What is actually open | a slit **≈5.9 mm wide × 0.40 mm tall**, at z 6.00–6.40 only |
+> | What blocks it | a **0.50 mm membrane of pad material at y 18.50–19.00**, standing across the mouth for the whole height z 6.4 → 11.0 |
+>
+> A 2-core speaker lead is 1.2–2.0 mm. **It does not fit.** The tape pad stands `PAD_PROUD`
+> off the chamber's rear wall and the pass is cut from *behind* the pad's inner face, so the
+> pad survives as a skin over the opening.
+>
+> The stand is **three quarters of the whole print** (93 cm³), so this is the one part where
+> printing before the fix lands is expensive. The other three parts are unaffected —
+> `ember-front-bezel.stl` has been printed and is fine.
+>
+> *Found by `morpheus-thin`; re-measured here independently before this warning was written.
+> A fix is in progress and this block comes out when it lands — if you are reading this and
+> the repo has moved on, check `git log enclosure/ember_case.py` before trusting it.*
+
 Board: **LCDWIKI/QDtech ES3C28P** (Hosyond 2.8" ESP32-S3).
 Source of truth: `ember_case.py` (build123d). The STLs are output, not the artifact.
 
@@ -18,7 +42,7 @@ and a `../cadenv` that does not exist. See [`README.md`](README.md) for first-ti
 |---|---|---|---|---|
 | `ember-front-bezel.stl` | 1 | **front face DOWN** on the bed | **none** | The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are bed-side chamfers, so they self-support. **The debossed honeycomb and the wyrm mark are bed-side recesses**, 0.48 mm deep — exactly three layers at this part's 0.16 mm — and print as bridged voids, which is *why* they are recesses: on a bed face, relief only goes inward. |
 | `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** | Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Countersinks widen downward onto the bed. **The debossed cap faces are bed-side recesses** — a few layers bridge over each, no supports. |
-| `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | Chamber ceiling is a **17 mm bridge** and the cable channel a **16 mm bridge** — leave bridging on (slicer default) and they're fine. The two **finger scallops** in the rear slot wall open *upward*, so every wall is near-vertical and the pocket floor is solid: no bridge at all. |
+| `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | ⛔ **See the block at the top of this page — do not print this part yet.** Chamber ceiling is a **17 mm bridge** and the cable channel a **16 mm bridge** — leave bridging on (slicer default) and they're fine. The two **finger scallops** in the rear slot wall open *upward*, so every wall is near-vertical and the pocket floor is solid: no bridge at all. |
 | `ember-stand-base.stl` | 1 | flat | none | Closes the speaker chamber. Press fit. |
 
 Outer sizes: slab (bezel + shell assembled) **55.9 × 91.9 × 17.4 mm**; stand **64 × 64 × 40 mm**.
@@ -230,6 +254,9 @@ duct and its impedance scales with length ÷ width, so 2.20 mm slots through a 4
 - **Seal every joint** — the wire pass-through and the base seam. Not to hold bass in a rear
   chamber, but to stop the *front* cavity venting anywhere except through the slots. A leak
   there lets the front wave escape and cancel, which costs level.
+  > ⚠️ On the currently committed stand there is no wire to seal *around*, because the lead
+  > cannot get through the pass at all — see the block at the top of this page. Sealing a
+  > blocked pass would be sealing the chamber shut.
 - **Print the stand with more walls and infill than feels necessary** (5–6 perimeters, 30%+).
   It is a speaker cabinet; stiffness is what stops a 2 W driver exciting a 64 mm panel.
 
