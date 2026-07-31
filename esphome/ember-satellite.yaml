@@ -242,14 +242,7 @@ esphome:
         # names the bug precisely. Either way it is a measurement rather than an inference
         # from silence.
         - delay: 25s
-        - lambda: |-
-            uint8_t reg = 0xFF;
-            const bool ok = id(es8311_dac)->read_byte(0x16, &reg);
-            const int want = (int) lroundf(id(mic_gain_num).state / 6.0f);
-            ESP_LOGI("mic", "BOOT RESYNC CHECK: number=%.0fdB (REG16 should be 0x%02X) | "
-                            "codec REG16=0x%02X (%ddB) | read_ok=%d | %s",
-                     id(mic_gain_num).state, want, reg, reg * 6, (int) ok,
-                     (ok && reg == want) ? "MATCH" : "MISMATCH");
+        - script.execute: mic_sync_check
 
     - priority: -200
       then:
@@ -315,6 +308,13 @@ esphome:
             id(sel_mode)->make_call().set_index((size_t) id(op_mode)).perform();
 
 interval:
+  # Cheap: one I2C register read a minute on a control-plane bus. Periodic rather than
+  # boot-only because a divergence introduced later — by anything that writes REG16
+  # without going through the number — would otherwise never surface.
+  - interval: 60s
+    then:
+      - script.execute: mic_sync_check
+
   # THE UNMUTE ANCHOR. This condition — "we believe we are muted AND the speaker is
   # actually running" — was written as a 250ms watchdog behind on_announcement /
   # on_play. It is in fact the only correctly-timed anchor available, so it has been
@@ -1353,6 +1353,14 @@ button:
           id(touch)->setup();           // re-reads chip id; no reset (reset_pin unset)
 
 binary_sensor:
+  # Published by mic_sync_check. `problem` so ON means "these disagree" — the state a
+  # dashboard needs to contradict itself with, not a health badge to look green.
+  - platform: template
+    id: mic_gain_desync
+    name: Mic Gain Desync
+    device_class: problem
+    entity_category: diagnostic
+
   # The ONLY usable button on this PCB.
   #
   # K1/K2 are RESET and BOOT. RESET is hardwired to CHIP_PU (it resets the MCU and
@@ -1509,6 +1517,42 @@ binary_sensor:
 #                  on every push-to-talk, which is why it is a follow-up and a
 #                  judgement call rather than something shipped silently.
 script:
+  # ---- IS THE CODEC WHERE HA THINKS IT IS? ----
+  #
+  # ONE READER, TWO CALLERS: the boot trigger 25s in, and a 60s interval. It exists as a
+  # script rather than twice inline for the reason this repo keeps relearning — a second
+  # hand-written copy of a check is a rumour about the check.
+  #
+  # WHY IT IS AN ENTITY AND NOT JUST A LOG. It began as ESP_LOGI, which put the only tell
+  # for "the number and the codec have diverged" in a log nobody watches, while the thing
+  # doing the lying is a dashboard card. A reviewer named the asymmetry exactly: a stale
+  # COMMENT has contradicting code beside it, and a stale MESSAGE has nothing. So the
+  # verdict is published where the false claim would be read.
+  #
+  # A FAILED READ IS NOT A DESYNC and must not be reported as one. On an I2C failure the
+  # sensors are left alone and a warning is logged: conflating "cannot see" with "wrong"
+  # would produce a confident answer from a blind instrument, which is §14 and §17 both.
+  - id: mic_sync_check
+    mode: single
+    then:
+      - lambda: |-
+          uint8_t reg = 0xFF;
+          if (!id(es8311_dac)->read_byte(0x16, &reg)) {
+            ESP_LOGW("mic", "sync check: REG16 read FAILED — reporting nothing rather "
+                            "than guessing");
+            return;
+          }
+          const int want = (int) lroundf(id(mic_gain_num).state / 6.0f);
+          const bool bad = (reg != want);
+          id(mic_gain_codec).publish_state((float) (reg * 6));
+          id(mic_gain_desync).publish_state(bad);
+          if (bad) {
+            ESP_LOGW("mic", "SYNC CHECK MISMATCH: number=%.0fdB (want REG16=0x%02X) | "
+                            "codec REG16=0x%02X (%ddB)",
+                     id(mic_gain_num).state, want, reg, reg * 6);
+          } else {
+            ESP_LOGI("mic", "sync check: %ddB, codec agrees (REG16=0x%02X)", reg * 6, reg);
+          }
   # ⚠️ THE `amp_blank` SCRIPT LIVED HERE AND IS DELETED (#17). Do not reinstate it.
   #
   # It had ZERO callers, so it never ran — but the interesting part is that reviving it
@@ -2066,6 +2110,16 @@ script:
       - lambda: 'id(ui_action) = 0;'
 
 sensor:
+  # What the CODEC actually holds, read back from REG16 — not what the number says it
+  # should hold. The whole point is that these are two different facts.
+  - platform: template
+    id: mic_gain_codec
+    name: Mic Gain (codec)
+    unit_of_measurement: "dB"
+    accuracy_decimals: 0
+    icon: mdi:microphone-settings
+    entity_category: diagnostic
+
   - platform: adc
     pin: GPIO9
     name: Battery Voltage
