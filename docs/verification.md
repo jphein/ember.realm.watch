@@ -1383,3 +1383,45 @@ silence, and silence is what the *watertightness* entry (§14) is about: the def
 **the absence of an honest statement, not the presence of a false one**. A claim with its limits
 attached is strictly better than either an overclaim or a gap — and it is the only one of the
 three that survives being re-read by someone who was not in the conversation.
+
+### 23. A replacement is two edits wearing one diff
+
+Twice in one day a paragraph was replaced with a better one and something quietly went missing —
+in both cases not a fact, but an **obligation** the old text had been carrying.
+
+**First:** the mesh note said the front bezel's three known non-manifold edges are repaired by
+*"every slicer tried, without comment."* Nobody had established that. The evidence was one
+print, on one slicer, with no one checking whether it reported anything — and that boundary had
+been explicitly stated and accepted hours earlier (§20). Replacing the paragraph re-introduced
+the over-claim.
+
+**Second, and the cleaner instance:** publishing the corrected countersink, the whole bullet
+reading *"84.7°, do not over-torque, it craters"* was replaced with a table of what each screw
+head does. Every number in the table was right. But the caution had a **residual reason** that
+survived the fix — a ⌀6.00 head still bears on its *rim*, a line contact, so the load is still
+concentrated — and the table did not carry it. **The warning was deleted rather than softened**,
+and nothing in the change looked like a deletion.
+
+> **A replacement diff shows you the facts that changed. It does not show you the obligations
+> that vanished.**
+
+That is the mechanism, and it is specific to *replacing* rather than *amending*. An amendment
+leaves the old text visible beside the new, so anything it was doing is still on screen. A
+replacement presents as a single improvement, and review reads the improvement: the added lines
+are scrutinised, the removed lines are skimmed as "the old version of that". Warnings, caveats,
+scope limits and provenance notes are exactly the content that lives in prose *around* the
+facts, so they are exactly what a replacement drops without a trace.
+
+It generalises past prose. Rewriting a function loses the guard clause nobody could explain;
+regenerating a config loses the one hand-added exception; replacing a comment block loses the
+record of why a dead constant is dead. In every case the new version is better at its job and
+silently worse at a job nobody restated.
+
+**The countermeasure is a question, not a discipline:** when you replace a block rather than
+edit it, read the *old* text once more and ask **what was it doing that the new text is not?**
+Not *is the new text correct* — it usually is, and that is what makes this hard to catch.
+
+And a note on how both were found: **not in the diff.** Both were caught by someone reading the
+*result* — the rendered page, days of context later, without the old version in view. That is an
+argument for the review pass existing at all, rather than for reviewing more carefully. A diff
+shows you what an edit did; only the finished artifact shows you what it no longer says.
