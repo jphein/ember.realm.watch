@@ -1785,12 +1785,21 @@ word `BLIND`, which is not a result any amount of care would have produced by re
 
 The corollary for this file's own practice: **the control has to be the original defect,
 not a plausible stand-in for it.** Three of the four controls on that walk are synthetic
-mutations (hardcode the modulus, delete the summon, shrink the paint loop) and all three
-fired on the first attempt. Only the one built from the real `git` history disagreed with
-the design — because a synthetic mutation is derived from the same mental model as the
-assert, so it tends to be exactly the thing the assert already catches. Two artifacts
-sharing an assumption again, in the shape §16 records as *the most convincing available
-form of being wrong*.
+mutations (hardcode the modulus, delete the summon, shrink the paint loop). **Two fired on
+the first attempt; the third could not run at all** until an anchor was fixed — its author
+had written the *resolved* `4` where the file says `${ui_pm_n}`, so the mutation matched
+nothing — and then it fired. **None of the three ever disagreed with the design.** Only the
+control built from the real `git` history did, because a synthetic mutation is derived from
+the same mental model as the assert, so it tends to be exactly the thing the assert already
+catches. Two artifacts sharing an assumption again, in the shape §16 records as *the most
+convincing available form of being wrong*.
+
+That distinction is load-bearing rather than pedantic: **a control that cannot run and a
+control that runs and finds nothing are different results, and only one of them is evidence
+about the detector.** It is §21's absent-versus-present-and-bad, arriving in the controls
+themselves. The only reason the difference is known is that the anchor mismatch was
+*reported* rather than silently replacing nothing — a counted assertion on a `str.replace`,
+earning its keep.
 
 #### And a second-order note, from the same afternoon
 
