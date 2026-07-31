@@ -557,6 +557,40 @@ def rrect_y(cx, cz, w, h, r, y0, depth):
     return Pos(cx, y0, cz) * (Rot(-90,0,0) * extrude(sk, depth))
 
 
+def chamfer_outline(part, z, size, what):
+    """45deg chamfer on the EXTERIOR PERIMETER edges lying in the plane z.  Issue #35.
+
+    Generic on purpose: the bezel is owned by another agent right now, and when its front
+    perimeter wants the same treatment it should be one call with the same constant rather
+    than a second implementation that drifts from this one.
+
+    >>> THE SELECTOR IS "IN THE PLANE **AND** TOUCHING THE PART'S OWN SILHOUETTE". <<<
+    The back face at z=BACK_Z also carries nine label grooves, 113 hex apertures, four
+    counterbores, the SD slit and the speaker relief — every one of them has edges in that
+    plane, and chamfering the lot would be a catastrophe dressed as a one-liner. An edge
+    qualifies only if it ALSO reaches an extreme of the part's own bounding box, which the
+    outline does by definition and no interior feature does.
+
+    45deg chamfer, not a roundover, and that is an FDM decision rather than a style one: a
+    roundover's lower quadrant is an overhang into the bed and prints ragged on a face-down
+    part, while a chamfer is self-supporting in every orientation this project uses.
+    """
+    bb = part.bounding_box()
+    sel = []
+    for e in part.edges():
+        eb = e.bounding_box()
+        if abs(eb.min.Z - z) > 1e-6 or abs(eb.max.Z - z) > 1e-6:
+            continue
+        if (eb.max.X > bb.max.X - 1e-6 or eb.min.X < bb.min.X + 1e-6
+                or eb.max.Y > bb.max.Y - 1e-6 or eb.min.Y < bb.min.Y + 1e-6):
+            sel.append(e)
+    assert sel, (
+        f"{what}: no perimeter edge found in the plane z={z:.3f}. The selector has drifted, "
+        f"and a chamfer that selects nothing is SILENTLY ABSENT — which is exactly how #38's "
+        f"gable hid through three builds")
+    return chamfer(sel, length=size)
+
+
 def cyl(x,y,z0,z1,d):
     return Pos(x,y,z0) * Cylinder(d/2, z1-z0,
                                   align=(Align.CENTER,Align.CENTER,Align.MIN))
@@ -1510,6 +1544,11 @@ def back_shell():
         f"the lead would still be trapped under the connector with nowhere to rise")
     # ---- mic BACK relief: works whichever way the port faces ----
     p -= cyl(MIC[0],MIC[1], BACK_Z-1, CAV_FLOOR+0.01, MIC_HOLE_D)
+    # ---- #35: exterior chamfer on the back face, the one you hold ----
+    # Applied LAST so it runs on the finished silhouette. The selector takes only edges that
+    # reach the part's own bounding box, so the nine labels, 113 hex apertures, four
+    # counterbores, the SD slit and the speaker relief are untouched — see the helper.
+    p = chamfer_outline(p, BACK_Z, CHAMFER, "shell back face")
     # ---- NO LED WINDOW, NO DIFFUSER ----
     # There used to be a 12mm bore over the WS2812 plus a 16mm seat for a printed
     # translucent disc. Both are gone: the fine hex field below passes straight over the
@@ -1576,6 +1615,29 @@ def back_shell():
 SLAB_W   = OX1-OX0                 # 55.90
 SLAB_T   = FRONT_Z-BACK_Z          # 17.40  (bezel front .. shell back)
 TILT     = 15.0                    # degrees back from vertical, seated viewer
+# ---- #35: ONE CHAMFER WIDTH ACROSS THE FAMILY, DERIVED FROM THE TIGHTEST WALL ----
+#
+# A chamfer is the most cross-cutting change in this file: every part, every silhouette, every
+# feature placed today. The failure mode is not the chamfer being the wrong size — it is what
+# the chamfer EATS, and no assert on the chamfer itself can see that. So the ceiling is
+# MEASURED, per feature, from the outline inward:
+#
+#   speaker relief (#33) to the outline    2.60mm   <- BINDING
+#   counterbore to the corner arc          2.84
+#   counterbore to a flat side             4.05
+#   every connector label's ink            4.25
+#   stand: slot side wall to the outline   3.65     chamber shaft to the outline  4.00
+#
+# Holding 1.20mm of remaining wall (three extrusions at a 0.40 nozzle) puts the ceiling at
+# 2.60 - 1.20 = 1.40. CHAMFER is 0.80: 0.60mm of margin on the binding feature, 1.80mm of
+# actual wall, and comfortably more than the 0.2-0.4mm elephant's foot it exists to absorb —
+# which is the functional half of this issue and the reason the STAND BASE gets one too.
+CHAMFER = 0.80
+_CHAMFER_MAX = 2.60 - 1.20
+assert CHAMFER <= _CHAMFER_MAX, (
+    f"CHAMFER={CHAMFER} exceeds {_CHAMFER_MAX:.2f} — at that size it cuts into the wall "
+    f"between the speaker relief and the shell's outer face, the tightest thing the chamfer "
+    f"can reach. Re-measure the clearances above before raising it")
 SLOT_CLR = 0.40
 ST_W, ST_D, ST_H = 64.0, 64.0, 40.0
 # CORNER RADIUS OF THE STAND'S PLAN PROFILE. Hoisted out of desk_stand()'s rbox() call, where
@@ -2616,6 +2678,12 @@ def desk_stand():
     p -= bx(WIRE_X-GROOVE_W/2, WIRE_X+GROOVE_W/2, ST_D-GROOVE_D, ST_D+1,
             12.0, ST_H-WIRE_D+0.01)
     p -= bx(ST_W/2-8, WIRE_X+GROOVE_W/2, ST_D-GROOVE_D, ST_D+1, 12.0, 15.0)
+    # ---- #35: exterior chamfer, base and rim ----
+    # The BASE one is functional as well as cosmetic: it is the bearing face, and elephant's
+    # foot on a bearing face is what makes a stand rock. It costs bearing area, and check 2b's
+    # ledger is re-derived to account for it rather than having its floor quietly nudged.
+    p = chamfer_outline(p, -PLINTH_H, CHAMFER, "stand base")
+    p = chamfer_outline(p, ST_H, CHAMFER, "stand rim")
     return p
 
 def stand_base():
@@ -2625,8 +2693,12 @@ def stand_base():
     chamber's own bounds means the plate cannot be left behind by a change to the driver, the
     front gap or the tape pad, all three of which feed CHAM_Y1.
     """
-    return bx(CHAM_X0 + BASE_CLR, CHAM_X1 - BASE_CLR,
-              CHAM_Y0 + BASE_CLR, CHAM_Y1 - BASE_CLR, 0.4, ST_WALL)
+    _b = bx(CHAM_X0 + BASE_CLR, CHAM_X1 - BASE_CLR,
+            CHAM_Y0 + BASE_CLR, CHAM_Y1 - BASE_CLR, 0.4, ST_WALL)
+    # #35: only the EXPOSED edge. The other five faces mate — four sides into the chamber
+    # shaft at BASE_CLR, the top against the chamber floor — and chamfering a mating face
+    # changes a fit rather than an appearance.
+    return chamfer_outline(_b, 0.4, CHAMFER, "base plate")
 
 def _check_manifold(path):
     """Parse a binary STL and test the mesh itself. Returns (tris, boundary, nonmanifold, dup).
@@ -3178,17 +3250,23 @@ def _check_geometry(parts=None):
     #   - speaker chamber access shaft, 54.0 x 15.3, driver + base plate    -826.2
     #   - egress channel, 14.0 wide, y 0..34 (it is CUT from y=-1, but the
     #     part starts at 0), less its overlap with the shaft (14.0 x 15.3)   -261.8
+    #   - 0.80 perimeter chamfer (#35), MEASURED not computed                -137.8
     #                                                                     ---------
-    #   expected                                                            2922.2
+    #   expected                                                            2784.4
+    #
+    # ⚠️ THE CHAMFER TERM IS MEASURED BECAUSE THE OBVIOUS ARITHMETIC OVERSTATES IT BY 37%.
+    # Perimeter x CHAMFER predicts 189.1mm2; the real cost is 137.8, because part of that
+    # perimeter is already the egress mouth and has no material left to lose. Computing it
+    # would have set the floor 51mm2 too low and hidden a real regression of that size.
     _plan, _pq = _plan_quadrants()
     _foot, _quads, _rear, _ymax = _bearing_footprint(_stand)
     print(f"  [bearing] {_foot:.0f}mm2 of {_plan:.0f}  quadrants "
           f"{'/'.join(f'{q/p*100:.0f}%' for q, p in zip(_quads, _pq))}  "
           f"behind CoM {_rear:.0f}mm2 to y={_ymax:.1f}")
-    assert _foot >= 2850.0, (
+    assert _foot >= 2740.0, (
         f"stand bearing footprint {_foot:.0f}mm2 of a {_plan:.0f}mm2 plan — the ledger above "
-        f"accounts for 2922, so something is piercing the plinth beyond the chamber shaft and "
-        f"the egress channel")
+        f"accounts for 2784, so something is piercing the plinth beyond the chamber shaft, "
+        f"the egress channel and the #35 chamfer")
     # THE RING TEST. Area alone cannot see a ring; a quadrant that has lost most of its plan
     # can only be a rim, a strip or a hole. 47% is the worst quadrant here (the two front ones,
     # which carry the chamber shaft); the control below shows what a real ring scores.
