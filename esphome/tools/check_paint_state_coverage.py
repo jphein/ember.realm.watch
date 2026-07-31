@@ -62,17 +62,26 @@ WHAT THIS CHECKS
   says OK. Closing that properly is mutation testing: force each field and require some
   scenario's number to move.
 
-  Not built. Instead the three scenarios added for this were each checked by hand to move
-  the number, which is the same evidence for today's field set and none for tomorrow's:
+  Not built in general. The five scenarios (one field each, so a failure NAMES the field —
+  a separation recovered from a killed parallel session's uncommitted work) were each
+  checked by hand:
 
-    hist-rotated  2445  vs listening 2090   (+355)
+    hist-rotated  2122  vs listening 2090   (+32)   g_hist_idx = 57 alone
+    wave-alt      2491  vs listening 2090   (+401)  cos fill alone
+    wake-reset    2090  vs listening 2090   (+-0)   see below
     silenced      1620  vs speaking  1619   (+1)
     mid-speech    1626  vs speaking  1619   (+7)
 
-  `silenced` moves the metric by ONE run/frame. That is enough under exact-match
-  comparison and it is deterministic across runs — but it is thin, and if a future edit
-  makes `if (silenced) jaw = 0` a no-op the delta becomes 0 while this guard still reports
-  VARIED. If you touch the jaw, re-measure that delta by hand.
+  ⚠️ wake-reset's delta-vs-base is ZERO and the scenario is still sound — the reset makes
+  its trajectory EQUAL to a fresh listening run, so equality with the base is the expected
+  value. The right metric there is the mutation: drop the marshalling (g_wake_reset pinned
+  false) and the scenario reports 2092, not 2090. Run by hand, deterministic. Delta-vs-base
+  proves a scenario is sensitive; only the mutation proves a DROP is visible — for a field
+  whose job is restoring the default state, the two disagree.
+
+  `silenced` moves the metric by ONE run/frame. Enough under exact-match comparison and
+  deterministic — but thin: if a future edit makes `if (silenced) jaw = 0` a no-op the
+  delta becomes 0 while this guard still reports VARIED. If you touch the jaw, re-measure.
 
 WAIVERS
   A waiver is a claim that a field's correctness is proven by something OTHER than the

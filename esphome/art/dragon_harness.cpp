@@ -854,17 +854,25 @@ int main() {
       {"error",      4, false, false, -1},
       {"tap",        0, false, false,  0},
       {"daylight",   3, true,  false, -1},
-      // #10's marshalling guard. g_hist_idx was pinned to 0 and g_level_hist filled
-      // identically in every scenario above, so the runs/frame acceptance test could not
-      // distinguish a correct marshalling of either from one that dropped them. st MUST
-      // be 1: the history is only read on the listening branch, so this scenario would
-      // satisfy a coverage counter and still leave the numbers blind at any other state.
-      {"hist-rotated", 1, false, false, -1},
-      // Same guard, the other two blind fields. Both MUST be st 3: `silenced` only
-      // reaches geometry through `if (silenced) jaw = 0` on the speaking jaw, and
-      // frames_mark only moves anything while a TTS estimate is running.
-      {"silenced",     3, true,  false, -1},
-      {"mid-speech",   3, true,  false, -1},
+      // #10's marshalling guard: the five fields below were pinned across all nine
+      // scenarios above, so the runs/frame acceptance test could not distinguish a
+      // correct marshalling of any of them from a dropped one.
+      //
+      // ONE FIELD PER SCENARIO, so a failure NAMES the field rather than a combination
+      // -- recovered from a parallel (killed) session's uncommitted work in
+      // ember-wt-chamfer, which measured the same five blind fields independently and
+      // separated them better than the first committed version here did.
+      //
+      // Each must sit at the state where its field reaches geometry, or it satisfies a
+      // coverage counter while leaving the numbers blind: the history ring and the wake
+      // smoother are read on the listening branch (st 1); `silenced` only through
+      // `if (silenced) jaw = 0` on the speaking jaw; frames_mark only while a TTS
+      // estimate runs (st 3, live).
+      {"hist-rotated", 1, false, false, -1},   // g_hist_idx = 57, standard fill
+      {"wave-alt",     1, false, false, -1},   // cos fill, g_hist_idx = 0
+      {"wake-reset",   1, false, false, -1},   // g_wake_reset: zeroes wake_s/lvl_s
+      {"silenced",     3, true,  false, -1},   // g_silenced
+      {"mid-speech",   3, true,  false, -1},   // g_frames_mark = 24000
   };
 
   for (int c = 0; c < (int) (sizeof(cases) / sizeof(cases[0])); c++) {
@@ -880,10 +888,11 @@ int main() {
     // marshalling of it is arithmetically invisible.
     g_frames_mark = (std::string(k.name) == "mid-speech") ? 24000u : 0u;
     g_spark_col = (k.hit >= 0) ? (k.hit ? 30 : 5) : -1;
-    const bool rot = (std::string(k.name) == "hist-rotated");
-    g_hist_idx = rot ? 37 : 0;
+    g_hist_idx = (std::string(k.name) == "hist-rotated") ? 57 : 0;
+    g_wake_reset = (std::string(k.name) == "wake-reset");
+    const bool alt = (std::string(k.name) == "wave-alt");
     for (int i = 0; i < 120; i++)
-      g_level_hist[i] = rot ? 0.15f + 0.70f * fabsf(cosf((float) i * 0.37f))
+      g_level_hist[i] = alt ? 0.15f + 0.70f * fabsf(cosf((float) i * 0.37f))
                             : 0.25f + 0.60f * fabsf(sinf((float) i * 0.21f));
     const bool loud = (std::string(k.name) == "listen-loud");
     g_db_rms = loud ? -12.0f : -40.0f;
