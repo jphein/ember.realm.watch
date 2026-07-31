@@ -1654,3 +1654,46 @@ least failed loudly on its first run. The countermeasure is not "be more careful
 **deliberately-broken input**: every check here now carries a control that must trip it, and two
 of the four controls in `tools/strokefont.py --self-test` exist only because an earlier version
 of that check passed them when it should not have.
+
+---
+
+## Authorship gives you no index of your own work
+
+"Nothing catches the flare" was written about `GRILLE_FLARE`. There is an assert for it, and a
+second guard downstream. `git log -S` attributes the assert to `338a900` — **written by the same
+person, the same night, and forgotten by morning.**
+
+This is not the lesson-fading failure that the rest of this file records. The forgotten thing was
+not a principle, it was **a line of code with your own commit hash on it.** What survived in
+memory was the assert's *reasoning* — an argument about fins being too thin to print and too
+thick to be a deliberate merge — with no pointer from the token "flare" back to "there is an
+assert for that." `grep` had it in half a second. Recall did not have it at all.
+
+**The countermeasure is unglamorous and complete: before writing "nothing checks X", grep for X.**
+
+The concrete damage the claim would have caused is worth naming, because it is not embarrassment:
+the next reader adds a **second** assert for a property already asserted. Duplicate invariants are
+worse than missing ones — they drift apart, and then the two disagree and neither is trusted.
+
+### The correction underneath it, which is the reusable half
+
+The accurate statement was not "nothing checks the flare" but:
+
+> **The assert checks printability. The issue is about appearance.** A check correct about what it
+> measures, where the thing in question is something else.
+
+And that reframing is what made the issue tractable, because it produced a consequence the
+original framing hid. The mouth-merge threshold is `HEX_WEB/√3 = 0.5196`; the web stays 0.90 when
+the lattice is rescaled, so **the threshold does not move with the scale.** At any aperture size
+the face still presents as one opening. The lever is the flare, not the hex size — and since
+`0.2598 < flare < 0.5196` is the fin the assert already refuses, **there is no partial version of
+the change**: either both move together or neither is worth making.
+
+Then the cost nobody had computed: dropping the flare to the only permitted value keeps **43 %**
+of today's mouth relief, and the flare exists because a sharp-edged slot mouth sheds vortices and
+chuffs at level. So the request is **an acoustic-versus-visual trade, not a geometry problem** —
+which is a decision for whoever owns how it sounds, not something to resolve in CAD.
+
+Note the shape: a check was mischaracterised, the correction of the mischaracterisation exposed
+the real constraint, and the real constraint turned out to live in a different domain from the
+one the issue was filed in. **Getting the description of a check right is not bookkeeping.**
