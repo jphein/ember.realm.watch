@@ -139,17 +139,32 @@ cd enclosure &amp;&amp; ./cadenv/bin/python ember_case.py
 <h3>The cap-face bridges are 13.27 and 8.27 mm, and they grew 82 % without being noticed</h3>
 <p>The BOOT cap's deboss floor spans <code>R·√3</code> = <b>13.268 mm</b>; RESET's is <b>8.268</b>. Both bridge routinely over a 0.90 / 0.50 mm recess — <b>this is a cosmetic note, not a defect.</b> Expect sag in the middle of the faces you look at and press. Fan at 100 % for the first few layers.</p>
 <div class="note"><b>Worth knowing how the number got there.</b> At the old caps that span was <b>7.275 mm</b> — both figures computed from <code>BTN_R_*</code> and <code>CAP_INSET</code> rather than measured, so the ratio is exact and end-to-end on one basis. <em>(Voxel-measuring both ends instead gives 7.20 → 13.20 and +83 %; pairing one measured end with one computed end gives +84 %, which is wrong while looking like the most careful option. <b>State the basis, not just the value.</b>)</em> Growing the caps to thumb-size took it to 13.268 — <b>+82 %</b> — inside a change that was reviewed for hinge strain, lever ratio, countersink clearance and the hex-field boundary. <b>Printability of the recess floor was not on that list.</b> A checklist that is complete for the questions it knew about is a harder failure than an omission, because nothing about it looks incomplete.</div>
-<h3>"Supports: none" for this part is measured, not asserted</h3>
+<h3>"Supports: none" for this part is measured, and now it is stronger than that</h3>
 <div class="tablewrap"><table><thead><tr>
 <th>band</th>
 <th>area</th>
 </tr></thead><tbody>
 <tr><td>overhangs 10–30°</td><td><b>0 mm²</b></td></tr>
-<tr><td>overhangs 30–45°</td><td>⚠️ <b>re-measure</b> — that band was the countersink cones, which <code>86748c6</code> replaced with a counterbore. A counterbore has vertical walls and a horizontal floor, so the band is likely 0 and the floor becomes a short bridge instead</td></tr>
+<tr><td>overhangs 10–30°</td><td><b>0.00 mm²</b></td></tr>
+<tr><td>overhangs 30–45°</td><td><b>0.00 mm²</b> — the countersink cones were this band's only occupant and the counterbore replaced them</td></tr>
+<tr><td>near-horizontal (bridged)</td><td><b>499.12 mm²</b>, all of it</td></tr>
 <tr><td>first-layer contact</td><td>3727.9 mm², <b>one island</b>; 92.0 × 14.60 mm is 6.3:1, so <b>no brim</b></td></tr>
 <tr><td>thinnest feature</td><td>0.750 mm — the hex web</td></tr>
 <tr><td>side-channel roofs</td><td>2.62 / 1.57 / 1.05 mm bridges — trivial</td></tr>
 </tbody></table></div>
+<p><b>Nothing on this part sits in the awkward 10–45° range at all.</b> Every unsupported facet is <em>near-horizontal</em> — i.e. bridged — which is a stronger statement than "no supports needed": there is no shallow overhang anywhere to print badly. Where the 499.12 mm² is:</p>
+<div class="tablewrap"><table><thead><tr>
+<th>printed z</th>
+<th>area</th>
+<th>what</th>
+</tr></thead><tbody>
+<tr><td>0.50–1.00</td><td><b>211.66 mm²</b></td><td><b>the two cap-deboss floors — the only genuine bridges</b>, 13.27 and 8.27 mm</td></tr>
+<tr><td>3.00–3.50</td><td>71.44 mm²</td><td>the four counterbore floors — <b>annular ledges, not bridges</b> (see below)</td></tr>
+<tr><td>8.00–8.50</td><td>171.63 mm²</td><td>side channels + the USB-C relief roofs</td></tr>
+<tr><td>9.00–9.50</td><td>14.00 mm²</td><td></td></tr>
+<tr><td>10.00–10.50</td><td>30.40 mm²</td><td></td></tr>
+</tbody></table></div>
+<p><b>So the fan note belongs to the cap faces and nowhere else.</b> Run it at 100 % for the first ~5 layers; nothing later on the part needs it.</p>
 <hr>
 <div class="note">⚠️ <b>Settled, and it moved: the large cap belongs at the LOW-x end.</b> <code>86748c6</code> derives the switch identification from the microSD socket instead of carrying it as a literal, and the answer inverted — <b>BOOT (the readable switch) is at x 13.45</b>, RESET at 36.58. The large 15.00 mm cap and its 13.27 mm bridge went with BOOT to the other end of the board; the island centres are now <b>16.66</b> (large) and <b>35.66</b> (small). Every <em>figure</em> on this page was a property of the cap and is unchanged — only which end it sits at moved. <b>If you printed a back shell before <code>86748c6</code>, its caps are on the wrong switches.</b></div>
 <h2>Fasteners</h2>
@@ -183,9 +198,13 @@ cd enclosure &amp;&amp; ./cadenv/bin/python ember_case.py
 </ul>
 <p>2.60 mm wall passes into the cavity — where the boss <b>flares to ⌀8.40</b> at the cavity floor, tapering to ⌀5.40 at the PCB face. The flare is what the bore lands in. ⌀8.40 comfortably surrounds ⌀5.80, so there is material all the way round.</p>
 <ul>
-<li><b>A flat floor is a bridge, not a cone.</b> It is 19 layers up, printed over the ⌀3.30</li>
+<li><b>The counterbore floor is an annular ledge, not a bridge — it prints essentially free.</b> It</li>
 </ul>
-<p>through-hole, so it bridges a 3.30 mm span — trivial, but it means the first layer <em>above</em> the hole wants the fan on, and it is why the depth is an exact layer count rather than a round number. A head bearing on a <b>flat</b> floor also gets a genuine full-face seat, so <b>no re-nip is needed</b> — that advice belonged to the conical staircase and went with it.</p>
+<p>is tempting to call it a 3.30 mm span over the through-hole; measured, it is an <b>annulus supported on its full outer circumference, cantilevering 1.25 mm inward</b> — <code>(5.80 − 3.30)/2</code>. Four of them come to <b>71.44 mm²</b> against <b>71.47 predicted</b> for four OD 5.80 / ID 3.30 rings, which is agreement to 0.03 mm². A ring like that needs no fan and no attention. &gt; <b>The exact-layer-count depth is still right, for a smaller reason than a bridge.</b> 19 × 0.16 &gt; puts the floor on a <b>clean layer boundary</b>, so the head seats on solid material instead of &gt; on a partial layer. That is worth having; "it bridges 3.30 mm" was not the reason.</p>
+<ul>
+<li>A head bearing on a <b>flat</b> floor gets a genuine full-face seat, so <b>no re-nip is needed</b> —</li>
+</ul>
+<p>that advice belonged to the conical staircase and went with it.</p>
 <ul>
 <li><b>Heat-set inserts will NOT fit.</b> The vendor specifies a ⌀5.60 pad around each mounting</li>
 </ul>

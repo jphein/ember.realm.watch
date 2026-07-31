@@ -151,15 +151,32 @@ the middle of the faces you look at and press. Fan at 100 % for the first few la
 > the questions it knew about is a harder failure than an omission, because nothing about it
 > looks incomplete.
 
-### "Supports: none" for this part is measured, not asserted
+### "Supports: none" for this part is measured, and now it is stronger than that
 
 | band | area |
 |---|---|
 | overhangs 10–30° | **0 mm²** |
-| overhangs 30–45° | ⚠️ **re-measure** — that band was the countersink cones, which `86748c6` replaced with a counterbore. A counterbore has vertical walls and a horizontal floor, so the band is likely 0 and the floor becomes a short bridge instead |
+| overhangs 10–30° | **0.00 mm²** |
+| overhangs 30–45° | **0.00 mm²** — the countersink cones were this band's only occupant and the counterbore replaced them |
+| near-horizontal (bridged) | **499.12 mm²**, all of it |
 | first-layer contact | 3727.9 mm², **one island**; 92.0 × 14.60 mm is 6.3:1, so **no brim** |
 | thinnest feature | 0.750 mm — the hex web |
 | side-channel roofs | 2.62 / 1.57 / 1.05 mm bridges — trivial |
+
+**Nothing on this part sits in the awkward 10–45° range at all.** Every unsupported facet is
+*near-horizontal* — i.e. bridged — which is a stronger statement than "no supports needed": there
+is no shallow overhang anywhere to print badly. Where the 499.12 mm² is:
+
+| printed z | area | what |
+|---|---|---|
+| 0.50–1.00 | **211.66 mm²** | **the two cap-deboss floors — the only genuine bridges**, 13.27 and 8.27 mm |
+| 3.00–3.50 | 71.44 mm² | the four counterbore floors — **annular ledges, not bridges** (see below) |
+| 8.00–8.50 | 171.63 mm² | side channels + the USB-C relief roofs |
+| 9.00–9.50 | 14.00 mm² | |
+| 10.00–10.50 | 30.40 mm² | |
+
+**So the fan note belongs to the cap faces and nowhere else.** Run it at 100 % for the first
+~5 layers; nothing later on the part needs it.
 
 ---
 
@@ -213,11 +230,16 @@ nothing. That hazard survived the redesign unchanged; only the numbers moved.
   2.60 mm wall passes into the cavity — where the boss **flares to ⌀8.40** at the cavity floor,
   tapering to ⌀5.40 at the PCB face. The flare is what the bore lands in. ⌀8.40 comfortably
   surrounds ⌀5.80, so there is material all the way round.
-- **A flat floor is a bridge, not a cone.** It is 19 layers up, printed over the ⌀3.30
-  through-hole, so it bridges a 3.30 mm span — trivial, but it means the first layer *above* the
-  hole wants the fan on, and it is why the depth is an exact layer count rather than a round
-  number. A head bearing on a **flat** floor also gets a genuine full-face seat, so **no re-nip
-  is needed** — that advice belonged to the conical staircase and went with it.
+- **The counterbore floor is an annular ledge, not a bridge — it prints essentially free.** It
+  is tempting to call it a 3.30 mm span over the through-hole; measured, it is an **annulus
+  supported on its full outer circumference, cantilevering 1.25 mm inward** — `(5.80 − 3.30)/2`.
+  Four of them come to **71.44 mm²** against **71.47 predicted** for four OD 5.80 / ID 3.30
+  rings, which is agreement to 0.03 mm². A ring like that needs no fan and no attention.
+  > **The exact-layer-count depth is still right, for a smaller reason than a bridge.** 19 × 0.16
+  > puts the floor on a **clean layer boundary**, so the head seats on solid material instead of
+  > on a partial layer. That is worth having; "it bridges 3.30 mm" was not the reason.
+- A head bearing on a **flat** floor gets a genuine full-face seat, so **no re-nip is needed** —
+  that advice belonged to the conical staircase and went with it.
 - **Heat-set inserts will NOT fit.** The vendor specifies a ⌀5.60 pad around each mounting
   hole, so bosses are capped at ⌀5.40 **at the PCB face**. An M3 insert needs a ⌀4.0–4.2 bore,
   leaving a 0.6 mm wall that will split. Self-tappers only.
