@@ -37,7 +37,7 @@ have missed both.
 
 `CBORE_D` / `CBORE_DEPTH` / `BOSS_FLARE_D` are all in `ember_case.py` as of `86748c6`, the conical
 countersink and its entire rationale are deleted, and the back-shell STL is rebuilt. **Nothing to
-check before slicing.** ⚠️ **Labels are still NOT started** — see Open.
+check before slicing.** Labels (SD / MIC / VOL / ⏻) are **in** — see below.
 
 **Fastener, fully measured by JP (not nominal):** M3 × 0.5 × 12 **ISO 4762 socket cap, hex recess**,
 head **5.50 × 3.00**. Flush, in a flat-bottomed **counterbore**.
@@ -252,38 +252,48 @@ to pay it on somebody's behalf.
       It has stayed **byte-identical** through every change since, verified by `git diff` on the
       STL across three rebuilds. 0.48 mm was legible. **Next print is `ember-back-shell.stl`** (the
       fix), then optionally the stand and the never-printed `ember-stand-base.stl`.
-- [ ] **Debossed labels above the cutouts and on the buttons — requested by JP, NOT STARTED.**
-      Deliberately not started rather than half-built: a label is on a **visible face**, and one
-      whose strokes fall under the nozzle floor prints as mush, which is worse than no label. The
-      survey below is done, so this is a short job once the one decision is made.
+- [x] **Debossed labels — DONE, in `86748c6`'s successor. All four cut, all four verified.**
 
-      Recessed only — the shell prints back-face-down, so raised text becomes the lowest feature
-      and the part balances on it. Depth **0.48 mm = 3 × `LAYER_H`**, matching `BEZEL_DEBOSS`.
+      JP chose the **power symbol** (IEC 5009) for the small cap, which resolved the one open
+      decision and did it better than text would have: a symbol is drawn geometry, so its
+      stroke width is set directly instead of inherited from a typeface.
 
-      **Size the type from the nozzle, not from taste.** A stroke under ~0.90 mm will not resolve
-      at 0.4 mm, and this repo already fixes 0.90 as the floor (`assert _mf >= 0.90` on the wyrm
-      mark). `tools/minfeature.py` → `min_feature(mask, px)` is directly reusable and carries its
-      own control; it needs a rasterised mask, so the remaining work is a PIL render of the glyphs
-      at the same size the model cuts them, measured and **asserted** — *not* a stroke/height ratio.
-
-      **Where it goes, measured (board coords):**
-
-      | label | location | verdict |
+      | label | where | size |
       |---|---|---|
-      | `SD` | left margin strip **x 0–9, y 19–75**, free, adjacent to the slit at y 44.20–57.86. Reads **along Y** (rotated 90°); 4.5 mm cap height uses 4.5 of the 9 mm width | ✅ **unblocked** |
-      | `VOL` | big cap face — **13.27 mm across flats**, needs ~9.45 mm. Pad left after 0.90 deboss + 0.48 label = **1.22 mm**, thicker than the 0.90 hinge | ✅ **unblocked** |
-      | USB-C | **no room.** The two button islands span y 0.28–16.32 and leave only 3.4 mm between them; the y 16.32–19 band is 2.7 mm tall. A USB-C port is also self-evident | ⏭️ skip |
+      | `SD` | flat back, margin strip beside the slit, reads bottom-to-top | ink 6.40mm cap |
+      | `MIC` | flat back, beside the mic bore | ink 6.40mm cap |
+      | `VOL` | big cap face (the microSD side, per JP's bench test) | ink 4.70mm cap |
+      | ⏻ | small cap face (the mic side) | 6.30mm dia |
+      | USB-C | **skipped** — no room, and a USB-C port is self-evident | — |
 
-      > ⚠️ **THE ONE DECISION, AND IT IS JP'S — the small RESET cap.** Its face is **8.27 mm across
-      > flats**, so at the legible 4.5 mm cap height it holds **exactly two characters (~6.12 mm)**.
-      > `RST` needs 9.45 mm and **does not fit**, and shrinking it goes under the 0.90 mm floor.
-      > So: a **two-character mark**, a **symbol**, or **leave it blank**.
-      >
-      > There is a real argument for blank that is not laziness: `RESET` is the button you should
-      > *not* press — holding BOOT across a reset enters ROM download mode, which presents as a
-      > brick — and the caps are already differentiated by **size and deboss depth** on purpose.
-      > Labelling only the one you want may be better human factors than labelling both.
-      > **Aesthetic call on a face JP looks at, so not the model's to make.**
+      All grooves **0.48mm = 3 × `LAYER_H`**, same three layers as `BEZEL_DEBOSS`. Stroke
+      **0.90mm everywhere**, the repo's nozzle floor.
+
+      **Two sizes, forced not styled.** The big cap is 13.27mm across flats, which caps a
+      three-letter label at ink 4.70. The flat back allows 6.40 and **SD needs it** — at ink
+      6.00 the S's upper counter pinches to 0.843mm, under the floor.
+
+      **A hand-cut stroke font** (`tools/strokefont.py`), not `Text()`. At these sizes 0.90mm
+      of stroke is a stroke/height ratio of ~0.19, heavier than any real typeface's Bold, so
+      with an outline font the stroke width is a *consequence* you can only measure and hope
+      about. Here it is an argument. Two glyphs are not monospaced and the CHECK said so, not
+      taste: **M** at 0.52 advance puts a 0.43mm rib between its valley and its stem at any
+      size that fits, and **I** in a full-width box reads as a word break.
+
+      **Verified, not asserted:** back shell **23308 tris, watertight, 0 non-manifold**;
+      clearance **0.000 mm³** with the self-test firing at 1467.842; bbox still **14.40** deep,
+      so nothing is raised. Bezel, stand and base plate are **byte-identical** — JP's printed
+      bezel and stand are unaffected. Every label proves its own material clearance at import
+      (`_label_ok`), and `tools/strokefont.py --self-test` carries four controls.
+
+      ⚠️ **The mirror.** The back face is seen from −Z, so model +X runs to the viewer's LEFT
+      and every label is mirrored on placement. This was reasoned out AND then looked at:
+      `tools/slice_svg.py` slices the STL mid-groove and draws it with the same flip the eye
+      applies, so a sign error shows up as backwards text. All four read correctly.
+
+      Note the build takes **~9 minutes** and did so before the labels too — it is the hex
+      field plus the vendor-STEP clearance boolean, not the new work.
+
 - [ ] Button feel is the thing most likely to need a second print — but **the knob is
       `HINGE_L_BOOT` / `HINGE_L_RESET` (1.20 / 2.00), not `HINGE_T`.** Strain is `(t/2)·θ/L`
       with θ fixed by pip travel over the pip's lever arm, so thickening a hinge to firm it up

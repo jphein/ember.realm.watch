@@ -1498,3 +1498,96 @@ wants a **question**, asked when writing the sentence rather than when writing t
 The last one is the cheapest and the most reliable. A reader with the printed bezel in their hand
 counts one grille opening, not thirty-three — and no amount of correct arithmetic upstream makes
 the sentence true for them.
+
+---
+
+## A rule whose exemption covers exactly the cases it exists to catch
+
+The back-face labels needed one check: *is any material between two strokes thinner than the
+0.90mm the nozzle can resolve?* It took four versions, and the third is the one worth keeping.
+
+**v1 — skip pairs that share an endpoint.** Three of four labels failed instantly: O's top edge
+vs its right edge read −0.052mm of material, D's stem vs its bowl 0.392, S's two right corners
+−0.292. Every one of those pairs is bridged by the single chamfer *between* them, so the gap is
+packed with ink. v1 computed the distance between two strokes correctly and called it material
+without ever asking what was in there.
+
+**v2 — skip pairs up to N segments apart along the contour.** This is v1's mistake with a dial
+on it. N=2 still flagged O's counter diagonal, which is a chain of three chamfers. N=3 would
+have swallowed the power symbol's ring, whose subdivision puts genuinely-adjacent ink four
+segments apart. There is no N, because N is a proxy for *is there ink in between* and the proxy
+fails at both ends — too small for a chamfered corner, too large for a subdivided arc.
+
+**v3 — the midpoint test: a gap is material only if the point halfway across it is not itself
+ink.** Correct, principled, no constant to tune. Every false positive vanished. And both
+controls went blind:
+
+```
+control  S@h=2.30   (counters collapsed)  ->  +inf   DETECTOR IS BLIND
+control  power gap=30 (break too narrow)  -> +1.009  DETECTOR IS BLIND
+```
+
+**A gap narrower than the stroke width has its own midpoint inside its own two strokes.** So
+every genuinely-too-thin gap read as ink and exempted itself. The rule was not merely weak at
+the failure — it was *strongest-looking exactly where it was blind*, because the thinner the
+defect, the more certainly the midpoint fell inside ink.
+
+**v4** is v3 asking the question over *third* strokes only: the two strokes forming a gap cannot
+bridge their own gap. One clause, and the controls fire.
+
+### What generalises
+
+The trap is not geometric. It is that **an exemption clause was written from the passing cases**
+— corners, chamfers, arcs — and never evaluated against the failing ones. Every version was
+tested by running it on the four real labels and reading the numbers, and all four numbers looked
+plausible every time. v1 through v3 differ only in which *wrong* answer they give.
+
+- **An exemption is a claim and needs its own control.** "Skip corners" silently became "skip
+  anything tight" and nothing said so. The question to ask of any skip/ignore/tolerate clause is
+  not *does it exclude what I meant* but *what does it exclude that I did not mean* — and the
+  cheapest way to answer is a deliberately-broken input that must trip the check.
+- **A check reporting `inf` or `n=0` is not a pass.** A squeezed S at h=2.60 has no measurable
+  pair left because every counter has fused, and "nothing was thin" is what "nothing was
+  measured" looks like from the outside. `min_gap` now returns a count and every caller asserts
+  `measured > 0`. Any check with a "no findings" path needs to distinguish *looked and found
+  nothing* from *did not look*.
+- **A tolerance that has to be loosened for a legitimate case is a warning.** The abandoned
+  granulometry version needed `tol` at 1.5% to tolerate the unavoidable taper at an acute
+  concave vertex, and at 1.5% a genuinely collapsed S passed. When the threshold that admits the
+  benign case also admits the malignant one, the metric is not separating them — reach for a
+  different instrument rather than a better number.
+
+---
+
+## `str.replace` returns a string; it does not return whether it replaced anything
+
+Two label cuts were wired into `back_shell()` by a patch script that did two `str.replace` calls
+and printed `cuts wired`. It printed. One of the two anchors did not match — an earlier edit had
+reflowed a call onto two lines with sixteen spaces of continuation indent and the anchor carried
+twenty — so **half the change silently did not happen** and the script reported success, because
+the only thing it verified was that Python reached the end.
+
+The corroborating evidence agreed with the wrong conclusion. The rebuilt back shell went from
+15168 to 18852 triangles: the labels that *did* land accounted for that, and a partial
+application is exactly as consistent with "triangle count rose" as a complete one. The error was
+caught only by slicing the STL and seeing two of four labels — a check against the artefact, not
+against the intent.
+
+- **A silent-no-op API needs a counted assertion.** `assert s.count(anchor) == 1` before, or an
+  edit tool that errors on a missing anchor. The final `print` in a patch script proves the
+  interpreter ran, nothing more.
+- **Verify per-edit, not per-script.** `grep -c` for each new call site takes a second and would
+  have caught this before a nine-minute rebuild.
+- **A metric that moves in the right direction is not confirmation.** "Triangles increased" was
+  true, expected, and uninformative about the thing in question. The confirming check has to be
+  able to come out *wrong* if the change is partial — counting call sites can, counting triangles
+  cannot.
+
+### Amendment to the `pgrep -f` self-match note above
+
+The `[p]attern` trick protects `pgrep`/`pkill` from matching **its own** argv. It does not protect
+against matching the **enclosing shell**, whose command line contains the pattern further along.
+`pkill -f "[e]mber_case.py" ; time python ember_case.py` killed the shell that was about to run
+the build — the compound command's own argv contained the literal string. The patch it was
+chained to never ran, and the next step was taken believing it had. Kill and re-run in separate
+invocations, or match on a pidfile.
