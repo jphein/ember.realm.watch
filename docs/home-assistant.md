@@ -17,7 +17,18 @@ The device firmware is documented separately; this is the HA half.
 > configuration lives in HA's own `.storage`, created through the UI, and isn't
 > expressible as a repo file: the Assist pipeline, the conversation-agent entry, the
 > add-ons, the HACS integration. Those are §2. The repo covers the packages, the
-> dashboard, and the deploy path.
+> dashboard, the **system prompt**, and the deploy path.
+>
+> ⚠️ **One exception inside that split, and it is the one that has already cost us.** The
+> conversation-agent entry is `.storage`-only, but its `prompt` field is *not* — since
+> 2026-07-31 it is repo-tracked at
+> [`../homeassistant/prompts/ember-system.md.j2`](../homeassistant/prompts/ember-system.md.j2)
+> and deployed live with `ember-prompt.py --deploy`. Before that, nothing in the repo
+> contained the string `You are Ember`: a measured prompt-cache fix was made against it, its
+> reasoning was written into [§6.3](#63-the-persona-and-the-one-rule), and the prompt itself
+> was never captured — which is why [#37](https://github.com/jphein/ember.realm.watch/issues/37)
+> had to re-derive from scratch what §6.3 already half-knew. **An artifact absent from the
+> repo's own inventory is one nobody thinks to check.**
 
 ---
 
