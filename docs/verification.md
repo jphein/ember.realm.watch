@@ -1269,6 +1269,75 @@ a review comment, a chat message or a commit body protects the edit in front of 
 after. If a limit matters, it belongs adjacent to the assertion, in the artifact, where it is
 re-read every time the assertion is.
 
+### 21. A detector with one failure verdict will name that verdict for any anomaly
+
+A pre-print probe asked the highest-consequence question on the back shell: **can the 0.60 mm moat
+around each printed-in-place button actually separate?** If it cannot, the part looks perfect and
+the buttons are welded solid.
+
+The probe walked the moat layer by layer, found the void gaps either side of each island, and
+counted them. Two gaps of about 0.60 mm meant open. It printed **`NO GAP — fused`** for both
+buttons at z = 2.50.
+
+**They were not fused. There was nothing there.** z = 2.50 is inside the board pocket, so the
+whole region is void — no island, no shell, no moat. The probe had one failure verdict available,
+found no separating gaps, and reported the only bad thing it knew how to say.
+
+> **A detector that can express exactly one failure will report that failure for every anomaly,
+> including the total absence of its subject.**
+
+That is §14's empty-object problem with a direction added. §14 counted edges on an object that was
+not there and returned *zero*, which reads as success. This returned *the loudest available
+failure*, which reads as a catastrophe. **Both are the same defect and they point opposite ways**,
+so neither "it passed" nor "it failed" is evidence until the detector can distinguish *absent* from
+*present-and-bad*.
+
+The fix generalises to every binary check in this repo and costs nothing: **report the positive and
+the negative explicitly, so the answer is unambiguous in both directions.** The rewritten probe
+prints the material runs *and* the void runs on every sampled row, and the reading was then
+immediate and certain — twelve consecutive wall layers with a clean 0.60 mm void on both sides of
+both islands, then all-void above, exactly as the pocket requires. The same numbers that had been
+called *fused* now read *open*, because the output finally contained enough to tell them apart.
+
+Two notes on how it was caught, both uncomfortable.
+
+**It was caught by disbelief, not by the check.** `fused` was the answer the probe was written to
+fear, and it arrived for both buttons simultaneously at exactly one height with every layer below
+it clean. **A failure that appears everywhere at once, at a single boundary, after a clean run, is
+a question about the instrument** — the same tell as a suspiciously perfect result in §14, from the
+other side.
+
+**And it was written four hours after §14 was written up, by the same author.** Knowing a failure
+mode does not confer immunity, because the mode is a *fact* in your head and the *boundary* is a
+property of the code in front of you — the point §20 makes about an expired correction, arriving
+here as an unexpired one that simply was not in view at the moment of writing.
+
+### 22. A review that was complete for every question it knew to ask
+
+The button caps were enlarged from 9.01/6.58 mm to 15.00/10.00 mm across flats. That change was
+reviewed carefully and by more than one person, against four properties: **hinge strain, lever
+ratio, countersink clearance, and the hex field's boundary.** Every one of those was measured,
+argued and recorded, and every one of them is right.
+
+The debossed cap face is a recess in the part's *bed* face, so its floor is unsupported and must
+bridge. Enlarging the cap enlarged the recess with it. **The bridge span went 7.2 mm → 13.20 mm —
+an 83 % increase — and nothing looked, because printability of the recess floor was not one of the
+four questions.**
+
+This is not a missed check, and that is what makes it worth its own entry. Every check that
+existed ran, passed, and was correct. **The review was complete with respect to its own list.** A
+missing check announces itself the moment somebody asks "what tests this?"; a complete-but-bounded
+review answers that question satisfactorily and is still wrong.
+
+> **When a dimension changes, enumerate what *derives* from it, not what you were worried about.**
+> The four properties reviewed were the ones the cap change was *expected* to threaten. The recess
+> floor was threatened by simple proportionality and nobody had it on a list.
+
+The span still prints — 13.2 mm is routine bridging over a 0.90 mm-deep recess — so the cost here
+was not a ruined part. It is that **the number was unknown for as long as it existed**, on the one
+face of the enclosure a person looks at and presses, and it was found by a pre-print pass that
+nobody had asked for until the part was about to go on a bed.
+
 **And prefer stating the narrow version to deleting the claim.** Deleting it would have left
 silence, and silence is what the *watertightness* entry (§14) is about: the defect there was
 **the absence of an honest statement, not the presence of a false one**. A claim with its limits
