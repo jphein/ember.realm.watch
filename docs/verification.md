@@ -2121,7 +2121,7 @@ passed" nor "it failed" is evidence until a check can say "I did not run."**
 
 ---
 
-## 29 · The claim you only report is the one you don't verify
+### 29. The claim you only report is the one you don't verify
 
 An agent finishing a task reported three things. Two were verified to this file's usual standard —
 diffs taken, volumes recomputed from the committed STLs, an assumption about which figures contain
@@ -2139,7 +2139,7 @@ Their own diagnosis is the entry:
 > I verified everything I **acted** on. The one claim I did not verify was the one I was only
 > **reporting**, because reporting felt like it carried no risk.
 
-### Why the asymmetry is structural, not careless
+#### Why the asymmetry is structural, not careless
 
 Acting has a feedback loop: the build fails, the assert fires, the commit is rejected. **Reporting
 has none.** A wrong number in a message produces no error, propagates at full confidence, and is
@@ -2152,7 +2152,7 @@ things in this session's log arrived that way — a bounding box that could not 
 "~9 min/part" baseline borrowed from a different program — and both were passed onward as
 established before anyone checked them.
 
-### The countermeasure is narrow
+#### The countermeasure is narrow
 
 Not "verify more." **Re-read immediately before reporting, not before deciding.** The two are
 different moments and the second is the one that gets skipped, because by then the work feels done.
