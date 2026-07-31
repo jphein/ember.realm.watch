@@ -405,7 +405,7 @@ Chasing the last three, four causes were proposed and each was acted on before b
 tessellation tolerance, diagonal-only pixel connectivity, the fusion method, checkerboard
 corners at the outline. **All four were wrong.** Each cost a build.
 
-What settled it was measurement rather than reasoning: the BRep is **valid** — one solid, 326
+What settled it was measurement rather than reasoning: the BRep is **valid** — one solid, 986
 faces, zero boundary edges — and the count is 3 whether the union is built in 2D or 3D, at
 tessellation tolerances from 0.1 to 0.001, before or after `clean()`. It is a mesher artefact at
 coplanar face seams in a correct solid.
@@ -805,6 +805,7 @@ survived on a published page.
 | `CLAIMS` / `BLOCKED` provenance guard | `site/og_card.py` | the build **refuses** to emit a known-wrong engine name |
 | **restore-without-resync** | `esphome/tools/check_restore_resync.py` | a restoring control cannot come back from a reboot lying about the hardware |
 | **generated pages are current** | `site/check_generated_current.py` | the **published** page matches the source in the same commit |
+| **served surface matches the remote** | `site/check_served_current.py` | what a **visitor downloads** is what `origin/main` would produce — 24 artifacts, incl. every STL download link |
 
 ### Two guards that exist because a note was not enough
 
@@ -880,6 +881,23 @@ Each guard fires **only when its own source is staged**, and that is deliberate 
 lazy: **a hook that runs on every commit gets disabled, and a disabled hook protects nothing.**
 The obvious improvement — make it run always — is the change that ends with someone typing
 `--no-verify` by reflex.
+
+### `check_served_current.py` is not a hook, and must not become one
+
+It belongs to the **third** category above — *deployed is not served* — and it cannot run at
+commit time, because at commit time there is nothing published to compare against. Run it
+**after a push**:
+
+```bash
+python3 site/check_served_current.py                 # 24 artifacts, with the confirm pass
+python3 site/check_served_current.py --no-confirm    # fast, and will lie right after a push
+python3 site/check_served_current.py --prove-confirm # positive control: must stay STALE
+```
+
+⚠️ **`--no-confirm` immediately after a push measures the edge, not the push.** With confirm on
+(the default) a mismatch is re-read after a delay and reported only if it persists, because one
+read cannot tell a stale artifact from a stale edge. It prints `age=` / `cache-control=` on the
+re-read so you can see which you hit.
 
 ### On measuring minimum feature size
 
