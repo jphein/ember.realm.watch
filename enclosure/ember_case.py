@@ -804,6 +804,25 @@ FRONT_GAP  = 2.50                  # diaphragm -> baffle. Small on purpose.
 PAD_PROUD  = 0.80                  # pad stands off the wall so nothing else fouls the tape
 LIP_DEPTH  = 0.60                  # alignment only; the tape does the work
 LIP_WIDTH  = 1.20                  # the groove is a thin outline, not a pocket
+# ---- SEALED CHAMBER BOUNDS, AT MODULE SCOPE BECAUSE A SECOND PART DEPENDS ON THEM ----
+#
+# >>> stand_base() USED TO CARRY ITS OWN COPY OF THESE AND THE COPY WENT STALE. <<<
+#
+# The base plate read `bx(ST_WALL+1.3, ST_W-ST_WALL-1.3, ST_WALL+0.3, 20.7, 0.4, ST_WALL)`.
+# That 20.7 is 21.00 - 0.30: the chamber's rear wall WAS 21.0, and the 0.30 is the plate's
+# clearance. The rear wall then went 21.0 -> 22.0 -> DERIVED to 19.30 (baffle + front gap +
+# driver body + tape pad), and the plate never followed. Measured by boolean: the plate
+# overlapped the stand's own floor by 269.136 mm3 over y 19.30..20.70 — 1.40 mm too deep to
+# seat at all. THE SEALED CHAMBER COULD NOT BE CLOSED.
+#
+# Nothing could have caught it. Every clearance check in this file compares a part to the
+# BOARD, and the base plate never goes near the board; the mesh checks look at one STL at a
+# time; and a part that is too big to fit intersects nothing that anybody was measuring.
+# It is the two-parts-must-agree case, and it now has an assert in _check_geometry().
+CHAM_X0, CHAM_X1 = ST_WALL + 1, ST_W - ST_WALL - 1
+CHAM_Y0 = ST_WALL
+CHAM_Y1 = ST_WALL + FRONT_GAP + DRIVER_T + PAD_PROUD + 2.0      # 19.30, derived not chosen
+BASE_CLR = 0.30                    # base plate clearance per side, all four edges
 SLOT_CY  = 34.0                    # slot centreline Y at the floor
 # SLOT_FLOOR 10.0 -> 24.0. Two faults, one cause: the slab sat too deep.
 #
@@ -1176,7 +1195,7 @@ def desk_stand():
         f"chamfer would cut the wrong rim")
     p = chamfer(_mouth, length=SCALLOP_CHAMFER)
     # sealed speaker chamber, open at the bottom (closed by the base plate)
-    cx0,cx1 = ST_WALL+1, ST_W-ST_WALL-1
+    cx0,cx1 = CHAM_X0, CHAM_X1
     # Rear wall pushed 21.0 -> 22.0. That is as far as it safely goes: the slab slot's
     # front face at the floor sits at y = SLOT_CY - (SLAB_T/2 + SLOT_CLR) ~= 24.9, so
     # 22.0 leaves ~2.9mm of wall at the tightest point and more above, since the slot
@@ -1188,8 +1207,7 @@ def desk_stand():
     # sealed volume — the right goal for a baffle-mounted driver and the wrong one here.
     # With the driver taped to the rear wall, extra depth is not extra enclosure, it is
     # extra AIR IN FRONT OF THE DIAPHRAGM, i.e. a cavity resonance.
-    cy0 = ST_WALL
-    cy1 = ST_WALL + FRONT_GAP + DRIVER_T + PAD_PROUD + 2.0
+    cy0, cy1 = CHAM_Y0, CHAM_Y1
     assert cy1 <= 24.0, f"chamber rear {cy1} would foul the slab slot at ~24.9"
 
     # Ceiling raised 34.0 -> 37.0 for the rectangular driver. At 34 the chamber was
@@ -1486,7 +1504,14 @@ def desk_stand():
     return p
 
 def stand_base():
-    return bx(ST_WALL+1.3, ST_W-ST_WALL-1.3, ST_WALL+0.3, 20.7, 0.4, ST_WALL)
+    """The plate that closes the sealed speaker chamber. EVERY EDGE DERIVED FROM THE CHAMBER.
+
+    The y extent was the literal 20.7 and that is how it broke — see CHAM_Y1. Reading the
+    chamber's own bounds means the plate cannot be left behind by a change to the driver, the
+    front gap or the tape pad, all three of which feed CHAM_Y1.
+    """
+    return bx(CHAM_X0 + BASE_CLR, CHAM_X1 - BASE_CLR,
+              CHAM_Y0 + BASE_CLR, CHAM_Y1 - BASE_CLR, 0.4, ST_WALL)
 
 def _check_manifold(path):
     """Parse a binary STL and test the mesh itself. Returns (tris, boundary, nonmanifold, dup).
@@ -1691,6 +1716,30 @@ def _check_geometry():
         f"stand bearing footprint {_foot:.0f}mm2 — something is piercing the floor beyond "
         f"the speaker chamber's intentional 826mm2 access")
 
+    # 2d. THE BASE PLATE MUST ACTUALLY SEAT — the first check in this file between TWO PARTS.
+    #
+    # Every other clearance check here compares a part to the BOARD, so a part that is too big
+    # to fit its own mating part intersects nothing anybody was measuring. The base plate was
+    # 1.40mm too deep (269.136mm3 into the stand's floor) because it carried a private copy of
+    # the chamber's rear wall, 21.00, from before that wall was derived to 19.30. The sealed
+    # chamber could not be closed and no check said so.
+    #
+    # WITH ITS OWN SELF-TEST, because "0.000" is exactly the answer a check that cannot fail
+    # gives: pushing the plate 0.5mm deeper must be DETECTED. That is the §6 lesson — a
+    # detector that has not detected anything is not known to work.
+    # ONE stand solid for every check below that needs it — it is the expensive build in this
+    # file and it was being made twice.
+    _stand = desk_stand()
+    _base = stand_base()
+    _bi = (_base & _stand).volume
+    assert _bi < 0.01, (
+        f"the base plate interferes with the stand by {_bi:.3f}mm3 — it cannot seat, so the "
+        f"speaker chamber cannot be closed. Every edge must derive from CHAM_*, not be typed")
+    _bi_self = ((Pos(0, 0.5, 0) * _base) & _stand).volume
+    assert _bi_self > 1.0, (
+        f"[self-test] the base plate shifted 0.5mm deeper reads {_bi_self:.3f}mm3 — the "
+        f"interference detector is broken, not the parts")
+
     # 3. the slot must still hold it
     assert engagement >= 12.0, f"slot engagement {engagement:.1f}mm is too shallow to retain the slab"
 
@@ -1712,7 +1761,7 @@ def _check_geometry():
     #
     # Probed as a fingertip, not as a point: a 6 x 4mm contact patch 6mm out from the cap
     # face. A centreline sample would pass through a slot the finger cannot enter.
-    _stand = desk_stand()
+    # (_stand was built once for check 2d above — reused, not rebuilt.)
     for _cx, _cy in BTN:
         _cyh, _R, _ = cap_geometry(_cx)
         _probe = Box(6.0, 6.0, 4.0, align=(Align.CENTER, Align.MIN, Align.CENTER))
