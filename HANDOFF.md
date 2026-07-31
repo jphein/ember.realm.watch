@@ -12,7 +12,8 @@ repeatedly here, and the running log of the times it did is [`docs/verification.
 | **Repo** | <https://github.com/jphein/ember.realm.watch> |
 | **Site** | <https://jphein.github.io/ember.realm.watch/> — page + print sheet |
 | **STL downloads** | all **four** + `ember_case.py` from raw GitHub |
-| **Enclosure** | boolean-verified 0.000 mm³ against the vendor solid; geometry asserts pass. Mesh: three parts watertight, `ember-front-bezel` at its documented baseline of 3 non-manifold edges and **zero** boundary edges |
+| **Enclosure** | boolean-verified 0.000 mm³ against the vendor solid; geometry asserts pass. Mesh: three parts watertight, `ember-front-bezel` at its documented baseline of 3 non-manifold edges and **zero** boundary edges. **`ember-front-bezel` has been printed and its dimensions are good** — one part of four; nothing assembled |
+| **Standing guards** | five, all green — see below. Four of them exist because "committed" turned out not to mean "deployed" or "served" |
 
 `~/Projects/ha` is clean and in sync. Ember has been fully extracted from it.
 
@@ -155,6 +156,23 @@ All three found by rendering and looking; all three now asserted in `_check_geom
 *"can you get at it"* are different questions. Every feature a human has to reach needs its
 own reachability check. `SLOT_FLOOR` is now 24.0, with a 22 × 22 mm USB-C well beneath the slot.
 
+## Standing guards — run these, they are not decorative
+
+| guard | asks | when |
+|---|---|---|
+| `esphome/tools/check_restore_resync.py` | can a restoring control lie about the hardware after a reboot? | pre-commit, on the firmware yaml |
+| `site/check_generated_current.py` | is the built page in the same commit as its source? | pre-commit, on `index.src.html` / `PRINT-SHEET.md` |
+| `site/check_served_current.py` | is what a **visitor downloads** what `origin/main` would produce? | **after a push** — never a hook |
+| `homeassistant/tools/check_dashboard_deployed.py` | is the dashboard **HA is serving** the one in git? | after a dashboard change |
+| `status.realm.watch/check_deployed_current.py` | are the checks **actually running** the committed ones? | after a `deploy.sh` |
+
+⚠️ **`.git/hooks` is not tracked, so a fresh clone starts unprotected.** Install line in
+[`docs/verification.md`](docs/verification.md). Each guard fires only when its own source is
+staged — *a hook that runs on every commit gets disabled, and a disabled hook protects nothing.*
+
+None of them deploys. Where a fix has a cost, the guard's job is to make the cost visible, not
+to pay it on somebody's behalf.
+
 ## Open
 
 - [ ] **Print it.** Start with `ember-front-bezel.stl` — cheapest to reprint, and it now carries
@@ -182,6 +200,19 @@ own reachability check. `SLOT_FLOOR` is now 24.0, with a 22 × 22 mm USB-C well 
       > ⚠️ Not `binary_sensor.ember_reachable`, which was the other candidate: that polls
       > `familiar.lan:8091/health` and measures the **inference backend**, not the device.
       > Its name and its subject are different things.
+
+- [ ] **`docs/verification.md` needs a summary, not more entries.** It is ~1,470 lines and 24
+      sections. The early ones are load-bearing; the newest are marginal, and **every marginal
+      entry dilutes the ones that would change somebody's behaviour.** It wants a short
+      *"the mechanisms"* table at the top with instances beneath. **Do not add sections without
+      applying the bar: would this change what somebody does?** — not what they would find
+      interesting, and not what demonstrates rigour.
+- [ ] **Two questions are with JP** and nothing here unblocks them: (1) **which slicer** printed
+      the bezel and whether it reported the 3 non-manifold edges — that is the only thing that
+      upgrades the mesh sentence from *one print, one slicer* to a claim about the class; and
+      (2) the **six frozen bezel predictions** in
+      `scratch/hosyond-s3/bezel-calibration.md`, which change sheet numbers if the web
+      prediction lands. **Refining analysis while waiting for an observation is not progress.**
 
 Full crash-recovery audit with ranked findings:
 `~/.claude/projects/-home-jp-Projects-familiar-realm-watch/scratch/hosyond-s3/loose-ends.md`
