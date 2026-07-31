@@ -3190,7 +3190,21 @@ display:
             it.print(6, SCRL_Y + 18, id(font_sm), c_ash, "-");
           }
         }
+        // ---- HEX-NOTCHED DIVIDER (#9 item 4) -- the rule keeps its job, ten cells
+        // sit ON it as notches. Pointy-top by the orientation rule at the mode chip:
+        // a chain of cells is a FIELD (grille family), not a cap. Vertical extent is
+        // +48..+52 -- heard's second line ends at +46 and the reply begins at +58, so
+        // the notches clear both. Chrome band: erases and overdraws by design, outside
+        // the write-once invariant and the 18,240 px budget. ~50 one-shot runs.
         it.filled_rectangle(6, SCRL_Y + 50, W - 12, 1, c_ash);
+        for (int i = 0; i < 10; i++) {
+          const int hx = 18 + (i * (W - 36)) / 9;   // 18..222, symmetric over the rule
+          for (int dy = -2; dy <= 2; dy++) {
+            // half-widths {0,2,2,2,0}: 1px vertices, 5px flats -- pointy-top at this size
+            const int hw = (dy == -2 || dy == 2) ? 0 : 2;
+            it.horizontal_line(hx - hw, SCRL_Y + 50 + dy, 2 * hw + 1, c_ash);
+          }
+        }
 
         // Ember's reply PAGES rather than truncating. JP's framing was that he would
         // rather read it over time than lose it, and paging honours that at a cost
@@ -4640,9 +4654,11 @@ display:
           // Rendered, eyeballed and tiling-checked before it was written here; the numbers
           // and the PPMs are in luna's ember-backview/fw2/. R=4 gives an 8px-tall course
           // (exactly GRATE, by the derivation below), sqrt(3)*R = 6.93px across flats,
-          // WEB px of material between neighbours. Pointy-top, matching the mode chip in
-          // the sigil band and the physical hex thumb caps -- a flat-top course here would
-          // read as a different shape family from the button it sits under.
+          // WEB px of material between neighbours. Pointy-top by the orientation rule at
+          // the mode chip: a FIELD of cells reads as the grille, so pointy-top. This line
+          // once said "matching the mode chip" -- STALE since 218341b flipped the chip to
+          // flat-top (it stands for a single cap, and a field is not a cap). The grate's
+          // orientation was right; its cited reason was borrowed and rotted.
           //
           // COST, measured, not estimated: +392..+454 runs/frame across all nine states and
           // px/frame UNCHANGED at 18,240. Runs barely bill -- horizontal_line is a bare loop

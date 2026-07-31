@@ -155,8 +155,9 @@ static bool g_audio_live = false, g_guttering = false;
 static bool g_no_dragon = false;
 // Mirrors the firmware's `silenced` = (st == 3) && op_mode >= 1. Default false, so every
 // recorded runs/frame figure is unchanged by its introduction — verified, not assumed.
-// No scenario sets it yet; it exists so the harness compiles the SHIPPED painter rather
-// than one missing a line.
+// The `silenced` scenario sets it (added with #10's coverage guard, c36c585); before
+// that it existed only so the harness compiled the SHIPPED painter rather than one
+// missing a line, and no scenario exercised it.
 //
 // ⚠️ THE EXPLANATION LIVES HERE AND NOT AT THE USE SITE, AND THE GENERATOR IS WHY.
 // make_paste_block.py aborts if any `g_*` symbol survives into the extracted body, and
@@ -627,9 +628,11 @@ static void paint_flame_frame() {
       // Rendered, eyeballed and tiling-checked before it was written here; the numbers
       // and the PPMs are in luna's ember-backview/fw2/. R=4 gives an 8px-tall course
       // (exactly GRATE, by the derivation below), sqrt(3)*R = 6.93px across flats,
-      // WEB px of material between neighbours. Pointy-top, matching the mode chip in
-      // the sigil band and the physical hex thumb caps -- a flat-top course here would
-      // read as a different shape family from the button it sits under.
+      // WEB px of material between neighbours. Pointy-top by the orientation rule at
+      // the mode chip: a FIELD of cells reads as the grille, so pointy-top. This line
+      // once said "matching the mode chip" -- STALE since 218341b flipped the chip to
+      // flat-top (it stands for a single cap, and a field is not a cap). The grate's
+      // orientation was right; its cited reason was borrowed and rotted.
       //
       // COST, measured, not estimated: +392..+454 runs/frame across all nine states and
       // px/frame UNCHANGED at 18,240. Runs barely bill -- horizontal_line is a bare loop
