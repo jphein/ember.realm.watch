@@ -68,7 +68,7 @@ and a `../cadenv` that does not exist. See [`README.md`](README.md) for first-ti
 | File | Qty | Print orientation | Supports | Notes |
 |---|---|---|---|---|
 | `ember-front-bezel.stl` | 1 | **front face DOWN** on the bed | **none** | The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are bed-side chamfers, so they self-support. **The debossed honeycomb and the wyrm mark are bed-side recesses**, 0.48 mm deep — exactly three layers at this part's 0.16 mm — and print as bridged voids, which is *why* they are recesses: on a bed face, relief only goes inward. |
-| `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** *(measured)* | ⛔ **Set gap-closing radius / hole horizontal expansion to 0 before slicing — see below, a default will weld the buttons shut.** Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Countersinks widen downward onto the bed. **The debossed cap faces are bed-side recesses and they bridge 13.27 mm (BOOT) / 8.27 (RESET)** — expect visible sag in the middle of both, and run the fan at 100 % for the first ~5 layers. |
+| `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** *(measured)* | ⛔ **Set gap-closing radius / hole horizontal expansion to 0 before slicing — see below, a default will weld the buttons shut.** Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Countersinks widen downward onto the bed. **Labels** (`SD`, `MIC`, `VOL`, power symbol) are debossed 0.48 mm = 3 layers at 0.16, and the two cap labels sit at the bottom of bridged recesses, so they are the first thing sag will blur. **The debossed cap faces are bed-side recesses and they bridge 13.27 mm (BOOT) / 8.27 (RESET)** — expect visible sag in the middle of both, and run the fan at 100 % for the first ~5 layers. |
 | `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | Chamber ceiling is a **17 mm bridge** and the cable channel a **16 mm bridge** — leave bridging on (slicer default) and they're fine. The **finger scoop** in the rear slot wall opens *upward*, so every wall is near-vertical and the pocket floor is solid: no bridge at all. (It is **one** opening, x 13.94–50.51, not two: `SCALLOP_MIN_RIB` merges them because the current caps would leave a 0.51 mm rib between, which is a fin rather than a wall. Measured as one span in the mesh.) The **wire saddle** merges into its right-hand end for the same reason — that is deliberate, and it is what keeps the rear bearing rim in two clean segments totalling 15.64 mm instead of leaving a 0.85 mm fin. |
 | `ember-stand-base.stl` | 1 | flat | none | Closes the speaker chamber. Press fit. ⚠️ **Resized in `89001ea` — reprint if you made one earlier.** |
 
@@ -118,6 +118,13 @@ only escaping through holes. That is why there is no diffuser part — see the L
 ### ⛔ Before you slice the back shell: one default will destroy the buttons
 
 **Set "slice gap closing radius" (Cura) or "hole horizontal expansion" to `0`.**
+
+**Two features depend on this setting, not one.** The button moat is the one that strands the
+part; the **label grooves are the one you would not notice until the print is off the bed**,
+because a welded label still looks like a label in the slicer preview. Every glyph on the back
+face — `SD`, `MIC`, `VOL` and the power symbol — is cut at a **0.90 mm groove width**, the same
+order as the moat and equally inside what a gap-closer exists to remove. Same fix, one setting,
+both saved.
 
 The moat around each button island is `SLOT_W = 0.60` mm — **1.50 nozzle widths** at 0.40 mm.
 The geometry is clean: **0.60 mm of void on both sides of both islands, verified at all 12 wall
