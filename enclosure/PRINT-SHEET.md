@@ -68,7 +68,7 @@ and a `../cadenv` that does not exist. See [`README.md`](README.md) for first-ti
 | File | Qty | Print orientation | Supports | Notes |
 |---|---|---|---|---|
 | `ember-front-bezel.stl` | 1 | **front face DOWN** on the bed | **none** | The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are bed-side chamfers, so they self-support. **The debossed honeycomb and the wyrm mark are bed-side recesses**, 0.48 mm deep — exactly three layers at this part's 0.16 mm — and print as bridged voids, which is *why* they are recesses: on a bed face, relief only goes inward. |
-| `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** | Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Countersinks widen downward onto the bed. **The debossed cap faces are bed-side recesses** — a few layers bridge over each, no supports. |
+| `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** *(measured)* | ⛔ **Set gap-closing radius / hole horizontal expansion to 0 before slicing — see below, a default will weld the buttons shut.** Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Countersinks widen downward onto the bed. **The debossed cap faces are bed-side recesses and they bridge 13.27 mm (BOOT) / 8.27 (RESET)** — expect visible sag in the middle of both, and run the fan at 100 % for the first ~5 layers. |
 | `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | Chamber ceiling is a **17 mm bridge** and the cable channel a **16 mm bridge** — leave bridging on (slicer default) and they're fine. The **finger scoop** in the rear slot wall opens *upward*, so every wall is near-vertical and the pocket floor is solid: no bridge at all. (It is **one** opening, x 13.94–50.51, not two: `SCALLOP_MIN_RIB` merges them because the current caps would leave a 0.51 mm rib between, which is a fin rather than a wall. Measured as one span in the mesh.) The **wire saddle** merges into its right-hand end for the same reason — that is deliberate, and it is what keeps the rear bearing rim in two clean segments totalling 15.64 mm instead of leaving a 0.85 mm fin. |
 | `ember-stand-base.stl` | 1 | flat | none | Closes the speaker chamber. Press fit. ⚠️ **Resized in `89001ea` — reprint if you made one earlier.** |
 
@@ -115,6 +115,48 @@ lighting design: white PLA is translucent, so the WS2812 lights the shell itself
 only escaping through holes. That is why there is no diffuser part — see the LED note under
 *Speaker* / the hex back below.
 
+### ⛔ Before you slice the back shell: one default will destroy the buttons
+
+**Set "slice gap closing radius" (Cura) or "hole horizontal expansion" to `0`.**
+
+The moat around each button island is `SLOT_W = 0.60` mm — **1.50 nozzle widths** at 0.40 mm.
+The geometry is clean: **0.60 mm of void on both sides of both islands, verified at all 12 wall
+layers.** But a non-zero gap-closing radius exists specifically to **close narrow slots on
+purpose**, and it is on by default in some profiles. That turns a correct STL into a shell whose
+buttons look perfect and do not move — **the model is not the failure, the slicer is**, and no
+amount of re-checking the STL would find it.
+
+Even with it at zero, **expect some fusing.** At a realistic 0.45 mm bead the two perimeters
+meet almost exactly, and the hinge shoulders are where it shows first.
+
+- **Free the pads with a fresh blade at assembly step 3**, before anything else goes together.
+- ⚠️ **Cut from the outside inward and stop at the hinge.** The hinge is the one feature designed
+  to flex — a 0.90 mm membrane at a calculated 1.20 % strain against PLA's ~2 % yield. **A knife
+  nick there is a stress riser the calculation does not include.**
+
+### The cap-face bridges are 13.27 and 8.27 mm, and they grew 82 % without being noticed
+
+The BOOT cap's deboss floor spans `R·√3` = **13.268 mm**; RESET's is **8.268**. Both bridge
+routinely over a 0.90 / 0.50 mm recess — **this is a cosmetic note, not a defect.** Expect sag in
+the middle of the faces you look at and press. Fan at 100 % for the first few layers.
+
+> **Worth knowing how the number got there.** At the old 9.01 mm caps that span was **7.275 mm**.
+> Growing the caps to thumb-size took it to 13.268 — **+82 %** — inside a change that was
+> reviewed for hinge strain, lever ratio, countersink clearance and the hex-field boundary.
+> **Printability of the recess floor was not on that list.** A checklist that is complete for
+> the questions it knew about is a harder failure than an omission, because nothing about it
+> looks incomplete.
+
+### "Supports: none" for this part is measured, not asserted
+
+| band | area |
+|---|---|
+| overhangs 10–30° | **0 mm²** |
+| overhangs 30–45° | 19.45 mm² — the countersink cones only, which are self-supporting |
+| first-layer contact | 3727.9 mm², **one island**; 92.0 × 14.60 mm is 6.3:1, so **no brim** |
+| thinnest feature | 0.750 mm — the hex web |
+| side-channel roofs | 2.62 / 1.57 / 1.05 mm bridges — trivial |
+
 ---
 
 ## Fasteners
@@ -150,9 +192,15 @@ bezel, which is the worst way for it to present.
 
   | your screw | what happens |
   |---|---|
-  | **⌀6.40 head** | **flush, full conical seat** — the design point |
+  | **⌀6.40 head** | **flush, and bearing over the whole cone** — the design point |
   | **DIN 965 M3** (⌀6.0 max) | sinks 0.20 mm below flush, bearing on its **rim** rather than the cone. Fine; slightly recessed |
   | **ISO 10642** socket countersunk (⌀6.72) | ⛔ **sits proud by 0.16 mm** |
+
+  ⚠️ **"Full conical seat" is the geometric ideal; as sliced at 0.20 mm the cone is a staircase
+  of 8 annular steps**, so the head bears on 8 step corners rather than a smooth surface. Still
+  far better than the old 84.7° geometry's single line contact — 8 contact circles against 1 —
+  but it means **one gentle re-nip after the first tightening** is worth doing as the steps bed
+  down. A third pass is not.
 
   **Proud is worse than sunk**: it stops the shell sitting flat and stops the screw clamping.
   Same thread, same length, wrong head — and the packet often just says "M3 countersunk".

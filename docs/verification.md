@@ -1188,6 +1188,46 @@ different answers is not a tie to be broken by seniority or by who measured last
 statement that at least one instrument is pointed at the wrong object, and the cheapest next
 move is to find out which — which took one `curl -L` and settled it in under a minute.
 
+#### A fifth member: repeating a measurement inside its own correlation window
+
+The remedy built for the timing problem had the same defect as the problem.
+
+A served artifact came back stale immediately after a push. The sweep's confirm pass re-read it,
+and it was re-read by hand three times more — **same digest every time**, which read as
+confirmation that the artifact really was wrong. It was not. `raw.githubusercontent.com` sends
+`cache-control: max-age=300`, so **three reads eight seconds apart are one observation taken
+three times.** Repetition inside a single cache window is not independent evidence of anything;
+it is the same cached object, reported repeatedly.
+
+What settled it was a different question, and a cheaper one — **which commit's blob do the
+served bytes match?**
+
+```
+92161e7  0dc232a8…
+2237684  0dc232a8…
+3aac7ac  dda906b5…   ← what the edge was serving, 2 commits behind
+```
+
+> **Ask what the bytes ARE before asking whether they will change.**
+
+Identification is free and decisive; waiting costs a TTL and, inside one window, proves nothing.
+So the check now identifies first: bytes matching a recent ancestor are reported as
+**`edge behind (N)`** — named and counted, not swallowed — and only bytes matching *nothing* in
+history earn the expensive re-read, because that is the only case where time can change the
+answer.
+
+**The tell that the original design was wrong is that removing a step made the tool more
+correct.** `--no-confirm` had been documented as *"fast, and will lie right after a push"*. It is
+now simply accurate. **The lie was never the speed — it was the confirm pass owning a diagnosis
+it could not make**, which is the same shape as a detector with a single failure verdict
+applying that verdict to every anomaly it meets.
+
+And the general form, which reaches past caches: **waiting is not sampling.** A loop that polls
+until something changes is a fine way to wait and a worthless way to corroborate, because every
+iteration inside the correlation window carries the same information as the first. If a repeat
+is meant as evidence rather than patience, it has to be separated by more than the thing that
+makes repeats agree.
+
 #### And the class this all belongs to: committed is not deployed, and deployed is not served
 
 Four instances in one day, each found by accident while looking for something else:
