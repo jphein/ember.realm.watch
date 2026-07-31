@@ -1859,3 +1859,33 @@ one flattened search, which found the sentence present. Same hour, same shape, o
 outcome: once the explanation concealed a real defect, once it was the whole story. **Which is
 the point.** The explanation's truth carries no information about whether anything else is
 wrong, so it cannot be the reason to stop — only a measurement can.
+
+#### And flattening is not enough, which took a third instance to learn
+
+The remedy above has its own blind spot, found the same day by someone searching this file for a
+sentence they had written themselves:
+
+```
+"could not run at all until an anchor was fixed"
+  raw text                    0
+  whitespace-flattened        0      <- the remedy, and it still fails
+  flattened + markup stripped 1
+```
+
+The phrase was intact. **An editor — me — had closed a `**` bold span in the middle of it**, so
+the literal characters never occur consecutively no matter how the whitespace is normalised.
+
+> **Flattening whitespace fixes wrapping. It does nothing about inline markup splitting a
+> phrase.** Two different mutilations of the same prose, needing two different remedies: for
+> wrapping you normalise, and for markup you either strip the marks too or **read the region
+> instead of counting a literal.**
+
+Note which direction this runs. The file already records literal `**` surviving onto a *rendered*
+page — markup leaking outward. This is the mirror: markup sitting correctly in the source and
+breaking a search *for* the prose it decorates. Same class, opposite direction, and the second
+one is quieter, because a search returning zero looks like an answer.
+
+The general form, and the reason it belongs in this section rather than beside the flattening
+advice: **each fix to a search widens what it can find and leaves a new class it cannot.** A
+zero from a hardened instrument is more persuasive than a zero from a naive one and is not more
+conclusive. Ask what the *current* version cannot see before believing its absence.
