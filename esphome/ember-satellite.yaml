@@ -145,13 +145,17 @@ substitutions:
   # silent drift between "where it's drawn" and "where it's tappable" is the
   # classic touch-UI bug and it is invisible in review.
   ui_oy: "32"           # overlay origin y — must equal SCRL_Y
-  ui_vol_by: "104"      # volume +/- targets: top edge
-  ui_vol_bh: "76"       # volume +/- targets: height (76px ~= 14mm)
+  # The single-press overlay now carries TWO controls, so it spans the flame band as
+  # well and each control gets a shorter pair of targets. 56px ~= 10.3mm, still well
+  # clear of the ~9mm minimum touch target — the constraint that decided the layout.
+  ui_vol_by: "88"       # volume +/- targets: top edge
+  ui_vol_bh: "56"       # +/- target height, shared by both controls
+  ui_gain_by: "204"     # mic gain +/- targets: top edge
   ui_pm_iy: "72"        # power menu: first item top edge
   ui_pm_ih: "46"        # power menu: item height (46px ~= 8.4mm)
   ui_pm_n: "4"          # power menu: item count
   # Auto-dismiss after this long without interaction.
-  ui_vol_timeout: "5000"
+  ui_vol_timeout: "8000"   # was 5000; two controls take longer to set
   ui_pm_timeout: "12000"
 
 esphome:
@@ -860,6 +864,48 @@ number:
       - audio_dac.set_volume:
           id: es8311_dac
           volume: !lambda 'return x / 100.0f;'
+
+  # MIC GAIN — the ES8311's analog ADC PGA, made live.
+  #
+  # It was a compile-time constant (`mic_gain: 36db` on the audio_dac). That is the wrong
+  # shape for a knob whose correct value depends on the room, the speaker's distance and
+  # how loudly they talk — every adjustment cost a reflash.
+  #
+  # ⚠️ THE STEP IS 6dB AND THAT IS NOT A STYLE CHOICE. REG16 takes a 3-bit field with
+  # exactly eight legal values, 0/6/12/18/24/30/36/42 dB (ES8311MicGain in the driver's
+  # header). Nothing between them is representable, so a continuous slider would report a
+  # setting the hardware cannot hold. Quantise here rather than silently rounding later.
+  #
+  # WHY IT WRITES THE REGISTER DIRECTLY. `set_mic_gain()` only assigns a member — the
+  # driver writes REG16 once, in setup() (es8311.cpp:200). Calling the setter alone changes
+  # nothing until the next boot, which would look exactly like a control that does not work.
+  # So both happen: the member is kept honest for any later re-init, and the register is
+  # written for the change to take effect now.
+  #
+  # DEFAULT 36dB, DELIBERATELY BELOW THE MAXIMUM. ESPHome's own default is 42dB — the top of
+  # the range — and stacked on voice_assistant's auto_gain and volume_multiplier it clips and
+  # pins the dBFS meter. Higher is not better here: it is more sensitive AND more clipped.
+  - platform: template
+    id: mic_gain_num
+    name: Mic Gain
+    icon: mdi:microphone-settings
+    optimistic: true
+    restore_value: true
+    initial_value: 36
+    min_value: 0
+    max_value: 42
+    step: 6
+    unit_of_measurement: "dB"
+    mode: slider
+    set_action:
+      - lambda: |-
+          // 0..42dB in 6dB steps -> the 3-bit REG16 field, 0..7.
+          int g = (int) lroundf(x / 6.0f);
+          if (g < 0) g = 0;
+          if (g > 7) g = 7;
+          id(es8311_dac)->set_mic_gain((es8311::ES8311MicGain) g);
+          id(es8311_dac)->write_byte(0x16, (uint8_t) g);   // ES8311_REG16_ADC
+          ESP_LOGI("mic", "gain -> %ddB (REG16=0x%02X)", g * 6, g);
 
   # THE OPEN EXPERIMENT, made turnable. Oracle's adjudication (2026-07-29) found the
   # decisive test had never actually been run: the "pop returned with blanking off"
@@ -1813,8 +1859,24 @@ script:
       # No pop => the protection works and the question is closed. Still pops => the
       # protection is ineffective and amp gating can be retired outright. Until now
       # the protection had never been given a transient it was in position to cover.
+      # EXEMPT: the talk action (3), and now the mic gain pair (14, 15).
+      #
+      # Gain is exempt for a reason specific to what it controls. A tone plays out of the
+      # SPEAKER and says nothing whatsoever about how well the MICROPHONE hears — it is
+      # acknowledgement dressed as measurement, on the one control where that is actively
+      # misleading. Worse, the overlay stops at y=264 and the telemetry band below it keeps
+      # showing `%.1f dBFS   peak %.1f`, so the honest readout is on screen while you
+      # adjust — and a chime would be captured by the very microphone being adjusted and
+      # spike the number you are reading. (Caveat worth stating rather than implying: that
+      # meter is `passive: true`, so it only reads while something else has the mic running.
+      # It is live during a conversation, not while the overlay merely sits open.)
+      #
+      # Visual feedback is not lost by the exemption — the lit stone count changes on the
+      # same frame as the tap.
       - if:
-          condition: { lambda: 'return id(ui_action) != 0 && id(ui_action) != 3;' }
+          condition:
+            lambda: 'return id(ui_action) != 0 && id(ui_action) != 3
+                          && id(ui_action) != 14 && id(ui_action) != 15;'
           then:
             - script.execute:
                 id: chime
@@ -1844,6 +1906,28 @@ script:
             - number.increment: { id: spk_volume, cycle: false }
             - lambda: 'id(ui_gen)++;'
             - script.execute: { id: chime, which: 5 }
+
+      # MIC GAIN -/+ . DELIBERATELY SILENT, unlike the volume pair above.
+      #
+      # Volume earns a tone because it is the one control whose result cannot be judged
+      # visually — the tone IS the readout. Mic gain is the opposite: a tone plays out of
+      # the SPEAKER and says nothing whatsoever about how well the microphone hears. It
+      # would be acknowledgement dressed up as measurement, on the one control where the
+      # honest readout already exists on screen (the level meter) and where a chime would
+      # additionally be captured by the very microphone being adjusted.
+      #
+      # cycle: false for the same reason as volume: number.increment wraps by default, and
+      # a gain control that jumps from 42dB to 0dB when you press "+" is a bug.
+      - if:
+          condition: { lambda: 'return id(ui_action) == 14;' }
+          then:
+            - number.decrement: { id: mic_gain_num, cycle: false }
+            - lambda: 'id(ui_gen)++;'
+      - if:
+          condition: { lambda: 'return id(ui_action) == 15;' }
+          then:
+            - number.increment: { id: mic_gain_num, cycle: false }
+            - lambda: 'id(ui_gen)++;'
 
       # talk toggle — the gesture that existed before, unchanged, and gated by hush
       - if:
@@ -2715,7 +2799,7 @@ display:
         // conversation state — the overlay is what the touchscreen now addresses,
         // so it has to be what the header says.
         if (id(ui_mode) != 0) {
-          const char *t = (id(ui_mode) == 1) ? "VOLUME" : "POWER";
+          const char *t = (id(ui_mode) == 1) ? "AUDIO" : "POWER";
           it.filled_circle(13, SIGIL_Y + 13, 5, c_gold);
           it.print(28, SIGIL_Y + 3, id(font_hdr), c_gold, t);
           it.print(W - 6, SIGIL_Y + 9, id(font_sm), c_dim,
@@ -2955,41 +3039,66 @@ display:
       // restart or sleep the thing.
       auto paint_overlay = [&]() {
         const int OY = ${ui_oy};
-        const int OH = (id(ui_mode) == 2) ? (SCRL_H + FLAM_H) : SCRL_H;
+        // Mode 1 grew into the flame band when mic gain joined it — two controls with
+        // touch-sized targets do not fit in SCRL_H alone. Only the mode submenu (3) is
+        // still short. See the fire branch below: mode 1 no longer keeps the fire alive,
+        // because the overlay is now drawing over where the fire would be.
+        const int OH = (id(ui_mode) == 3) ? SCRL_H : (SCRL_H + FLAM_H);
         it.filled_rectangle(0, OY, W, OH, c_bg);
         it.filled_rectangle(0, OY, W, 1, c_ash);
 
         if (id(ui_mode) == 1) {
-          const int vol = (int) (id(spk_volume).state + 0.5f);
-          it.printf(6, OY + 4, id(font_hdr), c_tip, "%d%%", vol);
-          it.print(W - 6, OY + 9, id(font_sm), c_dim,
-                   display::TextAlign::TOP_RIGHT, "how loudly ember speaks");
+          // TWO CONTROLS, ONE CODE PATH. JP: "it can be in the single press menu along
+          // with volume." They are drawn by one lambda rather than two copies, because a
+          // second hand-written copy of a layout is the same hazard as a second copy of a
+          // geometry: they agree until one is edited, and nothing notices. The pair reads
+          // as "how loudly it speaks / how well it hears".
+          const int vol  = (int) (id(spk_volume).state + 0.5f);
+          const int gain = (int) (id(mic_gain_num).state + 0.5f);
 
-          // Hearth stones: 20 of them, one per 5% step, lit ones climbing the
-          // fire ramp. A level readout that belongs to the metaphor rather than a
-          // grey progress bar bolted onto it.
-          const int SN = 20, sw = 10, sg = 2, sy = OY + 32, sh = 30;
-          const int sx0 = (W - (SN * (sw + sg) - sg)) / 2;
-          const int lit = vol / 5;
-          for (int i = 0; i < SN; i++) {
-            Color c = c_ash;
-            if (i < lit) {
-              float t = (float) i / (float) (SN - 1);
-              c = (t < 0.45f) ? c_ember : (t < 0.78f) ? c_amber : c_gold;
+          // The value string is rendered by the CALLER and passed in, so no format string
+          // ever reaches printf as a variable. That is not fussiness: -Wformat-nonliteral
+          // would fire, and the standing warning count on this file was just taken from 4
+          // to 0. A warning budget only works while it is zero.
+          auto row = [&](int ly, int by, const char *val, const char *sub,
+                         int n_st, int lit, bool can_dn, bool can_up) {
+            it.print(6, ly, id(font_hdr), c_tip, val);
+            it.print(W - 6, ly + 5, id(font_sm), c_dim,
+                     display::TextAlign::TOP_RIGHT, sub);
+            // Hearth stones: a level readout that belongs to the metaphor rather than a
+            // grey progress bar bolted onto it. Lit ones climb the fire ramp.
+            const int sw = 10, sg = 2, sy = ly + 26, sh = 22;
+            const int sx0 = (W - (n_st * (sw + sg) - sg)) / 2;
+            for (int i = 0; i < n_st; i++) {
+              Color c = c_ash;
+              if (i < lit) {
+                float t = (float) i / (float) (n_st - 1);
+                c = (t < 0.45f) ? c_ember : (t < 0.78f) ? c_amber : c_gold;
+              }
+              it.filled_rectangle(sx0 + i * (sw + sg), sy, sw, sh, c);
             }
-            it.filled_rectangle(sx0 + i * (sw + sg), sy, sw, sh, c);
-          }
+            // Glyphs are drawn as bars rather than typed, so nothing depends on font
+            // metrics. 114 x 56 px ~= 21 x 10.3mm.
+            const int bh = ${ui_vol_bh};
+            it.rectangle(4, by, 114, bh, c_dim);
+            it.filled_rectangle(43, by + bh / 2 - 2, 36, 5, can_dn ? c_ink : c_ash);
+            it.rectangle(122, by, 114, bh, c_dim);
+            it.filled_rectangle(161, by + bh / 2 - 2, 36, 5, can_up ? c_ink : c_ash);
+            it.filled_rectangle(177, by + bh / 2 - 18, 5, 36, can_up ? c_ink : c_ash);
+          };
 
-          // The two targets. 114 x 76 px == ~21 x 14 mm on this 2.8" panel, well
-          // clear of the ~9mm minimum touch target. Glyphs are drawn as bars
-          // rather than typed, so nothing depends on font metrics.
-          const int by = ${ui_vol_by}, bh = ${ui_vol_bh};
-          const bool can_dn = vol > 0, can_up = vol < 100;
-          it.rectangle(4, by, 114, bh, c_dim);
-          it.filled_rectangle(43, by + bh / 2 - 2, 36, 5, can_dn ? c_ink : c_ash);
-          it.rectangle(122, by, 114, bh, c_dim);
-          it.filled_rectangle(161, by + bh / 2 - 2, 36, 5, can_up ? c_ink : c_ash);
-          it.filled_rectangle(177, by + bh / 2 - 18, 5, 36, can_up ? c_ink : c_ash);
+          char vbuf[12], gbuf[12];
+          snprintf(vbuf, sizeof vbuf, "%d%%", vol);
+          snprintf(gbuf, sizeof gbuf, "%ddB", gain);
+
+          // 20 stones for volume (one per 5%), 8 for gain — because the ES8311's PGA has
+          // exactly eight legal settings. The stone count IS the hardware's resolution, so
+          // the readout cannot imply a precision the codec does not have. lit = g/6 + 1, so
+          // 0dB shows one lit stone rather than none: 0dB is a real setting, not "off".
+          row(OY + 4,   ${ui_vol_by},  vbuf, "how loudly ember speaks",
+              20, vol / 5,      vol > 0,  vol < 100);
+          row(OY + 120, ${ui_gain_by}, gbuf, "how well ember hears",
+              8,  gain / 6 + 1, gain > 0, gain < 42);
 
         } else if (id(ui_mode) == 3) {
           it.print(6, OY + 4, id(font_hdr), c_gold, "MODE");
@@ -4424,12 +4533,13 @@ display:
         // under it; and in POWER mode the overlay owns the flame band too, so the
         // fire is suspended. Dropping both here is what keeps the persistent
         // framebuffer honest — anything still drawing would leave litter.
+        // NO OVERLAY KEEPS THE FIRE ALIVE ANY MORE. Mode 1 used to, deliberately, so the
+        // hearth stayed visible while you set the volume. That stopped being possible when
+        // mic gain joined the same overlay: two controls with 10mm touch targets need the
+        // flame band's pixels, and a touch target below ~9mm is a worse trade than five
+        // seconds of hidden fire. Anything still drawing here would leave litter on the
+        // persistent framebuffer.
         pend &= ~0x04;
-        if (id(ui_mode) == 1) {
-          if ((pend & 0x10) || now >= t_flame) {
-            pend &= ~0x10; t_flame = now + 50u; paint_flame();
-          }
-        }
       }
       else if (pend & 0x04) { pend &= ~0x04; paint_scroll(); }
       else if (st == 4 && !spark_live) {
@@ -4500,9 +4610,13 @@ touchscreen:
           }
 
           if (id(ui_mode) == 1) {
-            // volume overlay: two targets, else tap-away to dismiss
+            // audio overlay: FOUR targets now — volume -/+ and mic gain -/+ — else
+            // tap-away to dismiss. Both bands are tested against the same constants the
+            // drawing uses, so a target cannot drift away from the thing it looks like.
             if (ty >= ${ui_vol_by} && ty < ${ui_vol_by} + ${ui_vol_bh}) {
               id(ui_action) = (tx < 120) ? 1 : 2;
+            } else if (ty >= ${ui_gain_by} && ty < ${ui_gain_by} + ${ui_vol_bh}) {
+              id(ui_action) = (tx < 120) ? 14 : 15;
             } else {
               id(ui_action) = 4;
             }
