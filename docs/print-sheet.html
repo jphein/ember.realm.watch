@@ -158,7 +158,11 @@ cd enclosure &amp;&amp; ./cadenv/bin/python ember_case.py
 <tr><td><b>ISO 10642</b> socket countersunk (⌀6.72)</td><td>⛔ <b>sits proud by 0.16 mm</b></td></tr>
 </tbody></table></div>
 <p><b>Proud is worse than sunk</b>: it stops the shell sitting flat and stops the screw clamping. Same thread, same length, wrong head — and the packet often just says "M3 countersunk". If ISO 10642 is what you have, the countersink wants <b>6.72 / 1.71</b> instead; that is a named alternative, not a caveat.</p>
-<p>&gt; <b>Two 90° surfaces have parallel flanks</b>, so a head narrower than the mouth does not seat &gt; <em>deeper into the cone</em> — it descends until its <b>rim</b> touches the wall, at &gt; <code>(mouth − head) / 2</code>, and contacts along a line instead of over the whole seat. That is why &gt; the mouth is matched to a named head rather than opened up "to be safe": widening it &gt; corrects the angle and makes the seat <b>worse</b>.</p>
+<p>&gt; <b>Two 90° surfaces have parallel flanks</b>, so a head narrower than the mouth does not seat &gt; <em>deeper into the cone</em> — it descends until its <b>rim</b> touches the wall, at &gt; <code>(mouth − head) / 2</code>, and contacts along a line instead of over the whole seat. That is why &gt; the mouth is matched to a named head rather than opened up "to be safe": widening it &gt; corrects the angle and makes the seat <b>worse</b>. &gt; &gt; What limits the mouth is <b>the outer r6.45 corner arc</b>, not the vendor's ⌀5.60 pad. From &gt; the hole centre it is 5.743 mm to the outer surface, so a 6.40 mouth leaves <b>2.543 mm</b> of &gt; wall and 6.70 would leave 2.393. <em>(The ⌀5.60 pad is a real constraint — on <code>BOSS_D</code>, two &gt; bullets down, because the boss <b>bears</b> on the pad. The countersink is cut into the outer &gt; face 2.60 mm of wall away and never reaches the cavity, let alone the pad.)</em></p>
+<ul>
+<li><b>Snug, not hard.</b> With a matched ⌀6.40 head this is now ordinary care in PLA rather than a</li>
+</ul>
+<p>design flaw — the head lands on a <b>full conical seat</b>. But a DIN 965 ⌀6.00 head still bears on its <b>rim</b>, a line contact, so the load is concentrated: over-torque there pulls the head into the back face and craters it. It will not fail at <em>snug</em>.</p>
 <ul>
 <li>1.5 mm of solid skin remains under the bezel's front face at ×14.</li>
 <li><b>Heat-set inserts will NOT fit.</b> The vendor specifies a ⌀5.60 pad around each mounting</li>

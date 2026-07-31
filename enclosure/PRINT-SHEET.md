@@ -164,6 +164,17 @@ bezel, which is the worst way for it to present.
   > `(mouth − head) / 2`, and contacts along a line instead of over the whole seat. That is why
   > the mouth is matched to a named head rather than opened up "to be safe": widening it
   > corrects the angle and makes the seat **worse**.
+  >
+  > What limits the mouth is **the outer r6.45 corner arc**, not the vendor's ⌀5.60 pad. From
+  > the hole centre it is 5.743 mm to the outer surface, so a 6.40 mouth leaves **2.543 mm** of
+  > wall and 6.70 would leave 2.393. *(The ⌀5.60 pad is a real constraint — on `BOSS_D`, two
+  > bullets down, because the boss **bears** on the pad. The countersink is cut into the outer
+  > face 2.60 mm of wall away and never reaches the cavity, let alone the pad.)*
+
+- **Snug, not hard.** With a matched ⌀6.40 head this is now ordinary care in PLA rather than a
+  design flaw — the head lands on a **full conical seat**. But a DIN 965 ⌀6.00 head still bears
+  on its **rim**, a line contact, so the load is concentrated: over-torque there pulls the head
+  into the back face and craters it. It will not fail at *snug*.
 - 1.5 mm of solid skin remains under the bezel's front face at ×14.
 - **Heat-set inserts will NOT fit.** The vendor specifies a ⌀5.60 pad around each mounting
   hole, so bosses are capped at ⌀5.40. An M3 insert needs a ⌀4.0–4.2 bore, leaving a 0.6 mm
