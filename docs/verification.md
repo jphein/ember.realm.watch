@@ -293,6 +293,21 @@ The two defences are procedural, and both were used the same afternoon:
 > **Say which configuration you ran, not which conclusion you reached.** A conclusion is
 > compressed and its compression is where the coverage goes missing.
 
+**And the same rule in the other direction, which is the one that is easy to skip: when a
+teammate's report contradicts your own instrument, re-test before believing yourself.** The
+forward form guards against inheriting someone else's error. The reverse form guards against
+your own, and it is harder to apply, because the instrument is right there and it just ran.
+
+It was worth exactly one re-check. A sweep reported that a control still lacked a boot resync;
+the person who owned the file had said it was fixed. The regex was wrong (§18) and the report
+about to be filed was false. **The disagreement itself was the signal** — not the confidence of
+either party — and the cheap move was to spend one command finding out which side was broken
+rather than to assume it was the other person's memory.
+
+Both directions reduce to the same thing: a claim and an instrument are two artifacts, and when
+they disagree, *either* may be the defective one. Nothing about having just run something makes
+it the reliable half.
+
 A related instance from the same session, self-audited: a twelve-row truth table reported as
 verifying the audio gate in fact checked **a transcription of the watchdog, not the
 watchdog** — so it proved the design coherent over its input space and said nothing about
@@ -508,6 +523,72 @@ needs a positive control — and this is that rule for logging, arrived at again
 Worth noting the cost honestly: four flash cycles on a diagnostic line, versus one on the
 measurement that settled it. The measurement was available from the beginning and was reached
 only after the inferences ran out.
+
+### 18. Four searches, each returning a true number about a narrower question
+
+The faults in this entry are not in any artifact under test. They are in the **instruments
+written to check it** — four of them, in one afternoon, by one person who spent that afternoon
+reading this file. Every number they produced was real. Every one answered a question narrower
+than the one being asked, and three of them had a claim already drafted on top.
+
+- **A `grep -c` whose positive control could not run.** Checking whether a commit contained a
+  fix: `git show …| grep -c "boot resync" && echo control… && grep -c mic_gain_num`. `grep -c`
+  **exits 1 when the count is zero**, so the `&&` chain broke and the control never executed.
+  The bare `0` came from an instrument that had never been shown to produce a positive — §13
+  exactly, committed in the act of applying §13. Re-run with `|| true` per count, the control
+  returned 4 and the 0 became trustworthy. **A control downstream of the thing it controls for
+  is not a control.**
+- **An `innerText` slice that cut before the match, then a shadow boundary that hid the rest.**
+  A DOM probe classified cards by `innerText.slice(0, 34)`. The card it was hunting begins
+  `0 · 6 · 12 · 18 · 24 · 30 · 36 · 42` — the matched word sits past character 34. Widening the
+  slice did not fix it either, because `innerText` **does not cross a shadow boundary**, so
+  every markdown card returned `''` and was invisible to any text filter at all. The probe
+  visited them and reported them absent.
+- **A denominator counting things that were never eligible.** "card-mod injected into **0 of 12
+  tile cards**" was reported as a repo-wide styling regression, with a request that someone go
+  and look. Only **3** of those 12 carry a `card_mod` at all; the other 9 correctly receive
+  nothing. On the loads that were measured it was **3 of 3 eligible** — a working system. §9's
+  shape from the other side: there, a sum was satisfied by one region; here, a ratio was
+  poisoned by counting nine cards that had never asked for anything.
+- **A regex matching one of two spellings of the same reference.** Sweeping for restoring
+  controls that lacked a boot resync, `id:\s*spk_volume` found nothing, because that control is
+  resynced through a lambda — `id(spk_volume).state` — not a YAML key. The draft finding read
+  *"the identical bug is still live for Speaker Volume."* It was false.
+
+**The general form: a search returns a true fact about its own pattern, and every step from
+there to a claim about the program is yours to justify.** §13 says this for absence; this entry
+says it for *shape*. `grep -c` counts matching lines. A slice matches a prefix. A ratio counts
+whatever you put underneath it. None of them was wrong, and none of them was asked the question
+the report went on to answer.
+
+**What caught them is the uncomfortable part: three of the four were caught from outside the
+instrument.** The `innerText` failure surfaced because a *screenshot* showed an ember-styled pill
+on screen while the probe was calling the palette dead. The denominator failure surfaced by
+counting eligibility statically, in the source, where no page-load timing was involved. The regex
+failure surfaced only because **a teammate's message contradicted the instrument, and the
+instrument was re-tested instead of trusted** — the reproduce-before-building rule running
+backwards, and the only defence in this list that was not a better check. An instrument cannot
+audit itself; something with a different failure mode has to disagree with it.
+
+A fifth fault compounded the third and is a different shape worth naming separately: the page was
+**sampled before it had settled.** card-mod applies on a delay — at an 8 s settle 0 cards are
+styled, at 14 s and beyond all eligible ones are. The screenshots were taken at 11 s and 20 s. The
+same wrong answer then arrived three times and **repetition was read as confirmation**, when three
+samples from one biased instrument are one sample. The tell was available and ignored: a system
+reported as *totally* broken, while a correctly-styled element was plainly visible in a screenshot
+already looked at. §14's lesson, again — knowing the failure mode confers no immunity — and the
+firmware discipline that would have caught it existed in this repo already: **read back what is
+running before concluding anything from its behaviour**, applied to a browser rather than a device.
+
+The cost asymmetry runs the same way as everywhere else in this file. Each of these checks took
+about a minute to write and none took longer than a minute to falsify once the right question was
+asked. The expensive part was never the checking — it was a confident report sent to a colleague,
+twice, and once with a request that he go investigate something that was not broken.
+
+> **Verify your verifier.** The artifacts under test in this repo are checked, rendered, measured
+> and read back off hardware. The greps and probes that check them have historically been written
+> once and trusted immediately — which makes the checking apparatus the **least-verified thing in
+> the project**, and it is the apparatus every other claim rests on.
 
 ---
 
