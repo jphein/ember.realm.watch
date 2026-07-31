@@ -29,7 +29,10 @@ The device firmware is documented separately; this is the HA half.
 | `homeassistant/packages/ember_persona.yaml` | `/homeassistant/packages/` | `input_text.ember_persona_extra`, `input_text.ember_say` |
 | `homeassistant/packages/ember_announce.yaml` | `/homeassistant/packages/` | `script.ember_announce`, `…_if_awake`, `script.ember_say` |
 | `homeassistant/dashboards/ember-hearth.dashboard.json` | HA `.storage`, over WebSocket | the `ember-hearth` dashboard — 4 views (Hearth, Voice Pipeline, Diagnostics, Fleet) |
+| `homeassistant/prompts/ember-system.md.j2` | HA `.storage`, over the REST config-flow API | Ember's **system prompt** — the persona, the device manifest, the Environment State block |
+| `homeassistant/patches/eoc-aliases-sentinel.patch` | applied by hand on the HA VM | staged `helpers.py` fix; needs a restart, so it waits |
 | `homeassistant/tools/deploy-ha.sh` | — | copies packages + reloads only what changed |
+| `homeassistant/tools/ember-prompt.py` | — | `--diff` / `--extract` / `--deploy` the system prompt, live, no restart |
 | `homeassistant/tools/build_ember_dashboard.py` | — | creates-if-absent + pushes the dashboard |
 
 **This repo is the source of truth.** Packages are *copied* to the VM, not symlinked —
@@ -88,7 +91,7 @@ Then its **conversation subentry** → Reconfigure:
 | `chat_model` | `ember` (a LiteLLM alias, not an upstream model id) |
 | `context_threshold` | `40000` |
 | `context_truncate_strategy` | `clear` |
-| prompt | Ember's persona — structure and the one hard rule in [§6.3](#63-the-persona-and-the-one-rule) |
+| prompt | leave the default here — then `homeassistant/tools/ember-prompt.py --deploy` writes the real one from [`../homeassistant/prompts/ember-system.md.j2`](../homeassistant/prompts/ember-system.md.j2). Structure and the one hard rule: [§6.3](#63-the-persona-and-the-one-rule) |
 
 ⚠ `.lan` is required — HAOS does not resolve the bare `ubox0`. Don't substitute an IP:
 hosts here have moved before and a hardcoded literal cost a whole debugging session.
@@ -335,25 +338,63 @@ it. A gap in that history is a true signal, not an artefact of measuring.
 
 ### 6.3 The persona, and the one rule
 
-The full persona (~1000 chars) lives in the agent's conversation subentry.
-`input_text.ember_persona_extra` (255 chars — `input_text`'s hard cap) is a live nudge
-appended to it, editable from the dashboard's Pipeline view. Good for *"Be even terser
-today, one sentence only."*
+The persona lives in **[`../homeassistant/prompts/ember-system.md.j2`](../homeassistant/prompts/ember-system.md.j2)**,
+which is the source of truth — deploy it with `homeassistant/tools/ember-prompt.py --deploy`.
+It is *stored* in the agent's conversation subentry inside HA's `.storage`; until 2026-07-31 that
+was the only copy anywhere, which is how the reasoning below came to be half-right for months.
+
+`input_text.ember_persona_extra` (255 chars — `input_text`'s hard cap) is a live nudge appended
+to it, editable from the dashboard's Pipeline view. Good for *"Be even terser today, one
+sentence only."*
 
 > **The tweak field is injected at the very END of the prompt, and must stay there.**
 >
-> Ember answers in ~1.7 s warm only because the prompt *prefix* is byte-stable, letting
-> llama.cpp reuse its KV cache — 516 tokens re-prefilled instead of 7,559. Anything
-> volatile early in the prompt destroys that and costs ~6.5 s per turn. Measured, not
+> Ember answers fast warm only because the prompt *prefix* is byte-stable, letting llama.cpp
+> reuse its KV cache. Anything volatile earlier in the prompt destroys that. Measured, not
 > theorised.
 >
-> Trailing placement is free because `{{ now() }}` in the Environment State block is
-> already the cache boundary. It's also the only placement that *works*: sitting
-> mid-prompt, after the ~7k-token entity manifest, the model ignored the field outright
-> — including an explicit "reply in French". Moved last, it takes effect immediately.
-> Delivery was never the problem; position was.
->
-> Move that reference earlier and you silently trade 1.7 s replies for 7.6 s ones.
+> Trailing placement is also the only placement that *works*: sitting mid-prompt, after the
+> ~6k-token entity manifest, the model ignored the field outright — including an explicit
+> "reply in French". Moved last, it takes effect immediately. Delivery was never the problem;
+> position was.
+
+#### ⚠ Correction, 2026-07-31 — trailing placement is no longer "free"
+
+The paragraph above used to end with *"trailing placement is free because `{{ now() }}` in the
+Environment State block is already the cache boundary."* **That sentence had the right
+observation and the wrong conclusion, and it cost this project months of 1-second turns.**
+
+`{{ now() }}` rendered with **microsecond** precision — `2026-07-31 11:12:47.522568-07:00` —
+so it was byte-unique on *every single request*. It was not a boundary to hide behind; it was a
+cache bug that re-prefilled the timestamp, the tool preamble tail, **and the entire
+conversation history**, every turn. The "516 tokens re-prefilled" figure recorded above is
+exactly that cost, measured correctly and then filed as acceptable.
+
+[#37](https://github.com/jphein/ember.realm.watch/issues/37) fixed it by coarsening the
+timestamp to the hour, so the prefix is stable *within* a conversation:
+
+```jinja
+- Current Time: {{ now().strftime('%A %d %B, %H:00') }}    ->  Friday 31 July, 12:00
+```
+
+Measured against `llama-server` on `familiar:8091`, pinned to an idle slot
+(`prompt eval time`, not wall clock):
+
+| | before | after |
+|---|---|---|
+| prompt size | 7,970 tok | **6,258 tok** |
+| byte-identical repeat (control) | 4 tok / 243 ms | 4 tok / 243 ms |
+| **warm turn, history appended** | 516 tok / **1,023 ms** | **27 tok / 408 ms** |
+| cold turn (whole prompt) | 7,970 tok / **6,024 ms** | 6,258 tok / **4,771 ms** |
+
+The remaining 6,258 tokens are mostly the 294-row device manifest, deliberately kept.
+
+**So the rule is now the plain one, with no exception:** nothing in the prompt may render
+differently between turns. The tweak field is safe at the end because an `input_text` only
+changes when JP changes it — and when he does, that one turn pays the re-prefill, which is
+correct. **Do not reintroduce a sub-hourly timestamp, a live entity `state` column, or any
+other per-request value anywhere in the prompt.** There is no longer a boundary that makes it
+free.
 
 ### 6.4 `prefer_local_intents` — why it's on
 
@@ -569,15 +610,45 @@ only from the device, because recovering a touchscreen must not require the touc
 It blocks ~310 ms and logs a *took a long time* warning — expected for a manual recovery
 action, not a fault.
 
-### 7.4 Replies got slow (~7 s instead of ~1.7 s)
+### 7.4 Replies got slow
 
-Almost always the prompt prefix stopped being byte-stable, so llama.cpp re-prefills
-7,559 tokens instead of reusing 516. Usual cause: something volatile moved earlier in
-the prompt. See [§6.3](#63-the-persona-and-the-one-rule).
+Two different faults, and the fix is different for each. **Don't guess from wall clock — get
+`prompt eval time` per request**, which separates prefill from generation. Wall-clock timing is
+what made the LLM look fast in #11 and cost a day.
+
+```bash
+ssh familiar 'journalctl -u qwen3-coder.service --since "-1h" --no-pager | grep "prompt eval time"'
+ssh familiar 'curl -s localhost:8091/slots | python3 -m json.tool | grep n_prompt_tokens'
+```
+
+**~0.4 s → ~1 s on *every* turn: the prompt prefix stopped being byte-stable.** llama.cpp's
+prefix cache truncates at the first differing token and re-prefills everything after it,
+including all conversation history. Compare repo vs live to find what changed:
+
+```bash
+homeassistant/tools/ember-prompt.py --diff
+```
+
+Usual cause is something newly volatile in the prompt — a timestamp with sub-hour precision, a
+live entity `state` column. See [§6.3](#63-the-persona-and-the-one-rule), including the
+correction: there is **no** placement where a per-request value is free.
+
+**~5 s once, then fast: that's a cold cache, not a regression.** The whole ~6.3k-token prompt
+prefills at ~1,300 tok/s ≈ 4.8 s. Expected after anything that empties the slot:
+
+- `qwen3-coder.service` restarted — familiar's autosuspend (15 min idle) or candela/storyvox CI
+  cycling the ML stack. `systemctl show -p ExecMainStartTimestamp qwen3-coder.service`
+- the prompt itself changed — a deploy invalidates the cache once, by design
+- Ember's slot got reassigned; the service runs `--parallel 2` and is shared with
+  `claude-local-qwen`
+
+This is the open half of [#37](https://github.com/jphein/ember.realm.watch/issues/37): it is an
+ops question (keep the cache alive) rather than a prompt one, and it is the difference between a
+good warm turn and a ~5 s cold one.
 
 ### 7.5 The persona tweak has no effect
 
-Check *where* it's referenced. Mid-prompt — after the ~7k-token entity manifest — the
+Check *where* it's referenced. Mid-prompt — after the ~6k-token entity manifest — the
 model ignored it outright, including an explicit "reply in French". At the very end it
 takes effect on the next turn. Also: 255 chars is `input_text`'s hard cap; longer edits
 go in the conversation subentry.
