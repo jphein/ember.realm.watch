@@ -2838,16 +2838,85 @@ def _find_step():
 
 STL_TMP = ".stl.partial"   # exports land here; renamed to .stl only once every check passes
 
+
+def _discard_partials(out, names):
+    for n in names:
+        try:
+            os.remove(os.path.join(out, n + STL_TMP))
+        except FileNotFoundError:
+            pass
+
+
+def _selftest_export_gate():
+    """Prove the gate in BOTH directions, on scratch files, on every build.
+
+    ⚠️ A PASSING BUILD CANNOT DEMONSTRATE THIS. A passing build commits, so it cannot tell
+    "the checks now gate the export" apart from "the checks still run last and happened to
+    pass". The one-off manual control that established this gate was the right instrument and
+    it ran once; this is the same experiment wired into every run, for ~1ms.
+
+    BOTH directions, because the failure modes are opposite and both are silent:
+      * failing  -> the previous good STLs must be untouched and no debris left behind
+      * clean    -> they must actually update. A gate that never commits looks exactly like
+                    a healthy repo — same bytes on disk, no error — until someone prints from
+                    a month-old file. That is the direction a one-way check cannot see.
+    """
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        names = ["part-a", "part-b"]
+        for n in names:
+            with open(os.path.join(d, n + ".stl"), "w") as f:
+                f.write("PREVIOUS GOOD SET")
+        try:                                              # --- failing path ---
+            for n in names:
+                with open(os.path.join(d, n + STL_TMP), "w") as f:
+                    f.write("NEW BYTES")
+            raise AssertionError("simulated check failure")
+        except AssertionError:
+            _discard_partials(d, names)
+        for n in names:
+            with open(os.path.join(d, n + ".stl")) as f:
+                assert f.read() == "PREVIOUS GOOD SET", (
+                    "[self-test] a failed build overwrote the previous good STL — the export "
+                    "gate does not hold and a bad part can still reach a printer")
+            assert not os.path.exists(os.path.join(d, n + STL_TMP)), (
+                "[self-test] a failed build left .partial debris behind")
+        for n in names:                                   # --- clean path ---
+            with open(os.path.join(d, n + STL_TMP), "w") as f:
+                f.write("NEW BYTES")
+        for n in names:
+            os.replace(os.path.join(d, n + STL_TMP), os.path.join(d, n + ".stl"))
+        for n in names:
+            with open(os.path.join(d, n + ".stl")) as f:
+                assert f.read() == "NEW BYTES", (
+                    "[self-test] a clean build did NOT commit — the gate has become a brick "
+                    "wall, and a repo that never updates its STLs looks perfectly healthy")
+    return True
+
+
 if __name__ == "__main__":
+    assert _selftest_export_gate()
     out = os.path.dirname(os.path.abspath(__file__))
+    _committed = False
     parts = {"ember-front-bezel": front_bezel(),
              "ember-back-shell":  back_shell(),
              }
-    try:
-        parts["ember-stand"] = desk_stand()
-        parts["ember-stand-base"] = stand_base()
-    except Exception as e:
-        print("!! stand failed:", e)
+    # ⚠️ THIS USED TO SWALLOW THE FAILURE AND CARRY ON — printing "!! stand failed" and then
+    # exporting the two parts that DID build, over the top of a good set, while the stand's
+    # previous STL stayed behind pretending to belong with them. Same defect class as the
+    # ungated export: a build that did not fully succeed must publish nothing.
+    parts["ember-stand"] = desk_stand()
+    parts["ember-stand-base"] = stand_base()
+    # ⚠️ atexit, NOT try/finally: the run spans two __main__ blocks with module-level
+    # definitions between them, so a try in the first cannot reach a finally in the second.
+    # atexit fires on normal exit and on an unhandled exception, which is every way an assert
+    # here ends. Without this a failed build leaves four .partial files that the next reader
+    # has to know to distrust — and "left behind as diagnostics" is how stale artifacts start.
+    import atexit
+    atexit.register(lambda: None if _committed else (
+        _discard_partials(out, parts),
+        print("\n!! BUILD DID NOT PASS — nothing committed, no debris. The .stl files on "
+              "disk are the previous good set, untouched.")))
     for n,p in parts.items():
         p = _print_oriented(n, p)
         bb = p.bounding_box()
@@ -3390,6 +3459,31 @@ def _check_geometry(parts=None):
     # and the scallops must not eat their way out through the stand's back face
     _rear = (SLOT_CY + (SLAB_T/2 + SLOT_CLR)*math.cos(math.radians(TILT))
              + ((ST_H-SLOT_FLOOR)/math.cos(math.radians(TILT)))*math.sin(math.radians(TILT)))
+    # 3c. THE #35 CHAMFER MUST NOT REACH #31's RETENTION ZONES.
+    #
+    # The rim chamfer runs on the stand's OUTER perimeter (x=0 and x=ST_W). What holds the
+    # leaning slab is the rear rim at the slot's two x-extremes — 9.55 + 10.12 = 19.67mm of
+    # full-height wall either side of the #31 notch — and those start at the SLOT's edge,
+    # 3.65mm inboard. So the two features are 2.85mm apart and neither knows about the other.
+    #
+    # ⚠️ WHICH IS EXACTLY WHY THIS IS PINNED. A chamfer is a whole-silhouette operation and a
+    # retention zone is a local one; nothing in either definition mentions the other, so a
+    # future CHAMFER bump would eat retention silently and no existing check would notice —
+    # the engagement assert measures ST_H - SLOT_FLOOR and would not move at all.
+    #
+    # The rim's DEPTH also loses CHAMFER (16.92 -> 16.12mm behind the slot) and that is fine
+    # and deliberate: the slab bears where it crosses the slot's rear face at y=47.08, not at
+    # the outer edge the chamfer touches. Recorded so the 0.80 is not mistaken for a loss of
+    # bearing line.
+    _zone_x0 = ST_W/2 - SLAB_W/2 - SLOT_CLR                     # 3.65, the slot's edge
+    assert CHAMFER <= _zone_x0 - 1.0, (
+        f"the {CHAMFER}mm rim chamfer reaches x={CHAMFER:.2f} and #31's retention zone starts "
+        f"at x={_zone_x0:.2f} — under 1mm between them the chamfer is eating the full-height "
+        f"rim that stops the slab leaning back. Engagement would still read 16.56mm, so "
+        f"nothing else here would catch it")
+    assert ST_D - _rear - CHAMFER >= 12.0, (
+        f"the rear rim is {ST_D - _rear - CHAMFER:.2f}mm deep behind the slot after the "
+        f"chamfer — the bearing line at y={_rear:.2f} needs wall behind it, not just at it")
     assert ST_D - (_rear + SCALLOP_D) >= 3.0, (
         f"finger scallops leave only {ST_D-(_rear+SCALLOP_D):.1f}mm of rear wall at the rim")
 
@@ -3540,4 +3634,5 @@ if __name__ == "__main__":
         _tmp = os.path.join(out, n + STL_TMP)
         if os.path.exists(_tmp):
             os.replace(_tmp, os.path.join(out, n + ".stl"))   # atomic within a filesystem
+    _committed = True
     print(f"  [export] committed {len(parts)} STLs — all checks passed first")
