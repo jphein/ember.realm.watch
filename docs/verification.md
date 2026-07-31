@@ -951,3 +951,62 @@ not a bug in the arithmetic — every ray was traced correctly and every interse
 The defect was a bound chosen from an assumption about *where the answer would be*, which is
 the one thing a measurement is not allowed to assume. Widen the window before concluding the
 thing is not there.
+
+#### The same lesson twice more, from the other side — and a limit on controls
+
+A second instrument, built the same day to sweep the published site, reported **three stale
+artifacts and all three were false.** It compared the served bytes against the **working
+tree**, and a teammate had committed locally without pushing — so *"served differs from my
+disk"* was perfectly true and completely uninteresting. The reference had to be **what the
+remote would produce**, not what happened to be on one machine.
+
+Then, fixed and pointed at `origin/main`, it produced a **fourth** false stale — this time
+because it ran within a minute of a push:
+
+```
+t+25s   served = d5f4b1816960   want = c6083b3e3970   stale
+t+50s   served = c6083b3e3970   want = c6083b3e3970   match
+```
+
+**Run immediately after a push, a served-surface check measures the edge, not the push.**
+
+> ⚠️ **A positive and a negative control prove the method can detect a difference. They do not
+> prove it is comparing the right two things.**
+
+Both controls passed in every one of those runs, and were right to: the method *could*
+distinguish identical from different. The defect was one level up, in the choice of what to
+compare and when — which no control of that shape can reach. This is a real limit on
+control-based verification and it is worth stating plainly, because a passing control feels
+like a licence to trust the result.
+
+Three defects, one family: **the window** (`y > 19.4`), **the reference** (working tree vs
+remote), **the timing** (before the edge caught up). Each time the arithmetic was correct and
+an unstated precondition was not. *An instrument is only as good as the assumptions it does not
+check — so enumerate them, because they will not announce themselves.*
+
+The measured detail is better than the guess, and it changed the fix: **the two surfaces go
+stale by different mechanisms and only one of them tells you.** GitHub Pages sends
+`cache-control: max-age=600` with `via: varnish` and an `age:` header, so the staleness is a
+real edge cache and its age is *observable*. `raw.githubusercontent.com` sends
+`cache-control: no-cache` — so what was seen there is not an HTTP cache at all but backend
+replication lag, and **no header bounds it.** You cannot ask; you can only re-read. The sweep
+therefore never reports a mismatch on a single observation: it re-reads after a delay and
+reports only what persists, because **one read cannot distinguish a stale artifact from a
+stale edge, and those need opposite responses.**
+
+#### And the class this all belongs to: committed is not deployed, and deployed is not served
+
+Four instances in one day, each found by accident while looking for something else:
+
+| | the repo said | the world said |
+|---|---|---|
+| `docs/assets/case-hero.png` | current render | one render behind |
+| `status.realm.watch/checks.json` | 8 checks registered | never deployed — **four projects registered and unmonitored** |
+| `docs/print-sheet.html` | "✅ CLEARED" | **"⛔ DO NOT PRINT"**, on the page read while a printer runs |
+| the stand STL after its fix | fixed blob at HEAD | the blocked blob, for about a minute |
+
+**Every check that compares the repo against the truth passes in all four.** That is what makes
+the class invisible: the artifact under version control is correct, the reasoning about it is
+correct, and the thing a person actually receives is not. Ask the question at the point of
+delivery — fetch the URL, read the config off the host that runs it, hash what a visitor
+downloads — or the answer is about a different object than the one that matters.
