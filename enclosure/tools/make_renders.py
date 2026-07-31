@@ -35,8 +35,19 @@ stand, base  = E.desk_stand(), E.stand_base()
 # light leaves through the hexes now. Four printable parts, not five.
 _STEP = os.path.join(_sys.path[0], "ES3C28P_3D", "ES3C28P_3D.step")
 if not os.path.exists(_STEP):
-    _sys.exit(f"missing vendor board model: {_STEP}\n"
-              f"  download it per enclosure/README.md — 17.7MB, deliberately not committed")
+    # SAYS "FATAL" BECAUSE IT IS ONE, AND THE PREVIOUS WORDING COST AN HOUR.
+    # This is sys.exit() — nothing after it runs, no figure is written. But the message used to
+    # read "missing vendor board model: … download it per enclosure/README.md", which is the
+    # phrasing of a helpful note about an optional asset. Someone rendering from a `git archive`
+    # extract of HEAD (correct instinct: the working tree was mid-edit) hit this, tailed the log
+    # four times, read the line as a warning, and waited 46 minutes for a process that had
+    # already exited. An exit that announces itself in the register of advice will be read as
+    # advice. If a message ends a run, it has to say so in the first two words.
+    _sys.exit(f"FATAL — aborting, no renders written.\n"
+              f"  missing vendor board model: {_STEP}\n"
+              f"  download it per enclosure/README.md — 17.7MB, deliberately not committed.\n"
+              f"  NOTE: a `git archive`/`git clone` extract will NEVER contain it. Symlink it in:\n"
+              f"    ln -s <repo>/enclosure/ES3C28P_3D/ES3C28P_3D.step {_STEP}")
 # ANCHORED, not cwd-relative. This was `"../ES3C28P_3D/ES3C28P_3D.step"`, which resolves
 # correctly only when cwd is enclosure/tools — while README.md documents running it from
 # enclosure/. Two cwd assumptions in one file, both invisible to anyone whose shell happened
