@@ -161,19 +161,32 @@ def row_counts(raw, subs):
     They are written in three different syntaxes in three different lambdas, which is
     exactly why they can disagree — and did, as `% 4` in a 3-row menu.
 
-    ⚠️ ANCHORED ON THE MENU HEADERS, not on `id(ui_mode) == N`. The first draft split on
-    the branch test and landed on `const int OH = (id(ui_mode) == 3) ? ...` twenty lines
-    earlier, then reported "no row loop found" — a checker failing to locate its subject
-    and saying so, which is the only reason it did not silently pass. `"MODE"` and
-    `"THE HEARTH"` are each written exactly once."""
+    ⚠️ ANCHORED ON THE MENU HEADERS' CODE, not on `id(ui_mode) == N` and not on the bare
+    header strings. Two revisions, each for a reason worth keeping:
+
+    1. The first draft split on the branch test and landed on
+       `const int OH = (id(ui_mode) == 3) ? ...` twenty lines earlier, then reported "no
+       row loop found" — a checker failing to locate its subject and saying so, which is
+       the only reason it did not silently pass.
+    2. The second anchored on the bare string `"MODE"` and broke the moment someone wrote
+       a COMMENT mentioning `"MODE"` in quotes — which happened within the hour, in the
+       same commit that added the cancel cursor. It raised `Blind` rather than passing,
+       correctly, but a guard that trips on prose about the code is a guard that gets
+       disabled. Anchoring on `c_gold, "MODE")` includes the call's shape, so a sentence
+       naming the string cannot collide with it.
+
+    That is the third time today a search matched prose describing code rather than the
+    code (§14's "read the line before counting it"), so the fix is structural rather than
+    a reminder."""
     raw = _subst(raw, subs)
-    for anchor in ('"MODE"', '"THE HEARTH"'):
+    A3, A2 = 'c_gold, "MODE")', 'c_gold, "THE HEARTH")'
+    for anchor in (A3, A2):
         if raw.count(anchor) != 1:
-            raise Blind(f"the paint-branch anchor {anchor} occurs "
+            raise Blind(f"the paint-branch anchor {anchor!r} occurs "
                         f"{raw.count(anchor)} times, expected exactly 1 — re-anchor "
                         f"this extraction before trusting it")
-    seg3 = raw.split('"MODE"')[1].split('"THE HEARTH"')[0]
-    seg2 = raw.split('"THE HEARTH"')[1]
+    seg3 = raw.split(A3)[1].split(A2)[0]
+    seg2 = raw.split(A2)[1]
 
     def loop_bound(seg, label):
         m = re.search(r"for\s*\(\s*int\s+i\s*=\s*0\s*;\s*i\s*<\s*(\d+)\s*;", seg)
@@ -503,10 +516,25 @@ def audit(path):
                             f"ui_mode 0 by button presses without rebooting — with a "
                             f"wedged touch controller this is a mode you cannot leave")
         elif not clean and m != 0:
-            notes.append(f"(ui_mode={m}, ui_sel={s}) can only reach ui_mode 0 by "
-                         f"committing an action that changes device state (e.g. Bank "
-                         f"the fire turns the backlight off, Rouse resets the touch "
-                         f"controller) — a real exit, and not a free one")
+            # PROMOTED FROM A NOTE TO A FAILURE, 2026-07-31, on JP's decision.
+            #
+            # This was reported for information while the mode submenu had no cancel:
+            # once its cursor left -1 it could never return (`% 3` has no path back), so
+            # from any lit row the only button exit was to APPLY a mode. That is a menu
+            # you cannot back out of with a wedged touch controller — in the menu that
+            # exists BECAUSE recovery must not need the touchscreen.
+            #
+            # A cancel cursor position now exists, so every reachable state has a
+            # button-only escape that commits nothing, and anything less is a
+            # regression rather than a quirk. `clean` excludes the haptic
+            # acknowledgement chime (see is_ack) and counts everything else as a
+            # consequence, so a NEW action defaults to loud.
+            findings.append(
+                f"state (ui_mode={m}, ui_sel={s}) can ONLY reach ui_mode 0 by "
+                f"committing an action that changes device state — there is no "
+                f"button-only escape that commits nothing. With a wedged touch "
+                f"controller the user's only way out of this state is to change "
+                f"something they did not come here to change")
 
     # 3. the cursor visits exactly the drawn rows
     for m in (2, 3):
@@ -611,13 +639,22 @@ CONTROLS = [
      "if (false) {\n"
      "                // ⚠️ WITHOUT THIS BRANCH",
      "is INERT from the button"),
-    # B) the other #4 bug: hardcode the cursor modulus at the power menu's count in a
-    #    3-row menu. Spelled with the SUBSTITUTION, because that is what is in the file
-    #    — the resolved `4` matches nothing.
-    ("cursor modulus hardcoded to ${ui_pm_n} in the 3-row menu (#4)",
-     "const int n = (id(ui_mode) == 3) ? 3 : ${ui_pm_n};",
-     "const int n = ${ui_pm_n};",
+    # B) the #4 bug: let the mode cursor walk onto a row that is never drawn. Post-cancel
+    #    the mode branch is its own `s >= 3` wrap rather than a shared modulus, so the
+    #    mutation is the bound. (The previous spelling of this control anchored on
+    #    `const int n = (id(ui_mode) == 3) ? 3 : ${ui_pm_n};`, which the cancel change
+    #    deleted — the counted assertion below refused to run rather than silently
+    #    mutating nothing, which is the only reason this was updated and not lost.)
+    ("mode cursor wrap raised to 4 in a 3-row menu (#4)",
+     "id(ui_sel) = (s >= 3) ? -1 : s;",
+     "id(ui_sel) = (s >= 4) ? -1 : s;",
      "never drawn"),
+    # E) THE CANCEL ITSELF: remove the path back to -1, restoring the state JP asked to
+    #    fix. Every lit row then has no commit-free button exit.
+    ("the cancel cursor position removed (cursor can never return to -1)",
+     "id(ui_sel) = (s >= 3) ? -1 : s;",
+     "id(ui_sel) = (s >= 3) ? 0 : s;",
+     "no button-only escape that commits nothing"),
     # C) mode 1 unreachable: remove the short-press summon.
     ("short-press summon of the volume overlay removed",
      "id(ui_mode) = 1;              // summon the volume overlay",

@@ -1468,15 +1468,43 @@ binary_sensor:
                 id(ui_action) = 0;
               } else if (id(ui_mode) == 1) {
                 id(ui_action) = 2;            // step up (wraps — see below)
+              } else if (id(ui_mode) == 3) {
+                // ---- FOUR CURSOR POSITIONS IN A THREE-ROW MENU: THE CANCEL ----
+                //
+                // -1 (nothing lit) is the fourth position and it is the CANCEL. It
+                // already meant dismiss on a long press — the branch below reads
+                // `(ui_sel >= 0 && ui_sel < 3) ? apply : dismiss` and always has. The
+                // defect was that -1 was UNREACHABLE once the cursor moved: a plain
+                // `% 3` walks 0,1,2,0,1,2 forever, so from any lit row the only button
+                // exit was to APPLY a mode. Cycling back through -1 costs one branch
+                // and needs no new drawn row.
+                //
+                // A FOURTH DRAWN ROW WAS THE OTHER OPTION AND IT DOES NOT FIT. Rows sit
+                // at ui_pm_iy + i * ui_pm_ih = 72/118/164, and this overlay is only
+                // OY..OY+SCRL_H = 32..187 tall. Row 3 would start at 210, well outside
+                // it. (Row 2 already ends at 207 and paints ~20px past the overlay
+                // background into the flame band — benign today because mode 3
+                // suspends the fire and dismissal forces a full repaint, but it is why
+                // "just add a row" is not available.)
+                //
+                // ⚠️ THE MENU EXISTS BECAUSE RECOVERY MUST NOT NEED THE TOUCHSCREEN.
+                // GPIO0/BOOT is the entire hardware input budget, and `btn_rouse_touch`
+                // is a row in the power menu for exactly that reason. A mode submenu
+                // whose only button exit commits a mode change is a menu you cannot
+                // back out of with a wedged touch controller. The 12s auto-dismiss is a
+                // timeout, not an escape. Surfaced by check_navigability.py; JP's call.
+                int s = id(ui_sel) + 1;
+                id(ui_sel) = (s >= 3) ? -1 : s;
+                id(ui_action) = 0;
               } else {
                 // Advance the cursor. THE ROW COUNT DIFFERS PER MENU — the power menu
-                // has ui_pm_n rows, the mode submenu has 3 — so the hardcoded modulus
-                // that used to be here walked the mode cursor onto a fourth row that
-                // is never drawn. The tap hit-test would have refused to apply it, so
-                // the symptom is a cursor that vanishes for one press rather than an
-                // error: invisible in review, and only reachable from the button path.
-                const int n = (id(ui_mode) == 3) ? 3 : ${ui_pm_n};
-                id(ui_sel) = (id(ui_sel) + 1) % n;
+                // has ui_pm_n rows, the mode submenu has 3 (handled above) — so the
+                // hardcoded modulus that used to be here walked the mode cursor onto a
+                // fourth row that is never drawn. The tap hit-test would have refused to
+                // apply it, so the symptom is a cursor that vanishes for one press
+                // rather than an error: invisible in review, and only reachable from the
+                // button path.
+                id(ui_sel) = (id(ui_sel) + 1) % ${ui_pm_n};
                 id(ui_action) = 0;
               }
               id(ui_gen)++;
@@ -3354,8 +3382,21 @@ display:
 
         } else if (id(ui_mode) == 3) {
           it.print(6, OY + 4, id(font_hdr), c_gold, "MODE");
-          it.print(W - 6, OY + 9, id(font_sm), c_dim,
-                   display::TextAlign::TOP_RIGHT, "tap away to leave");
+          // ⚠️ WAS "tap away to leave", WHICH PROMISED TOUCH IN THE ONE MENU THAT MUST
+          // NOT NEED IT. Tapping away does still work, but this menu exists because
+          // recovering the device must not require the touchscreen, so the caption now
+          // names the BUTTON escape — and it names the one that is true right now, which
+          // is why it is a conditional rather than one string. `hold` is the long press
+          // that activates everywhere else in this UI, so the verb is already learned.
+          //
+          // Kept short deliberately: this is TOP_RIGHT-aligned against the MODE header
+          // in font_hdr on a 240px band, and a caption that wraps or collides is worse
+          // than a terse one. The full explanation lives at the cursor branch, not on
+          // screen. (Header named without quotes on purpose — check_navigability.py
+          // locates the paint branches by the header's CALL, and quoted prose about a
+          // string literal has broken a search three times in this repo today.)
+          it.print(W - 6, OY + 9, id(font_sm), c_dim, display::TextAlign::TOP_RIGHT,
+                   (id(ui_sel) < 0) ? "hold to leave" : "hold to set");
           // Quietest last, matching sel_mode's option order — so the row index IS the
           // mode value and no mapping exists at the tap site.
           const char *names[3] = {"Normal", "No talking", "Hush"};
