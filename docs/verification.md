@@ -442,6 +442,35 @@ wherever one row's run **ends** at exactly the x where the next row's run **begi
 touch along a single edge. Edge-only contact between solids is non-manifold by definition, not a
 rounding artefact. Inflating each span by 20 µm took 9 to 3.
 
+#### The same trap in the vendor's file, and the rule that survives it
+
+`import_stl` returning a `Face` with no edges is a search finding nothing because it looked in
+the wrong representation. **The vendor's STEP does the same thing to whoever reads it.** Its
+microSD socket is authored as **zero-thickness faces**, so a solid-only search returns nothing —
+and the largest back-side *solid* near that region, an 11.15 × 14.15 mm plate standing
+**0.50 mm** off the PCB, got taken for the socket instead. A microSD socket is 1.4–2.8 mm tall,
+so the height ruled it out and nobody checked the height. It is the LCD driver flex.
+
+> **A face-authored component is invisible to a solid-only search, and its absence looks exactly
+> like the component not being there.** Two indistinguishable outcomes, one of which is a bug in
+> the instrument. **Measure that file's faces, not only its solids.**
+
+The consequence went further than a misnamed constant, and this is the part worth carrying. The
+switch identification was built as: *the readable switch is the one on the microSD side* — a
+direct bench observation — **plus** *the microSD is at x 33.68–44.83*. Correct observation,
+correct inference, **fictional anchor**: the socket is on the other long edge, so the conclusion
+inverted, and the published consequence was a big thumb-sized cap over the switch that reboots
+the device.
+
+> **A relative claim cannot be broken by mislabelling the thing it points at. An absolute one
+> can.**
+
+The bench fact was always relational — *this switch, that socket, same edge* — and **converting it
+to a coordinate is what made it falsifiable by a component misidentification.** It never needed
+an X value. When an observation is naturally relative, resolving it against a landmark buys
+precision and takes on the landmark's error; if the landmark is only *believed*, that is the whole
+of the claim's reliability, spent for nothing.
+
 ### 15. Four hypotheses, none tested before it was believed
 
 Chasing the last three, four causes were proposed and each was acted on before being checked:
