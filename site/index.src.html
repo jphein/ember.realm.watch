@@ -1493,11 +1493,23 @@ footer p{margin:.4rem 0}
     </p>
     <p style="margin:.6rem 0 0">
       What survives all four: the wyrm's <em>scale</em> is set by the print floor, not by the
-      available space. It is generated from the same source the device draws from, with a
-      verified 1.2333&nbsp;mm minimum feature, and scaling shrinks that linearly — so filling
-      the brow's full height would take the thinnest part of the creature under the
+      available space. It is generated from the same source the device draws from, which
+      <em>declares</em> a 1.2333&nbsp;mm minimum feature, and scaling shrinks that linearly — so
+      filling the brow's full height would take the thinnest part of the creature under the
       0.90&nbsp;mm floor. It is as large as the <em>floor</em> allows, not as large as the brow
       allows.
+      <br><br>
+      <b>And there is a fifth, found while writing this line.</b> The build reports the mark's
+      minimum feature as <code>declared × scale</code>, and the scale is <em>defined</em> as
+      <code>0.90 / declared</code> — so the reported figure is 0.900 for any value of the
+      constant, and the assert checking it is ≥ 0.90 compares a number with itself. It holds
+      while the declared constant is a true lower bound on the shape, and it is blind in the one
+      direction that would hurt: were the constant <em>larger</em> than the creature's real
+      thinnest feature, the mark would be scaled too big, the true minimum would fall under the
+      floor, and the build would still print 0.900 and pass. <strong>A check downstream of the
+      thing it checks is arithmetic wearing a test's clothes</strong> — the fourth variant of
+      that failure on this page, and the first one caught by asking where a number came from
+      rather than whether it looked right.
     </p>
   </div>
   <p>

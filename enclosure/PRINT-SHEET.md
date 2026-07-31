@@ -302,9 +302,19 @@ below Fs does nothing and a mistuned one is worse than sealed.
   prints front face down, so a raised logo would be the lowest feature and the bezel would land
   on it. **On a bed face, relief only goes inward** — that it bit both shell parts in the same
   session, on opposite faces, is the tell that it is a property of the process, not a mistake.
-  The wyrm's *size* is set by the print floor rather than the space available: its verified
-  minimum feature is 1.2333 mm at unit scale, and scaling it to fill the brow would take the
-  thinnest part of the creature under the 0.90 mm floor.
+  The wyrm's *size* is set by the print floor rather than the space available: the generator
+  **declares** a minimum feature of 1.2333 mm at unit scale, the mark is scaled by
+  `0.90 / 1.2333`, and scaling it any larger — to fill the brow — would take the thinnest part
+  of the creature under the 0.90 mm floor.
+  > ⚠️ **That 0.90 mm is placed there by arithmetic, not confirmed by measurement.** The build
+  > prints the mark's min feature as `WYRM_MIN_FEATURE × scale`, and the scale is *defined* as
+  > `0.90 / WYRM_MIN_FEATURE` — so the figure is 0.900 for any value of the constant, and the
+  > assert that checks it is ≥ 0.90 is comparing a number with itself. It is sound while the
+  > declared constant is a true lower bound on the shape, and **blind in exactly the direction
+  > that would hurt**: if the constant were larger than the creature's real thinnest feature,
+  > the mark would be scaled too big, the true minimum would land under the floor, and the
+  > build would still report 0.900 and pass. If you are checking a printed bezel, check the
+  > *creature*, not this number.
   **The mark is mirrored, and its placement is a centring rather than a margin.** The creature
   is drawn facing left, so unmirrored its *tail* pointed at the mic port and the gesture ran off
   the face. Mirrored, the head faces the flare. Ink runs x 7.700–33.351 and the flare's right
