@@ -653,6 +653,22 @@ says it for *shape*. `grep -c` counts matching lines. A slice matches a prefix. 
 whatever you put underneath it. None of them was wrong, and none of them was asked the question
 the report went on to answer.
 
+**A search can be caught by its own arithmetic, with no need to know the right answer in
+advance.** A later probe grepped generated C++ for `ui_mode->value != 0`, got **0**, and was one
+keystroke from reporting that a patch had not made it into the binary. What stopped it was that
+the same file matched `ui_mode->value` **28 times** — and no file can contain 28 occurrences of a
+substring and zero occurrences of *every* string beginning with it, so the fault had to be in the
+pattern rather than in the build. (ESPHome generates globals as `->value()`, a method call. The
+patch was there; two spellings in a row were not.)
+
+That is a different instrument from a positive control, and worth keeping beside it because it
+applies where a control cannot. **A positive control needs a case whose answer you already know**,
+which for a one-off search you usually do not have. **A self-consistency check needs only two of
+your own queries that cannot both be true**: broaden the pattern, and confirm the count moves the
+way the narrow one implies. If a strictly broader pattern does not match at least as much, the
+pattern is the defect and no further reasoning about the subject is warranted. It costs one
+command and it is available even at the moment you are about to file the finding.
+
 **What caught them is the uncomfortable part: three of the four were caught from outside the
 instrument.** The `innerText` failure surfaced because a *screenshot* showed an ember-styled pill
 on screen while the probe was calling the palette dead. The denominator failure surfaced by
