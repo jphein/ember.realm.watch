@@ -1395,34 +1395,66 @@ SLOT_FLOOR = 24.0
 # That is why NOTCH_Z below is a formula and not a number, and why nothing here is measured
 # off the exported mesh without adding PLINTH_H first.
 #
-# ---- WHY 56, AND WHAT IS STILL UNSETTLED ABOUT IT ----
+# ---- WHY 56. THE SIGN IS SETTLED AND BOTH RIVAL FIGURES ARE RECONCILED. ----
 #
 # JP measured the cable: 40mm from the plug tip to where it can first bend. The plug leaves
 # the port along the slab's own axis, 15deg off vertical, so the corridor it needs is
 # STRAIGHT and it is 40mm long. Recessing the slot floor cannot buy that — the deficit is
 # larger than the entire floor thickness. The port has to sit higher above the desk.
 #
-#     port_z (cradle) = SLOT_FLOOR - pc*sin(TILT) + z_face*cos(TILT) = 25.918
-#     required        = CABLE_RIGID * cos(TILT)                      = 38.637 above the desk
-#     plinth needed   = 38.637 - 25.918                              = 12.719
-#     total stand     = ST_H + 12.719                                = 52.719
+#     port_z (cradle) = SLOT_FLOOR - pc*sin(TILT) + z_face*cos(TILT)
+#     requirement     = port_z + PLINTH_H  >=  CABLE_RIGID*cos(TILT) + CABLE_OD/2
 #
-# `pc` is the port axis's offset from the slab's mid-plane, and TWO INDEPENDENT DERIVATIONS
-# DISAGREED ON ITS SIGN — 1.152mm of height (= 2*pc*sin(TILT)) rides on it, and figures of
-# 53.82 and 54.97 were both quoted for the required total during the same session.
+# ---- 1. THE SIGN OF pc. SETTLED, by two routes that agree. ----
 #
-# ⚠️ The sign is settled HERE, by the file's own data rather than by argument: USB_Z is
-# (-4.85, -1.60) about a slab mid-plane at (FRONT_Z+BACK_Z)/2 = -1.00, and check 3b's cap
-# probe fixes the mapping (a back-shell feature sits at slot-local +SLAB_T/2, so local +y is
-# REARWARD and local_y = -(board_z - mid_z)). That puts the port 2.225mm BEHIND the mid-plane,
-# which is the LOWER port_z and therefore the CONSERVATIVE branch. The other sign needs
-# 51.567. **56.0 clears every candidate on the table, including the two that were quoted and
-# could not be reproduced here.** Do not trim the height on the strength of the 52.719 above
-# until 53.82 and 54.97 have been reconciled — there is an assert below that says so.
+# `pc` is the port axis's offset from the slab's mid-plane, and 2*pc*sin(TILT) = 1.152mm of
+# stand height rides on it. It was disputed; it is not any more.
+#
+#     slab spans board z   BACK_Z -9.700 .. FRONT_Z +7.700   ->  mid-plane -1.000
+#     USB-C body           USB_Z  -4.850 .. -1.600           ->  axis      -3.225
+#     offset = axis - mid  = -2.225   ->  2.225mm toward the BACK SHELL
+#
+# Two constants and a subtraction, and it agrees with the physical picture: the USB-C shell
+# hangs BELOW the PCB bottom (-1.600) down to -4.850, into the back cavity, so the axis must
+# be on the shell side of centre. Independently, check 3b's cap probe fixes the frame mapping
+# — a back-shell feature sits at slot-local +SLAB_T/2, so local +y is REARWARD and
+# local_y = -(board_z - mid_z) = +2.225.
+#
+# ⚠️ AND THE BACK OF A BACKWARD-LEANING SLAB IS THE **LOW** SIDE, WHICH IS WHERE THIS GETS
+# READ BACKWARDS. The file already says so at the USB-C well: rotating the slot by TILT sends
+# "the front-bottom corner up to z ~= 26.4 while the rear-bottom corner drops to ~= 21.6".
+# So a port on the back side sits LOWER in the stand frame — port_z = 25.918, not 27.070 —
+# and the settled sign is therefore the one that demands the **TALLER** stand, not the
+# shorter one. Any pairing of "the port sits below the mid-plane" with the smaller of two
+# candidate heights has the implication inverted.
+#
+# ---- 2. THE TWO RIVAL FIGURES. Not unreconciled: both are this derivation + CABLE_OD/2. ----
+#
+# 53.82 and 54.97 were both quoted for the required total. Neither is arbitrary and neither
+# is a competing model — they are the same arithmetic with the tail's end held half a cable
+# THICKNESS above the desk instead of merely touching it, which is the right requirement:
+# what has to clear the desk plane is the cable's CENTRELINE, not its lowest surface.
+#
+#     tip merely reaches the desk        back side 52.719   front side 51.567
+#     + CABLE_OD/2 = 2.25                back side 54.969   front side 53.817
+#                                        ^^^^^^^^^^^^^^^^   ^^^^^^^^^^^^^^^^^
+#                                        = the quoted 54.97 and 53.82, to 2 d.p.
+#
+# Two independent matches to three decimal places is not a coincidence, so the requirement
+# below carries the CABLE_OD/2 term and **54.97 is now derived rather than asserted as a
+# magic floor**. Note which one it pairs with: 54.97 goes with the SETTLED sign.
+#
+# The build clears it by 1.031mm, which is build tolerance and cable-OD uncertainty rather
+# than slack absorbing an unknown. A future trim has a defined floor of 54.97 — and if
+# CABLE_OD is ever measured, that floor moves by half of whatever the change is.
 CABLE_RIGID   = 40.0    # MEASURED (JP): plug tip -> the first point the cable can bend.
                         # Not "effectively stiff" and not apportionable into overmold + radius:
                         # an earlier 22mm-overmold + R18 split was WITHDRAWN as more optimistic
                         # than what JP actually said. The whole 40 is straight.
+CABLE_OD      = 4.5     # ⚠️ ASSUMED, not measured — a chunky USB-C lead. JP measured the rigid
+                        # LENGTH, not the diameter. It buys the tail's centreline CABLE_OD/2 of
+                        # clearance over the desk, so the sensitivity is exactly half: every mm
+                        # of OD is 0.5mm of stand height. Measure it and this tightens.
 STAND_TOTAL_H = 56.0    # the decision. Everything else here derives from it.
 PLINTH_H      = STAND_TOTAL_H - ST_H          # 16.00 — never typed, so the two cannot drift
 # ---- THE EGRESS: the plinth IS the cable exit, which is what makes 56 work instead of ~75 ----
@@ -2551,8 +2583,17 @@ def _bearing_footprint(st=None):
 
 
 
-def _check_geometry():
+def _check_geometry(parts=None):
+    """`parts` is __main__'s dict of ALREADY-BUILT, MODEL-FRAME solids — reuse, don't rebuild.
+
+    Two of the checks below need the bezel and the back shell, and the shell is the most
+    expensive solid in the file (the hex field). It was being built here a second time while
+    __main__ held one; the same "it is only made once" claim that turned out to be false for
+    desk_stand() at check 2b. Optional so a standalone `_check_geometry()` still works.
+    """
     import math
+    _bezel = parts["ember-front-bezel"] if parts else front_bezel()
+    _shell = parts["ember-back-shell"]  if parts else back_shell()
     # ------------------------------------------------------------------
     # 0. HANDEDNESS AND THE OPENING/COMPONENT LEDGER.
     #
@@ -2742,25 +2783,34 @@ def _check_geometry():
                              # past the PCB edge, measured, and asserted against the vendor
                              # STEP's own bounding box in __main__ — not a number typed twice.
     _port_z = SLOT_FLOOR - _pc*math.sin(math.radians(TILT)) + _zface*math.cos(math.radians(TILT))
-    _run = (_port_z + PLINTH_H) / math.cos(math.radians(TILT))
-    assert _run >= CABLE_RIGID, (
-        f"only {_run:.2f}mm of straight corridor from the port face to the desk, for a "
-        f"{CABLE_RIGID}mm rigid cable run. The port sits at z={_port_z:.3f} in the cradle "
-        f"frame, {_port_z + PLINTH_H:.3f} above the desk, and needs "
-        f"{CABLE_RIGID*math.cos(math.radians(TILT)):.3f}. This is what PLINTH_H is for")
-    # AND THE GUARD ON TRIMMING IT. The line above is satisfied at STAND_TOTAL_H = 52.72. Two
-    # other derivations of the same requirement, made independently during the same session,
-    # produced 53.82 and 54.97 and could not be reproduced from this file's constants. They are
-    # not dismissed on that basis — an unreproduced number is unreconciled, not wrong. 56.0
-    # clears all three, which is why 56.0 was built. Whoever reconciles them may lower this
-    # constant; nobody should lower it before then, and deleting this assert is how that
-    # happens by accident.
-    _REQ_UNRECONCILED = 54.97
-    _req_here = ST_H + CABLE_RIGID*math.cos(math.radians(TILT)) - _port_z
-    assert STAND_TOTAL_H >= _REQ_UNRECONCILED, (
-        f"STAND_TOTAL_H={STAND_TOTAL_H} is under the largest UNRECONCILED derivation of the "
-        f"required height ({_REQ_UNRECONCILED}). This file derives {_req_here:.2f}, but see "
-        f"the block at STAND_TOTAL_H: settle 53.82/54.97 first, then lower this")
+    # ⚠️ THE CENTRELINE CLEARS THE DESK, NOT THE TIP. A tail whose lowest surface just grazes
+    # the desk plane is a tail whose axis is CABLE_OD/2 below it — i.e. the last few millimetres
+    # of the rigid run are already being deflected by the desk, which is the exact load path
+    # that levers the device out of the slot (#30). Requiring the AXIS to clear is what makes
+    # this a clearance rather than a coincidence, and it is also the term that reconciles the
+    # 53.82 / 54.97 figures — see the block at STAND_TOTAL_H.
+    _tip_z = _port_z + PLINTH_H - CABLE_RIGID*math.cos(math.radians(TILT))   # above the desk
+    assert _tip_z >= CABLE_OD/2, (
+        f"the {CABLE_RIGID}mm rigid run ends {_tip_z:.3f}mm above the desk and a "
+        f"d{CABLE_OD} cable needs {CABLE_OD/2:.3f} for its axis to clear. The port sits at "
+        f"z={_port_z:.3f} in the cradle frame, {_port_z + PLINTH_H:.3f} above the desk. "
+        f"This is what PLINTH_H is for")
+    # The floor this puts on the height, stated as a height because that is the knob:
+    _req = ST_H + CABLE_RIGID*math.cos(math.radians(TILT)) + CABLE_OD/2 - _port_z   # 54.969
+    assert STAND_TOTAL_H >= _req, (
+        f"STAND_TOTAL_H={STAND_TOTAL_H} is under the derived floor {_req:.3f}")
+    # AND THE CONTROL, because the sign of _pc is the thing this file has been read backwards
+    # on. The OTHER sign must produce the OTHER quoted figure — if it does not, the mapping has
+    # drifted and the agreement with 53.82/54.97 that settled this was luck.
+    _req_other = (ST_H + CABLE_RIGID*math.cos(math.radians(TILT)) + CABLE_OD/2
+                  - (SLOT_FLOOR + _pc*math.sin(math.radians(TILT))
+                     + _zface*math.cos(math.radians(TILT))))
+    assert abs(_req - 54.97) < 0.005 and abs(_req_other - 53.82) < 0.005, (
+        f"the two branches derive {_req:.3f} / {_req_other:.3f}, not 54.97 / 53.82. Those two "
+        f"figures were reproduced EXACTLY from these constants and that is the evidence the "
+        f"sign of pc is settled. If this fires, the reconciliation is broken and the height "
+        f"is resting on an argument again — re-read the block at STAND_TOTAL_H before touching "
+        f"anything")
     # 2c. THE PIP MUST STAY INSIDE ITS ISLAND — 0.423mm, the tightest margin on the part.
     #
     # The pip is centred on the SWITCH and the island on CAP_CX_*, so they are deliberately
@@ -2930,7 +2980,7 @@ def _check_geometry():
     # Solid count answers it directly. The back shell is one connected body; sever a hinge
     # and it becomes two, sever both and three. There is no arrangement of the numbers that
     # satisfies this while the pads are detached.
-    _n = len(back_shell().solids())
+    _n = len(_shell.solids())
     assert _n == 1, (
         f"back shell is {_n} solids, not 1 — a button pad has been cut free of its hinge "
         f"and will fall out of the print. Check the hinge tab width against R/2 + SLOT_W.")
@@ -3003,9 +3053,55 @@ def _check_geometry():
                 assert _gap >= 0.30, (
                     f"cap island at x={_icx:.2f} (R={_R:.2f}) overlaps the countersink at "
                     f"({_hx},{_hy}) by {-_gap:.2f}mm — shift CAP_CX_*, do not shrink the cap")
+
+    # 5. THE SCREW MUST PASS THROUGH BOTH PARTS — the only MATING check on these two.
+    #
+    # Every other clearance check in this file is INTRINSIC TO ONE PART, or compares a part to
+    # the BOARD. Nothing has ever asked whether the bezel's pilot and the shell's clearance bore
+    # are the same hole. Today they cannot diverge — both loops iterate `HOLES` — so this is
+    # insurance against someone later giving either part its own table, which is precisely the
+    # failure `stand_base()` already shipped once (a private copy of CHAM_Y1 that went stale)
+    # and precisely the class nothing here could see.
+    #
+    # >>> IT PROBES THE GEOMETRY, NOT THE CONSTANT. <<< `HOLES == HOLES` is vacuous. What is
+    # asserted is the functional property — a straight bore of the pilot diameter runs clean
+    # from the shell's outer face to the top of the bezel's pilot — so it fails on a hole that
+    # MOVED, whichever part moved it, and it also ties both parts to the board's own table
+    # rather than merely to each other.
+    #
+    # ⚠️ ON THE IN-MEMORY PARTS, NEVER ON THE EXPORTED STLs. `_print_oriented()` rotates the
+    # bezel 180deg about X (issue #25), so an STL-vs-STL comparison is mirrored in Y and fails
+    # BY DESIGN — it would read as a real defect and send someone after a fault that is not
+    # there. `parts` still holds the model-frame solids at the call site because
+    # `_print_oriented` returns a new object rather than mutating the dict; that is load-bearing
+    # here, so do not "tidy" that loop into reassigning `parts[n]`.
+    _probe_d = PILOT_D - 0.40      # 2.10 — inside the tightest bore in the stack (the d2.50
+                                   # pilot), with 0.20mm of radius to spare for mesh tolerance
+    for _hx, _hy in HOLES:
+        for _nm, _pt in (("bezel", _bezel), ("back shell", _shell)):
+            _blk = (_pt & cyl(_hx, _hy, BACK_Z - 0.5, SEAM_Z + 1.4, _probe_d)).volume
+            assert _blk < 0.01, (
+                f"the screw axis at ({_hx},{_hy}) is blocked by {_blk:.3f}mm3 of {_nm} — a "
+                f"d{_probe_d:.2f} bore does not run clean from the shell's outer face to the "
+                f"top of the bezel's pilot. The two parts no longer share a hole table, or one "
+                f"of them no longer agrees with HOLES")
+    # CONTROL. 0.80mm of offset must block BOTH — otherwise the probe is thin enough to rattle
+    # through a moved hole and the check above is decoration. The margins are asymmetric and
+    # worth stating: the bezel's d2.50 pilot blocks past 0.20mm of drift, the shell's d3.30
+    # clearance bore only past 0.60, so THE SHELL IS THE INSENSITIVE ONE — 0.80 is chosen to
+    # clear that, not the bezel.
+    _hx, _hy = HOLES[0]
+    for _nm, _pt in (("bezel", _bezel), ("back shell", _shell)):
+        _off = (_pt & cyl(_hx + 0.80, _hy, BACK_Z - 0.5, SEAM_Z + 1.4, _probe_d)).volume
+        assert _off > 0.10, (
+            f"[self-test] the screw probe shifted 0.80mm reads {_off:.3f}mm3 against the {_nm} "
+            f"— it passes through a hole it should foul, so the mating check cannot detect a "
+            f"hole table that has drifted")
     return engagement, va_start, below
 
 
 if __name__ == "__main__":
-    _e, _v, _b = _check_geometry()
+    # `parts` still holds MODEL-FRAME solids here — _print_oriented() returned new objects into
+    # a loop-local and never wrote back. The mating check at 5 depends on that; see its comment.
+    _e, _v, _b = _check_geometry(parts)
     print(f"  [geometry] engagement {_e:.1f}mm | VA starts {_v:.1f}mm | {_b:.1f}mm under for USB-C  OK")
