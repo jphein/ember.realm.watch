@@ -4,6 +4,41 @@ State at the end of the session that built the enclosure and the operating modes
 below is verified against the artifact, not against a report — that distinction mattered
 repeatedly here, and the running log of the times it did is [`docs/verification.md`](docs/verification.md).
 
+## ⛔ READ THIS FIRST — everything below predates 2026-07-31 00:00
+
+**JP printed the back shell and found the board model wrong.** The sections below were written
+before that and still describe four parts as ready. **They are not.**
+
+| part | printed? | status |
+|---|---|---|
+| **front bezel** | yes | ✅ **correct, keep** — proven byte-identical through every change since |
+| **back shell** | yes | ⛔ **superseded, reprint** — microSD slit was on the wrong edge and ~24 mm out; an opening exposed the LCD driver flex; the two button caps were on the wrong ends |
+| **stand / dock** | yes | ⛔ **superseded** — the finger pockets follow the caps, which swapped. JP is reprinting by choice |
+| **stand base** | **never** | ✅ committed version is the fixed one (the previous was 1.40 mm too deep to seat) |
+
+⚠️ **BEFORE SLICING THE BACK SHELL, CHECK THE COUNTERBORE LANDED.** JP's screws are **cylindrical
+socket-cap heads**, not countersunk. If the shell still has the conical countersink, the head bears
+on a rim instead of seating and over-torque craters the visible face. `grep -c CBORE_
+enclosure/ember_case.py` — at the time of writing this was **partial**, and labels were **not
+started**. It is a small change, but only if someone looks.
+
+**Fastener, fully measured by JP (not nominal):** M3 × 0.5 × 12 **ISO 4762 socket cap, hex recess**,
+head **5.50 × 3.00**. Flush. Engagement **5.30 mm = 1.77 D**. The boss flare exists *because* the
+head is 3.00 — a flush pocket otherwise floors 0.40 mm into the cavity where the bore is wider than
+the boss. Do not remove it.
+
+**Root cause, and the part worth carrying forward:** the vendor STEP had **four features missing or
+fictional** — both switches absent, the mic port suppressed, and a 0.5 mm plate taken for the
+microSD socket that is actually the **LCD driver flex**. The real socket is in the same file as
+**zero-thickness faces**, invisible to any search over `.solids()`. And `SD_PLATE` **had no
+consumers**: the openings were hand-typed literals, so nothing recomputed when it was wrong and no
+assert could have caught it. Openings now derive from a component table.
+
+Full orchestration state, including the three questions still open with JP:
+`~/.claude/projects/-home-jp-Projects-familiar-realm-watch/scratch/hosyond-s3/HANDOFF-orchestration.md`
+
+---
+
 ## Shipped and working
 
 | | |
