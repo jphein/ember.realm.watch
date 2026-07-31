@@ -847,6 +847,8 @@ survived on a published page.
 | **restore-without-resync** | `esphome/tools/check_restore_resync.py` | a restoring control cannot come back from a reboot lying about the hardware |
 | **generated pages are current** | `site/check_generated_current.py` | the **published** page matches the source in the same commit |
 | **served surface matches the remote** | `site/check_served_current.py` | what a **visitor downloads** is what `origin/main` would produce — 24 artifacts, incl. every STL download link |
+| **dashboard is deployed** | `homeassistant/tools/check_dashboard_deployed.py` | the dashboard **HA is serving** is the one in git |
+| **monitoring config is deployed** | `status.realm.watch/check_deployed_current.py` | the checks **actually running** are the checks committed |
 
 ### Two guards that exist because a note was not enough
 
@@ -1111,3 +1113,25 @@ the class invisible: the artifact under version control is correct, the reasonin
 correct, and the thing a person actually receives is not. Ask the question at the point of
 delivery — fetch the URL, read the config off the host that runs it, hash what a visitor
 downloads — or the answer is about a different object than the one that matters.
+
+**All four now have a guard, and each asks the far end rather than the repo:**
+
+| surface | guard | what it interrogates |
+|---|---|---|
+| generated pages | `site/check_generated_current.py` | pre-commit: the source and its built page in one commit |
+| the served site | `site/check_served_current.py` | the URLs, after a push |
+| the HA dashboard | `homeassistant/tools/check_dashboard_deployed.py` | HA's own `.storage`, over the WebSocket API |
+| the monitoring config | `status.realm.watch/check_deployed_current.py` | the status VM's live `/api/config` |
+
+⚠️ **None of them deploys, and that is a decision rather than an omission.** A guard that fixes
+what it finds turns a visible choice into an invisible one, and two of these would be actively
+dangerous if they did: pushing the dashboard silently overwrites a UI edit somebody made on
+purpose, and `deploy.sh` overwrites entries added through the status page's own editor. Each
+reports what it found and names the command; a person runs it. **Where a fix has a cost, the
+guard's job is to make the cost visible, not to pay it on someone's behalf.**
+
+They also each refuse the larger claim. None checks that the checks are *correct*, that the
+dashboard's entities exist, or that cron is running — only that the far end holds what git
+holds. **A guard that checks a proxy for deployment is worse than none, because it reads as
+coverage** — which is the `_cells`-versus-flared-field lesson from §5, arriving in the tooling
+instead of the geometry.
