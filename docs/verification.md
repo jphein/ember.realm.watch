@@ -162,6 +162,48 @@ detector *still* said `0.000`.
 > **There is now a permanent self-test doing exactly that, and it must report
 > `1467.842 mm³`. If it ever reports zero, the checker is broken — not the parts.**
 
+#### The same shape in a status probe: a query that answers about itself
+
+Not an assert this time — a one-liner used to check whether a background job was alive:
+
+```bash
+pgrep -f make_renders >/dev/null && echo RUNNING
+```
+
+It reported `RUNNING` four times, over about an hour, for a process that **had exited within
+seconds of starting.** `pgrep -f` matches against *full command lines*, and this command line
+contains the literal `make_renders` — so pgrep found **itself**. The control makes it plain:
+
+```
+pgrep -f make_renders     -> MATCHED, and no such process exists
+pgrep -f zzz_nonexistent  -> MATCHED (self)
+```
+
+A pattern that has never named anything still matches, which is the whole proof: the probe was
+answering a question about **its own existence** rather than about the world, and it could not
+return negative.
+
+> **A process query whose pattern appears in its own invocation is querying itself.**
+
+That single mechanism produced three different-looking bugs in one day, which is the reason to
+name the family rather than any one instance:
+
+| form | consequence |
+|---|---|
+| `pkill -f foo` | **kills its own shell** — the chained command after it silently never runs |
+| `until ! pgrep -f foo; do …` | **never exits** — two waiters spun 46 and 35 minutes |
+| `pgrep -f foo && echo RUNNING` | **always reports present** — four fabricated status lines |
+
+Each reads as a different fault — a crash, a hang, a stuck job — and all three are one
+self-reference. The fixes are trivial and worth having by reflex: bracket a character so the
+pattern cannot match itself (`[m]ake_renders`), match on the interpreter and script path rather
+than a bare word, or **do not ask about the process at all — ask about its output.**
+
+The last is the one that would have worked here, and it connects to §26: *"no file yet" cannot
+distinguish "still building" from "died on line one"* — but the **log** could, and it said so
+from the first second. **When a cheap indecisive instrument and a cheap decisive one are both
+available, the only reason to use the first is that it was already in your fingers.**
+
 ### 7. The reboot that verified the firmware also uninstalled it
 
 The three-mode firmware was flashed OTA, and a hardware probe then rebooted the device to
