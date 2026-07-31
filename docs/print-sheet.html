@@ -146,13 +146,19 @@ cd enclosure &amp;&amp; ./cadenv/bin/python ember_case.py
 <p>⚠️ <b>The usual "2 × diameter of engagement" is not reachable in this geometry at all</b> — there is only 6.20 mm of pilot, so 6.0 mm is the whole hole. ×14 at 1.43 D is <em>adequate</em> rather than wrong: you are clamping a 12 g PCB, not resisting a working load.</p>
 <p>⛔ <b>And the natural instinct — a longer screw is safer — is exactly backwards here.</b> At ×16 the tip hits the bottom of the blind pilot before the head reaches its seat, so it <b>feels tight while clamping nothing</b>. That failure reads as "tightened fine" and leaves a loose bezel, which is the worst way for it to present.</p>
 <ul>
-<li><b>Get DIN 965-class heads (⌀ ≤ 6.4 mm).</b> The countersink is cut to a 6.40 mm mouth. An</li>
+<li>⚠️ <b>The countersink is cut for a specific head, and the sheet now says which.</b> ⌀**6.40 mm</li>
 </ul>
-<p><b>ISO 10642 socket countersunk head is 6.72 mm and will sit proud.</b> Same thread, same length, wrong head — and the packet often just says "M3 countersunk".</p>
-<ul>
-<li>The countersink's included angle is <b>84.7°</b> against a standard 90° head, so the head bears</li>
-</ul>
-<p>on a narrow annulus near the bore rather than on the full cone. It will not fail at <em>snug</em> — but <b>do not lean on these</b>: over-torque pulls the head into the back face and craters it. A revision to a true 90° is in progress; the ⌀5.60 vendor pad is the constraint on widening.</p>
+<p>at 90°** — <code>CSK_HEAD_D</code> / <code>CSK_HEAD_ANGLE</code> in the source, with the depth asserted against them rather than typed. Read off the landed constants:</p>
+<div class="tablewrap"><table><thead><tr>
+<th>your screw</th>
+<th>what happens</th>
+</tr></thead><tbody>
+<tr><td><b>⌀6.40 head</b></td><td><b>flush, full conical seat</b> — the design point</td></tr>
+<tr><td><b>DIN 965 M3</b> (⌀6.0 max)</td><td>sinks 0.20 mm below flush, bearing on its <b>rim</b> rather than the cone. Fine; slightly recessed</td></tr>
+<tr><td><b>ISO 10642</b> socket countersunk (⌀6.72)</td><td>⛔ <b>sits proud by 0.16 mm</b></td></tr>
+</tbody></table></div>
+<p><b>Proud is worse than sunk</b>: it stops the shell sitting flat and stops the screw clamping. Same thread, same length, wrong head — and the packet often just says "M3 countersunk". If ISO 10642 is what you have, the countersink wants <b>6.72 / 1.71</b> instead; that is a named alternative, not a caveat.</p>
+<p>&gt; <b>Two 90° surfaces have parallel flanks</b>, so a head narrower than the mouth does not seat &gt; <em>deeper into the cone</em> — it descends until its <b>rim</b> touches the wall, at &gt; <code>(mouth − head) / 2</code>, and contacts along a line instead of over the whole seat. That is why &gt; the mouth is matched to a named head rather than opened up "to be safe": widening it &gt; corrects the angle and makes the seat <b>worse</b>.</p>
 <ul>
 <li>1.5 mm of solid skin remains under the bezel's front face at ×14.</li>
 <li><b>Heat-set inserts will NOT fit.</b> The vendor specifies a ⌀5.60 pad around each mounting</li>

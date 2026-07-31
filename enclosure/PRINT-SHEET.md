@@ -144,13 +144,26 @@ the tip hits the bottom of the blind pilot before the head reaches its seat, so 
 tight while clamping nothing**. That failure reads as "tightened fine" and leaves a loose
 bezel, which is the worst way for it to present.
 
-- **Get DIN 965-class heads (⌀ ≤ 6.4 mm).** The countersink is cut to a 6.40 mm mouth. An
-  **ISO 10642 socket countersunk head is 6.72 mm and will sit proud.** Same thread, same
-  length, wrong head — and the packet often just says "M3 countersunk".
-- The countersink's included angle is **84.7°** against a standard 90° head, so the head bears
-  on a narrow annulus near the bore rather than on the full cone. It will not fail at *snug* —
-  but **do not lean on these**: over-torque pulls the head into the back face and craters it.
-  A revision to a true 90° is in progress; the ⌀5.60 vendor pad is the constraint on widening.
+- ⚠️ **The countersink is cut for a specific head, and the sheet now says which.** ⌀**6.40 mm
+  at 90°** — `CSK_HEAD_D` / `CSK_HEAD_ANGLE` in the source, with the depth asserted against
+  them rather than typed. Read off the landed constants:
+
+  | your screw | what happens |
+  |---|---|
+  | **⌀6.40 head** | **flush, full conical seat** — the design point |
+  | **DIN 965 M3** (⌀6.0 max) | sinks 0.20 mm below flush, bearing on its **rim** rather than the cone. Fine; slightly recessed |
+  | **ISO 10642** socket countersunk (⌀6.72) | ⛔ **sits proud by 0.16 mm** |
+
+  **Proud is worse than sunk**: it stops the shell sitting flat and stops the screw clamping.
+  Same thread, same length, wrong head — and the packet often just says "M3 countersunk".
+  If ISO 10642 is what you have, the countersink wants **6.72 / 1.71** instead; that is a
+  named alternative, not a caveat.
+
+  > **Two 90° surfaces have parallel flanks**, so a head narrower than the mouth does not seat
+  > *deeper into the cone* — it descends until its **rim** touches the wall, at
+  > `(mouth − head) / 2`, and contacts along a line instead of over the whole seat. That is why
+  > the mouth is matched to a named head rather than opened up "to be safe": widening it
+  > corrects the angle and makes the seat **worse**.
 - 1.5 mm of solid skin remains under the bezel's front face at ×14.
 - **Heat-set inserts will NOT fit.** The vendor specifies a ⌀5.60 pad around each mounting
   hole, so bosses are capped at ⌀5.40. An M3 insert needs a ⌀4.0–4.2 bore, leaving a 0.6 mm
