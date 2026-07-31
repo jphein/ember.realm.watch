@@ -1,3 +1,9 @@
 secrets.yaml
 .esphome/
 *.bin
+
+# The generator's intermediate output. NOT committed on purpose: a third copy of the
+# paint body is exactly the hazard #10 is about, and this one would be the easiest to
+# mistake for the authoritative version because it is machine-produced. Run
+# tools/make_paste_block.py when you need it; do not keep it.
+dragon_paint_flame.inc

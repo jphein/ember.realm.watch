@@ -3420,32 +3420,51 @@ display:
       };
 
       // ---------------------------- THE FIRE, AND WHAT SLEEPS IN IT -------
-      // ⚠️ THIS IS A SECOND COPY OF dragon_harness.cpp's paint body, AND THE
-      // INSTRUCTION THAT USED TO SIT HERE COULD NOT BE FOLLOWED.
+      // ⚠️ THIS IS A SECOND COPY OF dragon_harness.cpp's paint body. The generator
+      // that produces it is `esphome/tools/make_paste_block.py`, and it was
+      // UNCOMMITTED until 2026-07-31 — which is why the instruction that used to
+      // sit here was unfollowable in practice.
       //
-      // It said: "Generated from dragon_harness.cpp by make_paste_block.py …
-      // Do not hand-edit this copy; edit the harness, re-run it, and
-      // regenerate." **make_paste_block.py has never existed** — not in the
-      // worktree and not in any commit on any branch (checked with a control:
-      // the same searches find 8 other .py files in the tree and 28 added
-      // across history). So the only executable option was always the one the
-      // instruction forbade, and #10's six stale-copy bugs were not
-      // carelessness against an available process — the process was never
-      // runnable. A warning pointing at a missing program is not a mitigation;
-      // it just reads like one.
+      // ⚠️ A CORRECTION TO A CLAIM THAT WAS BRIEFLY IN THIS COMMENT: it said
+      // "make_paste_block.py has never existed". THAT WAS FALSE. The script had
+      // been written two days earlier and lived in a session scratch directory
+      // outside version control, with its own output beside it as evidence it had
+      // run. The search behind the claim was sound — not in the worktree, not in
+      // any commit on any branch, controls both ways — and the CONCLUSION was one
+      // step wider than the evidence, because the repo was the only place it
+      // looked. `nebula-site` found it. An instrument's window is part of the
+      // instrument. The true finding is the stronger one: the process worked
+      // exactly once, for one person, in one session, and was invisible to
+      // everyone after — committed is not deployed, arriving as UNCOMMITTED IS
+      // NOT AVAILABLE. The fix was to commit the generator, not to write one.
       //
       // WHAT IS TRUE TODAY, and what guards it:
       //   * the TABLES below are shared in VALUE with esphome/art/dragon_spans.inc,
       //     which is what the harness #includes. Verified equal (30 tables) and
-      //     kept that way by esphome/tools/check_art_sync.py, which is wired into
-      //     the pre-commit hook and carries three controls.
+      //     kept that way by esphome/tools/check_art_sync.py, in the pre-commit
+      //     hook, with three controls. The generator NEVER emitted these — it
+      //     leaves a "paste it here" marker — so they were always a manual step.
       //   * the painter LOGIC below is still a genuine second copy and is NOT
-      //     guarded, because the two are legitimately different text (the harness
-      //     reads `it.` stubs where this reads `id(...)`), so a textual diff would
-      //     be noise. #10 removes the copy rather than checking it.
+      //     guarded by a diff, because the two are legitimately different text (the
+      //     harness reads `it.` stubs where this reads `id(...)`). #10 removes the
+      //     copy rather than checking it.
       //
-      // Until #10 lands: if you change the logic here, change dragon_harness.cpp
-      // to match and re-run it — the harness is the only place this code can be
+      // ⚠️ AND THE TWO COPIES HAVE DRIFTED BY EXACTLY 8 LINES, all present here and
+      // absent from the harness, i.e. THIS side is ahead:
+      //     1 line   `if (silenced) jaw = 0;`   — the three-mode work (#4)
+      //     7 lines  the `static_assert(CW == 4)` and `static_assert(NC == 60)` pair
+      // The asserts are the sharp case. dragon_harness.cpp:465 says of them "a fix
+      // belongs in the yaml … Flagged to the firmware owner rather than changed
+      // here." It was added here and the loop was never closed back, so this is a
+      // deliberate ONE-WAY HANDOFF COMPLETED ON ONE SIDE — leaving the NC/CW guards
+      // only in the copy that cannot be sanitised, and missing from the copy where
+      // NC = 80 was actually tried and smashed the stack.
+      //
+      // >>> SO DO NOT REGENERATE AND PASTE TODAY: it would silently revert those 8
+      //     lines. Reconcile them INTO the harness first. <<<
+      //
+      // Until #10 lands: if you change the logic here, change dragon_harness.cpp to
+      // match and re-run it — the harness is the only place this code can be
       // sanitised or tiling-checked at all. Nothing will tell you if you forget.
       auto paint_flame = [&]() {
       // =====================  THE HEARTH-WYRM  =====================
