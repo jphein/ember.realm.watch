@@ -965,6 +965,8 @@ survived on a published page.
 | `check_tiling`, write-once | `esphome/art/dragon_harness.cpp` | every pixel in the band written exactly once |
 | `CLAIMS` / `BLOCKED` provenance guard | `site/og_card.py` | the build **refuses** to emit a known-wrong engine name |
 | **restore-without-resync** | `esphome/tools/check_restore_resync.py` | a restoring control cannot come back from a reboot lying about the hardware |
+| **chime preempt guard halves agree** | `esphome/tools/check_chime_guards.py` | a chime case cannot be guarded in the enumeration and unguarded where the guard bites |
+| **button-only navigability** | `esphome/tools/check_navigability.py` | every `ui_mode` is reachable, exitable and *actionable* without touch |
 | **generated pages are current** | `site/check_generated_current.py` | the **published** page matches the source in the same commit |
 | **served surface matches the remote** | `site/check_served_current.py` | what a **visitor downloads** is what `origin/main` would produce — 24 artifacts, incl. every STL download link |
 | **dashboard is deployed** | `homeassistant/tools/check_dashboard_deployed.py` | the dashboard **HA is serving** is the one in git |
@@ -1034,6 +1036,8 @@ printf '%s\n' '#!/usr/bin/env bash' \
   'staged() { git diff --cached --name-only; }' \
   'if staged | grep -q "^esphome/ember-satellite[.]yaml$"; then' \
   '  python3 "$root/esphome/tools/check_restore_resync.py" || exit 1' \
+  '  python3 "$root/esphome/tools/check_chime_guards.py"   || exit 1' \
+  '  python3 "$root/esphome/tools/check_navigability.py"   || exit 1' \
   'fi' \
   'if staged | grep -qE "^(site/index[.]src[.]html|enclosure/PRINT-SHEET[.]md)$"; then' \
   '  python3 "$root/site/check_generated_current.py" || exit 1' \
@@ -1800,3 +1804,49 @@ identical results are one result.**
 The fix was to make acknowledgement-versus-consequence an explicit allow-list in which
 anything unlisted defaults to *loud*, so a newly added action is over-reported rather than
 silently absorbed — the same direction of failure this file argues for everywhere else.
+
+### 26. A true explanation for an anomaly is not a reason to stop looking at it
+
+The cheapest failure in this file, and the only one committed twice in the same hour.
+
+Writing a new section into the site source, a tag-balance check was run over the inserted text.
+It reported a mismatch:
+
+```
+<div> open 2 close 2 OK
+<p>   open 6 close 5 MISMATCH
+<h3>  open 1 close 1 OK
+```
+
+The mismatch had an obvious and **correct** explanation: the checked segment ended part-way
+through a paragraph, so of course one `<p>` looked unclosed. That was true. It was also
+irrelevant, because **the `<p>` in question was one this edit had opened around text that was
+already inside a `<figcaption>`** — the whole new section, a heading and two note blocks, had
+landed inside a figure's caption. The commit went out on the strength of the explanation.
+
+> **A plausible reason for an anomaly is not a reason to stop looking at it.** The dangerous
+> case is not a mismatch you cannot explain; it is one you *can*, where the explanation is true
+> and answers a different question than the one the anomaly raised.
+
+What is worth extracting is *why the check could not settle it*, because that is structural
+rather than a lapse of attention. **A balance count over a fragment cannot distinguish
+"truncated mid-element" from "broken element".** The two produce identical evidence. So the
+instrument was not being read carelessly — it was **incapable of answering**, and no amount of
+staring at its output would have improved it. The fix is a different instrument:
+
+```python
+from html.parser import HTMLParser        # over the whole BUILT document
+# -> </figcaption> at (1595,4) but open is <p> from (1586,2)
+```
+
+Which located it in one line, with both positions. It now runs on the built page rather than on
+the diff — the same move as §19's *ask what the bytes are before asking whether they will
+change*: prefer the instrument that can be decisive over the one that is convenient.
+
+**And the second commission, thirty minutes later, in the verification of the fix.** Grepping
+the served page for a sentence from the new section returned **0**. The available explanation —
+the phrase wraps across a line in markdown — was, again, true; and this time checking it took
+one flattened search, which found the sentence present. Same hour, same shape, opposite
+outcome: once the explanation concealed a real defect, once it was the whole story. **Which is
+the point.** The explanation's truth carries no information about whether anything else is
+wrong, so it cannot be the reason to stop — only a measurement can.
