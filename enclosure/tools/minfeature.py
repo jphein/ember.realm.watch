@@ -25,6 +25,23 @@ make_wyrm_spans.py and docs/verification.md; the third is the one that made this
      points the wrong way: a band survives erosion by k only if its RASTERISED width exceeds
      2*k*px everywhere along it, so the true value can be ABOVE the bin, not inside it.
 
+WHAT THIS CANNOT ANSWER, WRITTEN HERE BECAUSE THIS IS WHERE IT GETS REACHED FOR.
+This measures the thinnest part OF THE MASK YOU HAND IT. It does not measure the thinnest
+MATERIAL BETWEEN parts of the mask, and it cannot be made to by passing the complement,
+because the metric is AREA-AVERAGED: it reports the largest disc-opening that loses no more
+than `tol` of the region. On a complement the region is dominated by the unbounded surround,
+so a disc that completely annihilates a letter's counter costs a fraction of a percent and
+PASSES. Framing the complement tightly helps and is not enough -- at the `tol` needed to
+tolerate the unavoidable taper at an acute concave vertex, a deliberately-collapsed S still
+came back +1.560mm.
+
+This is recorded because it was recommended, in a handoff, for exactly that job: "reusable and
+carries its own control" -- the tool was checked for EXISTENCE and not for SENSITIVITY to the
+defect it was being pointed at. Having a control proves an instrument can fire at something;
+it does not prove it can fire at YOUR something. For material between strokes use exact
+pairwise segment distance -- tools/strokefont.py `min_gap()` -- which has no tolerance, no
+rasterisation, and never looks at the surround.
+
 WHAT THIS DOES INSTEAD. Opening was always the right idea; only the ball was wrong.
 
   * OPEN WITH A EUCLIDEAN DISC, exactly, via two distance transforms: a disc of radius r fits

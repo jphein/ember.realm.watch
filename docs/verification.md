@@ -1591,3 +1591,66 @@ against matching the **enclosing shell**, whose command line contains the patter
 the build — the compound command's own argv contained the literal string. The patch it was
 chained to never ran, and the next step was taken believing it had. Kill and re-run in separate
 invocations, or match on a pidfile.
+
+---
+
+## An assert that measures the variable you controlled, not the one that binds
+
+The label work produced three errors with one shape between them, and the sharpest is this.
+
+The plan of record for checking the labels was: *"measure the realised minimum stroke and assert
+it is ≥ 0.90 mm."* That is a reasonable-sounding check and it is **structurally incapable of
+failing**. The stroke is an argument to the stroke font — it is set to 0.90 and then asserted to
+be ≥ 0.90. It passes because it was constructed to.
+
+Meanwhile the dimension that actually decides whether the label prints is the **counter** — the
+material between the three bars of an S, the hole in an O — and nothing measured it. A 4.5 mm
+`SD` passes the stroke assert and prints as mush, because its counter is **0.330 mm**.
+
+### Why the intuition points the wrong way
+
+Shrinking type does not shrink a glyph uniformly, because **the stroke is pinned at the nozzle
+floor while everything else scales**. So making a label smaller *raises* stroke/height, and what
+gets eaten is the counters. The binding dimension of a bold small glyph is its counter, never its
+cap height — which is exactly backwards from how type is normally specified.
+
+Measured on the shipped S, counter against ink cap height:
+
+```
+ink 4.50  ->  0.330 mm     (proposed size; unprintable)
+ink 6.00  ->  0.843 mm
+ink 6.40  ->  0.980 mm     (shipped)
+```
+
+0.342 mm of counter per mm of cap height. Two people arrived at 0.980 for the shipped size
+independently — one by measuring, one by extrapolating the other two points — which is the sort
+of agreement worth having on a number that governs a visible face.
+
+### The same shape, three times, one session
+
+- **Stroke satisfied, counter unexamined.** Above.
+- **Thickness compared, stiffness unexamined.** "The 1.22 mm cap pad is thicker than the 0.90 mm
+  hinge" was offered as a sufficiency argument. It is not a stiffness test: a cap must be far
+  *stiffer* than its hinge, not merely thicker, and stiffness goes as t³ over a 15 mm span
+  against 1.2 mm. It does pass — 0.033 mm of bow against ~0.25 mm of switch travel — but it
+  passes *because computed*, not because 1.22 > 0.90.
+- **Tool located, sensitivity unexamined.** `min_feature` was recommended for the material check
+  on the grounds that it is "reusable and carries its own control." It is area-averaged, so it
+  cannot fail on that defect at all. **Having a control proves an instrument can fire at
+  something. It does not prove it can fire at yours.** The caveat now lives in
+  `tools/minfeature.py`'s own docstring rather than in a handoff, per §12.
+
+The through-line, in one sentence: **the constraint that was designed for got verified, and the
+second constraint was never enumerated.** Every one of these checks was correct about what it
+measured. The failure was in the list of things to measure, and no amount of rigour inside a
+check repairs an incomplete list outside it.
+
+### And it recurred inside the correction
+
+The material check that replaced all this took four versions, and **the third was blind precisely
+at the defects it existed to catch** (see the previous section). That is the same failure, one
+level up, committed while fixing it — and it is worse than the original, because the original at
+least failed loudly on its first run. The countermeasure is not "be more careful". It is the
+**deliberately-broken input**: every check here now carries a control that must trip it, and two
+of the four controls in `tools/strokefont.py --self-test` exist only because an earlier version
+of that check passed them when it should not have.
