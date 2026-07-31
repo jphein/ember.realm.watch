@@ -125,7 +125,8 @@ SCREW_D    = 3.30    # M3 shank clearance through the shell
 #
 # The envelope is not free: the island's bottom edge cannot go below y=0.80 (the shell's
 # bottom wall is just outside the board edge and the switches sit only 3.26mm in), and the
-# slot's OUTER boundary must clear the fine hex field at y=11.0. A flat-top hex of
+# slot's OUTER boundary must clear the fine hex field at HEX_FIELD_Y0 (19.00; this comment
+# said 11.0, the value before the field yielded to the thumb-sized caps). A flat-top hex of
 # circumradius R spans R*sqrt(3) in Y, so R is pinned by those two facts, not chosen.
 # THUMB-SIZED, AND IT IS A STRENGTH FIX AS WELL AS JP'S REQUEST. JP asked for "big
 # thumbsized hexagons" and 9.01mm across flats is not one — a thumb pad is 15-20mm. But the
@@ -148,7 +149,7 @@ PAD_Y0     = 0.80    # island bottom edge. Any lower cuts the shell's bottom wal
 # The back hex field's lower boundary, NAMED because two places need it and they disagreed:
 # _hex_panel() was moved to 19.00 for the thumb-sized caps while the assert that checks the
 # caps clear the field still read a hardcoded 11.0 — so the assert fired against a boundary
-# the part no longer had. Exactly the GRILLE_SLOT_W duplication one screenful up, and the
+# the part no longer had. Exactly the dead-GRILLE_SLOT_W hazard one screenful up, and the
 # reason a shared number gets a name.
 HEX_FIELD_Y0 = 19.00
 # DEBOSSED, NOT RAISED — and the print orientation decides this, not taste.
@@ -199,7 +200,8 @@ HINGE_T    = 0.90    # living-hinge thickness
 # and 1.37% is BOOT at L = 2.00, a flexure length BOOT does not have. Both figures were real
 # and one of them described a configuration that was never built. Same discipline the firmware
 # side arrived at independently: state which configuration you RAN, not which conclusion you
-# reached. Both pass the 2.5% assert, so nothing was broken — which is exactly why it survived.
+# reached. Both pass the 2.0% assert (`_strain <= 0.020`; this line said 2.5%), so nothing was
+# broken — which is exactly why it survived.
 # The
 # force ordering stays mildly inverted, and that is the right trade — an easy RESET is an
 # annoyance, a cracked RESET hinge is a dead part, and RESET is the recoverable button anyway.
@@ -286,7 +288,8 @@ BEZ_WEB      = 0.70   # material between cells. ⚠️ NOT "two extrusion widths
 MARK_MARGIN  = 1.00   # the MARK's keepout, deliberately tighter than the cells' BEZ_MARGIN.
                       # Not a fudge to make it fit — the constraint is different. A hex cell
                       # can land anywhere, including beside the r6.45 corner fillets, so it
-                      # needs the conservative figure. The mark sits at x 7.90..34.90, where
+                      # needs the conservative figure. The mark's ink sits at x 7.700..33.351
+                      # (measured on the solid, not transcribed — it read 7.90..34.90), where
                       # the outer silhouette is a STRAIGHT edge (fillet influence ends by
                       # x=3.5) and the lower bound is the screen window. 1.00mm of face
                       # material beside a 0.48mm-deep cosmetic recess, with 2.52mm of bezel
@@ -405,19 +408,37 @@ def _bezel_cells():
     return out, cnt
 
 def _bezel_mark():
-    """The hearth-wyrm, debossed into the brow at top-left. Returns (solid, w, h, min_feat).
+    """The hearth-wyrm, debossed into the brow. Returns (solid, w, h, min_feat).
+
+    ⚠️ "AT TOP-LEFT" WAS IN THIS LINE UNTIL IT WAS MEASURED, and the file knew better 27 lines
+    down, where the comment on mirroring already names "the 'not top-left' cost" as something
+    JP accepted. Measured on the solid: ink x 7.700..33.351 (centre 20.525, i.e. 4.475mm LEFT
+    of the bezel's x=25.0 centreline) and y 76.240..87.530, 11.250mm tall. So: top, and left of
+    centre, but not in the corner. A docstring outliving the geometry it describes is this
+    file's most common defect and the cheapest to check.
 
     ONE CREATURE, NOW RENDERED FOUR WAYS — the device draws it as RLE spans, the website
     traces it to SVG, the stand's grille is cut from it, and this debosses it. All four read
     esphome/art/dragon.py, so re-posing the wyrm moves all four.
 
-    THE SCALE IS SET BY THE PRINT FLOOR, NOT BY THE AVAILABLE SPACE. wyrm_spans is generated
-    with a verified 1.23mm minimum feature (morphological opening at k=2, the third metric
-    tried — row-runs never terminate and erosion-to-empty measures the THICKEST feature).
-    Scaling shrinks that linearly, so filling the brow's full 10.49mm usable height would
-    take the thinnest part of the creature to 0.84mm, under the 0.90mm floor. Scale is
-    therefore 0.90/1.23, and the mark is as large as the floor allows rather than as large as
-    the brow allows.
+    ⚠️ AND "THE SCALE IS SET BY THE PRINT FLOOR" IS BACKWARDS. This paragraph used to end
+    "the mark is as large as the floor allows rather than as large as the brow allows", and the
+    direction is wrong: SCALING UP MULTIPLIES EVERY FEATURE SIZE BY s, so a larger mark is
+    strictly safer to print. The print floor bounds the scale from BELOW. It cannot cap the
+    mark's size and never could.
+
+    The magnitude was wrong too. `WYRM_MIN_FEATURE` is 4*px of the source canvas — a
+    conservative BOUND, not a measurement of the creature (see tools/minfeature.py, now the
+    fourth metric, not the third). Measured threshold-free as the smallest ridge value of the
+    distance transform, the silhouette's thinnest feature is 2.4667mm, so at s = 0.90/1.2333
+    the mark's real thinnest feature is 1.800mm — TWICE the 0.90mm floor, not on it.
+
+    So the floor would permit this mark at half its current scale, and permits any larger scale
+    without limit. Whatever should set the size, it is not printability: the candidates are the
+    brow's usable height and MARK_MARGIN's keepout, and neither has been measured against the
+    mark as built. NOT RESCALED HERE — JP has a printed bezel in hand and this geometry is
+    byte-identical across that correction. Recorded so the next person sizing it does not
+    inherit the inverted reason.
     """
     s = 0.90 / _W.WYRM_MIN_FEATURE
     h = _W.WYRM_H * s
@@ -853,6 +874,26 @@ SCALLOP_CHAMFER = 0.90  # on the pocket MOUTH, where the rim plane cuts the pris
 #     a hex field has no preferred direction.
 # Solved numerically (not from the closed form) for 673.0 mm2: R=3.75mm circumradius,
 # 6.50mm across the flats, 7.40mm pitch, 33 hexes.
+#
+# RE-DERIVED AGAINST THE GEOMETRY THAT IS ACTUALLY THERE, because GRILLE_FLARE merges the
+# mouth on purpose and the 673 solve assumed separate cells. Rastered in the X-Z plane at
+# 0.01mm — the bores run in Y, so that plane IS the aperture:
+#
+#   THROAT, un-flared cells & field    678.0 mm2 in 27 separate openings   <- the restriction
+#   MOUTH,  flared cells & field       886.1 mm2 in ONE opening            <- the visible face
+#   field itself (37 x 24, r1.5)       886.1 mm2
+#
+# Two things fall out of that and neither was previously written down. The throat figure is
+# right — 678.0 against the stated 673.0, +0.7%, so the acoustic solve survives and the
+# driver's ~700mm2 radiating area is 97% matched. But THE MOUTH IS THE ENTIRE FIELD: 886.1 of
+# 886.1 mm2, one aperture, because the flared cells cover the rounded rect completely. From
+# outside this is not 33 chamfered holes, it is one 37 x 24 opening with the honeycomb set
+# 0.40mm behind it.
+#
+# And 33 cells produce 27 openings, not 33: six are clipped by the field's rounded corners.
+# `len(_cells.solids()) >= 30` counts the CUTTING TOOLS, not the resulting apertures — right
+# for the question it asks (have the cells fused) and not a count of holes in the part. The
+# smallest surviving opening is 12.85mm2, so no clipped slivers.
 GRILLE_STYLE  = "hex"
 HEX_R         = 3.75     # circumradius
 HEX_WEB       = 0.90     # material between hexes; the print floor
@@ -861,11 +902,14 @@ GRILLE_RAKE   = 24.0     # degrees back from vertical, from lyra's motif
 GRILLE_N      = 9
 GRILLE_W0     = 3.20     # widest slot, at the head
 GRILLE_TAPER  = 0.78     # narrowest / widest, toward the tail
-GRILLE_SLOT_W = 2.20     # was written twice, identically, back to back. Harmless only
-                         # because both values agreed — the second silently wins, so the
-                         # next person to tune this has even odds of editing the dead line
-                         # and seeing nothing change.
-GRILLE_PITCH  = 3.40
+# GRILLE_SLOT_W / GRILLE_SLOT_W2 / GRILLE_PITCH DELETED — all three were DEAD, and the
+# comment describing them was stale in a way that matters. It read "was written twice,
+# identically, back to back … both values agreed, the second silently wins". Measured against
+# HEAD: `GRILLE_SLOT_W = 2.20` appeared ONCE and `GRILLE_SLOT_W2 = 2.60` once, so they did not
+# agree; and neither was referenced anywhere, so neither "won". Only GRILLE_N, GRILLE_W0 and
+# GRILLE_TAPER are read (by the GRILLE_STYLE == "ridge" branch). A hazard comment about a
+# duplication that no longer exists is worse than no comment: it points at the wrong risk and
+# certifies that someone looked.
 # Slots are clipped to the driver's RADIATING AREA, inset 1.5mm from its outline so
 # the grille never opens onto the frame — an open slot over the flange is a dust path
 # into the chamber and vents the enclosure it is meant to seal.
@@ -1712,8 +1756,10 @@ def _check_geometry():
     #
     # theta is FIXED by pip travel over the pip's lever arm and cannot be tuned away; the only
     # levers are thickness (which makes strain worse) and flexure length (which makes it
-    # better). 2.5% is the threshold: PLA yields around 2% and breaks in the 4-6% band, so
-    # this sits just past yield and well clear of fracture, for a control pressed by hand.
+    # better). 2.0% is the threshold — the assert below reads `<= 0.020`, and this comment
+    # said 2.5%. PLA yields around 2% and breaks in the 4-6% band, so the limit sits AT yield
+    # and well clear of fracture, for a control pressed by hand. "Just past yield" described
+    # the 2.5% figure that was never in the code.
     for _cx, _cy in BTN:
         _cyh, _R, _ = cap_geometry(_cx)
         _arm = cap_hex_top_y(_cyh, _R) - _cy
@@ -1734,7 +1780,9 @@ def _check_geometry():
         f"raised cap can bridge the {SLOT_W}mm slot and weld the pad shut")
     for _cx, _cy in BTN:
         _cyh, _R, _ = cap_geometry(_cx)
-        # the slot's OUTER edge must clear the fine hex field, which starts at y=11.0
+        # the slot's OUTER edge must clear the fine hex field, which starts at HEX_FIELD_Y0
+        # (19.00). This comment said 11.0 while the assert below already read the constant —
+        # the check was right and its own explanation was two values out of date.
         _slot_top = cap_hex_top_y(_cyh, _R + SLOT_W)
         # the hinge cut reaches further than the slot does, so check the deeper of the two
         _reach = max(_slot_top, cap_hex_top_y(_cyh, _R) + cap_hinge_len(_cx)/2)

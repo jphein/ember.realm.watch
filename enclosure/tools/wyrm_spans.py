@@ -26,14 +26,20 @@ WYRM_AREA = 193.3503
 # asserts MEASURED >= WYRM_MIN_FEATURE, i.e. that the bound IS a bound -- a
 # check nobody had ever run.
 #
-# THE GAP MATTERS TO CONSUMERS: it is 4.27x, so a
+# THE GAP MATTERS TO CONSUMERS: it is 2.00x, so a
 # consumer scaling by floor/1.2333 gets a mark whose thinnest
-# feature is 4.27x its floor, not equal to it. Anything
+# feature is 2.00x its floor, NOT equal to it. Anything
 # that reports `WYRM_MIN_FEATURE * s` as the result is ARITHMETIC, NOT A
 # TEST -- it returns the floor by construction whatever the shape does.
 # Use MEASURED * s for that.
+#
+# AND THE FLOOR BOUNDS THE SCALE FROM BELOW, NOT ABOVE: scaling up multiplies
+# every feature by s, so a LARGER mark is strictly safer to print. Any claim
+# that a mark is 'as large as the print floor allows' has the sign wrong.
 WYRM_MIN_FEATURE = 1.2333
-WYRM_MIN_FEATURE_MEASURED = 5.2688
+WYRM_MIN_FEATURE_MEASURED = 2.4667   # EDT ridge minimum, at
+# canvas (14.18, 26.21) in the mask's own axis order.
+# Granulometric lower bound at tol=0.005, for comparison: 0.8721
 # The old 4-connected metric, kept only for comparison: it reported the loss
 # at k=2 as 0.0%. It is anisotropic -- see minfeature.py.
 # CONNECTED COMPONENTS of the silhouette. 1 means the mark is NOT one

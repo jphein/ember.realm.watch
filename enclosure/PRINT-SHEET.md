@@ -228,16 +228,32 @@ duct and its impedance scales with length ÷ width, so 2.20 mm slots through a 4
 1. **The baffle is recessed to 2.20 mm** in the grille region only, cut from the *outside*
    so the inner face stays flat. Slot aspect 1.82:1 → **1.00:1**, roughly halving the
    impedance.
-2. **The grille is a hexagonal honeycomb** — 33 hexes, **6.50 mm across the flats** on a
-   7.40 mm pitch (3.75 mm circumradius), 0.90 mm web. Open area **673.0 mm²**, solved
+2. **The grille is a hexagonal honeycomb** — 33 cells placed, **27 open apertures** after the
+   field's rounded corners clip them, **6.50 mm across the flats** on a
+   7.40 mm pitch (3.75 mm circumradius), 0.90 mm web. Open area **673.0 mm²** nominal, solved
    *numerically* to match the slot array it replaces exactly, so the change is aesthetic
    rather than acoustic.
 
-   > ⚠️ **That 673.0 mm² is the *un-flared* field, and the mouth is not un-flared** — see
-   > item 3. The open area a visitor's finger meets is larger, and it is **being re-derived
-   > on the flared geometry**. Treat the figure as correct for the bores and *pending* for the
-   > mouth. It is deliberately not corrected to a number computed here: a fresh wrong figure
-   > would be worse than an honestly pending one.
+   > ✅ **Re-derived on the flared geometry.** That 673.0 mm² described the *un-flared* field,
+   > and the mouth is not un-flared — see item 3. Rastered in the X–Z plane at 0.01 mm, which
+   > *is* the aperture plane because the bores run in Y:
+   >
+   > | | area | openings |
+   > |:--|--:|--:|
+   > | **Throat** — un-flared cells ∩ field, the acoustic restriction | **678.0 mm²** | **27** |
+   > | **Mouth** — flared cells ∩ field, the face you touch | **886.1 mm²** | **1** |
+   > | the field itself (37 × 24, r1.5) | 886.1 mm² | — |
+   >
+   > **The throat figure holds: 678.0 against the stated 673.0, +0.7 %**, so the acoustic solve
+   > survives and the driver's ~700 mm² radiating area is 97 % matched. **The mouth is the
+   > entire field** — 886.1 of 886.1 mm², one aperture, because the flared cells cover the
+   > rounded rect completely. From outside this is not 33 chamfered holes; it is one 37 × 24
+   > opening with the honeycomb set 0.40 mm behind it.
+   >
+   > And **33 cells produce 27 openings**, not 33 — six are clipped by the field's rounded
+   > corners. `len(_cells.solids()) >= 30` counts the *cutting tools*, not the holes in the
+   > part: right for the question it asks (have the cells fused?) and not a count of apertures.
+   > Smallest surviving opening 12.85 mm², so no clipped slivers.
 
    **They are not louvers.** Both patterns are straight-through bores; the raked slots were
    angled *in the plane* of the wall, not through its thickness, so nothing about the angle
@@ -334,7 +350,7 @@ below Fs does nothing and a mistuned one is worse than sealed.
 | `GLASS_GAP` | 0.40 | never reduce below 0.25 — see below |
 | `SLOT_CLR` | 0.40 | slab loose/tight in the stand |
 | `TILT` | 15° | viewing angle |
-| `GRILLE_STYLE` | `"hex"` | `"ridge"` swaps the 33-hex field for lyra's raked dorsal-spine motif. **Both are solved to the same 673 mm² open area**, so this is aesthetic, not acoustic — the rake never did acoustic work, since these are straight-through bores raked *in the plane* of the wall, not louvered vanes angled through its thickness |
+| `GRILLE_STYLE` | `"hex"` | `"ridge"` swaps the 33-hex field for lyra's raked dorsal-spine motif. **Both are solved to the same 673 mm² nominal open area** (the hex field's throat measures 678.0 mm², +0.7 %), so this is aesthetic, not acoustic — the rake never did acoustic work, since these are straight-through bores raked *in the plane* of the wall, not louvered vanes angled through its thickness |
 | `SCALLOP_D` / `SCALLOP_Z0` | 12.0 / 5.0 | the finger pockets over the button caps. Deeper reaches further behind the slab and eats the stand's rear wall — there is an assert holding 3 mm of wall at the rim. Raising `SCALLOP_Z0` keeps more of the lower rear grip and gives the finger less room |
 | `BEZEL_DEBOSS` | 0.48 | how deep the honeycomb and wyrm cut into the front face. **Keep it an exact multiple of the bezel's 0.16 mm layer height** — it was 0.45, which is 2.8125 layers, so the recess floor landed wherever the slicer's rounding fell rather than on a real layer boundary. An assert holds ≥2.00 mm of bezel over the glass, so there is headroom, but this is the face you look at |
 | `BTN_R_BIG / BTN_R_SMALL` | 8.6603 / 5.7735 | the hex caps — **15.00 and 10.00 mm across the flats.** Shrinking them moves the hinge closer to the pip, which raises θ and therefore strain; the thumb-sized caps are what took both hinges to ~1.20% |

@@ -211,7 +211,12 @@ def main() -> int:
     MF.selftest()
     k2_loss = opening_loss(m, 2)                    # the OLD number, reported for comparison
     min_bound = 4 * scale                           # the OLD contract: a conservative bound
-    min_true = MF.min_feature(m, scale, ceiling_mm=20 * scale)
+    # THRESHOLD-FREE: the smallest EDT ridge value, doubled. NOT min_feature(), which is a
+    # granulometric BOUND and under-reads, and NOT the max-over-blob reader that preceded it —
+    # that one returned this creature's THICKEST half-width (5.2688mm) as its thinnest feature,
+    # because at a 10px disc a 50px-tall shape does not survive opening at all.
+    min_true, min_at = MF.thinnest_feature(m, scale)
+    min_gran = MF.min_feature(m, scale)
     # THE BOUND MUST ACTUALLY BE A BOUND. Never once checked until now, and it is the property
     # every consumer of WYRM_MIN_FEATURE silently depends on: scaling by floor/bound only
     # guarantees >= floor if the true minimum is >= bound. It is, by 4.3x.
@@ -260,12 +265,18 @@ def main() -> int:
         f.write(f"#\n")
         f.write(f"# THE GAP MATTERS TO CONSUMERS: it is {min_true/min_bound:.2f}x, so a\n")
         f.write(f"# consumer scaling by floor/{min_bound:.4f} gets a mark whose thinnest\n")
-        f.write(f"# feature is {min_true/min_bound:.2f}x its floor, not equal to it. Anything\n")
+        f.write(f"# feature is {min_true/min_bound:.2f}x its floor, NOT equal to it. Anything\n")
         f.write(f"# that reports `WYRM_MIN_FEATURE * s` as the result is ARITHMETIC, NOT A\n")
         f.write(f"# TEST -- it returns the floor by construction whatever the shape does.\n")
         f.write(f"# Use MEASURED * s for that.\n")
+        f.write(f"#\n")
+        f.write(f"# AND THE FLOOR BOUNDS THE SCALE FROM BELOW, NOT ABOVE: scaling up multiplies\n")
+        f.write(f"# every feature by s, so a LARGER mark is strictly safer to print. Any claim\n")
+        f.write(f"# that a mark is 'as large as the print floor allows' has the sign wrong.\n")
         f.write(f"WYRM_MIN_FEATURE = {min_bound:.4f}\n")
-        f.write(f"WYRM_MIN_FEATURE_MEASURED = {min_true:.4f}\n")
+        f.write(f"WYRM_MIN_FEATURE_MEASURED = {min_true:.4f}   # EDT ridge minimum, at\n")
+        f.write(f"# canvas ({min_at[0]:.2f}, {min_at[1]:.2f}) in the mask's own axis order.\n")
+        f.write(f"# Granulometric lower bound at tol=0.005, for comparison: {min_gran:.4f}\n")
         f.write(f"# The old 4-connected metric, kept only for comparison: it reported the loss\n")
         f.write(f"# at k=2 as {100*k2_loss:.1f}%. It is anisotropic -- see minfeature.py.\n")
         f.write(f"# CONNECTED COMPONENTS of the silhouette. {ncomp} means the mark is NOT one\n")
