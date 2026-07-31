@@ -234,6 +234,94 @@ outer face, not down inside a cell.**
 
 ---
 
+# Appendix A2 — DISPUTED: P2's 0.300 mm, unresolved at time of writing
+
+**2026-07-30, after the predictions were frozen and committed, and before any observation.**
+**P2 is not edited. Neither measurement is declared correct here. The printed part adjudicates.**
+
+`nebula-site` cannot reproduce the **0.300 mm** figure that P2's reasoning rests on. Three
+independent checks of theirs put the narrowest material on the visible face at **0.70 mm — the
+web itself**:
+
+| their check | method | result |
+|---|---|---|
+| chin lattice | 2 µm raster, Euclidean distance transform, ridge minimum | **0.696 mm** |
+| rail stack | same, restricted to the vertex-to-vertex pinch band | **0.704 mm** |
+| both lattices | real `_bezel_cells()`, all-pairs centre distance | closest pair **3.3000 mm = nominal pitch**; zero pairs closer |
+
+## The two bases, named
+
+- **Mine:** the **exported STL**, ray-cast to an occupancy grid in the print orientation, **layer 0**,
+  EDT ridge minimum. `px = 0.075 mm`.
+- **Theirs:** the **CAD model** (`_bezel_cells()`), rasterised at **2 µm**, EDT ridge minimum, plus an
+  analytic centre-distance check.
+
+**Different objects and a 37× resolution difference**, so agreement was never guaranteed.
+
+## What a resolution sweep of my basis shows
+
+Run after the dispute surfaced, on my basis only:
+
+```
+px=0.075   ridge min 0.3000 mm   (EDT 2.00 px)   at model (x 9.575, y 85.20)
+px=0.050   ridge min 0.2000 mm   (EDT 2.00 px)   at model (x 9.550, y 85.20)
+px=0.030   ridge min 0.1800 mm   (EDT 3.00 px)   at model (x 9.590, y 85.17)
+px=0.020   ridge min 0.2000 mm   (EDT 5.00 px)   at model (x 9.610, y 85.17)
+```
+
+**It does not vanish as the raster refines** — it converges toward ~0.18–0.20 mm — **and it
+localises to the same place every time.**
+
+## And that place is not the honeycomb
+
+```
+located point            model (x ≈ 9.58, y ≈ 85.19)
+_bezel_mark() bbox       x 7.680..33.371   y 76.240..87.530
+point inside the mark's bbox?   TRUE
+```
+
+**The feature sits inside the wyrm mark's region, not in either honeycomb lattice.** `nebula-site`
+scanned the chin lattice and the rail stack; this is neither. So the two measurements may be
+correct about **different features in different places**, in which case the number survives and
+**P2's stated attribution — "at the honeycomb cell corners" — is the part that is wrong.** That
+attribution was inherited from `print-readiness.md`'s earlier "156 sub-0.45 mm slivers … at the
+honeycomb cell corners" and carried forward without being located.
+
+A candidate mechanism, **not verified:** the mark is built from **104 row-span rectangles inflated
+by 20 µm** (see `docs/verification.md` §14), so its edges are a staircase of near-coincident steps.
+That is the kind of geometry that produces sub-0.3 mm material features. **Untested.**
+
+## Why this is still unresolved, stated plainly
+
+Three possibilities remain open and the data above does not choose between them:
+
+1. **the feature is real in both model and export**, at a location not yet scanned at 2 µm — both
+   measurements right, P2's label wrong;
+2. **the feature is real in the export but absent from the model** — a mesher artefact, and a
+   `§24` instance rather than an error by either of us;
+3. **it is a raster artefact of my method at every resolution tried.** The sweep argues against
+   this — artefacts do not usually persist *and* localise — but does not eliminate it.
+
+**Separating 1 from 2 requires a fine-raster check of the model at (9.58, 85.19), which is
+`nebula-site`'s instrument and not mine.** Handing over the coordinate rather than the verdict.
+
+## What this does and does not do to P2
+
+**P2 predicts rounded cell corners with continuous webs. That prediction is unchanged and still
+scoreable exactly as written.** Its *reasoning* is now disputed, which makes the test more
+informative rather than less:
+
+- if **0.300 mm** is right and about the corners, corners round because the slicer omits material;
+- if **0.70 mm** is right, P2 may still hold — 0.70 mm is **1.75 nozzle widths**, and a single wide
+  bead with squish rounds a 120° corner too — **or it may fail**;
+- **one look settles which, at no cost.**
+
+Per Appendix B rule 1, **neither `nebula-site` nor I adjudicate this.** Resolving it tonight would
+route around that rule by a different door, since one of the two measurements is the basis of my
+own frozen claim.
+
+---
+
 # Appendix B — the scoring procedure, written before the data
 
 The half nobody writes. Deciding what counts as a pass *after* seeing the answer is the same
