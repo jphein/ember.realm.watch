@@ -3320,10 +3320,48 @@ display:
       auto paint_overlay = [&]() {
         const int OY = ${ui_oy};
         // Mode 1 grew into the flame band when mic gain joined it — two controls with
-        // touch-sized targets do not fit in SCRL_H alone. Only the mode submenu (3) is
-        // still short. See the fire branch below: mode 1 no longer keeps the fire alive,
-        // because the overlay is now drawing over where the fire would be.
-        const int OH = (id(ui_mode) == 3) ? SCRL_H : (SCRL_H + FLAM_H);
+        // touch-sized targets do not fit in SCRL_H alone. See the fire branch below: no
+        // overlay keeps the fire alive any more, because they all draw over where the
+        // fire would be.
+        //
+        // ⚠️ EVERY OVERLAY IS NOW FULL HEIGHT, AND THE MODE SUBMENU USED TO BE SHORT (#39).
+        // It was `(ui_mode == 3) ? SCRL_H : (SCRL_H + FLAM_H)`, i.e. a background of
+        // y32..187 — and its rows are drawn at ui_pm_iy + i * ui_pm_ih = 72/118/164, so
+        // row 2's highlight runs to y207. TWO defects, and the second is the one I missed
+        // when I filed it:
+        //
+        //   1. row 2 painted ~20px PAST its own background. Benign in isolation.
+        //   2. NOTHING painted y208..263 at all. Entering mode 3 (ui_action 5) does not
+        //      set force_full_repaint, and the scheduler's `ui_mode != 0` branch drops the
+        //      scroll band and never reaches the fire — so that strip kept whatever the
+        //      flame band last drew. The menu sat above ~56 rows of FROZEN FIRE, with
+        //      row 2's highlight overlapping its top 20. Not latent: visible whenever the
+        //      submenu was open, and worst on the row you were most likely to select.
+        //
+        // The background is now defined by the region the overlay OWNS rather than by the
+        // rows that happen to fit in it. Deriving a height from the row count was the
+        // other option and it is worse: it would put a FOURTH encoding of "3 rows" beside
+        // the paint loop, the names[] extent and the tap hit-test, and those three
+        // disagreeing is precisely what check_navigability.py exists to catch. This
+        // removes a conditional instead of adding a constant, and it cannot go stale if a
+        // row is added or removed.
+        //
+        // Costs one background fill: ~232 rows instead of ~156, so ~27-32ms rather than
+        // ~18-22ms. This is a ONE-SHOT repaint on ui_gen change — human-paced, >=150ms
+        // apart — not an animation, and mode 2 has always paid it.
+        const int OH = SCRL_H + FLAM_H;
+        // #39's GUARD, so this cannot come back. The tallest menu is the power menu at
+        // ui_pm_n rows; the mode submenu has fewer, so bounding the larger bounds both.
+        // Last row's last pixel is ui_pm_iy + n*ui_pm_ih - 3 (the highlight is
+        // ui_pm_ih - 2 tall), and the background's last row is OY + OH - 1.
+        //
+        // It fires: set ui_pm_n to 6 and the build stops with this message rather than
+        // silently drawing a menu row onto pixels nobody owns. Checked that way rather
+        // than assumed — an assert nobody has seen fail is not a guard.
+        static_assert(${ui_pm_iy} + ${ui_pm_n} * ${ui_pm_ih} - 3 <= ${ui_oy} + SCRL_H + FLAM_H - 1,
+            "A menu row is drawn below the overlay background. Either the row count, the "
+            "row pitch or ui_pm_iy has outgrown the overlay: the background must cover "
+            "what is drawn on it, not the reverse. Do not fix this by shortening a row.");
         it.filled_rectangle(0, OY, W, OH, c_bg);
         it.filled_rectangle(0, OY, W, 1, c_ash);
 
