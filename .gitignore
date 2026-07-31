@@ -23,3 +23,6 @@ __pycache__/
 # enclosure/tools/requirements.txt, which pins the exact set the shipped STLs were built
 # with. Note the name is cadenv, not venv: a generic venv rule does NOT match it.
 enclosure/cadenv/
+
+# frozen print sets — kept deliberately, see the print-* tags
+print-ready/
