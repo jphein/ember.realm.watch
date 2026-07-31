@@ -551,8 +551,9 @@ interval:
       #
       # So gate the AMP on the same signal, for the same reason the mute inversion
       # exists: cover every cold start, including ones nobody has enumerated, instead
-      # of adding a third specific site. This SUPERSEDES talk_begin's amp_blank call —
-      # at a tap the speaker is already stopped, so the amp is already off.
+      # of adding a third specific site. This SUPERSEDED talk_begin's amp_blank call,
+      # which has since been deleted along with the script (#17) — at a tap the speaker
+      # is already stopped, so the amp is already off.
       #
       # >>> THE COST IS REAL AND IS AUDIBLE: ~50ms of soft start on every reply. <<<
       # The FM8002E's wake is ~100ms typical but a playback only preloads 5 x 10ms of
@@ -1235,11 +1236,14 @@ switch:
   #      watchdog wrote the GPIO directly and never went through the switch.
   #
   # HOW IT HID, which is the instructive part: the `amp_blank` script — whose deadline
-  # branch DOES check `switch.is_on: amp_switch` — is never executed. There is no
+  # branch DID check `switch.is_on: amp_switch` — was never executed. There was no
   # `script.execute: amp_blank` anywhere in this file. So the one branch that honoured
   # the switch was dead code, and the comment describing its behaviour ("the interval
   # only restores the amp if the switch is on") read as if it described the live
   # branch. The output also looked correct, because the amp being ON is normal.
+  # (Past tense throughout: that script is deleted (#17). This paragraph is the
+  # post-mortem of bug #1, kept because the shape is worth keeping, and it is NOT a
+  # description of any code that exists today.)
   #
   # THE FIX IS TO DELETE THE COMPETITOR, not to reconcile two writers — the same move
   # that settled volume and the LED. This switch is now pure INTENT and the 10ms
@@ -1667,17 +1671,31 @@ script:
           //
           // spk->is_running() asks the direct question, and it covers call sites that
           // do not exist yet — which is the property a per-site flag like had_tts
-          // lacks. Applied to done/error/touch/haptic only: the announce herald is
+          // lacks. Applied to done/error/thinking/touch/haptic: the announce herald is
           // enqueued AHEAD of the speech it heralds (verified), and a timer finishing
           // is the one sound whose whole job is to interrupt.
-          // Case 3 (thinking) IS in this list, and its absence was an oversight
-          // rather than a decision — 2 and 4 are exempt and say why, 3 said nothing.
-          // It belongs here on the weakest claim of any sound the device makes: the
-          // thinking chime is a "still working" filler, so it is the LAST audio that
-          // should be allowed to destroy something already playing. The reachable case
-          // is a timer (case 4, deliberately unguarded because interrupting is its
-          // whole job) still ringing when a new turn starts — without this, thinking
-          // clears the playlist and kills it.
+          //
+          // ⚠️ THE GUARD IS TWO HALVES AND ONLY THE SECOND ONE DECLINES THE PLAY.
+          // This `return` gates `chime_until` and NOTHING ELSE — a return in a lambda
+          // cannot abort its sibling actions in the enclosing action list, which is
+          // stated twice more in this script and is the bug oracle-verifier found on
+          // the `va_state == 1` guard. The play actions below each re-test
+          // `!id(spk)->is_running()` in their own condition, and THAT is what makes a
+          // sound decline. Membership in the list above is necessary and inert.
+          //
+          // #15 is the proof, and it is why this is spelled out here rather than left
+          // to be re-derived: case 3 was added to this enumeration and its play
+          // condition was left alone, so the fix read as complete, compiled clean, and
+          // changed nothing at all. If you add a case here, add it there too — and if
+          // you are checking whether a case is guarded, read the play condition, not
+          // this list.
+          //
+          // Case 3's claim is the weakest of any sound the device makes: the thinking
+          // chime is a "still working" filler, so it is the LAST audio that should be
+          // allowed to destroy something already playing. The reachable case is a timer
+          // (case 4, deliberately unguarded because interrupting is its whole job)
+          // still ringing when a new turn starts — without the play-side guard,
+          // thinking clears the playlist and kills it.
           //
           // Latent until now only because chime_on_thinking defaults to 0, which is
           // the worst kind of latent: it would first misbehave for whoever flips that
@@ -1743,7 +1761,10 @@ script:
                 announcement: true
                 enqueue: false
       - if:
-          condition: { lambda: 'return which == 3 && id(va_state) != 1;' }
+          # `!id(spk)->is_running()` IS THE HALF THAT ACTUALLY DECLINES THE PLAY. The
+          # enumeration in the lambda above cannot do it — see the note there. Do not
+          # remove this on the grounds that case 3 is already in that list.
+          condition: { lambda: 'return which == 3 && id(va_state) != 1 && !id(spk)->is_running();' }
           then:
             - media_player.speaker.play_on_device_media_file:
                 id: media_out
@@ -1897,8 +1918,11 @@ script:
                 condition:
                   speaker.is_stopped: spk
                 timeout: 900ms
-            # Blank the amp across the MICROPHONE's clock start. This is the one
-            # transient DAC mute provably cannot suppress — see the amp_blank script.
+            # The MICROPHONE's clock start is the one transient DAC mute provably cannot
+            # suppress. Nothing is blanked here: the amp is already off because the 10ms
+            # watchdog gates it on the speaker. (This used to say "see the amp_blank
+            # script"; that script is deleted — the argument now lives on the amp gate in
+            # `interval:`, which is the code that implements it.)
             # RACE FIX (oracle-verifier #6). `on_idle` is the ONLY thing that
             # mutes the DAC, and it fires from speaker_media_player::loop() — a
             # DIFFERENT component's loop pass, additionally gated on the pipeline
@@ -1915,19 +1939,25 @@ script:
             # opposite; that claim was refuted from the datasheet.)
             - audio_dac.mute_on: es8311_dac
             - lambda: 'id(dac_muted) = true;'
-            # Whether amp_blank is redundant given the mute above is UNSETTLED and is
-            # now testable by ear: set the "Amp Blank Width" number to 0 and tap to
-            # talk. Pop returns => codec mute is insufficient, amp gating is primary.
-            # Pop stays away => blanking really is redundant and can be deleted.
-            # (An earlier revision of this comment claimed amp_blank_ms was already 0.
-            # It never was, in any commit — a doc describing an unapplied intent.)
+            # Whether AMP GATING is redundant given the mute above is UNSETTLED and is
+            # testable by ear: set the "Amp Blank Width" number to 0 and tap to talk.
+            # Pop returns => codec mute is insufficient, amp gating is primary.
+            # Pop stays away => the gating really is redundant and can be deleted.
+            # (The subject here is the `amp_blank_ms_g == 0` clause in the amp gate, NOT
+            # the deleted `amp_blank` script — the knob still works, and it is the gate
+            # it turns off. An earlier revision of this comment claimed amp_blank_ms was
+            # already 0. It never was, in any commit — a doc describing an unapplied
+            # intent.)
             # The amp's own enable click, which
             # matters because this board's 0.39uF coupling caps are at the top of
             # the range the amp datasheet recommends (i.e. worst-case pop).
-            # amp_blank removed: the watchdog now gates the amp on the speaker, so
-            # at a tap (speaker stopped) the amp is ALREADY off. Calling it here
-            # would only start a redundant deadline. The script is kept for now in
-            # case the symmetric policy has to be reverted.
+            # NO AMP BLANK IS CALLED HERE, and none is needed: the 10ms watchdog gates
+            # the amp on the speaker, so at a tap (speaker stopped) the amp is ALREADY
+            # off. The `amp_blank` script this comment used to point at is DELETED (#17)
+            # — not "kept in case the symmetric policy is reverted", which is what this
+            # said while the script sat there with zero callers. Reverting is not
+            # available: a deadline would fight the recomputation. See the note at the
+            # script's old site.
             - voice_assistant.start:
 
   - id: ui_dispatch
@@ -1951,8 +1981,8 @@ script:
       # 1. It cannot be protected. The pop JP hears "before the chime" IS this
       #    haptic's own driver cold start (device log: ANNOUNCING at 08.403,
       #    `i2s_audio.speaker: Starting` at 08.502 with the amp live and the DAC
-      #    unmuted). The mute and amp_blank only arm ~1.1s later inside talk_begin,
-      #    so the protection sits BEHIND the transient it is meant to cover — no
+      #    unmuted). The mute only arms ~1.1s later inside talk_begin, so the
+      #    protection sits BEHIND the transient it is meant to cover — no
       #    value of amp_blank_ms can reach it. Hoisting the blank ahead of the tone
       #    does not work either: amp off at T+0, re-enabled at T+180, awake at
       #    ~T+280, so a 24ms tone starting ~110ms in is simply silenced.
@@ -2354,8 +2384,15 @@ globals:
     restore_value: false
     initial_value: '0'
 
-  # Deadline for restoring the amp after a blank. 0 = nothing pending. Lives here
-  # rather than in a script `delay:` so it cannot be aborted mid-flight — see amp_blank.
+  # ⚠️ THE TWO LINES THAT USED TO OPEN THIS BLOCK ARE DELETED, AND THEY WERE NEVER
+  # ABOUT amp_blank_ms_g. They read "Deadline for restoring the amp after a blank. 0 =
+  # nothing pending … see amp_blank" and they described `amp_unblank_at`, which sat ~16
+  # lines further down and is now deleted (#17). They were already misplaced BEFORE that
+  # deletion — this is not damage the deletion did, it is a pre-existing misalignment the
+  # deletion turned into an orphan — so a reader met a live WIDTH knob under two lines
+  # calling it a DEADLINE that pointed at a script with no callers. Comments in this
+  # block now sit on the global they describe; keep it that way.
+  #
   # Runtime-adjustable blank width. A SUBSTITUTION forced one flash per datapoint,
   # and the open question here is a listening comparison (0 / 180 / 300ms) that only
   # JP's ear can settle — so the knob has to be turnable while listening.
@@ -2370,14 +2407,18 @@ globals:
     type: uint32_t
     restore_value: false
     initial_value: '${amp_blank_ms}'
-  # Deferred re-mute deadline. 0 = nothing pending. See the mute branch in the 10ms
-  # watchdog for why the mute is delayed rather than immediate.
   # Is the amp currently blanked? Tracked so the watchdog doesn't re-issue the same
   # GPIO write every 10ms.
   - id: amp_off
     type: bool
     restore_value: false
     initial_value: 'false'
+  # Deferred re-mute deadline. 0 = nothing pending. See the mute branch in the 10ms
+  # watchdog for why the mute is delayed rather than immediate. Carries the zero-sentinel
+  # guard at its write site (`if (remute_at == 0) remute_at = 1;`) because millis() + 200
+  # lands on 0 once every ~49.7 days of uptime and the pending mute would be dropped
+  # silently. #17 recorded that `amp_unblank_at` lacked this guard; that global is now
+  # deleted, so this is the only deadline of the shape left and it HAS it.
   - id: remute_at
     type: uint32_t
     restore_value: false
@@ -3107,27 +3148,53 @@ display:
           it.printf(6, TELE_Y + 6, id(font_sm), c_dim, "%.1f dBFS   peak %.1f",
                     id(db_rms), id(db_peak_hold));
         } else {
-          // Shows the raw coordinate for 3s after a tap, then goes back to the
-          // ordinary idle line. Tap the left edge, tap the right edge, read two
-          // numbers: that settles the sign AND the range in ONE flash, where an
-          // A/B ("which coal flared?") costs a flash per hypothesis and yields only
-          // the sign. This file's own rule — tested beats derived — established when
-          // reset_pin: GPIO18 was reasoned from the schematic and refuted by hardware.
-          //
-          // FREE: the telemetry band is chrome, not the flame band. It erases and
-          // overdraws by design, so it is outside the write-once invariant and
-          // outside the 18,240 px/frame budget; this replaces one string with
-          // another in a band that already repaints.
-          if (id(touch_raw_x) >= 0 &&
-              (uint32_t) (millis() - id(spark_ms)) < 3000u) {
-            it.printf(6, TELE_Y + 6, id(font_sm), c_dim,
-                      "tap raw x=%d y=%d  ->  col %d",
-                      (int) id(touch_raw_x), (int) id(touch_raw_y),
-                      (int) id(spark_col));
-          } else {
-            it.print(6, TELE_Y + 6, id(font_sm), c_ash, "mic idle (no capture)");
-          }
+          it.print(6, TELE_Y + 6, id(font_sm), c_ash, "mic idle (no capture)");
         }
+        // ---- THE RAW TOUCH COORDINATE LIVES ON THIS LINE, AND THAT IS THE FIX (#13) ----
+        //
+        // It was on the FIRST line of this band, inside the `else` of
+        // `if (st == 3) … else if (mic_live) … else …`. That branch is unreachable at
+        // the moment being measured, so THE INSTRUMENT COULD NOT SPEAK:
+        //
+        //   tap in normal mode -> ui_action 3 -> talk_begin -> voice_assistant.start
+        //   -> the mic runs -> sound_level publishes non-NaN -> mic_live = TRUE
+        //
+        // within ~150-250 ms of the finger lifting, and it stays true for the rest of
+        // the turn. So `else if (mic_live)` claimed the line for the dBFS meter, then
+        // `st == 3` claimed it for the spoken/estimate readout, and by the time both
+        // released it the 3000 ms window had long expired and the line read
+        // "mic idle (no capture)". The band repaints at 2 Hz, so the coordinate was
+        // visible for at most ONE frame and only if that 500 ms tick happened to fall
+        // inside the sub-second gap before the microphone started — a coin flip, not a
+        // measurement. Following the instruction as written ("tap the left edge, tap
+        // the right edge, read two numbers") would have shown nothing, and the flash
+        // that bought it would have been spent for no datum.
+        //
+        // THE SECOND LINE HAS NO SUCH CONTENTION. Nothing else writes it, and the whole
+        // band sits at y264..319 — below the overlay's y32..263 — so it repaints on the
+        // 500 ms telemetry tick in every ui_mode and in every va_state. The coordinate
+        // now shows for the full 3 s regardless of what the conversation is doing.
+        //
+        // The cost is the mode caption for those 3 s, which is static, inferable from
+        // the header, and not the thing under measurement.
+        //
+        // ⚠️ THE ONE PATH THAT DID WORK, recorded so nobody "confirms" the old placement
+        // by accident: a tap that CANCELS an in-flight conversation stops the mic, so
+        // mic_live goes false and the old line did appear. That is the second tap of a
+        // double-tap, and the coordinate it reports is the cancel's, not the one you
+        // were aiming to measure.
+        //
+        // FREE against the frame budget: this band is chrome, not the flame band. It
+        // erases and overdraws by design, so it is outside the write-once invariant and
+        // outside the 18,240 px/frame budget — one string replaced by another in a band
+        // that already repaints.
+        if (id(touch_raw_x) >= 0 &&
+            (uint32_t) (millis() - id(spark_ms)) < 3000u) {
+          it.printf(6, TELE_Y + 24, id(font_sm), c_gold,
+                    "tap raw x=%d y=%d  ->  col %d",
+                    (int) id(touch_raw_x), (int) id(touch_raw_y),
+                    (int) id(spark_col));
+        } else
         // print(), not printf() — no format specifiers, so no varargs.
         // ⚠️ WAS "hushed - ember isn't listening", WHICH WOULD NOW BE FALSE. Ember
         // listens in all three modes; only the speaker changes. The line names what is
