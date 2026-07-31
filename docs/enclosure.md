@@ -53,7 +53,12 @@ Two things came out of the search that are worth more than a mediocre STL:
    > - **No switches of any kind** — no `K1`, no `K2`, no switch body anywhere in the
    >   assembly. The two tact switches that are the device's only physical inputs are
    >   simply not in the file.
-   > - **The microSD is a simplified plate**, not a modelled cage.
+   > - **The microSD socket is authored as zero-thickness FACES**, so it has no solid to find.
+  >   ⚠️ The plate that *was* taken for it — 11.15 × 14.15 mm, standing **0.50 mm** off the
+  >   PCB — is the **LCD driver flex**: a microSD socket is 1.4–2.8 mm tall, so the height
+  >   ruled it out and nobody checked the height. **Measure this file's faces, not only its
+  >   solids**; a component authored as faces is invisible to a solid-only search and its
+  >   absence looks like the component not being there.
    >
    > Both of the first two cost real time: the mic port was called "probably absent"
    > from the model's silence and settled in five seconds by looking at the board, and
@@ -114,11 +119,20 @@ vendor's annotated board photo, §4.1 Figure 4.1):
 
 - **Bottom short edge** — USB-C **dead centre at 25.0 mm**, with two tact switches
   flanking it across the 50 mm width, each **3.26 mm** in from the edge. The pairing is
-  **RESET at x = 13.45 mm** and **BOOT at x = 36.58 mm**, and it is now confirmed on
-  hardware rather than inferred: pressing them on the bare board brings the volume
-  overlay up from the one on the **microSD side**, and the microSD cage spans
-  x 33.68–44.83, so the readable switch is the high-x one. `ember_case.py` carries this
-  as `BTN_RESET_X` / `BTN_BOOT_X`.
+  two switches at **x = 13.45 mm** and **x = 36.58 mm**. ⛔ **Which of them is BOOT is under
+  revision — this document no longer asserts it.** The pairing had been given as RESET at 13.45
+  and BOOT at 36.58, resting on: (a) the bare-board observation that the volume overlay comes up
+  from the switch on the **microSD side**, which is direct and probably still holds; and (b) the
+  microSD spanning x 33.68–44.83, which is **wrong**. That extent came from an 11.15 × 14.15 mm
+  plate standing **0.50 mm** off the PCB in the vendor STEP — a microSD socket is 1.4–2.8 mm
+  tall, so it was never one. It is the LCD driver flex.
+
+  > **A correct observation, a correct inference, and a fictional anchor.** Moving the anchor
+  > moves the answer, so the durable form of (a) is: *the readable switch is the one on the same
+  > long edge as the microSD socket.* That survives whatever the socket's coordinates turn out
+  > to be. `ember_case.py` is being changed to derive `BTN_BOOT_X` / `BTN_RESET_X` from the
+  > socket rather than carry them as literals; until that lands, treat both coordinates as
+  > unassigned.
 
   > **Refer to these by coordinate or by constant, never by left/right.** Which side
   > each appears on flips with the view: a back three-quarter mirrors the board, and a

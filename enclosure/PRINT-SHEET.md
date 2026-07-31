@@ -163,6 +163,12 @@ the middle of the faces you look at and press. Fan at 100 % for the first few la
 
 ---
 
+> ⚠️ **On this page "BOOT" and "RESET" mean the large and the small cap.** Which *switch* each
+> sits over is **under revision** — see [`docs/enclosure.md`](../docs/enclosure.md#2--where-things-are).
+> Every figure here (bridge spans, hinge lengths, strain, deboss depths) is a property of the
+> **cap**, so none of it changes with the outcome. What changes is which end of the board the
+> large cap belongs at. **Do not label the printed caps from this page yet.**
+
 ## Fasteners
 
 **4 × M3 × 15 mm countersunk (flat-head) self-tapping** — ×14 also works — driven **from the

@@ -1487,15 +1487,28 @@ footer p{margin:.4rem 0}
       which is exactly why the firmware wraps volume from 100% back to 0% — a single button
       cannot express two directions, so wrapping is the only way down.
       <br><br>
-      Which is which is now settled on hardware rather than inferred: pressing them on the
-      bare board raises the audio overlay from the switch on the microSD side, and the
-      microSD cage sits at board x&nbsp;33.7–44.8, so <strong>BOOT is the one at
-      x&nbsp;36.58</strong> and RESET is at x&nbsp;13.45. In this figure the
-      <strong>heavier outline is BOOT</strong>. That is deliberately a statement about
-      the drawing and not about which side it is on — a back view mirrors the board, and the
-      print-orientation figure further down mirrors it back again, so "the left one" is true
-      in one figure and false in another. Get it backwards when you cut the caps and the big
-      inviting thumb button ends up over the one that reboots the device.
+      <strong>Which switch is which is under revision, and this page will not guess.</strong>
+      The identification rested on a chain with one link now known to be wrong: pressing the
+      switches on the bare board raises the audio overlay from the one on the microSD side — a
+      direct physical observation, and probably still true — and the microSD was placed at board
+      x&nbsp;33.7–44.8, which put the readable switch at the high-x end. <b>That placement is the
+      broken link.</b> The 11.15 × 14.15&nbsp;mm plate it came from stands 0.50&nbsp;mm off the
+      PCB, and a microSD socket is 1.4–2.8&nbsp;mm tall, so it was never a socket. It has been
+      identified as the LCD driver flex.
+      <br><br>
+      <b>So a correct observation and a correct inference sat on a fictional anchor</b>, and
+      moving the anchor moves the conclusion. Until the revision lands the honest statement is
+      that <em>the readable switch is the one on the same long edge as the microSD socket</em> —
+      which is a fact about the board and does not depend on where anyone thought the socket was.
+      In this figure the <strong>heavier outline is the larger cap</strong>, which is a statement
+      about the drawing and not about which side it is on: a back view mirrors the board and the
+      print-orientation figure mirrors it back again, so "the left one" is true in one figure and
+      false in another.
+      <br><br>
+      ⛔ <b>Do not cut or label caps from this page yet.</b> Getting it backwards puts the big
+      inviting thumb button over the switch that reboots the device — and holding <em>that</em>
+      one low across a reset enters ROM download mode, which looks exactly like a bricked board.
+      The asymmetry is why this is worth stopping for rather than guessing at.
       <br><br>
       <strong>Worth naming how this part nearly shipped a control nobody could press.</strong>
       Both shell parts are checked against the vendor board solid by boolean intersection, and
