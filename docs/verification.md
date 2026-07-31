@@ -795,3 +795,46 @@ located blob is its true local thickness — measured that way, the two webs abo
 known**, and the fourth is only trustworthy because it is: a control plants a 0.600 mm rib
 axis-aligned **and at 45°**, requires both found at that width, and requires a 1.500 mm rib
 ignored. Orientation belongs in that control — it is what caught fault 3.
+
+### 19. A null result that contradicted someone else's positive one
+
+A teammate reported the stand's speaker-wire pass **92 % blocked** — a 0.474 mm membrane of
+tape-pad material standing across its mouth, leaving a slit too small for the lead. Before
+repeating that anywhere, it was re-measured independently: ray-cast the committed STL along
+**+y** across the pass footprint and read off where material actually is.
+
+**The re-measurement said the pass was clear.** Every sample point, every height, nothing in
+the way.
+
+The re-measurement was wrong. The ray test had been windowed to `y > 19.4` — *"inside the
+pass"* — and the membrane sits at **y 18.50–19.00**, at the **mouth**, four tenths of a
+millimetre before the window opened. Run over the full range it appears immediately and
+unambiguously, the same interval at every sample:
+
+```
+x = 30 / 32 / 34,  z = 6.5 .. 10.5   ->  material y-interval (18.500, 19.000)
+x = 30 / 32 / 34,  z = 6.1, 6.3      ->  no material          (the 0.40mm slit)
+```
+
+Had the first run been trusted, the finding would have been closed as *"cannot reproduce"* and
+a 93 cm³ part — three quarters of the whole print — would have gone to the bed with its speaker
+chamber sealed shut.
+
+**Distrust your own null result, and check the instrument before you check the claim.** The
+asymmetry is what makes this dangerous and it is not symmetric with a false positive: a wrong
+*positive* finding gets scrutinised by whoever receives it, because it asks them to do work. A
+wrong *negative* asks nobody for anything. It gets filed, it closes a thread, and the person it
+convinces first is the one who produced it.
+
+It pairs with §14 rather than repeating it. There, the tell was a **suspiciously clean pass** —
+four parts of wildly different complexity agreeing exactly, instantly. Here the tell is a
+**suspiciously clean absence**, and it arrived while someone else was holding a positive result
+about the same object. Two people measuring the same part and disagreeing is not a tie to be
+broken by seniority or by who measured second; it is a statement that at least one instrument
+is pointed wrong, and the cheapest next move is to find out which.
+
+The generalisable form: **an instrument's window is part of the instrument.** `y > 19.4` was
+not a bug in the arithmetic — every ray was traced correctly and every intersection was real.
+The defect was a bound chosen from an assumption about *where the answer would be*, which is
+the one thing a measurement is not allowed to assume. Widen the window before concluding the
+thing is not there.
