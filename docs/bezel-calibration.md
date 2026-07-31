@@ -320,6 +320,60 @@ Per Appendix B rule 1, **neither `nebula-site` nor I adjudicate this.** Resolvin
 route around that rule by a different door, since one of the two measurements is the basis of my
 own frozen claim.
 
+## RESOLVED — 2026-07-30, by `nebula-site`, on the model at the handed-over coordinate
+
+**Possibility 1. The feature is real in both objects, at a place their earlier scans did not
+cover.** They fine-rastered `_bezel_mark()` — 104 spans, mirrored, scaled, EPS-inflated, rebuilt
+from `wyrm_spans` at HEAD — in a 2.4 mm window around (9.58, 85.19):
+
+```
+step 0.005 mm   narrowest material neck = 0.1900 mm   at (9.840, 84.925)
+step 0.002 mm   narrowest material neck = 0.1880 mm   at (9.838, 84.924)
+```
+
+**Two resolutions, converged, same point.** It brackets the 0.18–0.20 my own sweep converged to.
+
+**Three separate things were wrong and each of us held part of it:**
+
+| | verdict |
+|---|---|
+| the feature is **real** | ✅ in the model, so the export reproduces it rather than inventing it |
+| **the honest number is ~0.19 mm**, not 0.300 | my 0.300 was **resolution-limited at px 0.075** — my own sweep already showed it |
+| **it is inside the wyrm mark**, not at the honeycomb corners | my attribution was wrong; their 0.70 mm for the lattices was right |
+
+And the symmetry is worth recording: **their three checks were all correct and all about the wrong
+region** — they scanned the chin lattice and the rail stack and concluded "nowhere on the visible
+face", from two scans that did not cover the mark. **Both of us inherited the same unwritten
+assumption from the same `print-readiness.md` sentence** — *"the visible face's thin features are
+in the honeycomb"* — they to exclude a region, me to attribute one.
+
+**Candidate cause, still unverified:** the neck sits between two near-coincident span edges, which
+is what a 104-rectangle staircase inflated by 20 µm would produce. If that holds, **the EPS
+inflation that fixed §14's non-manifold edges is what creates the sliver** — a fix producing a new
+thin feature, a trade nobody priced. It may still be the right trade: 3 non-manifold edges against
+a 0.19 mm cosmetic sliver inside a debossed mark is not obviously the wrong way round.
+
+## ⚠️ What this does to P2's scoring — recorded BEFORE the observation
+
+**P2 is still not edited and is still scoreable as written.** But its stated mechanism is now
+refuted, and that changes what a pass means:
+
+- P2 predicts **rounded cell corners** *because* of a 0.300 mm feature **at the corners**.
+- **There is no such feature at the corners.** The corners' thinnest material is **0.70 mm**, and
+  `nebula-site`'s measurement of that is correct. The 0.19 mm neck is **inside the mark**, nowhere
+  near a cell corner, and can have no bearing on how a corner prints.
+
+Therefore, binding on whoever scores this:
+
+> **If P2's prediction holds, it holds for a reason other than the one stated, and must be
+> recorded that way — a PASS ON THE OUTCOME, FAIL ON THE MECHANISM.** Not a clean win. Rounded
+> corners would then be explained by 0.70 mm being 1.75 nozzle widths laid as a single squished
+> bead, which rounds a 120° junction on its own — a different claim, which P2 did not make.
+
+Fixing that interpretation **now, while the answer is unknown**, is the same discipline as
+Appendix B: a mechanism refuted before the data must not be quietly re-attached to a favourable
+outcome afterwards. **P2 can no longer score better than half, whatever JP sees.**
+
 ---
 
 # Appendix B — the scoring procedure, written before the data
