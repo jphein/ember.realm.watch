@@ -54,17 +54,26 @@ hardware fights the playback path for the same peripheral; tap-to-talk sidesteps
 the whole class of problem. It also means Ember cannot be triggered from across
 the room by the television.
 
-**Warm replies land in ~1.7s**, but only because the prompt prefix is
-byte-stable so llama.cpp can reuse its KV cache (516 tokens re-prefilled instead
-of 7,559). Anything volatile early in the prompt costs ~6.5s per turn. This is
-measured, not theorised, and it is why `ember_persona.yaml` injects live persona
-tweaks at the very *end* of the prompt — see the comment block in that file, it
-explains a genuinely counter-intuitive constraint.
+**Warm replies land fast only because the prompt prefix is byte-stable**, letting
+llama.cpp reuse its KV cache — a warm turn re-prefills **27 tokens (~0.4s)** out of
+6,258. Anything that renders differently between turns truncates the cache there and
+re-prefills everything after it, *including the whole conversation history*. Measured
+per-request with `prompt eval time`, not wall clock.
 
-> ⚠️ **The prompt-cache fix lives in Home Assistant's `.storage`, not in this
-> repo.** The conversation subentry holds the full ~1000-char persona. This
-> repo's `ember_persona.yaml` only supplies the 255-char live-tweak field that
-> HA's `input_text` helper can express.
+Until 2026-07-31 the Environment State block ended in `{{ now() }}` at **microsecond**
+precision, so the prompt was byte-unique on every request and every turn paid ~1.0s for
+it. Coarsening it to the hour, plus deleting a 1,712-token column of a stringified HA
+sentinel, took a warm turn from **1,023 ms → 408 ms** and a cold one from
+**6,024 ms → 4,771 ms**. See [`docs/home-assistant.md`](docs/home-assistant.md) §6.3 —
+it also records the reasoning that made the earlier fix look complete when it wasn't.
+
+> ✅ **The prompt is now in this repo:**
+> [`homeassistant/prompts/ember-system.md.j2`](homeassistant/prompts/ember-system.md.j2),
+> deployed with `homeassistant/tools/ember-prompt.py --deploy` (live, no HA restart).
+> It previously existed *only* in Home Assistant's `.storage` — untracked and unbackuped,
+> which is exactly how the last fix's rationale survived while its numbers rotted.
+> `ember_persona.yaml` still supplies only the 255-char live-tweak field that HA's
+> `input_text` helper can express.
 
 ---
 

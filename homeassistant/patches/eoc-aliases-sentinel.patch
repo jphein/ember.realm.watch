@@ -1,0 +1,48 @@
+# STAGED — NOT APPLIED. Needs a Home Assistant restart, so it waits for a natural window.
+#
+# Target: /config/custom_components/extended_openai_conversation/helpers.py
+# on the HA VM (HACS integration, so a HACS update will revert this — re-apply after).
+# Verified against HA 2026.7.4 + the integration as installed 2026-07-31.
+#
+# ── What it fixes ────────────────────────────────────────────────────────────────
+# `get_exposed_entities()` stringifies every member of `RegistryEntry.aliases`. On
+# HA 2026.7.x that set contains HA's `ComputedNameType` sentinel, so `str()` turns it
+# into the literal text `ComputedNameType._singleton`, which is then rendered into the
+# device CSV in the system prompt — once per entity.
+#
+# Measured on this instance (2026-07-31, issue #37):
+#   279 of 294 exposed entities emitted it
+#   1,712 tokens = 21% of the entire 7,970-token prompt, pure noise
+#
+# ── Severity: token waste only. NOT data loss. ───────────────────────────────────
+# An earlier draft of #37 claimed this "silently killed alias-based voice targeting".
+# That was WRONG and is corrected here: `core.entity_registry` on this instance has
+# **zero** entities with real aliases, so the sentinel is being *invented*, not
+# overwriting anything. Nothing is currently lost.
+#
+# The bug is still worth fixing, because the moment JP does set an alias it will arrive
+# alongside the sentinel rather than cleanly.
+#
+# ── Why the live fix went into the prompt instead ────────────────────────────────
+# The prompt template can drop the aliases column with no restart, and because there are
+# no real aliases today that costs nothing. That is what shipped
+# (homeassistant/prompts/ember-system.md.j2). It is a workaround: it hides the bug rather
+# than fixing it.
+#
+# ⚠ WHEN THIS PATCH IS APPLIED, PUT THE COLUMN BACK, or aliases still never reach Ember:
+#
+#     entity_id,name,area_id,aliases
+#     {{ entity.entity_id }},{{ entity.name }},{{area_id(entity.entity_id)}},{{entity.aliases | join('/')}}
+#
+# Deploy that half with `homeassistant/tools/ember-prompt.py --deploy` (no restart);
+# the patch below is the half that needs the restart.
+
+--- a/helpers.py
++++ b/helpers.py
+@@
+         aliases: list[str] = []
+         if entity and entity.aliases:
+-            aliases = [str(a) for a in entity.aliases]
++            # HA 2026.7.x puts a ComputedNameType sentinel in this set; str() on it
++            # yields the literal "ComputedNameType._singleton". Keep real aliases only.
++            aliases = [a for a in entity.aliases if isinstance(a, str)]
