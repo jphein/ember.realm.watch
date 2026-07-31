@@ -33,9 +33,12 @@ would have been undetectable**. The `hist-rotated` scenario closed it and `g_lev
 together — it must run at st == 1, because the history is read only on the listening
 branch, so any other state would satisfy a coverage counter and leave the numbers blind.
 
-Still blind, deliberately unwaived: `g_frames_mark`, `g_silenced`, `g_wake_reset`. Each
-needs a scenario before #10's move can be trusted. They are left failing rather than
-waived because a red guard is a to-do list and a waived one is a lie.
+All fourteen are now covered. `g_wake_reset` turned out to be a FALSE POSITIVE — it is set
+by `wake_reset()`, which the strip scenarios call, and direct-assignment scanning could not
+see it. `g_frames_mark` and `g_silenced` were real and got `mid-speech` and `silenced`.
+
+⚠️ See the SCOPE CORRECTION at the foot of this file before using the 14 as a plan for
+#10's move: the firmware preamble cannot be shared with the harness, by design.
 
 WHAT THIS CHECKS
   The field set is every `g_*` that `paint_flame_frame()` reads, parsed from the harness —
@@ -118,12 +121,14 @@ def fields() -> list[str]:
     END-OF-LAMBDA, which is what `make_paste_block.py` synchronises. That is the right
     field set for *sync* and the wrong one for *the move*.
 
-    #10 extracts `paint_flame_frame()` **entire**, and its preamble (theme colours, state
-    decode, TTS progress, spark decay) reads seven more globals that never appear in IDS —
-    among them `g_silenced`, which the harness itself documents at :158 as "No scenario
-    sets it yet". Scoping the guard to IDS reported 6 fields and missed more than half of
-    the real marshalling surface, which is the same error the guard exists to catch, made
-    by the guard.
+    The painter's preamble (theme colours, state decode, TTS progress, spark decay) reads
+    seven more globals that never appear in IDS — among them `g_silenced`, documented at
+    :156 as "No scenario sets it yet". Scoping to IDS reported 6 fields and missed half the
+    state surface.
+
+    ⚠️ This reports the FULL state surface, which is what you want to know. It is NOT a
+    parts list for the move — the preamble is per-environment by design; see the SCOPE
+    CORRECTION at the foot of this file.
 
     So: derived from the painter body, with IDS kept only as a cross-check that the paste
     region is a strict subset. If it ever isn't, the generator and the painter have
