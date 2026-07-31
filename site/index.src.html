@@ -1342,6 +1342,65 @@ footer p{margin:.4rem 0}
       and it exists because this one cannot: a figure of the shell alone can never answer a
       question about the shell in the stand.
       <br><br>
+  <h3 style="margin-top:2rem">The labels are drawn, not set</h3>
+
+  <p>
+    The back face carries four: <b>SD</b> beside the card slot, <b>MIC</b> beside the relief,
+    <b>VOL</b> on the large button cap, and an <b>IEC&nbsp;5009 power symbol</b> on the small one.
+    Debossed, like everything else on a face that prints against the bed, at the same
+    <b>three layers</b> as the bezel motif — one named layer count shared by both faces.
+  </p>
+
+  <div class="note">
+    <b>They are a stroke font, not a typeface, and that is the argument rather than the
+    aesthetic.</b> Each glyph is a centreline path swept at a fixed <b>0.90&nbsp;mm</b> groove
+    width — the same nozzle floor the wyrm mark asserts. With an outline font the stroke width is
+    a <em>consequence</em>: you set a point size, and what the strokes measure is something you
+    find out afterwards and hope about. Here it is an <strong>input</strong>, so the thing that
+    has to clear the nozzle is the thing that was specified.
+    <p style="margin:.6rem 0 0">
+      On the button caps that lands at a stroke-to-height ratio of <b>0.19</b> — heavier than any
+      real font's Bold. On the flat back, at the larger size, <b>0.14</b>. Neither is a choice
+      about weight; both fall out of one groove width meeting two glyph heights.
+    </p>
+  </div>
+
+  <p>
+    <b>And there are two heights because the part forced it.</b> The large cap is 13.27&nbsp;mm
+    across the flats, which caps a three-letter label at <b>h&nbsp;3.80</b>. The flat back has
+    room for <b>h&nbsp;5.50</b>, and <code>SD</code> <em>needs</em> it: at h&nbsp;5.10 the S's
+    upper counter pinches to <b>0.843&nbsp;mm</b> against the 0.90 floor.
+    <strong>Shrinking a glyph does not shrink it uniformly</strong> — the stroke is pinned at the
+    nozzle while everything else scales, so a smaller label has proportionally fatter strokes and
+    it is the <em>counters</em> that close first. One size everywhere was available in neither
+    direction: the cap height puts an unprintable <code>S</code> on the part, the flat height does
+    not fit the cap.
+  </p>
+
+  <p>
+    The power symbol's break is <b>derived, not styled</b>. Material between a ring end and the
+    bar is <code>R·sin(gap/2) − 0.90</code>, so clearing the floor needs <b>≥&nbsp;83.6°</b> and
+    it ships at 84. <b>A conventional 60° break measures 0.45&nbsp;mm</b> — half the nozzle — and
+    prints as a closed ring with a smudge in it.
+  </p>
+
+  <div class="note">
+    <b>Every glyph is mirrored in X, and this is the one that ships backwards if nobody writes it
+    down.</b> The back face is seen from <b>−Z</b>. For a viewer there with +Y up, their
+    right-hand direction is <code>forward × up = (0,0,1) × (0,1,0) = (−1,0,0)</code> — so
+    <strong>model +X runs to their left.</strong> Glyphs are authored in reading space and
+    mirrored on placement.
+    <p style="margin:.6rem 0 0">
+      The wyrm mark on the front bezel is <em>also</em> mirrored — but for art-direction reasons,
+      so <strong>it is not precedent, and copying its sign would have proved nothing.</strong>
+      Two mirrors with unrelated causes is exactly the situation where "match the other one" is a
+      coin flip dressed as consistency. The check that settles it is a section of the exported
+      mesh drawn with the same −X mapping applied independently: if the sign were wrong, the text
+      would come out backwards <em>there</em>. It reads correctly, so it is right.
+    </p>
+  </div>
+
+  <p>
       The field above is 113 hexagons, 3.2&nbsp;mm across the flats on a 0.8&nbsp;mm web —
       56% open. It replaced two rows of straight slot vents and does three jobs at once: it
       vents, it passes the rear-firing WS2812's light, and at that pitch it reads as a texture

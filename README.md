@@ -290,21 +290,18 @@ the outside.
 
 So there is one now. **Four parts, none needing supports**, in [`enclosure/`](enclosure/):
 
-> ⛔ **`ember-stand-base.stl` does not seat.** It is **1.40 mm too deep** in the committed
-> geometry — the plate carried a hardcoded copy of the chamber's rear wall (20.7) while that
-> wall was later derived and moved to 19.30, and the literal did not follow. **The sealed
-> speaker chamber cannot be closed with it.** The part is 3.15 cm³ so the print is cheap; the
-> assembly is the problem. A fix is in progress. **Nothing in the build could have caught this**
-> — every clearance check compares a part to *the board*, and this plate never goes near the
-> board. See [`enclosure/PRINT-SHEET.md`](enclosure/PRINT-SHEET.md).
+> ✅ **All four are printable.** Two of them were not, earlier, and both fixes are in:
+> `ember-stand-base.stl` was **1.40 mm too deep** and could not close the sealed chamber
+> (`89001ea` — the plate carried a hardcoded copy of a wall that had since been *derived* and
+> moved, and the literal did not follow); and `ember-stand.stl`'s speaker-wire pass was blocked
+> by a skin of the tape pad, leaving a 0.40 mm slit where a 1.2–2.0 mm lead has to go
+> (`338a900` — clear aperture now **28.69 mm² of 30**, up from 2.37). Details and the
+> reprint/relabel notes are in [`enclosure/PRINT-SHEET.md`](enclosure/PRINT-SHEET.md).
 >
-> ✅ **The other three are ready for a bed.** `ember-stand.stl` was held back — the speaker-wire pass
-> into the sealed chamber was blocked by a 0.50 mm skin of the tape pad, leaving a 0.40 mm slit
-> where a 1.2–2.0 mm lead has to pass. Fixed in `338a900`: the clear aperture is now **28.69 mm²
-> of 30 (95.6 %), up from 2.37 (7.9 %)**, and the stand has no feature below 0.60 mm. Two other
-> slivers went with it — see [`enclosure/PRINT-SHEET.md`](enclosure/PRINT-SHEET.md).
-> `ember-front-bezel.stl` has been printed and its dimensions look right; it is byte-identical
-> across the fix. Nothing has been assembled yet.
+> ⚠️ **If you printed a back shell before `86748c6`, its button caps are on the wrong
+> switches** — the switch identification was inverted when it stopped being a typed literal.
+> `ember-front-bezel.stl` has been printed and its dimensions look right, and is unaffected by
+> all of the above. Nothing has been assembled yet.
 
 | | |
 |---|---|
@@ -312,6 +309,41 @@ So there is one now. **Four parts, none needing supports**, in [`enclosure/`](en
 | `ember-back-shell.stl` | back face down. Two printed-in-place hexagonal button pads on living hinges, 15.00 and 10.00 mm across the flats |
 | `ember-stand.stl` | bottom face down. A 15° cradle that **is** the speaker cabinet, with finger scallops reaching the buttons |
 | `ember-stand-base.stl` | flat. Closes the chamber |
+
+### The back face has labels now, and they are drawn rather than set
+
+Four of them, debossed into the back like everything else on a bed face: **`SD`** beside the
+card slot, **`MIC`** beside the relief, **`VOL`** on the large button cap and an **IEC 5009
+power symbol** on the small one. Same depth as the bezel motif — **three layers**, one named
+layer count shared by both faces.
+
+**They are a stroke font, not a typeface, and that is the whole point.** Each glyph is a
+centreline path swept at a fixed **0.90 mm** groove width — the same nozzle floor the wyrm mark
+asserts. With an outline font the stroke width is a *consequence* you can measure afterwards and
+hope about; here it is an **argument**, set directly and checkable. On the button caps that
+works out to a stroke/height ratio of **0.19**, heavier than any real font's Bold; on the flat
+back, at the larger size, it is **0.14**.
+
+⚠️ **Two sizes, and the split is forced rather than stylistic.** The large cap is 13.27 mm
+across the flats, which caps a three-letter label at **h 3.80**. The flat back has room for
+**h 5.50**, and `SD` *needs* it: at **h 5.10 the S's upper counter pinches to 0.843 mm** against
+the 0.90 floor. **Shrinking a glyph does not shrink it uniformly** — the stroke is pinned at the
+nozzle and everything else scales, so it is the **counters** that get eaten first. Using the cap
+size everywhere would have put an unprintable `S` on the part; using the flat size everywhere
+would not fit on the cap.
+
+The power symbol's gap is **derived, not styled**: the material between a ring end and the bar is
+`R·sin(gap/2) − 0.90`, so clearing the 0.90 floor needs **≥ 83.6°**, and it ships at 84. **A
+conventional 60° break measures 0.45 mm and prints as a closed ring with a smudge in it.**
+
+> ⚠️ **Every label is mirrored in X, and this is the one that ships backwards if nobody writes
+> it down.** The back face is seen from **−Z**. For a viewer there with +Y up, their right-hand
+> direction is `forward × up = (0,0,1) × (0,1,0) = (−1,0,0)` — so **model +X runs to their
+> left.** Glyphs are authored in reading space and mirrored on placement. The wyrm mark on the
+> front bezel is *also* mirrored, but for art-direction reasons, so **it is not precedent and
+> copying its sign would prove nothing.** `enclosure/tools/slice_svg.py` applies the same mapping
+> independently, so slicing the exported STL is a genuine check: if the sign were wrong the text
+> would come out backwards there.
 
 **`ember_case.py` is the artifact; the STLs are output** — regenerate them, don't hand-edit
 them. It is build123d on OpenCASCADE, which is the point: the vendor's STEP model can be
