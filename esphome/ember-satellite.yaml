@@ -569,6 +569,22 @@ interval:
       # keeps the driver loaded — `timeout` would have to be ~10s, which is
       # functionally `never`, which starves the microphone. Closing the synthesis gap
       # is still worth doing for the dead air; it is not a fix for this.
+      #
+      # >>> AND THE DEVICE IS ALREADY READY FOR IT — #11 NEEDS NO FIRMWARE CHANGE AND
+      #     NO FLASH. <<< Verified in ESPHome's source rather than assumed:
+      #     voice_assistant.cpp:812-825 handles VOICE_ASSISTANT_INTENT_PROGRESS and, if
+      #     HA sends `tts_start_streaming` == "1" with a non-empty response URL, plays
+      #     that URL immediately and enters STREAMING_RESPONSE — i.e. it begins speaking
+      #     while Piper is still synthesising. It is gated on NOTHING in this file: no
+      #     `streaming:` option, no flag, only `media_player:` being configured, which
+      #     it is. `started_streaming_tts_` then suppresses the duplicate play at :886.
+      #
+      # So the ~2.8s of dead air is entirely HA's to close (streaming-capable TTS, or a
+      # `low`-quality voice). Do NOT add a device-side workaround for it, and do not
+      # reintroduce on_tts_stream_start looking for one — see the note on the
+      # voice_assistant block, where those triggers are a validation error without
+      # `speaker:`. The firmware's part of #11 is already done and was done before the
+      # issue was filed.
       # ---- AMP BLANKING: the only lever downstream of the codec ----
       #
       # WHY DAC MUTE CANNOT FIX THE TAP-TO-START POP.
@@ -640,6 +656,35 @@ interval:
       # Unchanged by this rewrite, and not removable by scheduling — an amp awake
       # across the MCLK cold start is precisely what brings the pop back. The lever is
       # padding the audio, not moving the gate.
+      #
+      # ⚠️ AND THE PADDING CANNOT BE DONE FROM THIS DEVICE (#12). The obvious
+      # device-side version — play ~100ms of silence at on_tts_start so the amp wakes
+      # during it — is not merely redundant, it is IMPOSSIBLE, and the reason is one
+      # flag in ESPHome's own source:
+      #
+      #   reply    voice_assistant.cpp:817 and :886
+      #            make_call().set_media_url(url).set_announcement(true).perform()
+      #            -> NO enqueue command
+      #   announce voice_assistant.cpp:1064-1067
+      #            .set_command(MEDIA_PLAYER_COMMAND_ENQUEUE)
+      #
+      # and in speaker_media_player.cpp:152-164, `if (!enqueue)` runs
+      # `announcement_playlist_.clear()` and then start_url(). So a reply's own play
+      # call CLEARS whatever we queued ahead of it. A silent pad would be destroyed by
+      # the very audio it was padding — and it would be worse than doing nothing,
+      # because it would load the driver, get wiped, and add one more clock stop/start
+      # to a path whose entire problem is clock stop/starts.
+      #
+      # THIS IS WHY THE ANNOUNCE-PATH CORROBORATION DOES NOT TRANSFER. #12 notes,
+      # correctly, that pushed announcements have no soft onset because the herald is
+      # enqueued ahead of them. That is true and it is evidence the mechanism is right —
+      # but it works ONLY because the announce path sets ENQUEUE and the reply path does
+      # not. A reused mechanism does not carry its guarantees with it (#23's lesson, in
+      # audio instead of navigation).
+      #
+      # So the padding has to come from wherever the TTS audio is PRODUCED, i.e. HA.
+      # Nothing on the device can substitute, and no amount of firmware cleverness
+      # changes the flag on someone else's `make_call()`.
       - lambda: |-
           // `snd_block` already carries amp_switch (it is an input to `permitted`
           // above), so this does not re-test it — one question, asked once. Naming it
