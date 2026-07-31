@@ -2228,3 +2228,20 @@ happen first.
 
 Ask it of any newly-added gate: of the things it is now blocking, how many is it *supposed*
 to block?
+
+#### A positive control can fingerprint its own input, for free
+
+The clearance stage sinks the bezel 2 mm into the vendor STEP and requires the detector to
+report `1467.842 mm^3`. Its designed job is to stop `interference = 0.000` from meaning
+"nothing was compared" — it makes the zero evidence rather than silence.
+
+But when `_find_step()` replaced a hand-made symlink with a resolved path, that same number
+came back **identical to three decimals**. A stale, truncated or merely *different* STEP could
+not reproduce it. So the control silently proves something beyond its remit: not just that the
+detector fires, but that **the asset it fired against is byte-for-byte the one it was
+calibrated on.**
+
+Worth knowing because it generalises. Any positive control whose expected value depends on the
+*content* of an input is also an identity check on that input, at no extra cost — and it is
+strictly better than a path assertion, which only proves lookup. Prefer controls that quote a
+precise measured constant over ones that assert a boolean; the constant is doing two jobs.
