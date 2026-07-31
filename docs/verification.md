@@ -1697,3 +1697,106 @@ which is a decision for whoever owns how it sounds, not something to resolve in 
 Note the shape: a check was mischaracterised, the correction of the mischaracterisation exposed
 the real constraint, and the real constraint turned out to live in a different domain from the
 one the issue was filed in. **Getting the description of a check right is not bookkeeping.**
+
+### 25. The assert an issue asked for was insensitive to the bug the issue was filed about
+
+Every entry above is about a check that measured the wrong thing. This one is about a check
+that measured **a different right thing** — a real property, correctly asserted, chosen in
+good faith by the person who had just found the bug, and structurally unable to fail on it.
+
+#23 asked for a button-only navigability walk. It named the invariant precisely, and it
+named it from the symptom: the mode submenu was *"enterable from the BOOT button but not
+exitable from it"*, so the check should assert that **every `ui_mode` is exitable**. That
+reasoning is sound, the requirement it appeals to is written down elsewhere in the repo, and
+the bug it describes was real.
+
+The walk was built, the assert was implemented, and then the original defect — the missing
+`ui_mode == 3` long-press branch — was written back in as a control. **It reported
+nothing.**
+
+```
+self-test: ui_mode == 3 long-press branch removed (#4) -> DETECTOR IS BLIND (0 finding(s))
+```
+
+> ⚠️ **That output is the intermediate state, not the shipped one.** Running
+> `check_navigability.py --self-test` today prints `DETECTED (3 finding(s))` for that same
+> control, because the actionability assert described below was added in response to it. The
+> `BLIND` line is quoted here as the thing that was learned; it is not a current result, and
+> the tool would be broken if it were.
+
+Because mode 3 was never unexitable. With that branch absent a long press fell through to
+the `else`, which **re-opens the power menu** — and the power menu dismisses normally, so
+the device escapes in two more presses. Every mode really was reachable and really was
+exitable, before and after the fix. The assert was true of the broken firmware and true of
+the fixed one.
+
+What was actually unreachable was not the exit. It was **the menu's purpose**: you could
+not pick a mode. `ui_mode == 3` could be entered from the button and could not be
+*resolved* from it, in the menu that exists precisely because recovery must not require the
+touchscreen.
+
+So the property that binds is **row actionability** — a long press on a drawn row must not
+do merely what a long press with nothing selected does. `ui_sel == -1` already means
+"nothing aimed at, dismiss", so a drawn row whose outcome is byte-identical to the -1
+outcome is a row that does nothing, and that is expressible without any per-row model of
+what each row *ought* to do. (Which matters: a per-row expectation table would have been
+another hand-written copy of the firmware, the hazard #23 itself warns about.) The
+exitability assert was kept, because it is a real if weaker property — but it is documented
+in the tool as **not** the one that catches this.
+
+#### Why this is not just "the check was too weak"
+
+A weak assert is one that could fail and rarely does. This one **could not fail on the
+motivating defect at all**, and the reason is upstream of the code: the *description of the
+invariant* was wrong. "Not leavable" was an inference from a symptom — a long press
+appeared to do the wrong thing, and re-opening the power menu looks, from the outside, a
+great deal like being trapped. The inference was never tested against the state machine,
+because it arrived attached to a genuine bug and a correct fix.
+
+That has a consequence worth stating plainly, because it cuts against how work gets
+delegated here:
+
+> **"Implement the check this issue specifies" is not a safe instruction.** An issue is
+> written by someone reasoning from a symptom, and the invariant they name can be a
+> different property from the one that was violated. Implementing it faithfully produces a
+> check that passes, reads as coverage, and is silent on the defect it was commissioned
+> for.
+
+This is §22's neighbour and the difference is worth keeping. There, a review was **complete
+with respect to its own list** and the list was short. Here the list had exactly one item,
+that item was the right *shape* of thing to check, and it was still the wrong property —
+so enumerating harder would not have helped. Nothing about the requirement was missing. It
+was mis-identified.
+
+#### What caught it, and what did not
+
+Not review. Not reading the issue more carefully — the issue is persuasive and its
+description of the trap is vivid. What caught it was the **control**: writing the original
+bug back into the file and requiring the check to fail. That took one line and produced the
+word `BLIND`, which is not a result any amount of care would have produced by reading.
+
+> **A control does not only prove the detector works. It proves the detector is pointed at
+> the defect you think it is** — and those come apart precisely when the defect has already
+> been fixed and you are reconstructing it from a description.
+
+The corollary for this file's own practice: **the control has to be the original defect,
+not a plausible stand-in for it.** Three of the four controls on that walk are synthetic
+mutations (hardcode the modulus, delete the summon, shrink the paint loop) and all three
+fired on the first attempt. Only the one built from the real `git` history disagreed with
+the design — because a synthetic mutation is derived from the same mental model as the
+assert, so it tends to be exactly the thing the assert already catches. Two artifacts
+sharing an assumption again, in the shape §16 records as *the most convincing available
+form of being wrong*.
+
+#### And a second-order note, from the same afternoon
+
+The same walk's first reporting pass classified the haptic acknowledgement chime as a side
+effect, so all ten non-idle states announced *"exits only via bank/rouse"* — naming the one
+consequential verdict it knew for an event that was merely feedback. That is §21 exactly,
+committed by someone who had read §21 that morning, and it was caught only because ten
+identical notes on states with nothing in common is not a plausible finding. **Ten
+identical results are one result.**
+
+The fix was to make acknowledgement-versus-consequence an explicit allow-list in which
+anything unlisted defaults to *loud*, so a newly added action is over-reported rather than
+silently absorbed — the same direction of failure this file argues for everywhere else.
