@@ -412,10 +412,22 @@ def _bezel_mark():
 
     ⚠️ "AT TOP-LEFT" WAS IN THIS LINE UNTIL IT WAS MEASURED, and the file knew better 27 lines
     down, where the comment on mirroring already names "the 'not top-left' cost" as something
-    JP accepted. Measured on the solid: ink x 7.700..33.351 (centre 20.525, i.e. 4.475mm LEFT
-    of the bezel's x=25.0 centreline) and y 76.240..87.530, 11.250mm tall. So: top, and left of
-    centre, but not in the corner. A docstring outliving the geometry it describes is this
-    file's most common defect and the cheapest to check.
+    JP accepted. Measured on the solid: ink x 7.700..33.351, y 76.240..87.530, 11.250mm tall.
+    So: top, and left of centre, but not in the corner.
+
+    >>> TWO CENTRES LIVE IN THIS AREA AND THEY ARE DIFFERENT QUANTITIES. NAME WHICH ONE. <<<
+
+        the MARK's ink centre         20.525    ->  4.475mm LEFT of the x=25.0 centreline
+        the MARK + PORT group centre  25.000    ->  dead on it, and asserted below
+
+    The composition is the PAIR regarding each other — a hearth-wyrm attending the port sound
+    enters through — so the thing that is centred is the group, from the mark's left ink edge
+    to the port's right edge: `(_mx0 + (MIC[0] + 2.30)) / 2 == 25.000`, exactly. The mark alone
+    being off-centre is not a defect, it is what centring the group requires.
+
+    Both sentences are here because they were briefly taken for contradictions of each other,
+    and a corrected number sitting next to an uncorrected one WITHOUT ITS SUBJECT NAMED is how
+    a reader concludes one of them must be wrong. State the subject, not just the value.
 
     ONE CREATURE, NOW RENDERED FOUR WAYS — the device draws it as RLE spans, the website
     traces it to SVG, the stand's grille is cut from it, and this debosses it. All four read
@@ -921,14 +933,22 @@ GRILLE_RAKE   = 24.0     # degrees back from vertical, from lyra's motif
 GRILLE_N      = 9
 GRILLE_W0     = 3.20     # widest slot, at the head
 GRILLE_TAPER  = 0.78     # narrowest / widest, toward the tail
-# GRILLE_SLOT_W / GRILLE_SLOT_W2 / GRILLE_PITCH DELETED — all three were DEAD, and the
-# comment describing them was stale in a way that matters. It read "was written twice,
-# identically, back to back … both values agreed, the second silently wins". Measured against
-# HEAD: `GRILLE_SLOT_W = 2.20` appeared ONCE and `GRILLE_SLOT_W2 = 2.60` once, so they did not
-# agree; and neither was referenced anywhere, so neither "won". Only GRILLE_N, GRILLE_W0 and
-# GRILLE_TAPER are read (by the GRILLE_STYLE == "ridge" branch). A hazard comment about a
-# duplication that no longer exists is worse than no comment: it points at the wrong risk and
-# certifies that someone looked.
+# GRILLE_SLOT_W / GRILLE_SLOT_W2 / GRILLE_PITCH DELETED — all three were DEAD. Only GRILLE_N,
+# GRILLE_W0 and GRILLE_TAPER are read, by the GRILLE_STYLE == "ridge" branch.
+#
+# The comment that stood here read "was written twice, identically, back to back … both values
+# agreed, the second silently wins". ⚠️ THAT WAS TRUE WHEN IT WAS WRITTEN — the file really did
+# carry `GRILLE_SLOT_W = 2.20` on two consecutive lines. One was then deleted and the comment
+# kept, so by HEAD it described a duplication that no longer existed. I first wrote it up here
+# as a comment that had been WRONG, which is a different and worse accusation than the truth:
+# it was STALE, and stale-versus-wrong is the whole distinction this file exists to make. A
+# fix that leaves its own explanation behind creates the next stale comment.
+#
+# THE HONEST FIX WAS NEVER A COMMENT. Two dead constants that disagreed (2.20 and 2.60) and a
+# third nobody read do not need a hazard note about which one silently wins — none of them won,
+# because none of them was referenced. Deleting them removes the hazard instead of documenting
+# it, and a hazard comment on a risk that no longer exists is worse than no comment: it points
+# somewhere harmless AND certifies that somebody looked.
 # Slots are clipped to the driver's RADIATING AREA, inset 1.5mm from its outline so
 # the grille never opens onto the frame — an open slot over the flange is a dust path
 # into the chamber and vents the enclosure it is meant to seal.

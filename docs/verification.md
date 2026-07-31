@@ -584,6 +584,38 @@ mark's real thinnest feature at the shipped scale is **1.800 mm against a 0.90 m
 the limit. The geometry was left untouched (a physical part exists and is fine); only the reason
 was corrected, in the docstring that carried it.
 
+> **The magnitude moved three times — 4.27× → 1.12× → 2.00× — and the SIGN survived all three
+> unexamined.** That is the finding, not the arithmetic. A quantity being re-measured is normal
+> and healthy; a *direction* that every one of three successive measurements took for granted is
+> a different kind of error, because each re-measurement felt like scrutiny and none of it was
+> pointed at the assumption. **Check which way the inequality runs before refining the number in
+> it.**
+
+And the reason a positive control is necessary rather than sufficient:
+
+> **Two methods agreed and both were wrong; shared bias is not corroboration.** The granulometric
+> bound and the upward threshold sweep both under-read a planted 0.600 mm rib as 0.450, *for the
+> same underlying reason* — below its true thickness a feature is only partially opened, so both
+> were reading its edge shell. Their agreement was not evidence; it was the same mistake counted
+> twice. **Agreement between two instruments that share an assumption is the most convincing
+> available form of being wrong**, and it is why the control has to plant a shape whose answer is
+> known independently rather than compare two derivations of the unknown.
+
+Two smaller notes from the same pass, both about *how* a correction is phrased rather than whether
+it is right:
+
+- **"Stale" and "wrong" are different accusations, and the difference is this file's whole
+  subject.** A hazard comment on a duplicated constant was written up as having been *wrong*; it
+  had been **true when written** — the constant really was on two consecutive lines — and a later
+  partial fix (deleting one line, keeping the comment) is what made it stale. Recording it as
+  wrong misattributes the fault to the author instead of to the fix that left its own explanation
+  behind. **A fix that does not update its rationale manufactures the next stale comment.**
+- **A corrected number placed next to an uncorrected one, with neither subject named, reads as a
+  contradiction.** The bezel mark's *ink* centre is 20.525 and the *mark-plus-port group* centre
+  is 25.000, exactly; both are true and an assert protects the second. Reporting "not centred on
+  25.000" refuted a claim nobody had made. **State the subject, not just the value** — especially
+  when correcting someone.
+
 ### 17. Absence of a log is not absence of execution
 
 A boot-time resync was added and instrumented with a log line. The line never appeared. It was
