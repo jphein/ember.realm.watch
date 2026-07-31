@@ -69,14 +69,16 @@ and a `../cadenv` that does not exist. See [`README.md`](README.md) for first-ti
 |---|---|---|---|---|
 | `ember-front-bezel.stl` | 1 | **front face DOWN** on the bed — ✅ **the STL is now exported already in this orientation, so load and print; no flip needed** (issue #25: it used to export face-UP, standing the part on four ⌀5.40 boss tips totalling 71.9 mm² with the whole 1847.9 mm² face in the air) | **none** | The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are bed-side chamfers, so they self-support. **The debossed honeycomb and the wyrm mark are bed-side recesses**, 0.48 mm deep — exactly three layers at this part's 0.16 mm — and print as bridged voids, which is *why* they are recesses: on a bed face, relief only goes inward. |
 | `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** *(measured)* | ⛔ **Set gap-closing radius / hole horizontal expansion to 0 before slicing — see below, a default will weld the buttons shut.** Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Counterbores are flat-floored ⌀5.80 pockets opening onto the bed. (This line said "countersinks widen downward" — a leftover from the deleted conical version; the head is cylindrical.) **Labels** (`SD`, `MIC`, `VOL`, power symbol) are debossed **0.40 mm = 2 layers at the shell's own 0.20** (was 0.48 = 3 layers at the *bezel's* 0.16 — issue #26), and the two cap labels sit at the bottom of bridged recesses, so they are the first thing sag will blur. **The debossed cap faces are bed-side recesses and they bridge 13.27 mm (BOOT) / 8.27 (RESET)** — expect visible sag in the middle of both, and run the fan at 100 % for the first ~5 layers. |
-| `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | Chamber ceiling is a **17 mm bridge** and the cable channel a **16 mm bridge** — leave bridging on (slicer default) and they're fine. The **finger scoop** in the rear slot wall opens *upward*, so every wall is near-vertical and the pocket floor is solid: no bridge at all. (It is **one** opening, x 13.94–50.51, not two: `SCALLOP_MIN_RIB` merges them because the current caps would leave a 0.51 mm rib between, which is a fin rather than a wall. Measured as one span in the mesh.) The **wire saddle** merges into its right-hand end for the same reason — that is deliberate, and it is what keeps the rear bearing rim in two clean segments totalling 15.64 mm instead of leaving a 0.85 mm fin. |
+| `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | ⚠️ **REPRINT — this part is 16 mm taller than the one you have** (issues #29/#30/#31, see *The plinth* below). Chamber ceiling is a **17 mm bridge**, the speaker-wire channel a **16 mm bridge**, and the **cable egress** a **6 mm bridge** (14 mm wide, but rounded R4 corners leave only 6 mm flat) — leave bridging on (slicer default) and all three are fine. The plinth is **solid in the model on purpose**: a hollow one would have made the cradle floor bridge ~56 mm, whereas a solid one is just infill and the transition needs no bridge at all. Set infill by the *slicer*, not by hollowing the CAD. The **finger scoop** in the rear slot wall opens *upward*, so every wall is near-vertical: no bridge. (It is **one** opening, x 13.94–50.51, not two — `SCALLOP_MIN_RIB` merges them.) The **rear rim is now notched** across x 13.20–50.23 down to z 43.62 so you can reach the caps; the two full-height zones either side of it are what still holds the slab. The **wire saddle** merges into the notch's right-hand end — deliberate, same rule. |
 | `ember-stand-base.stl` | 1 | flat | none | Closes the speaker chamber. Press fit. ⚠️ **Resized in `89001ea` — reprint if you made one earlier.** |
 
-Outer sizes: slab (bezel + shell assembled) **55.9 × 91.9 × 17.4 mm**; stand **64 × 64 × 40 mm**.
-Material use ≈ **121 cm³** total (~150 g in PLA), measured from the current STLs by
-signed-tetrahedron volume — not an estimate. Per part: stand 93.1, back shell 17.6, bezel
-7.5, base **2.8** cm³. The stand is three quarters of the print because it is a speaker cabinet,
-and cabinets want mass.
+Outer sizes: slab (bezel + shell assembled) **55.9 × 91.9 × 17.4 mm**; stand
+**64 × 64 × 56 mm** (was 40 — the plinth, see below).
+Material use ≈ **166 cm³** total (~206 g in PLA), measured from the current STLs by
+signed-tetrahedron volume — not an estimate. Per part: stand **137.6**, back shell 17.9, bezel
+7.5, base **2.8** cm³. The stand is **83 %** of the print, because it is a speaker cabinet
+standing on a 16 mm plinth, and both of those want mass. ⚠️ It was 93.1 cm³ before the plinth —
+budget roughly half again as much filament and time for that part, and only that part.
 
 > **Mesh state, stated honestly because a print sheet is where it matters.** Three of the four
 > STLs are watertight: zero boundary edges, zero non-manifold edges. **`ember-front-bezel.stl`
@@ -303,7 +305,7 @@ straight USB-C plug body needs **~18–20 mm**. There was nowhere for the power 
 | Room below for USB-C | **20.0 mm** |
 
 There is a **USB-C well** under the slot — 22 mm wide × 12 mm deep, **tilted to follow the
-slab's own axis** and running 30 mm down it into the rear cable route.
+slab's own axis** and running down it to the cradle's inner floor.
 
 ⚠️ **It was a flat box first, and that did not work.** The slot is a box rotated by the tilt
 with `align=MIN`, so **its bottom face tilts too** — the front-bottom corner sits at
@@ -331,6 +333,73 @@ it is what caught it.
 
 `ember_case.py` asserts all three of these on every run (`_check_geometry`), so the screen
 cannot get buried again by a later tweak.
+
+## The plinth — why the stand is 56 mm and not 40
+
+⚠️ **This is a reprint of `ember-stand.stl`, and it is the reason for it.** Issues #29/#30.
+
+JP measured the cable: **40 mm from the plug tip to the first point it can bend.** That is a
+length of *straight corridor*, and its direction is not a free variable — the port fixes it,
+15° off vertical, pointing **down and forward** along the slab's own axis.
+
+On the 40 mm stand the port sat 25.92 mm above the desk, which offers 26.83 mm of straight
+run. **A straight 40 mm tail therefore ended 13.2 mm below the desk**, which is why the
+device would not seat and why the plug levered it out of the slot. Note what that rules out:
+**recessing the slot floor cannot fix it at any depth** — the deficit is larger than the whole
+floor thickness. The port has to sit higher.
+
+| | |
+|---|---|
+| Stand height | **56.0 mm** (cradle 40.0 + **plinth 16.0**) |
+| Straight corridor, port → desk | **43.40 mm** for a 40 mm requirement — **+3.40 margin** |
+| End of the rigid run | y = 26.47, **3.28 mm above the desk**, still heading forward |
+| Cable meets the desk | y = 25.59, i.e. 25.6 mm behind the front face |
+
+**Nothing in the cradle moved.** The slot, the well, the sealed chamber, the grille, the
+driver seat and the wire route are the same geometry at the same numbers — the plinth is
+modelled *below* the cradle's own z origin and lifted at export. ⚠️ **That means every height
+in `ember_case.py` is 16 mm lower than the same height measured off the STL.** The rim notch
+is `z = 27.62` in the source and `z = 43.62` in the file you slice. Both numbers are correct;
+neither is correct in the other frame.
+
+### The cable comes out the FRONT, and that is not a choice
+
+The obvious routing is out the back. It is geometrically impossible at this height, and the
+arithmetic is short enough to put here so nobody "fixes" it:
+
+The tail is still travelling forward, 75° below horizontal, when it reaches the desk. Turning
+that rearward is a 105° turn, and a circular arc of radius R descends **1.2588 × R** doing it.
+The budget above the desk is **3.28 mm → R ≤ 2.6 mm**, against the ~18 mm a 4.5 mm USB-C cable
+wants. Width does not substitute: a U-turn in the horizontal plane at R18 needs 40 mm of x.
+
+> **A stand where the cable completes its bend *inside* the base is a different part** — it
+> needs 22.7 mm below the end of the rigid run, i.e. ~75 mm tall. 56 mm accommodates the rigid
+> run and lets the cable bend in **open air**, and that only works if the exit is where the
+> cable is already pointing.
+
+So the plinth carries a **14 mm wide × 10 mm tall channel** at desk level, opening through the
+front face (R4 corners, so the visible mouth reads as an arch rather than a bite). Lead the
+cable out of the front and away to either side. It is under the grille and mostly hidden by
+the overhanging slab.
+
+### What it costs, and what it does not
+
+| | |
+|---|---|
+| Bearing footprint | **2922 mm²** of a 4010 mm² plan |
+| Quadrants (front L/R, rear L/R) | **47 % / 47 % / 99 % / 99 %** of their plan |
+| Contact behind the loaded CoM (y = 45.89) | **1116 mm²**, reaching to y = 64.0 |
+
+The two front quadrants carry the speaker chamber's **access shaft** — 54 × 15.3 mm, which now
+runs the full height of the plinth because the driver still goes in from below and the base
+plate still closes the chamber at the top of it. That shaft plus the egress channel are the
+*only* two openings in the underside, and `_check_geometry` holds a ledger of exactly those.
+
+⚠️ **The old bearing check would have passed on a stand with no underside at all.** It probed
+z 0–0.4, which under a plinth is a plane in the *middle* of the part. It now probes the real
+bearing plane and tests the **distribution** as well as the area, with a 4 mm perimeter ring as
+a control that must fail — because area alone cannot tell a ring from a face, and that
+distinction is the whole point of the check.
 
 ## Speaker
 
@@ -520,12 +589,14 @@ below Fs does nothing and a mistuned one is worse than sealed.
    light now leaves through the apertures over it — 8 within r6, 23 within r10, 32 within
    r12 — plus straight through the wall if you print in white. Many small apertures in a
    translucent panel scatter; one large bore behind a printed disc just shows you the die.
-9. Slide the slab into the stand slot; route the USB-C cable down the channel and out the back.
-   **The two button caps end up inside the slot**, well below the stand's rim — reach them
-   through the **finger scallops** in the rear wall, coming down the back of the slab from
-   above. If a finger does not fit, that is the fault this feature exists to fix and something
-   has regressed: `_check_geometry()` drives a 6 × 4 mm fingertip probe at each cap and fails
-   if the stand blocks more than 1 mm³ of it.
+9. Slide the slab into the stand slot; **plug the cable in first, from underneath** — feed it up
+   the egress channel and the well, then seat the slab onto it. Route the tail **out of the
+   FRONT** of the plinth at desk level and away to either side; see *The plinth* for why the
+   back is not an option. **The two button caps end up inside the slot**, but the rear rim is
+   now **notched down to z 43.62 across the cap span**, so you reach them from behind over an
+   open rim rather than down a 12 mm pocket. If a finger does not fit, that is the fault this
+   feature exists to fix and something has regressed: `_check_geometry()` drives a 6 × 4 mm
+   fingertip probe at each cap and fails if the stand blocks more than 1 mm³ of it.
 
 ---
 
@@ -540,7 +611,11 @@ below Fs does nothing and a mistuned one is worse than sealed.
 | `SLOT_CLR` | 0.40 | slab loose/tight in the stand |
 | `TILT` | 15° | viewing angle |
 | `GRILLE_STYLE` | `"hex"` | `"ridge"` swaps the 33-hex field for lyra's raked dorsal-spine motif. **Both are solved to the same 673 mm² nominal open area** (the hex field's throat measures 678.0 mm², +0.7 %), so this is aesthetic, not acoustic — the rake never did acoustic work, since these are straight-through bores raked *in the plane* of the wall, not louvered vanes angled through its thickness |
-| `SCALLOP_D` / `SCALLOP_Z0` | 12.0 / 5.0 | the finger pockets over the button caps. Deeper reaches further behind the slab and eats the stand's rear wall — there is an assert holding 3 mm of wall at the rim. Raising `SCALLOP_Z0` keeps more of the lower rear grip and gives the finger less room |
+| `SCALLOP_D` / `SCALLOP_Z0` | 12.0 / 5.0 | the finger pockets over the button caps. Since the #31 rim notch these only govern the part of the scoop that dips *below* the notch floor — extra depth under the cap. Deeper reaches further behind the slab and eats the stand's rear wall; there is an assert holding 3 mm of wall |
+| `STAND_TOTAL_H` | **56.0** | the whole stand. `PLINTH_H` derives as `56.0 − ST_H`, so the two cannot drift. ⚠️ **Do not lower it** — the assert names two unreconciled derivations (53.82, 54.97) that it must clear |
+| `CABLE_RIGID` | 40.0 | JP's measurement: plug tip → first bend. Drives `STAND_TOTAL_H`. If a different cable is used, re-measure this, not the height |
+| `EGRESS_W` / `EGRESS_H` | 14.0 / 10.0 | the cable channel at desk level. `EGRESS_H` also sets how deep the tail corridor runs, and the corridor drifts *forward* toward the chamber shaft as it descends — there is an overlap-or-clear assert on the wall between them |
+| `TAIL_W` / `TAIL_Y` | 18.0 / 8.0 | the corridor from the well down into the plinth. **`TAIL_Y` is the constrained one**: at 10.0 it leaves a 0.95 mm fin against the chamber shaft |
 | `BEZEL_DEBOSS` | 0.48 | how deep the honeycomb and wyrm cut into the front face. **Keep it an exact multiple of the bezel's 0.16 mm layer height** — it was 0.45, which is 2.8125 layers, so the recess floor landed wherever the slicer's rounding fell rather than on a real layer boundary. An assert holds ≥2.00 mm of bezel over the glass, so there is headroom, but this is the face you look at |
 | `BTN_R_BIG / BTN_R_SMALL` | 8.6603 / 5.7735 | the hex caps — **15.00 and 10.00 mm across the flats.** Shrinking them moves the hinge closer to the pip, which raises θ and therefore strain; the thumb-sized caps are what took both hinges to ~1.20% |
 
@@ -635,6 +710,18 @@ below Fs does nothing and a mistuned one is worse than sealed.
   > prints. It just breaks in your hand after a few dozen presses. Every assert here was about
   > *shape*; this is a property of the *material*. Worth asking of any parts library: which of
   > your invariants are about form, which are about matter, and is the second list empty?
+- **⚠️ Superseded in part by #31: the rear rim is now notched, not just scooped.** Everything
+  below is still the correct diagnosis — the obstruction is *lateral* and a taller cap cannot
+  reach past it — but the scoop only ever removed 12 mm of the wall's depth, leaving a pocket a
+  finger had to descend into blind. The fix is **rim height**, and the relation is exact:
+  `H_rear = SLOT_FLOOR + (PAD_Y0 − OY0)·cos(TILT)`, cutting the wall right through across the
+  cap span (stand x 13.20–50.23) down to **z 43.62 in the STL** (27.62 in the source frame —
+  see *The plinth*). `PAD_Y0` **is** both caps' bottom edge for any cap radius, because they are
+  flat-top hexagons centred at `PAD_Y0 + R√3/2`, so a cap resize carries the notch with it.
+  **It removes approach, not retention:** the slot's two x-extremes keep the full 16.56 mm of
+  engagement over 19.67 mm of full-height rim, which is what still contains the lean. Lowering
+  the *whole* wall to the same height would leave 3.75 mm everywhere and let the slab flop back
+  ~6°. The scoop survives underneath the notch, adding depth below the cap.
 - **The stand has finger scallops, and a taller cap would not have worked.** Docked, the stand
   swallows the first 16.56 mm of the slab. At the old 9.01 mm caps that put BOOT's cap 3.81 mm
   *below* the rim and RESET's 6.23 — with 0.40 mm between the cap face and a solid wall. The

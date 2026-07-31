@@ -1377,6 +1377,98 @@ SLOT_CY  = 34.0                    # slot centreline Y at the floor
 # ample), the visible area is entirely clear of the stand, and 20.0mm remains below for
 # the plug. See the VA_CLEAR assert below — this must not silently regress.
 SLOT_FLOOR = 24.0
+# ============================================================================
+# THE PLINTH — #29 / #30.  A 40mm RIGID CABLE DOES NOT FIT UNDER A 40mm STAND.
+# ============================================================================
+#
+# >>> THE CRADLE KEEPS ITS OWN Z ORIGIN. THE PLINTH GROWS DOWNWARD FROM IT. <<<
+#
+# This is the whole reason the change is small. `SLOT_FLOOR`, `ST_H`, the slot, the well, the
+# chamber, the grille, the scallops and the wire route all still evaluate in the CRADLE frame,
+# where the cradle's own floor is z=0 and its rim is z=ST_H=40. The plinth occupies
+# z = -PLINTH_H .. 0, so the DESK is at z = -PLINTH_H, and the exported STL is lifted by
+# PLINTH_H at export time (see PRINT_LIFT) so the printed part rests on z=0.
+#
+# ⚠️ EVERY HEIGHT IN THIS FILE IS THEREFORE A CRADLE-FRAME HEIGHT, AND THE SAME FEATURE HAS
+# TWO LIVE NUMBERS. The #31 rim notch is z=27.62 here and z=43.62 in the exported STL; both
+# literals were circulating in the same conversation and each is wrong in the other frame.
+# That is why NOTCH_Z below is a formula and not a number, and why nothing here is measured
+# off the exported mesh without adding PLINTH_H first.
+#
+# ---- WHY 56, AND WHAT IS STILL UNSETTLED ABOUT IT ----
+#
+# JP measured the cable: 40mm from the plug tip to where it can first bend. The plug leaves
+# the port along the slab's own axis, 15deg off vertical, so the corridor it needs is
+# STRAIGHT and it is 40mm long. Recessing the slot floor cannot buy that — the deficit is
+# larger than the entire floor thickness. The port has to sit higher above the desk.
+#
+#     port_z (cradle) = SLOT_FLOOR - pc*sin(TILT) + z_face*cos(TILT) = 25.918
+#     required        = CABLE_RIGID * cos(TILT)                      = 38.637 above the desk
+#     plinth needed   = 38.637 - 25.918                              = 12.719
+#     total stand     = ST_H + 12.719                                = 52.719
+#
+# `pc` is the port axis's offset from the slab's mid-plane, and TWO INDEPENDENT DERIVATIONS
+# DISAGREED ON ITS SIGN — 1.152mm of height (= 2*pc*sin(TILT)) rides on it, and figures of
+# 53.82 and 54.97 were both quoted for the required total during the same session.
+#
+# ⚠️ The sign is settled HERE, by the file's own data rather than by argument: USB_Z is
+# (-4.85, -1.60) about a slab mid-plane at (FRONT_Z+BACK_Z)/2 = -1.00, and check 3b's cap
+# probe fixes the mapping (a back-shell feature sits at slot-local +SLAB_T/2, so local +y is
+# REARWARD and local_y = -(board_z - mid_z)). That puts the port 2.225mm BEHIND the mid-plane,
+# which is the LOWER port_z and therefore the CONSERVATIVE branch. The other sign needs
+# 51.567. **56.0 clears every candidate on the table, including the two that were quoted and
+# could not be reproduced here.** Do not trim the height on the strength of the 52.719 above
+# until 53.82 and 54.97 have been reconciled — there is an assert below that says so.
+CABLE_RIGID   = 40.0    # MEASURED (JP): plug tip -> the first point the cable can bend.
+                        # Not "effectively stiff" and not apportionable into overmold + radius:
+                        # an earlier 22mm-overmold + R18 split was WITHDRAWN as more optimistic
+                        # than what JP actually said. The whole 40 is straight.
+STAND_TOTAL_H = 56.0    # the decision. Everything else here derives from it.
+PLINTH_H      = STAND_TOTAL_H - ST_H          # 16.00 — never typed, so the two cannot drift
+# ---- THE EGRESS: the plinth IS the cable exit, which is what makes 56 work instead of ~75 ----
+#
+# A stand tall enough for the cable to complete its BEND inside the plinth is a different
+# part. The turn from the tail's heading (75deg below horizontal) to flat needs 1.2588*R of
+# descent below the end of the rigid run — 22.7mm at the R18 a 4.5mm cable wants — which is
+# a ~75mm stand. 56mm instead accommodates the RIGID run and lets the cable bend in open air,
+# and that is only true if there is a channel at desk level for it to reach open air through.
+#
+# >>> THE CHANNEL RUNS FORWARD, AND THAT IS NOT A PREFERENCE. <<<
+#
+# The design brief for this change said "rearward". It cannot be: the tail leaves the port
+# heading DOWN AND FORWARD and ends at y=26.465, z=-12.719 — 3.281mm above the desk, still
+# travelling forward. It meets the desk 0.9mm later at y=25.586. Turning that to rearward is
+# a 105deg turn with 3.281mm of vertical budget: R <= 2.6mm, against a minimum of ~18. There
+# is no channel width that fixes it either — a horizontal U-turn at R18 needs 40mm of x.
+# A rear channel would be 626mm2 of bearing area spent on a path the cable cannot take.
+# So the run-out goes forward, under the grille, and the user leads it off to either side.
+EGRESS_W  = 14.0        # x. Cable ~4.5mm, strain-relief boot ~8mm; 14 is the boot plus room
+                        # to lie over rather than fight the channel wall.
+EGRESS_H  = 10.0        # above the desk. Sets where the tail corridor stops (see TAIL_Y) —
+                        # a shorter channel pushes that corridor deeper, and the corridor
+                        # drifts FORWARD as it descends, into the chamber shaft.
+EGRESS_R  = 4.0         # rounds the channel's top corners, so the widest flat span the
+                        # slicer has to bridge over the mouth is 14 - 2*4 = 6.0mm, not 14.
+EGRESS_Y1 = SLOT_CY     # rear bound. Derived: the corridor's rear face at the channel
+                        # ceiling is at y=30.10, so the channel has to reach past that and
+                        # nothing is bought by going further. Asserted in desk_stand().
+# ---- and the corridor that gets the cable from the well into that channel ----
+# The well above (22 x 12) stops at the cradle's inner floor and is sized for the plug HEAD.
+# Below it only the lead and its boot descend, so the corridor is narrower — and it has to be,
+# because it drifts forward by tan(TILT) per mm and the speaker chamber's access shaft is
+# straight ahead of it at y = CHAM_Y1.
+TAIL_W = 18.0           # x. Generous: any moulded USB-C body is under 14mm across.
+TAIL_Y = 8.0            # along the slab thickness. THIS IS THE CONSTRAINED ONE — at 10.0 it
+                        # leaves 0.95mm of wall to the chamber shaft, which prints as a fin.
+                        # Asserted in desk_stand(), overlap-or-clear, not merely "thin".
+# ---- stability ----
+SLAB_L     = OY1 - OY0                                    # 91.90, the slab's own length
+SLAB_COM_Y = SLOT_CY + (SLAB_L/2)*math.sin(math.radians(TILT))   # 45.89
+# Treats the docked slab as uniform along its length, which is a proxy, and the proxy errs in
+# the UNSAFE direction: the display glass is top-heavy, so the real CoM sits higher up the slab
+# and therefore further REARWARD than 45.89. Stated rather than hidden — the check below is
+# "bearing material must reach well behind SLAB_COM_Y", and it has 18.11mm of stand depth
+# behind this figure to absorb the error. If the slab ever gains a battery, re-derive it.
 # Finger scallops in the rear slot wall — see the block in desk_stand() for why they exist
 # and why a taller cap could not have worked. Module scope because _check_geometry() asserts
 # against them too, and a second hand-typed 12.00 in the assert is exactly the kind of
@@ -1391,8 +1483,38 @@ SCALLOP_MIN_RIB = 3.00  # if two caps' openings would leave a rib thinner than t
                      # MERGE into one scoop. A rib here is a full-height wall segment 12mm
                      # deep carrying the slab's bearing load; under ~3mm it is a fin, not a
                      # wall. The rule decides, so a cap change cannot leave a sliver standing.
-SCALLOP_CHAMFER = 0.90  # on the pocket MOUTH, where the rim plane cuts the prism. This is the
-                     # radius you can actually see; SCALLOP_R above is buried 11.5mm down.
+SCALLOP_CHAMFER = 0.90  # on the pocket MOUTH, where the rim plane cuts the prism. RETIRED by
+                     # the #31 notch — see desk_stand(). Kept as the record of what it was for.
+# ---- #31: THE REAR RIM IS TOO TALL TO REACH THE CAPS PAST, AND HEIGHT IS THE DIMENSION ----
+#
+# The scallops are not the problem and neither is their depth. `SCALLOP_Z0 = 5.00` puts the
+# pocket floor BELOW both caps' bottom edge already, so the caps are largely exposed. What is
+# missing is an APPROACH: you reach 12mm down a 36mm-wide slot to a cap you cannot see.
+#
+# The relation is exact, and >>> IT MUST BE TYPED AS THIS FORMULA, NEVER AS ITS VALUE <<<:
+# it evaluates to 27.62 in the cradle frame and 43.62 in the exported/desk frame, and both
+# numbers were live in the same conversation. A literal here is wrong half the time.
+#
+#   board y | what sits there        | rim z  | engagement left there
+#     15.80 | BOOT cap top edge      | 42.11  | 18.75
+#     13.61 | the rim before this    | 40.00  | 16.56
+#      0.80 | BOTH caps' bottom edge | 27.62  |  3.75   <- taken
+#
+# `PAD_Y0` IS the caps' bottom edge and is not a coincidence: the caps are flat-top hexagons
+# centred at `_cap_cy(R) = PAD_Y0 + R*sqrt(3)/2`, so their lower flat lands on PAD_Y0 for
+# EVERY R. Both caps, one number, derived — a cap resize cannot leave this behind.
+#
+# ⚠️ THE NOTCH REMOVES APPROACH, NOT RETENTION. It spans only the cap opening (stand x
+# 13.20..50.23); the slot's two x-extremes keep the full 16.56mm of engagement, so the lean is
+# still contained by 19.67mm of full-height rear rim out of 56.70. Lowering the WHOLE wall to
+# the same height would leave 3.75mm everywhere and let the slab flop back ~6deg. That is the
+# difference between this and the change it looks like.
+NOTCH_Z = SLOT_FLOOR + (PAD_Y0 - OY0)*math.cos(math.radians(TILT))   # 27.6222, cradle frame
+NOTCH_R = SCALLOP_R  # rounds the notch's floor-to-sidewall corners, in the XZ profile, for
+                     # both of SCALLOP_R's reasons at once — the inside corner of a cut in the
+                     # bearing wall is a crack starter, and here (unlike SCALLOP_R, which is
+                     # buried 11.5mm down) it is also the edge a fingertip drags over on the
+                     # way to the cap. That is the job SCALLOP_CHAMFER used to do.
 # --- grille: lyra-artist's hearth-wyrm dorsal ridge, RE-DERIVED for this field.
 #
 # An earlier comment here deferred the motif and gave the wrong reason ("changing open
@@ -1650,7 +1772,11 @@ def desk_stand():
     # the render showed it eating into the driver seat and the grille field, which
     # both live on the front wall.  Generous R10 corners + the leaning slab give
     # the form; the front wall stays solid and predictable from z=0 to z=ST_H.
-    p = rbox(0,ST_W, 0,ST_D, 0,ST_H, ST_R)
+    # ONE shell for cradle AND plinth — the plinth is not a second part bolted under a first,
+    # it is the same extrusion carried down to z = -PLINTH_H. Modelled SOLID on purpose: a
+    # hollow plinth would need the cradle floor to bridge ~56mm at z=0, while a solid one is
+    # sliced with ordinary infill and prints with no bridge at all across the transition.
+    p = rbox(0,ST_W, 0,ST_D, -PLINTH_H,ST_H, ST_R)
     # slab slot, leaning back by TILT
     slot = Box(SLAB_W+2*SLOT_CLR, SLAB_T+2*SLOT_CLR, 70,
                align=(Align.CENTER,Align.CENTER,Align.MIN))
@@ -1781,19 +1907,32 @@ def desk_stand():
             f"the cap at island x={_icx} spans {_icx-_R:.2f}..{_icx+_R:.2f} and no scallop "
             f"opening {[(round(a,2), round(b,2)) for a, b in _spans]} contains it — part of "
             f"the cap you are meant to press is behind solid wall")
-    _mouth = []
+    # ---- #31: NOTCH THE REAR RIM ACROSS THE SAME SPAN ----
+    #
+    # >>> THIS RETIRES THE MOUTH CHAMFER, AND THE REASON IS WORTH STATING. <<<
+    #
+    # There used to be a `chamfer(_mouth, SCALLOP_CHAMFER)` here, selecting the three edges per
+    # opening that lie at z = ST_H — the pocket's two side walls and its back wall where the rim
+    # plane cuts them. Every one of those edges is inside the region this notch removes
+    # (x within the span, y >= 43.76, z >= 40 > NOTCH_Z). Running it would have been 0.9mm of
+    # chamfer applied to geometry deleted four lines later: not wrong, just spent. The edge a
+    # fingertip now drags over is the notch floor's, and NOTCH_R rounds it BY CONSTRUCTION —
+    # the cut's own XZ profile — rather than by an edge query that has to be asserted against
+    # drift. A radius you build into the tool cannot select the wrong edge.
+    #
+    # The pocket itself SURVIVES and is not redundant: its floor tilts with the slab, from
+    # z=26.53 at the slot face down to z=23.42 twelve millimetres out, so it dips BELOW the
+    # notch and keeps giving the finger depth under the cap's bottom edge.
+    #
+    # Cut from y = SLOT_CY rearward: at every height the notch spans (27.62..40) the slot's
+    # FRONT face is at y=26.18..29.50, so the front wall is never touched, and everything
+    # between the centreline and the rear face at those heights is either slot void or the rim
+    # this is removing. The x bounds are the scallop spans, so the notch cannot drift off the
+    # caps — one derivation, two features.
     for (_x0, _x1) in _spans:
         _a, _b = ST_W/2 + (_x0 - BW/2), ST_W/2 + (_x1 - BW/2)
-        for _e in p.edges():
-            _bb = _e.bounding_box()
-            if (abs(_bb.min.Z - ST_H) < 1e-6 and abs(_bb.max.Z - ST_H) < 1e-6
-                    and _bb.min.X >= _a - 0.01 and _bb.max.X <= _b + 0.01):
-                _mouth.append(_e)
-    assert len(_mouth) == 3*len(_spans), (
-        f"expected 3 mouth edges per opening (two side walls + the back wall) for "
-        f"{len(_spans)} opening(s), got {len(_mouth)} — the selection has drifted and "
-        f"chamfer would cut the wrong rim")
-    p = chamfer(_mouth, length=SCALLOP_CHAMFER)
+        p -= rrect_y((_a + _b)/2, (NOTCH_Z + ST_H + 2*NOTCH_R)/2, _b - _a,
+                     (ST_H + 2*NOTCH_R) - NOTCH_Z, NOTCH_R, SLOT_CY, ST_D + 1 - SLOT_CY)
     # sealed speaker chamber, open at the bottom (closed by the base plate)
     cx0,cx1 = CHAM_X0, CHAM_X1
     # Rear wall pushed 21.0 -> 22.0. That is as far as it safely goes: the slab slot's
@@ -1816,7 +1955,12 @@ def desk_stand():
     # which helps the low end rather than hurting it. Still 3mm of wall above (ST_H=40),
     # and no conflict with the slab slot: that sits at y~34 while the chamber ends at 21.
     p -= bx(cx0,cx1, cy0,cy1, ST_WALL, 37.0)   # ceiling = 17mm bridge, no supports
-    p -= bx(cx0,cx1, cy0,cy1, -1.0, ST_WALL)          # bottom access
+    # BOTTOM ACCESS — now a SHAFT, because the plinth is underneath it. The driver goes up
+    # this way and the base plate closes the chamber at the top of it (z 0.4..4, unmoved), so
+    # it has to stay open all the way to the desk. That is 826mm2 of the plinth's underside
+    # and it is the single largest intentional opening in the part; it is in the bearing
+    # ledger at check 2b, not a surprise found later.
+    p -= bx(cx0,cx1, cy0,cy1, -PLINTH_H - 1.0, ST_WALL)
     # driver seat on the INSIDE of the front wall + grille through it
     # Centred in the taller chamber: (ST_WALL + 37.0) / 2
     dz = 20.5
@@ -1970,7 +2114,67 @@ def desk_stand():
     _wellDepth = (SLOT_FLOOR - ST_WALL) / math.cos(math.radians(TILT))
     p -= Pos(ST_W/2, SLOT_CY, SLOT_FLOOR) * (Rot(-TILT,0,0) *
              Box(22.0, _wellY, _wellDepth, align=(Align.CENTER, Align.CENTER, Align.MAX)))
-    # cable route: slot floor -> out the back
+    # ---- TAIL CORRIDOR + EGRESS CHANNEL: the rest of the 40mm rigid run (#29/#30) ----
+    #
+    # The well above ends at the cradle's inner floor, which is where the paragraph above says
+    # the plug stops needing room. It is where the CABLE starts needing it. 22.69mm of the
+    # rigid run is inside the well; the remaining 17.31mm goes through the floor and into the
+    # plinth, and it is still straight, so it still needs a straight corridor.
+    #
+    # The corridor stops at the egress channel's ceiling rather than at the desk, and that is
+    # not thrift — it is the chamber. THE CORRIDOR DRIFTS FORWARD AS IT DESCENDS, tan(TILT)
+    # per mm, straight at the speaker chamber's access shaft. The exact y of a corridor wall
+    # at local offset a, at height z, is
+    #
+    #     y = SLOT_CY + tan(TILT)*(z - SLOT_FLOOR) -/+ a/cos(TILT)
+    #
+    # — NOT the `SLOT_CY - sin(TILT)*reach -/+ a` that check 2a uses, which offsets the axis
+    # in GLOBAL y and so understates the drift by (1/cos - 1)*a. 2a is conservative and left
+    # alone; this one is exact because it is the tight one.
+    _tailDepth = (SLOT_FLOOR + PLINTH_H - EGRESS_H) / math.cos(math.radians(TILT))
+    p -= Pos(ST_W/2, SLOT_CY, SLOT_FLOOR) * (Rot(-TILT,0,0) *
+             Box(TAIL_W, TAIL_Y, _tailDepth, align=(Align.CENTER, Align.CENTER, Align.MAX)))
+    def _tail_y(a, z):
+        return (SLOT_CY + math.tan(math.radians(TILT))*(z - SLOT_FLOOR)
+                + a/math.cos(math.radians(TILT)))
+    _cz = -PLINTH_H + EGRESS_H
+    # ⚠️ OVERLAP-OR-CLEAR, not merely "thick enough" — the SCALLOP_MIN_RIB idiom applied to a
+    # third pair of features. What separates the corridor from the chamber shaft is a wedge of
+    # plinth that exists only over z -6..4; below that the egress channel opens and the two
+    # voids are one, which is HARMLESS (both are outside the seal — the chamber's seal is the
+    # base plate at z 0.4..4, and everything under it is atmosphere). The failure is the
+    # in-between case: a wall that tapers to nothing prints as a fin. 2.52mm at TAIL_Y=8.0;
+    # 0.95mm at 10.0, which is what set the constant.
+    _wall = _tail_y(-TAIL_Y/2, _cz) - CHAM_Y1
+    assert _wall <= 0.0 or _wall >= 2.0, (
+        f"the tail corridor's front wall reaches y={_tail_y(-TAIL_Y/2, _cz):.2f} at the egress "
+        f"ceiling (z={_cz:.2f}) and the chamber shaft's rear wall is at y={CHAM_Y1:.2f} — "
+        f"{_wall:.2f}mm between them. Either clear it by 2mm or let them merge; a wedge "
+        f"thinner than that is a fin standing on the channel ceiling. Lower TAIL_Y or raise "
+        f"EGRESS_H — both move it, and EGRESS_H also shortens the fin")
+    # and it must not breach the SEALED chamber, which begins at the cradle's inner floor
+    assert _tail_y(-TAIL_Y/2, ST_WALL) >= CHAM_Y1 + 3.0, (
+        f"the tail corridor reaches y={_tail_y(-TAIL_Y/2, ST_WALL):.2f} where the sealed "
+        f"chamber's rear wall is at {CHAM_Y1:.2f} — that is the wall of a SEALED box")
+    # EGRESS CHANNEL — the run-out, at desk level, opening through the FRONT face.
+    # Built as a rounded profile rather than a box so the mouth's flat bridge is
+    # EGRESS_W - 2*EGRESS_R = 6.0mm instead of 14.0, and so a 64mm-wide face gains a detail
+    # rather than a rectangular bite. The profile is centred ON the desk plane and half of it
+    # is therefore outside the part: what remains is a EGRESS_H-tall arch.
+    p -= rrect_y(ST_W/2, -PLINTH_H, EGRESS_W, 2*EGRESS_H, EGRESS_R,
+                 -1.0, EGRESS_Y1 + 1.0)
+    assert _tail_y(+TAIL_Y/2, _cz) <= EGRESS_Y1, (
+        f"the corridor's rear face is at y={_tail_y(TAIL_Y/2, _cz):.2f} at the channel ceiling "
+        f"but the channel stops at y={EGRESS_Y1:.2f} — the cable would arrive onto a ledge")
+    assert TAIL_W <= 22.0 and EGRESS_W <= TAIL_W, (
+        f"the corridor ({TAIL_W}) must stay inside the well above it (22.0) so it removes no "
+        f"new material there, and the channel ({EGRESS_W}) must stay inside the corridor so "
+        f"the step at z=0 faces UP (supported) rather than down (an overhang)")
+    # SPEAKER-WIRE ROUTE: slot floor -> out the back.  ⚠️ THIS IS NO LONGER THE USB CABLE'S
+    # ROUTE. It was cut for the power lead, the power lead never fitted through it (#29), and
+    # the lead now leaves through the plinth instead. What still uses it is the driver's own
+    # pigtail, which arrives from the chamber pass-through at y=30 — so the cut stays, with
+    # the right name on it. It is the reason that pass-through has somewhere to go.
     p -= bx(ST_W/2-8, ST_W/2+8, 29.0, ST_D+1, ST_WALL, 13.0)
     # SPEAKER WIRE PASS-THROUGH. Caught by JP: the chamber had no exit at all. Its only
     # opening was the bottom, closed by the base plate — which is correct for a SEALED
@@ -2195,9 +2399,20 @@ KNOWN_NONMANIFOLD = {"ember-front-bezel": 3}
 # its back at min z (3678.3 mm2 coplanar), the stand's is its base (3183.8), and the base plate is
 # a flat slab that is symmetric in Z.
 PRINT_FLIP = {"ember-front-bezel"}
+# AND ONE PART IS MODELLED BELOW ITS OWN BED. The stand's plinth grows DOWNWARD from the
+# cradle's z origin so that every cradle formula in this file keeps evaluating in the cradle
+# frame (see the PLINTH block) — which leaves the modelled part spanning z -16..40. A rigid
+# lift at export, like the bezel's rotation, and for the same reason: the print orientation is
+# a fact about the STL, not about the model.
+#
+# ⚠️ THIS IS THE FRAME SEAM. Above it, z=0 is the cradle floor; below it, z=0 is the desk. Any
+# height quoted from the exported mesh is PLINTH_H larger than the same height in this file.
+PRINT_LIFT = {"ember-stand": PLINTH_H}
 
 def _print_oriented(name, part):
     """The part as it should sit in the exported STL: bed face at min Z, resting on z=0."""
+    if name in PRINT_LIFT:
+        return Pos(0.0, 0.0, PRINT_LIFT[name]) * part
     if name not in PRINT_FLIP:
         return part
     q  = Rot(180, 0, 0) * part
@@ -2218,6 +2433,14 @@ if __name__ == "__main__":
     for n,p in parts.items():
         p = _print_oriented(n, p)
         bb = p.bounding_box()
+        # A LIFTED PART THAT DID NOT LAND IS THE WHOLE RISK OF MODELLING BELOW z=0: the STL
+        # would open in the slicer floating or sunk, and a slicer silently drops it onto the
+        # bed, so the mistake never surfaces as an error — only as a part whose Z is off by
+        # PLINTH_H everywhere a measurement is taken from the mesh.
+        if n in PRINT_LIFT:
+            assert abs(bb.min.Z) < 1e-6, (
+                f"{n} exports with min Z = {bb.min.Z:.4f}, not 0 — PRINT_LIFT "
+                f"({PRINT_LIFT[n]}) does not match how far below z=0 the part is modelled")
         print(f"{n:20s} vol={p.volume/1000:7.2f} cm^3   "
               f"bbox {bb.size.X:6.2f} x {bb.size.Y:6.2f} x {bb.size.Z:6.2f}")
         export_stl(p, os.path.join(out, n+".stl"))
@@ -2288,12 +2511,43 @@ if __name__ == "__main__":
 # looking at a render — the kind a boolean clearance check cannot catch, because
 # nothing intersects: the stand was simply in front of the screen.
 # ─────────────────────────────────────────────────────────────────────────────
-def _bearing_footprint():
-    """Material area in the stand's bottom 0.4mm, i.e. what it actually rests on."""
-    st = desk_stand()
-    probe = Pos(ST_W/2, ST_D/2, 0.0) * Box(ST_W, ST_D, 0.4,
-                                           align=(Align.CENTER, Align.CENTER, Align.MIN))
-    return (st & probe).volume / 0.4
+def _plan_quadrants():
+    """(total, [four quadrant areas]) of the stand's PLAN profile — the ideal to compare to."""
+    plan = rbox(0, ST_W, 0, ST_D, 0.0, 1.0, ST_R)
+    q = [(plan & bx(x0, x1, y0, y1, -1.0, 2.0)).volume
+         for (x0, x1) in ((0.0, ST_W/2), (ST_W/2, ST_W))
+         for (y0, y1) in ((0.0, ST_D/2), (ST_D/2, ST_D))]
+    return plan.volume, q
+
+
+def _bearing_footprint(st=None):
+    """What the stand RESTS ON: area in its bottom 0.4mm, and how that area is SPREAD.
+
+    ⚠️ RE-DERIVED FOR THE PLINTH, NOT LOWERED TO FIT IT. Two things changed at once and only
+    one of them is the number. The plane moved — the bearing face is now z = -PLINTH_H, and
+    probing z 0..0.4 as this used to would measure a plane in the MIDDLE of the part and
+    report a healthy figure for a stand with no underside at all. And the metric moved: a
+    single area threshold was the right instrument when the only question was "has the well
+    punched through the floor", and it is the wrong one now that the underside legitimately
+    carries two large openings. 2911mm2 in a 4mm floor was a stand "standing on a ring";
+    2922mm2 under a 16mm solid plinth, arranged as a full perimeter plus two full-depth
+    strips, is not the same object and an area comparison cannot tell them apart.
+
+    So this returns the distribution as well, and check 2b asserts on all of it:
+      total       — against a ledger of the openings that are supposed to be there
+      quadrants   — the ring test. A ring passes on area and fails here.
+      rear        — contact behind the loaded CoM, which is what tipping actually needs
+    """
+    st = desk_stand() if st is None else st
+    z0 = -PLINTH_H
+    foot = st & bx(-1.0, ST_W + 1, -1.0, ST_D + 1, z0, z0 + 0.4)
+    def area(sel):
+        return (foot & sel).volume / 0.4
+    quads = [area(bx(x0, x1, y0, y1, z0 - 1, z0 + 1))
+             for (x0, x1) in ((0.0, ST_W/2), (ST_W/2, ST_W))
+             for (y0, y1) in ((0.0, ST_D/2), (ST_D/2, ST_D))]
+    rear = area(bx(-1.0, ST_W + 1, SLAB_COM_Y, ST_D + 1, z0 - 1, z0 + 1))
+    return foot.volume / 0.4, quads, rear, foot.bounding_box().max.Y
 
 
 
@@ -2472,6 +2726,41 @@ def _check_geometry():
     # 2. room under the slab for a USB-C plug
     below = SLOT_FLOOR - ST_WALL
     assert below >= 16.0, f"only {below:.1f}mm under the slab for a USB-C plug (need >=16)"
+    # 2e. THE 40mm RIGID CABLE RUN MUST FIT ABOVE THE DESK.  #29 / #30.
+    #
+    # The measurement JP made — 40mm from the plug tip to where the cable can first bend — is
+    # a length of STRAIGHT CORRIDOR, and the corridor's direction is fixed by the port, not
+    # chosen. So this is one inequality and there is nothing to trade against it except height.
+    #
+    # ⚠️ port_z IS DERIVED FROM USB_Z, NOT TYPED, BECAUSE THE SIGN OF THE OFFSET WAS THE WHOLE
+    # DISPUTE. Two derivations of the required height differed by exactly 2*pc*sin(TILT) =
+    # 1.152mm on whether the port axis sits in front of or behind the slab's mid-plane. Written
+    # this way the file answers it from its own data: USB_Z about the slab mid-plane, mapped by
+    # the same local_y convention check 3b's cap probe uses.
+    _pc = -((USB_Z[0] + USB_Z[1])/2 - (FRONT_Z + BACK_Z)/2)     # +2.2250 => BEHIND the mid-plane
+    _zface = -0.368 - OY0    # connector face up the slab. -0.368 is the USB-C shell's overhang
+                             # past the PCB edge, measured, and asserted against the vendor
+                             # STEP's own bounding box in __main__ — not a number typed twice.
+    _port_z = SLOT_FLOOR - _pc*math.sin(math.radians(TILT)) + _zface*math.cos(math.radians(TILT))
+    _run = (_port_z + PLINTH_H) / math.cos(math.radians(TILT))
+    assert _run >= CABLE_RIGID, (
+        f"only {_run:.2f}mm of straight corridor from the port face to the desk, for a "
+        f"{CABLE_RIGID}mm rigid cable run. The port sits at z={_port_z:.3f} in the cradle "
+        f"frame, {_port_z + PLINTH_H:.3f} above the desk, and needs "
+        f"{CABLE_RIGID*math.cos(math.radians(TILT)):.3f}. This is what PLINTH_H is for")
+    # AND THE GUARD ON TRIMMING IT. The line above is satisfied at STAND_TOTAL_H = 52.72. Two
+    # other derivations of the same requirement, made independently during the same session,
+    # produced 53.82 and 54.97 and could not be reproduced from this file's constants. They are
+    # not dismissed on that basis — an unreproduced number is unreconciled, not wrong. 56.0
+    # clears all three, which is why 56.0 was built. Whoever reconciles them may lower this
+    # constant; nobody should lower it before then, and deleting this assert is how that
+    # happens by accident.
+    _REQ_UNRECONCILED = 54.97
+    _req_here = ST_H + CABLE_RIGID*math.cos(math.radians(TILT)) - _port_z
+    assert STAND_TOTAL_H >= _REQ_UNRECONCILED, (
+        f"STAND_TOTAL_H={STAND_TOTAL_H} is under the largest UNRECONCILED derivation of the "
+        f"required height ({_REQ_UNRECONCILED}). This file derives {_req_here:.2f}, but see "
+        f"the block at STAND_TOTAL_H: settle 53.82/54.97 first, then lower this")
     # 2c. THE PIP MUST STAY INSIDE ITS ISLAND — 0.423mm, the tightest margin on the part.
     #
     # The pip is centred on the SWITCH and the island on CAP_CX_*, so they are deliberately
@@ -2503,21 +2792,71 @@ def _check_geometry():
             f"(island centre {cap_center_x(_cx)}, R={_R:.4f}, PIP_D={PIP_D}) — under one "
             f"0.40mm extrusion width the pip overhangs the island into the printed-in-place "
             f"slot and has nothing to stand on")
-    # 2b. THE STAND MUST NOT STAND ON A RING.
+    # ONE stand solid for every check below that needs it — it is the expensive build in this
+    # file. ⚠️ THE COMMENT SAYING SO USED TO SIT AT 2d WHILE 2b CALLED `_bearing_footprint()`,
+    # WHICH BUILT ITS OWN. Three desk_stand() builds per run, two of them identical, under a
+    # line claiming there were not. Hoisted here so the claim is true.
+    _stand = desk_stand()
+
+    # 2b. THE STAND MUST NOT STAND ON A RING — RE-DERIVED FOR THE PLINTH.
     #
-    # The USB-C well once ran 30mm down the tilted axis, reaching z = -4.98 and cutting
-    # straight through the 4mm floor — a 273mm2 hole, bearing footprint 2911 of 4010mm2.
-    # Nothing caught it, and the reason is the pattern this project keeps hitting: the
-    # boolean check compares each part to the BOARD, and a hole in the floor intersects
-    # nothing whatsoever. An absence cannot collide.
+    # The original: the USB-C well once ran 30mm down the tilted axis, reaching z = -4.98 and
+    # cutting through the 4mm floor — a 273mm2 hole, bearing 2911 of 4010mm2, "the stand was
+    # standing on a ring". Nothing caught it, because the boolean check compares each part to
+    # the BOARD and an absence cannot collide. That fault is still real and still needs a check.
     #
-    # The one opening that is intentional is the speaker chamber's bottom access, 54 x 15.3
-    # = 826mm2, closed by ember-stand-base. So the floor is correct at ~3184mm2 of bearing
-    # material, and the threshold is set just under that.
-    _foot = _bearing_footprint()
-    assert _foot >= 3150.0, (
-        f"stand bearing footprint {_foot:.0f}mm2 — something is piercing the floor beyond "
-        f"the speaker chamber's intentional 826mm2 access")
+    # ⚠️ BUT THE OLD CHECK WOULD HAVE PASSED ON A STAND WITH NO UNDERSIDE. It probed z 0..0.4,
+    # which under a plinth is a plane in the MIDDLE of the part; it would have measured the
+    # cradle's floor, scored ~2900, and said nothing about what the thing rests on. A threshold
+    # that survives a frame change by measuring the wrong plane is the §6 failure again — a
+    # green light over an unmeasured quantity.
+    #
+    # AND ONE NUMBER CANNOT SETTLE IT ANY MORE. 2911mm2 was damning in a 4mm floor and 2922 is
+    # fine under a 16mm plinth, because the same area is arranged differently: a full perimeter
+    # plus two full-depth strips instead of a rim around a hole. So the check is now a ledger
+    # plus two shape tests, and the shape tests are what would actually catch a ring.
+    #
+    #   plan profile (64 x 64, R10)                                        4010.2
+    #   - speaker chamber access shaft, 54.0 x 15.3, driver + base plate    -826.2
+    #   - egress channel, 14.0 wide, y 0..34 (it is CUT from y=-1, but the
+    #     part starts at 0), less its overlap with the shaft (14.0 x 15.3)   -261.8
+    #                                                                     ---------
+    #   expected                                                            2922.2
+    _plan, _pq = _plan_quadrants()
+    _foot, _quads, _rear, _ymax = _bearing_footprint(_stand)
+    print(f"  [bearing] {_foot:.0f}mm2 of {_plan:.0f}  quadrants "
+          f"{'/'.join(f'{q/p*100:.0f}%' for q, p in zip(_quads, _pq))}  "
+          f"behind CoM {_rear:.0f}mm2 to y={_ymax:.1f}")
+    assert _foot >= 2850.0, (
+        f"stand bearing footprint {_foot:.0f}mm2 of a {_plan:.0f}mm2 plan — the ledger above "
+        f"accounts for 2922, so something is piercing the plinth beyond the chamber shaft and "
+        f"the egress channel")
+    # THE RING TEST. Area alone cannot see a ring; a quadrant that has lost most of its plan
+    # can only be a rim, a strip or a hole. 47% is the worst quadrant here (the two front ones,
+    # which carry the chamber shaft); the control below shows what a real ring scores.
+    _QUAD_MIN = 0.30
+    for _i, (_q, _p) in enumerate(zip(_quads, _pq)):
+        assert _q >= _QUAD_MIN*_p, (
+            f"bearing quadrant {_i} carries {_q:.0f}mm2 of its {_p:.0f}mm2 plan "
+            f"({_q/_p*100:.0f}%, floor {_QUAD_MIN*100:.0f}%) — that corner of the stand is "
+            f"resting on a rim or a strip, not on a face")
+    # CONTROL — the detector must be shown to fire (verification.md 13). A 4mm perimeter ring
+    # of the same outline: 4010 -> ~960mm2, and 25% per quadrant. It fails the shape test while
+    # scoring a QUARTER of the plan, which is exactly the discrimination the area test lacked.
+    _ring = (rbox(0, ST_W, 0, ST_D, 0.0, 0.4, ST_R)
+             - rbox(4.0, ST_W-4, 4.0, ST_D-4, -1.0, 2.0, ST_R-4))
+    _rq = [(_ring & bx(x0, x1, y0, y1, -1.0, 2.0)).volume / 0.4
+           for (x0, x1) in ((0.0, ST_W/2), (ST_W/2, ST_W))
+           for (y0, y1) in ((0.0, ST_D/2), (ST_D/2, ST_D))]
+    assert min(q/p for q, p in zip(_rq, _pq)) < _QUAD_MIN, (
+        f"[self-test] a 4mm perimeter ring scores {min(q/p for q, p in zip(_rq, _pq))*100:.0f}% "
+        f"per quadrant, at or above the {_QUAD_MIN*100:.0f}% floor — the ring test cannot "
+        f"detect a ring and is decoration")
+    # AND THE TIPPING CONDITION, which is the thing the area was ever a proxy for. The loaded
+    # slab's CoM projects to y=45.89; the stand tips about whatever contact lies behind that.
+    assert _ymax >= SLAB_COM_Y + 10.0 and _rear >= 500.0, (
+        f"bearing material reaches only y={_ymax:.1f} with {_rear:.0f}mm2 behind the slab's "
+        f"CoM at y={SLAB_COM_Y:.2f} — the dock tips backwards when the screen is tapped")
 
     # 2d. THE BASE PLATE MUST ACTUALLY SEAT — the first check in this file between TWO PARTS.
     #
@@ -2530,9 +2869,7 @@ def _check_geometry():
     # WITH ITS OWN SELF-TEST, because "0.000" is exactly the answer a check that cannot fail
     # gives: pushing the plate 0.5mm deeper must be DETECTED. That is the §6 lesson — a
     # detector that has not detected anything is not known to work.
-    # ONE stand solid for every check below that needs it — it is the expensive build in this
-    # file and it was being made twice.
-    _stand = desk_stand()
+    # (_stand was built once above check 2b — reused, not rebuilt.)
     _base = stand_base()
     _bi = (_base & _stand).volume
     assert _bi < 0.01, (
