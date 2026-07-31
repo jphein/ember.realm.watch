@@ -136,7 +136,8 @@ def _report() -> int:
               "re-run this.", file=sys.stderr)
         return 1
     print("shipped tables and harness tables agree  OK")
-    print("  (tables only — the painter LOGIC is still duplicated and unguarded; #10)")
+    print("  (tables only, by value, needing no generator — the painter LOGIC is "
+          "covered by check_paint_sync.py)")
     return 0
 
 
