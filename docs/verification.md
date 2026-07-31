@@ -2117,3 +2117,47 @@ passed" nor "it failed" is evidence until a check can say "I did not run."**
 > which is how it is stated above. **Two verified instances were worth more than three where one
 > was a paraphrase**; three verified are worth more than two, and the difference between those
 > sentences was one person writing down what they actually typed.
+
+---
+
+## 29 · The claim you only report is the one you don't verify
+
+An agent finishing a task reported three things. Two were verified to this file's usual standard —
+diffs taken, volumes recomputed from the committed STLs, an assumption about which figures contain
+a given part refuted by reading the source. The third said *"the print sheet still says ~121 cm³ /
+~150 g"*. The sheet said 166 cm³ / ~206 g, and had for two commits.
+
+It was not a stale read. **It was not a read at all** — asserted from memory of an earlier pass.
+And the refutation was already on screen twice over: the freshly computed 165.82 cm³ sat in the
+same terminal, and the `git show --stat` used minutes earlier to establish scope listed
+`PRINT-SHEET.md` among the changed files. The same output was interrogated for *which parts
+changed* and then trusted for *what the sheet says*.
+
+Their own diagnosis is the entry:
+
+> I verified everything I **acted** on. The one claim I did not verify was the one I was only
+> **reporting**, because reporting felt like it carried no risk.
+
+### Why the asymmetry is structural, not careless
+
+Acting has a feedback loop: the build fails, the assert fires, the commit is rejected. **Reporting
+has none.** A wrong number in a message produces no error, propagates at full confidence, and is
+discovered — if ever — by whoever acts on it. So the outcome that disciplines verification is
+absent from exactly the channel that carries the most claims per unit of work.
+
+This is worse in a relay. An orchestrator's entire output is reported claims, aggregated from
+agents whose reports are themselves aggregated. Nothing in that chain touches a compiler. Two
+things in this session's log arrived that way — a bounding box that could not detect a flip, and a
+"~9 min/part" baseline borrowed from a different program — and both were passed onward as
+established before anyone checked them.
+
+### The countermeasure is narrow
+
+Not "verify more." **Re-read immediately before reporting, not before deciding.** The two are
+different moments and the second is the one that gets skipped, because by then the work feels done.
+
+And the reason it evades review: **a message that is two-thirds verified reads as verified.** The
+unverified claim inherits the credibility of the ones beside it, so the better the surrounding work,
+the more effectively it is smuggled. Correctness of neighbours is not evidence about a claim —
+which is the same independence error as a control proving an instrument fires *inside* its window
+(§27) and a total being right about a region with no members in it (§9).
