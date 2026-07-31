@@ -682,6 +682,25 @@ interval:
       # not. A reused mechanism does not carry its guarantees with it (#23's lesson, in
       # audio instead of navigation).
       #
+      # AND THE EXISTING 50ms OF PRELOAD IS A HARDCODED CONSTANT, NOT A KNOB — this is
+      # the lever that looks most promising and it is closed too. The ~50ms residual
+      # exists because a playback preloads 5 x 10ms of memset-zero silence before
+      # i2s_channel_enable(). If that were configurable, raising it WOULD be padding the
+      # audio, on the device. From i2s_audio_speaker_standard.cpp:23-24:
+      #
+      #     static constexpr uint32_t DMA_BUFFER_DURATION_MS = 10;
+      #     static constexpr size_t   DMA_BUFFERS_COUNT      = 5;
+      #
+      # Both are file-local `static constexpr` in the component, exposed to no YAML
+      # option, so changing them means forking a core ESPHome component. And they are
+      # not inert: WRITE_TIMEOUT_TICKS is DMA_BUFFER_DURATION_MS * (DMA_BUFFERS_COUNT+1)
+      # and dma_buffers_duration_ms feeds the ring-buffer sizing — so buying 50ms of amp
+      # runway also moves the write timeout and the buffer budget on a board whose
+      # display already competes for main-loop time. That competition is why
+      # `buffer_duration` is 500ms and not 100ms, and it was AUDIBLE. A poor trade for
+      # one phoneme, and it would need re-verifying against choppiness rather than
+      # arguing.
+      #
       # So the padding has to come from wherever the TTS audio is PRODUCED, i.e. HA.
       # Nothing on the device can substitute, and no amount of firmware cleverness
       # changes the flag on someone else's `make_call()`.
