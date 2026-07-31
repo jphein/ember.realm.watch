@@ -48,9 +48,11 @@ WHAT THIS CANNOT ANSWER, written here because this is where it gets reached for.
    failure mode -- a slicer welding a 0.90 groove shut -- that happens AFTER this check and
    which no STL-level test can reach.
 
-4. THE FAILING CONTROL IS A BUILT MESH, AND THAT COST A BUILD. It is not synthesised from
-   strokefont, deliberately: a control that never crosses the slice->loop front end proves
-   only that the arithmetic works. See `--selftest` and tests/fixtures/README.
+4. THE FAILING CONTROLS ARE BUILT MESHES, AND THEY COST A BUILD EACH. Neither is synthesised
+   from strokefont, deliberately: a control that never crosses the slice->loop front end
+   proves only that the arithmetic works. There are two because #35's chamfer changed the
+   shipped geometry under this tool and blinded it -- an instrument proven only against
+   geometry that no longer ships is not evidence either. See tests/fixtures/README.
 
 5. IT FINDS RUN BOUNDARIES, NOT WORD IDENTITY. Labels are matched by ink width, and `BAT` and
    `SPK` are both 13.28mm, so the matcher cannot tell which strip each is on and does not
@@ -146,6 +148,33 @@ def _inside(a, b, tol=1e-6):
             and a[2] < b[2] + tol and a[3] < b[3] + tol and a != b)
 
 
+def drop_silhouette(boxes, tol=0.05):
+    """Remove the loops that ARE the part's outline, keeping the ones cut INTO it.
+
+    >>> THE CRITERION IS "REACHES AN EXTREME OF THE SILHOUETTE", NOT "IS BIG". <<<
+    A label groove is interior by construction -- LABEL_MARGIN holds every label 0.80mm off
+    any edge -- so nothing that is text can touch the part's own bounding box. Sizing would
+    be the wrong test and a dangerous one: a merged `BATUARTSD` run is ALSO large, and a rule
+    that threw away the biggest loop would throw away the defect this tool exists to catch.
+    Same selector `chamfer_outline()` uses in ember_case.py, for the same reason.
+
+    ⚠️ WHY THIS IS NEEDED AT ALL, because it was not, until #35. The depth difference assumed
+    the outline is the same shape at both slice planes. A chamfer makes it a function of z:
+    measured on the shipped shell the perimeter is 54.700mm wide at z_in and 55.300mm at
+    z_below, 0.600mm apart, so the two no longer match and the whole perimeter survived the
+    difference as one enormous loop. It then swallowed the entire text -- every glyph is
+    nested inside the outline, so the counter-dropping step discarded all twenty of them and
+    left `1 loops`. The tool went BLIND rather than wrong, which is the one thing that went
+    right, but blind on the shipped part is still broken."""
+    if not boxes:
+        return boxes
+    x0 = min(b[0] for b in boxes); y0 = min(b[1] for b in boxes)
+    x1 = max(b[2] for b in boxes); y1 = max(b[3] for b in boxes)
+    return [b for b in boxes
+            if not (b[0] <= x0 + tol and b[1] <= y0 + tol
+                    and b[2] >= x1 - tol and b[3] >= y1 - tol)]
+
+
 def glyph_boxes(stl_path):
     """Every label-groove outline on the flat back face, as ink bounding boxes.
 
@@ -165,13 +194,19 @@ def glyph_boxes(stl_path):
     z_below = zmin + LABEL_DEBOSS * 1.25  # past its floor
 
     inside = _loops(tris, z_in)
-    below = [_bbox(l) for l in _loops(tris, z_below)]
     if not inside:
         raise Blind(f"no geometry at z={z_in:.3f} -- the back face is not where it was")
 
+    # The silhouette goes FIRST, at both planes, before anything is compared or nested.
+    # On a chamfered part it differs between the two planes and would otherwise survive the
+    # difference and swallow the text.
+    inside_b = drop_silhouette([_bbox(l) for l in inside])
+    below = drop_silhouette([_bbox(l) for l in _loops(tris, z_below)])
+    if not inside_b:
+        raise Blind(f"nothing but the part outline at z={z_in:.3f} -- no interior feature to read")
+
     shallow = []
-    for lp in inside:
-        b = _bbox(lp)
+    for b in inside_b:
         if any(all(abs(b[i] - o[i]) < 0.15 for i in range(4)) for o in below):
             continue                      # persists below the groove floor: not a label
         shallow.append(b)
@@ -344,36 +379,71 @@ def check(stl_path, verbose=True):
         for t, pred, got in predicted_vs_rendered():
             print(f"    note: ink_size({t}) predicts {pred:.2f}mm, the font draws {got:.2f}mm "
                   f"({pred - got:+.2f}) — the design asserts run on the prediction")
-    return ok, {"ratio": ratio, "max_intra": mx_intra, "min_inter": mn_inter, "rows": rows}
+    return ok, {"ratio": ratio, "max_intra": mx_intra, "min_inter": mn_inter, "rows": rows,
+                "glyphs": len(glyphs)}
 
 
 # ---- controls --------------------------------------------------------------------------------
 
-FIXTURE = os.path.join(HERE, "..", "tests", "fixtures", "back-shell-wordgap-0.80.stl")
+def _fx(name):
+    return os.path.join(HERE, "..", "tests", "fixtures", name)
+
+
+# (path, must_pass, why). Every glyph count must be GLYPHS_EXPECTED -- see the note below.
+CONTROLS = [
+    (DEFAULT_STL, True,
+     "the shipped part, chamfered (#35), must PASS"),
+    (_fx("back-shell-chamfered-wordgap-0.80.stl"), False,
+     "CURRENT geometry at word gap 0.80, must FAIL"),
+    (_fx("back-shell-wordgap-0.80.stl"), False,
+     "PRE-CHAMFER geometry at word gap 0.80, must still FAIL"),
+]
+
+GLYPHS_EXPECTED = sum(len(t) for t in FLAT_LABELS)   # 20
 
 
 def selftest():
-    """Two controls. One must pass, one MUST FAIL -- an instrument that has never produced a
-    positive is not evidence."""
-    print("control 1/2 -- the shipped part, which must PASS")
-    ok, _ = check(DEFAULT_STL)
-    if not ok:
-        print("  FAIL: the shipped part did not pass. The threshold is wrong, or the part is.")
-        return 1
-    print("  pass\n")
+    """Three controls: one that must pass, two that must fail, and a glyph count on all of
+    them. An instrument that has never produced a positive is not evidence -- and after #35,
+    an instrument proven only on geometry that no longer ships is not evidence either.
 
-    print("control 2/2 -- LABEL_WORD_GAP built at LABEL_MARGIN (0.80), which must FAIL")
-    if not os.path.exists(FIXTURE):
-        print(f"  BLIND: fixture missing at {FIXTURE}")
-        print("  A must-fire control that cannot run is the failure this project keeps finding.")
-        return 1
-    bad, _ = check(FIXTURE)
-    if bad:
-        print("  FAIL: the 0.80 build PASSED. The check cannot see the defect it exists for.")
-        return 1
-    print("  pass (it failed, as it must)\n")
-    print("both controls behaved. The instrument fires at the defect and not at the good part.")
-    return 0
+    ⚠️ THE GLYPH COUNT IS NOT DECORATION. `drop_silhouette()` throws loops away, and the
+    failure it was written for -- the chamfer's outline swallowing the entire text -- looked
+    exactly like "fewer loops than expected". Asserting all twenty glyphs survive on every
+    control is what stops a future filter tweak from quietly eating text and leaving a check
+    that still says OK. A merged `BATUARTSD` run is large AND interior, so it must survive
+    the silhouette filter; the two 0.80 controls are what prove it does."""
+    rc = 0
+    for i, (path, must_pass, why) in enumerate(CONTROLS, 1):
+        print(f"control {i}/{len(CONTROLS)} -- {why}")
+        if not os.path.exists(path):
+            print(f"  BLIND: fixture missing at {path}")
+            print("  A control that cannot run is the failure this project keeps finding.")
+            rc = 1
+            continue
+        try:
+            ok, rep = check(path)
+        except Blind as e:
+            print(f"  BLIND -> FAIL: {e}")
+            rc = 1
+            continue
+        n = rep["glyphs"]
+        if n != GLYPHS_EXPECTED:
+            print(f"  FAIL: {n} glyphs recovered, expected {GLYPHS_EXPECTED} — a filter is "
+                  f"eating text")
+            rc = 1
+            continue
+        if ok != must_pass:
+            print(f"  FAIL: expected {'PASS' if must_pass else 'FAIL'}, got "
+                  f"{'PASS' if ok else 'FAIL'} (ratio {rep['ratio']:.2f})")
+            rc = 1
+            continue
+        print(f"  pass ({'passed' if ok else 'failed'}, as it must — "
+              f"ratio {rep['ratio']:.2f}, {n} glyphs)\n")
+    if rc == 0:
+        print("all controls behaved. The instrument fires at the defect, on the geometry that "
+              "ships, and not at the good part.")
+    return rc
 
 
 def main(argv):
