@@ -144,9 +144,22 @@ previous configuration.
 ### The dashboard
 
 ```bash
-python3 homeassistant/tools/build_ember_dashboard.py --dry   # print, touch nothing
-python3 homeassistant/tools/build_ember_dashboard.py         # create-if-absent + push
+python3 homeassistant/tools/build_ember_dashboard.py --dry      # print, touch nothing
+python3 homeassistant/tools/build_ember_dashboard.py            # create-if-absent + push
+python3 homeassistant/tools/check_dashboard_deployed.py         # is the LIVE one the committed one?
 ```
+
+⚠️ **Committing the JSON does not change the dashboard.** What people look at is HA's
+`.storage` copy, and the two disagree with nothing to notice — the repo is correct, so every
+check that compares the repo against the truth passes. **This dashboard asserted that Hush
+gates the talk gesture for hours after the JSON had been fixed**, because the fix was committed
+and the push never ran.
+
+`check_dashboard_deployed.py` asks Home Assistant instead: it reads the live config over the
+same WebSocket API the pusher uses and diffs it against `origin/main`, naming which *view*
+differs rather than dumping the JSON. **It reports and does not push**, deliberately — pushing
+would silently overwrite a UI edit someone made on purpose, and that is a decision a person
+should see. `--self-test` proves it can fail; `--local` compares against the working tree.
 
 Both modes print `views=… sections=… cards=…` for the config they are about to push. **Read
 the count off the tool rather than off this page** — the dashboard changes more often than the
