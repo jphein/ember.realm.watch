@@ -1986,6 +1986,18 @@ be). The bound here was not chosen at all. It was inherited from the tool — `f
 pointed at a repo because that is what one points `find` at — and then ratified by evidence
 that could not speak to it.
 
+#### The same failure again within hours, with the toolset as the window
+
+The same author then wrote that one half of a duplication was **"unguardable by diff"**, because
+the two copies are legitimately different text: one reads harness globals and display stubs where
+the other reads `id(...)` and substitutions. True of a *plain* diff, and the wrong conclusion —
+`make_paste_block.py` performs exactly that translation, so committing it made the comparison
+mechanical, and the guard now exists.
+
+**The claim was true of the tools he had and false of the tools that existed.** Same shape,
+different window: the first time the window was the repo, the second time his own toolset. Both
+were ratified by careful work *inside* the boundary, and neither examined the boundary.
+
 #### The true finding was strictly stronger, which is the cost
 
 *"The tool never existed"* supports a comfortable story: the six stale-copy bugs the comment
@@ -2030,3 +2042,54 @@ window in the claim itself.** *"Not in the repo"* is a sentence that cannot be f
 a scratch directory. *"Never existed"* invites exactly that refutation. Writing the narrower
 sentence costs nothing and would have made the finding correct, publishable, and — as it
 turned out — more useful than the one that was written.
+
+One redeeming mechanism, recorded because it is the only reason this was caught in minutes rather
+than never: **the search was reported with its method visible** — the commands, the controls, the
+counts. A conclusion published with its window shown is falsifiable by the next reader, and it was
+refuted in one command. Had only the conclusion been reported, it would have stood indefinitely.
+**Showing the method is what makes being wrong cheap**, and it is the half of the discipline that
+survives when the reasoning fails.
+
+### 28. A check that could not run, read as a check that found nothing
+
+Two instances the same day, in two different materials, by two different people — and a third
+reported that is not included here, for a reason given at the end. Even at two it is a property
+of the shape rather than of anyone's care, which is why they belong in one entry.
+
+- **A control that broke its own subject.** A comment-churn control existed to prove a paint-body
+  comparison was insensitive to prose. It rewrote every comment in the harness — which destroyed
+  the marker the generator indexes on, so the generator died. The helper scored that exception as
+  `fired = False`, and `fired == False` was the *desired* result for that control. **A crash was
+  reported as "correctly insensitive."** §21 committed inside a control written to catch §21.
+  (`esphome/tools/check_paint_sync.py`, which now raises a distinct `Blind` verdict instead.)
+- **A gap metric with no measured pairs.** `min_gap()` returns the worst clearance between stroke
+  segments. Squeeze a glyph until its counters *fuse* and there is no measurable pair left, so it
+  returns `+inf` — and `+inf` compares as comfortably passing. An `S` at h 2.60 does exactly that.
+  *Nothing was thin* is what *nothing was measured* looks like from outside. Fixed by returning a
+  count alongside the value, with the contract stated at the definition: **callers must require
+  `measured > 0`.** (`enclosure/tools/strokefont.py`.)
+
+In both, the code was correct, the arithmetic was correct, and the **verdict for "I could not
+look" was identical to the verdict for "I looked and it was fine."** Two states, one output.
+
+> **Every check needs three outcomes, not two: pass, fail, and could-not-run.** Collapsing the
+> third into either of the first two is a lie in whichever direction it lands — and it lands on
+> *pass* by default, because that is the quiet one.
+
+The structural fix is cheap and it is not "be careful": make the inconclusive path
+**unconditionally a failure**, never a value a caller can compare against an expectation. In the
+first instance that meant an exception that fails a control regardless of which way the control
+was pointing; in the second, a returned count with a stated obligation on it.
+
+Note how this pairs with §21 and inverts §14. §14 counted edges on an object that was not there
+and returned **zero**, which read as success. §21's probe found no separating gaps and reported
+the **loudest failure it knew**. This is the same defect a third way: the check did not run at
+all, and inherited whichever verdict its scaffolding happened to default to. **Neither "it
+passed" nor "it failed" is evidence until a check can say "I did not run."**
+
+> **On the third instance.** A wait loop was reported as having polled a state it had no path to
+> observe, exhausted its budget, and returned the benign outcome. It is omitted because it could
+> not be verified against its own artifact — it belongs to neither of the tools above, and its
+> author was unavailable. **Two verified instances are worth more than three where one is a
+> paraphrase**, which is this file's own standing rule about assembling a claim from adjacent
+> true facts. If it is confirmed, it belongs here.
