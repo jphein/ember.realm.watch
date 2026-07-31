@@ -122,6 +122,34 @@ also has two open areas — a **678.0 mm² throat** across those 27 apertures an
 "the grille's open area" was ambiguous for as long as it went unqualified, while every number
 attached to it was correct.
 
+**A second postscript, and this one caught the person quoting the rule.** The back shell's
+countersink is cut at **84.7°** against a standard 90° screw head. The instruction issued to fix
+it was *"assert the included angle, not the mouth diameter"* — which sounds exactly like this
+section's advice and is wrong, because **a flat head does not seat on an angle. It seats on an
+angle *and* a diameter.**
+
+The geometry is unforgiving about it. Two 90° surfaces have parallel flanks, so if the cone's
+mouth is wider than the head, the head simply descends until its **rim** meets the wall, at
+`s = (mouth − head) / 2`, touching along a line instead of over the cone:
+
+| cone | 6.00 head | 6.40 head | 6.72 head |
+|---|---|---|---|
+| ⌀6.70 × 1.70 — 90°, mouth left free | sinks 0.35, rim only | sinks 0.15, rim only | proud 0.01 |
+| ⌀6.40 × 1.55 — 90°, mouth = head | sinks 0.20, rim only | **flush, full conical seat** | proud 0.16 |
+
+Widening the mouth to 6.70 makes the angle correct and the **seat worse** — a 6.00 head sinks
+0.35 mm there against 0.22 in the part as built. **The corrected property was not the one that
+governed the outcome**, which is this section's own failure mode, arriving inside an instruction
+to avoid it.
+
+The formulation that cannot be satisfied by the wrong thing is to **name the screw** and derive
+the rest: `CSK_HEAD_D`, `CSK_HEAD_ANGLE`, depth computed from both. Then "which head is this cut
+for?" has an answer in the source, and a different head becomes a *stated alternative* with its
+own numbers rather than a caveat.
+
+> **When a fit depends on two properties, asserting either one alone is a proxy.** The tell is
+> that you can satisfy the assert and still be further from the goal than when you started.
+
 ### 6. A test that could not fail at all
 
 The clearance checker once returned a confident `CLEAR` that meant nothing: the vendor
