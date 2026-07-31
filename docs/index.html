@@ -1462,7 +1462,7 @@ footer p{margin:.4rem 0}
       <br><br>
       <strong>The caps do not sit over their own switches.</strong> A 17.32&nbsp;mm island
       centred on the switch would eat into the M3 countersink, so the islands are offset to
-      x&nbsp;33.05 and 14.51 against switches at 36.58 and 13.45, and the pip reaches across.
+      x&nbsp;16.66 and 35.66 against switches at 13.45 and 36.58, and the pip reaches across.
       That only became placeable when the pip shrank from 4.00 to 3.00&nbsp;mm: the island
       narrows toward its bottom flat, exactly where the pip sits, so a 4.00&nbsp;mm pip left a
       0.40&nbsp;mm window of legal island X. <em>That is not a tolerance, it is a hope.</em>
@@ -1487,28 +1487,32 @@ footer p{margin:.4rem 0}
       which is exactly why the firmware wraps volume from 100% back to 0% — a single button
       cannot express two directions, so wrapping is the only way down.
       <br><br>
-      <strong>Which switch is which is under revision, and this page will not guess.</strong>
-      The identification rested on a chain with one link now known to be wrong: pressing the
-      switches on the bare board raises the audio overlay from the one on the microSD side — a
-      direct physical observation, and probably still true — and the microSD was placed at board
-      x&nbsp;33.7–44.8, which put the readable switch at the high-x end. <b>That placement is the
-      broken link.</b> The 11.15 × 14.15&nbsp;mm plate it came from stands 0.50&nbsp;mm off the
-      PCB, and a microSD socket is 1.4–2.8&nbsp;mm tall, so it was never a socket. It has been
-      identified as the LCD driver flex.
+      <strong>Which switch is which was settled by deriving it instead of typing it — and the
+      answer inverted.</strong> The identification had rested on a chain with one broken link:
+      pressing the switches on the bare board raises the audio overlay from the one on the microSD
+      side — a direct observation, and it still holds — plus a microSD placed at board
+      x&nbsp;33.7–44.8, which put the readable switch at the high-x end. <b>That placement was
+      the broken link.</b> The 11.15 × 14.15&nbsp;mm plate it came from stands 0.50&nbsp;mm off
+      the PCB, and a microSD socket is 1.4–2.8&nbsp;mm tall, so it was never a socket — it is the
+      LCD driver flex. The real socket is authored in the same vendor file as <em>zero-thickness
+      faces</em>, at x&nbsp;2.53–17.53: <b>the other long edge.</b>
       <br><br>
-      <b>So a correct observation and a correct inference sat on a fictional anchor</b>, and
-      moving the anchor moves the conclusion. Until the revision lands the honest statement is
-      that <em>the readable switch is the one on the same long edge as the microSD socket</em> —
-      which is a fact about the board and does not depend on where anyone thought the socket was.
-      In this figure the <strong>heavier outline is the larger cap</strong>, which is a statement
-      about the drawing and not about which side it is on: a back view mirrors the board and the
-      print-orientation figure mirrors it back again, so "the left one" is true in one figure and
-      false in another.
+      <b>A correct observation, a correct inference, and a fictional anchor.</b> Moving the anchor
+      moved the conclusion: <strong>BOOT — the only readable switch — is at x&nbsp;13.45</strong>,
+      and RESET is at 36.58. The 15&nbsp;mm thumb cap and its 13.27&nbsp;mm bridge moved with it,
+      so the islands now sit at 16.66 and 35.66.
       <br><br>
-      ⛔ <b>Do not cut or label caps from this page yet.</b> Getting it backwards puts the big
-      inviting thumb button over the switch that reboots the device — and holding <em>that</em>
-      one low across a reset enters ROM download mode, which looks exactly like a bricked board.
-      The asymmetry is why this is worth stopping for rather than guessing at.
+      <b>The durable form of the observation is the one that never needed a coordinate:</b>
+      <em>the readable switch is the one on the same long edge as the microSD socket.</em> That is
+      a fact about the board and cannot be broken by mislabelling the socket — which is exactly
+      what broke the version with an x in it. In this figure the <strong>heavier outline is the
+      larger cap</strong>, deliberately a statement about the drawing and not about which side it
+      is on: a back view mirrors the board and the print-orientation figure mirrors it back again.
+      <br><br>
+      ⚠️ Getting it backwards puts the big inviting thumb button over the switch that reboots the
+      device — and holding <em>that</em> one low across a reset enters ROM download mode, which
+      looks exactly like a bricked board. The asymmetry is why this is derived and asserted now
+      rather than typed.
       <br><br>
       <strong>Worth naming how this part nearly shipped a control nobody could press.</strong>
       Both shell parts are checked against the vendor board solid by boolean intersection, and

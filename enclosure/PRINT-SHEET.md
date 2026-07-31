@@ -156,94 +156,74 @@ the middle of the faces you look at and press. Fan at 100 % for the first few la
 | band | area |
 |---|---|
 | overhangs 10–30° | **0 mm²** |
-| overhangs 30–45° | 19.45 mm² — the countersink cones only, which are self-supporting |
+| overhangs 30–45° | ⚠️ **re-measure** — that band was the countersink cones, which `86748c6` replaced with a counterbore. A counterbore has vertical walls and a horizontal floor, so the band is likely 0 and the floor becomes a short bridge instead |
 | first-layer contact | 3727.9 mm², **one island**; 92.0 × 14.60 mm is 6.3:1, so **no brim** |
 | thinnest feature | 0.750 mm — the hex web |
 | side-channel roofs | 2.62 / 1.57 / 1.05 mm bridges — trivial |
 
 ---
 
-> ⚠️ **On this page "BOOT" and "RESET" mean the large and the small cap.** Which *switch* each
-> sits over is **under revision** — see [`docs/enclosure.md`](../docs/enclosure.md#2--where-things-are).
-> Every figure here (bridge spans, hinge lengths, strain, deboss depths) is a property of the
-> **cap**, so none of it changes with the outcome. What changes is which end of the board the
-> large cap belongs at. **Do not label the printed caps from this page yet.**
+> ⚠️ **Settled, and it moved: the large cap belongs at the LOW-x end.** `86748c6` derives the
+> switch identification from the microSD socket instead of carrying it as a literal, and the
+> answer inverted — **BOOT (the readable switch) is at x 13.45**, RESET at 36.58. The large
+> 15.00 mm cap and its 13.27 mm bridge went with BOOT to the other end of the board; the island
+> centres are now **16.66** (large) and **35.66** (small). Every *figure* on this page was a
+> property of the cap and is unchanged — only which end it sits at moved. **If you printed a back
+> shell before `86748c6`, its caps are on the wrong switches.**
 
 ## Fasteners
 
-**4 × M3 × 15 mm countersunk (flat-head) self-tapping** — ×14 also works — driven **from the
-back**, so no screw heads appear on the front face.
+**4 × M3 × 0.5 × 12 mm ISO 4762 socket cap** (hex recess, cylindrical head), driven **from the
+back** into a **flat-bottomed counterbore**, so no heads appear on the front face.
 
-Load path: screw head countersunk in the back shell → 5.5 mm standoff → through the PCB's
-⌀3.20 hole → **self-taps into a blind ⌀2.50 pilot in the bezel boss**.
+> ⛔ **This changed, and the previous guidance would send you to the wrong shelf.** This sheet
+> used to specify a **countersunk (flat) head** for a conical countersink. The part now has a
+> **⌀5.80 × 3.04 mm flat counterbore** for a **cylindrical** head. **A conical head in a flat
+> counterbore does not seat on anything** — it contacts the bore edge on a circle, or bottoms on
+> its point. That is worse than either geometry the old text analysed, so all of it is deleted
+> rather than adjusted, including its length table: see the length note below.
 
-**Buy ×15 if you are buying. ×14 works. ⛔ ×16 bottoms out.** The pilot ends at z 6.20 and
-each screw's tip sits at `BACK_Z + length`:
+| | |
+|---|---|
+| Screw | `M3 × 0.5 × 12` **ISO 4762** socket cap, hex recess |
+| Head | ⌀**5.50** measured, not tabulated |
+| Counterbore | ⌀**5.80** (0.30 diametral clearance, 0.15 a side) × **3.04 mm** deep — **19 layers exactly** at 0.16 |
+| Through-hole | ⌀3.30 |
+| Pilot in the bezel boss | ⌀**2.50**, blind |
 
-| screw | tip reaches | engagement | |
+Load path: head bears on the **flat counterbore floor** in the back shell → 5.5 mm standoff →
+through the PCB's ⌀3.20 hole → **self-taps into the blind ⌀2.50 pilot in the bezel boss**.
+
+⚠️ **The length convention changed with the head, and this is the trap.** A **countersunk**
+screw's stated length **includes** its head; an **ISO 4762 socket cap's does not** — 12 mm is
+**under-head**. So the old ×14/×15/×16 table is not mislabelled, it is on the wrong basis
+entirely, and none of its numbers transfer. Re-derived for the new screw:
+
+| screw (under-head) | tip reaches | engagement | |
 |---|---|---|---|
-| M3 × 12 | z +2.30 | 2.30 mm = 0.77 D | too short |
-| M3 × 14 | z +4.30 | 4.30 mm = **1.43 D** | works — what this sheet has always said |
-| **M3 × 15** | z +5.30 | 5.30 mm = **1.77 D** | **best**, and still 0.90 mm clear of the pilot end |
-| M3 × 16 | z +6.30 | — | ⛔ **bottoms out** |
+| M3 × 10 | z +3.34 | 3.34 mm = 1.11 D | short |
+| **M3 × 12** | z +5.34 | **5.34 mm = 1.78 D** | **the spec**, 0.86 mm clear of the pilot end |
+| M3 × 14 | z +7.34 | — | ⛔ **bottoms out** (pilot ends at 6.20) |
 
-⚠️ **The usual "2 × diameter of engagement" is not reachable in this geometry at all** — there
-is only 6.20 mm of pilot, so 6.0 mm is the whole hole. ×14 at 1.43 D is *adequate* rather than
-wrong: you are clamping a 12 g PCB, not resisting a working load.
+**×14 and ×16 still bottom out, and the failure still looks like success** — the tip hits the
+bottom of a blind pilot before the head reaches its floor, so it feels tight while clamping
+nothing. That hazard survived the redesign unchanged; only the numbers moved.
 
-⛔ **And the natural instinct — a longer screw is safer — is exactly backwards here.** At ×16
-the tip hits the bottom of the blind pilot before the head reaches its seat, so it **feels
-tight while clamping nothing**. That failure reads as "tightened fine" and leaves a loose
-bezel, which is the worst way for it to present.
-
-- ⚠️ **The countersink is cut for a specific head, and the sheet now says which.** ⌀**6.40 mm
-  at 90°** — `CSK_HEAD_D` / `CSK_HEAD_ANGLE` in the source, with the depth asserted against
-  them rather than typed. Read off the landed constants:
-
-  | your screw | what happens |
-  |---|---|
-  | **⌀6.40 head** | **flush, and bearing over the whole cone** — the design point |
-  | **DIN 965 M3** (⌀6.0 max) | sinks 0.20 mm below flush, bearing on its **rim** rather than the cone. Fine; slightly recessed |
-  | **ISO 10642** socket countersunk (⌀6.72) | ⛔ **sits proud by 0.16 mm** |
-
-  ⚠️ **"Full conical seat" is the geometric ideal; as sliced at 0.20 mm the cone is a staircase
-  of 8 annular steps**, so the head bears on 8 step corners rather than a smooth surface. Still
-  far better than the old 84.7° geometry's single line contact — 8 contact circles against 1 —
-  but it means **one gentle re-nip after the first tightening** is worth doing as the steps bed
-  down. A third pass is not.
-
-  **Proud is worse than sunk**: it stops the shell sitting flat and stops the screw clamping.
-  Same thread, same length, wrong head — and the packet often just says "M3 countersunk".
-  If ISO 10642 is what you have, the countersink wants **6.72 / 1.71** instead; that is a
-  named alternative, not a caveat.
-
-  > **Two 90° surfaces have parallel flanks**, so a head narrower than the mouth does not seat
-  > *deeper into the cone* — it descends until its **rim** touches the wall, at
-  > `(mouth − head) / 2`, and contacts along a line instead of over the whole seat. That is why
-  > the mouth is matched to a named head rather than opened up "to be safe": widening it
-  > corrects the angle and makes the seat **worse**.
-  >
-  > What limits the mouth is **the outer r6.45 corner arc**, not the vendor's ⌀5.60 pad. From
-  > the hole centre it is 5.743 mm to the outer surface, so a 6.40 mouth leaves **2.543 mm** of
-  > wall and 6.70 would leave 2.393. *(The ⌀5.60 pad is a real constraint — on `BOSS_D`, two
-  > bullets down, because the boss **bears** on the pad. The countersink is cut into the outer
-  > face 2.60 mm of wall away and never reaches the cavity, let alone the pad.)*
-
-- **Snug, not hard.** With a matched ⌀6.40 head this is now ordinary care in PLA rather than a
-  design flaw — the head lands on a **full conical seat**. But a DIN 965 ⌀6.00 head still bears
-  on its **rim**, a line contact, so the load is concentrated: over-torque there pulls the head
-  into the back face and craters it. It will not fail at *snug*.
-- 1.5 mm of solid skin remains under the bezel's front face at ×14.
-- **The thinnest wall at each screw hole got 17 % thicker as a side effect of fixing the seat.**
-  Between the countersink's small end and the cavity floor there is now **1.050 mm** of shell,
-  where the old 1.70 mm-deep cone left **0.900**. That is the point a screw driven off-axis
-  would break through into the cavity, and a shallower cone simply removes less material.
+- **The counterbore is deeper than the back wall, and that is by design.** 3.04 mm of bore in a
+  2.60 mm wall passes into the cavity — where the boss **flares to ⌀8.40** at the cavity floor,
+  tapering to ⌀5.40 at the PCB face. The flare is what the bore lands in. ⌀8.40 comfortably
+  surrounds ⌀5.80, so there is material all the way round.
+- **A flat floor is a bridge, not a cone.** It is 19 layers up, printed over the ⌀3.30
+  through-hole, so it bridges a 3.30 mm span — trivial, but it means the first layer *above* the
+  hole wants the fan on, and it is why the depth is an exact layer count rather than a round
+  number. A head bearing on a **flat** floor also gets a genuine full-face seat, so **no re-nip
+  is needed** — that advice belonged to the conical staircase and went with it.
 - **Heat-set inserts will NOT fit.** The vendor specifies a ⌀5.60 pad around each mounting
-  hole, so bosses are capped at ⌀5.40. An M3 insert needs a ⌀4.0–4.2 bore, leaving a 0.6 mm
-  wall that will split. Self-tappers only.
-- The boss OD (5.40) is inside the ⌀5.60 pad, so nothing bridges the annular ring. No
-  washers needed — but if you substitute a metal-headed screw with a wide flange, add a
-  nylon washer.
+  hole, so bosses are capped at ⌀5.40 **at the PCB face**. An M3 insert needs a ⌀4.0–4.2 bore,
+  leaving a 0.6 mm wall that will split. Self-tappers only.
+- **Snug, not hard.** You are clamping a 12 g PCB. A cylindrical head on a flat floor spreads
+  load over its whole face rather than a rim or a step, so this is now ordinary care in PLA
+  rather than a design consideration.
 
 Stand base: press fit. Seal the seam with a bead of silicone or a strip of tape — it needs
 to be **airtight, not structural**.

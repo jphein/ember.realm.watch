@@ -119,20 +119,23 @@ vendor's annotated board photo, §4.1 Figure 4.1):
 
 - **Bottom short edge** — USB-C **dead centre at 25.0 mm**, with two tact switches
   flanking it across the 50 mm width, each **3.26 mm** in from the edge. The pairing is
-  two switches at **x = 13.45 mm** and **x = 36.58 mm**. ⛔ **Which of them is BOOT is under
-  revision — this document no longer asserts it.** The pairing had been given as RESET at 13.45
-  and BOOT at 36.58, resting on: (a) the bare-board observation that the volume overlay comes up
-  from the switch on the **microSD side**, which is direct and probably still holds; and (b) the
-  microSD spanning x 33.68–44.83, which is **wrong**. That extent came from an 11.15 × 14.15 mm
-  plate standing **0.50 mm** off the PCB in the vendor STEP — a microSD socket is 1.4–2.8 mm
-  tall, so it was never one. It is the LCD driver flex.
+  two switches at **x = 13.45 mm** and **x = 36.58 mm**. The pairing is **BOOT at x = 13.45**
+  — the only readable switch — and **RESET at x = 36.58**, and it is now *derived* rather than
+  typed: `ember_case.py` reads it off the microSD socket's side of the board.
 
-  > **A correct observation, a correct inference, and a fictional anchor.** Moving the anchor
-  > moves the answer, so the durable form of (a) is: *the readable switch is the one on the same
-  > long edge as the microSD socket.* That survives whatever the socket's coordinates turn out
-  > to be. `ember_case.py` is being changed to derive `BTN_BOOT_X` / `BTN_RESET_X` from the
-  > socket rather than carry them as literals; until that lands, treat both coordinates as
-  > unassigned.
+  > ⚠️ **It used to be given the other way round, and the error is worth keeping.** The claim
+  > rested on (a) the bare-board observation that the volume overlay comes up from the switch on
+  > the **microSD side** — direct, and still true — plus (b) the microSD spanning x 33.68–44.83.
+  > **(b) was wrong.** That extent came from an 11.15 × 14.15 mm plate standing **0.50 mm** off
+  > the PCB in the vendor STEP; a microSD socket is 1.4–2.8 mm tall, so it was never one. It is
+  > the LCD driver flex. The real socket is authored in the same file as **zero-thickness faces**
+  > at **x 2.53–17.53** — the other long edge — so moving the anchor inverted the answer.
+  >
+  > **A correct observation, a correct inference, and a fictional anchor.** The durable form of
+  > (a) needs no coordinate at all: *the readable switch is the one on the same long edge as the
+  > microSD socket.* **A relative claim cannot be broken by mislabelling the thing it points at;
+  > an absolute one can** — and converting this one to an x value is the only reason it could
+  > break.
 
   > **Refer to these by coordinate or by constant, never by left/right.** Which side
   > each appears on flips with the view: a back three-quarter mirrors the board, and a
