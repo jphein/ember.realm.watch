@@ -37,6 +37,7 @@ HOLES           = [(4.0,4.0),(46.0,4.0),(4.0,82.0),(46.0,82.0)]   # d3.20, pad d
 GLASS_Y         = (8.40, 77.60)     # glass spans full 50mm width
 VA              = (3.20, 46.80, 16.81, 74.86)   # visible area x0,x1,y0,y1
 MIC             = (40.00, 81.50)    # mic package centre, in the top bare strip
+MIC_HOLE_D      = 3.00              # back relief bore; the MIC label's keepout reads it
 # ---- THE ONE ABSOLUTE BIT.  EVERYTHING ELSE ABOUT X IN THIS FILE IS RELATIVE. ----
 #
 # ⚠️ READ THIS BEFORE ADDING ANY "IS THE BOARD MIRRORED?" CHECK, because the obvious ones cannot
@@ -356,6 +357,13 @@ CAP_CX_RESET = _island_cx(BTN_RESET_X, BTN_R_SMALL)  # island centre; switch at 
 # the part no longer had. Exactly the dead-GRILLE_SLOT_W hazard one screenful up, and the
 # reason a shared number gets a name.
 HEX_FIELD_Y0 = 19.00
+# X0/X1/Y1 hoisted out of the _hex_panel() call below at the same time the back-face labels
+# went in. They were literals with ONE consumer, which was fine; the labels make them literals
+# with TWO, which is exactly the shape that produced the dead SD_PLATE and the dead
+# GRILLE_SLOT_W. Naming them is cheaper than re-learning it a third time.
+HEX_FIELD_X0 = 9.00
+HEX_FIELD_X1 = 41.00
+HEX_FIELD_Y1 = 75.00
 # DEBOSSED, NOT RAISED — and the print orientation decides this, not taste.
 #
 # The first version of these caps stood 1.20mm PROUD of the back face, because JP asked for
@@ -947,10 +955,211 @@ def side_channels():
     (lo if _SD_CX < BW/2 else hi).append(slit)
     return _merge_spans(hi, CHAN_RIB), _merge_spans(lo, CHAN_RIB)
 
+# ============================================================================
+# 5a-bis. BACK-FACE LABELS  --  SD, VOL, a power symbol, MIC
+# ============================================================================
+#
+# DEBOSSED, and for the same reason the button caps are: this face prints against the bed, so
+# a raised feature becomes the lowest thing on the part and the shell balances on it. The
+# depth is 3 * LAYER_H, identical to BEZEL_DEBOSS -- one named layer count, two faces.
+#
+# ⚠️ MIRRORED IN X, AND THIS IS THE ONE THAT SHIPS BACKWARDS IF NOBODY WRITES IT DOWN.
+# The back face is seen from -Z. For a viewer there with +Y up, their right-hand direction is
+# forward x up = (0,0,1) x (0,1,0) = (-1,0,0) -- so model +X runs to their LEFT. Every glyph
+# is therefore authored in READING space (u to the right as read) and mirrored on placement by
+# _back_label(). The wyrm mark on the FRONT bezel is also mirrored, but for art-direction
+# reasons, so it is not precedent for this and copying its sign would prove nothing.
+#
+# TWO SIZES, NOT ONE, and the split is forced rather than stylistic. The big cap is 13.27mm
+# across flats, which caps a three-letter label at h=3.80. The flat back has room for h=5.50,
+# and SD NEEDS it: at h=5.10 the S's upper counter pinches to 0.843mm against the 0.90 floor.
+# Using the cap size everywhere would have put an unprintable S on the part; using the flat
+# size everywhere would not fit on the cap.
+import strokefont as _SF
+
+LABEL_W      = 0.90            # groove width == this repo's nozzle floor, the same 0.90 the
+                               # wyrm mark asserts. It is an ARGUMENT to the stroke font, not
+                               # a consequence of a typeface -- see tools/strokefont.py.
+LABEL_GAP    = 1.90            # centreline gap between glyphs -> exactly 1.00mm of material.
+                               # 1.80 was tried and lands the gap ON 0.90, i.e. zero margin.
+LABEL_DEBOSS = 3 * LAYER_H     # 0.48. Same three layers as BEZEL_DEBOSS.
+LABEL_H_CAP  = 3.80            # centreline cap height on a button face (ink 4.70)
+LABEL_H_FLAT = 5.50            # centreline cap height on the flat back  (ink 6.40)
+LABEL_MARGIN = 0.80            # keepout from any edge or neighbouring feature
+PWR_R        = 2.70            # power-symbol ring, centreline radius (ink dia 6.30)
+PWR_STEP_DEG = 12.0            # ring subdivision. Sagitta = r*(1-cos(6deg)) =
+                               # 0.015mm, invisible at a 0.4mm nozzle, and the
+                               # CHECK reads the same polyline the cut does.
+PWR_GAP_DEG  = 84.0            # DERIVED, not styled: the material between a ring end and the
+                               # bar is PWR_R*sin(gap/2) - LABEL_W, so clearing 0.90 needs
+                               # gap >= 83.6 deg. A conventional 60-deg break measures 0.45mm
+                               # and prints as a closed ring with a smudge in it.
+
+_pwr_web = PWR_R * math.sin(math.radians(PWR_GAP_DEG / 2)) - LABEL_W
+assert _pwr_web >= LABEL_W, (
+    f"the power symbol's break leaves {_pwr_web:.3f}mm between the ring end and the bar, "
+    f"under the {LABEL_W}mm floor. Widen PWR_GAP_DEG or grow PWR_R.")
+
+
+def _label_sketch(paths, w):
+    """Reading-space centrelines -> one 2D sketch of round-capped strokes.
+
+    2D rather than 3D on purpose: ~130 segments across the four labels, and fusing that many
+    SOLIDS in OCC is minutes where fusing faces is seconds. One extrude at the end.
+
+    ⚠️ BULK-FUSED, NOT ACCUMULATED. `sk = sk + piece` in a loop is quadratic in OCC -- it
+    rebuilds the whole result every iteration -- and it took this model from 3s to over four
+    minutes. `Sketch() + [pieces]` fuses in one pass: measured 0.30s vs 5.01s on 120 discs,
+    and the gap widens with count. One round cap per unique VERTEX rather than two per
+    segment halves the face count again."""
+    pieces, seen = [], set()
+    for poly in paths:
+        for i, (vx, vy) in enumerate(poly):
+            key = (round(vx, 6), round(vy, 6))
+            if key not in seen:                 # one cap per vertex, not two per segment
+                seen.add(key)
+                pieces.append(Pos(vx, vy) * Circle(w / 2))
+            if i + 1 < len(poly):
+                (bx_, by_) = poly[i + 1]
+                L = math.hypot(bx_ - vx, by_ - vy)
+                if L > 1e-9:
+                    pieces.append(Pos((vx + bx_) / 2, (vy + by_) / 2)
+                                  * Rot(0, 0, math.degrees(math.atan2(by_ - vy, bx_ - vx)))
+                                  * Rectangle(L, w))
+    return Sketch() + pieces
+
+
+def _back_label(paths, cx, cy, z0, z1, rot90=False):
+    """Cut-solid for a label centred on the back face at board (cx, cy). See the mirror note."""
+    if rot90:                                  # reads bottom-to-top, for a label beside a slit
+        paths = [[(-v, u) for (u, v) in poly] for poly in paths]
+    paths = [[(-u, v) for (u, v) in poly] for poly in paths]        # <-- THE MIRROR
+    return Pos(cx, cy, z0) * extrude(_label_sketch(paths, LABEL_W), z1 - z0)
+
+
+def _label_ok(paths, what):
+    """Every label proves its own material clearance before it is allowed onto the part."""
+    d, who, n = _SF.min_gap(paths, LABEL_W)
+    assert n > 0, (
+        f"label {what!r}: min_gap measured ZERO pairs, which reads as a pass and is not one — "
+        f"it means every counter has fused into ink. See strokefont.min_gap's RETURNS note.")
+    assert d >= LABEL_W, (
+        f"label {what!r} leaves {d:.3f}mm of material at its tightest point, under the "
+        f"{LABEL_W}mm floor — it will print as a smudge. Worst pair: {who}")
+    return d
+
+
+def _hex_holds(w, h, R, margin, what):
+    """Does an ink box of w x h fit inside a FLAT-TOP hexagon of circumradius R, inset by
+    `margin`? Flat-top means the binding constraint is the slanted edge, not the width:
+    a point is inside iff |y| <= sqrt(3)R/2 AND sqrt(3)|x| + |y| <= sqrt(3)R."""
+    Ri = R - 2 * margin / math.sqrt(3)          # inset perpendicular to every edge
+    x, y = w / 2.0, h / 2.0
+    slack = math.sqrt(3) * Ri - (math.sqrt(3) * x + y)
+    assert y <= math.sqrt(3) * Ri / 2 and slack >= 0, (
+        f"{what}: a {w:.2f}x{h:.2f}mm label does not fit a hexagon of R={R:.3f} with "
+        f"{margin}mm of margin (slack {slack:+.3f}mm). Shrink LABEL_H_CAP.")
+    return slack / math.sqrt(3)                 # spare margin, perpendicular to the slant
+
+
+def _hex_holds_circle(d, R, margin, what):
+    """Same question for a ROUND mark. A circle is not its bounding box and using the box
+    test on the power symbol failed it by 1.94mm on a hexagon it clears by 0.98 — the box's
+    corners overhang the circle by 41%, and a hexagon is exactly where that bites."""
+    apothem = math.sqrt(3) * R / 2.0
+    slack = apothem - d / 2.0 - margin
+    assert slack >= 0, (
+        f"{what}: a {d:.2f}mm round mark does not fit a hexagon of R={R:.3f} with {margin}mm "
+        f"of margin (slack {slack:+.3f}mm). Shrink PWR_R.")
+    return slack
+
+
+# ---- WHERE EACH LABEL GOES. Every coordinate DERIVED from the feature it names. ------------
+#
+# This file has been bitten twice by a coordinate that named a feature and was linked to it
+# only by a human reading both (the dead SD_PLATE, the dead GRILLE_SLOT_W). A label is the
+# purest form of that hazard -- it is a coordinate whose ENTIRE JOB is to point at something
+# else -- so none of these are typed. Move the mic and its label follows; move the hex field
+# and the SD label re-centres in whatever margin is left.
+_LBL = {}
+_LBL["VOL"] = _SF.text_paths("VOL", LABEL_H_CAP,  LABEL_W, LABEL_GAP)
+_LBL["PWR"] = _SF.power_paths(PWR_R, LABEL_W, PWR_GAP_DEG, PWR_STEP_DEG)
+_LBL["SD"]  = _SF.text_paths("SD",  LABEL_H_FLAT, LABEL_W, LABEL_GAP)
+_LBL["MIC"] = _SF.text_paths("MIC", LABEL_H_FLAT, LABEL_W, LABEL_GAP)
+for _k in _LBL:
+    _label_ok(_LBL[_k], _k)
+
+_SD_W,  _SD_H  = _SF.ink_size("SD",  LABEL_H_FLAT, LABEL_W, LABEL_GAP)
+_MIC_W, _MIC_H = _SF.ink_size("MIC", LABEL_H_FLAT, LABEL_W, LABEL_GAP)
+_VOL_W, _VOL_H = _SF.ink_size("VOL", LABEL_H_CAP,  LABEL_W, LABEL_GAP)
+
+# SD: centred in the free margin strip between the board edge and the hex field, and centred
+# on the SLIT so the two read as one thing. Rotated, so its INK HEIGHT is what spends the
+# strip's width.
+LBL_SD_X = HEX_FIELD_X0 / 2.0
+LBL_SD_Y = (SD_SOCKET[2] + SD_SOCKET[3]) / 2.0
+assert LBL_SD_X - _SD_H / 2 >= LABEL_MARGIN and LBL_SD_X + _SD_H / 2 <= HEX_FIELD_X0 - LABEL_MARGIN, (
+    f"the SD label is {_SD_H:.2f}mm across and the margin strip is only {HEX_FIELD_X0}mm "
+    f"wide; it would foul the board edge or the hex field. Shrink LABEL_H_FLAT.")
+assert (LBL_SD_Y - _SD_W / 2 >= SD_SOCKET[2] - 2.0
+        and LBL_SD_Y + _SD_W / 2 <= SD_SOCKET[3] + 2.0), (
+    "the SD label has drifted off the slit it names")
+
+# MIC: butted up to the mic hole's keepout on the side away from the corner boss, and centred
+# on the hole's own Y so the label sits beside it rather than under it.
+LBL_MIC_X = MIC[0] - MIC_HOLE_D / 2 - LABEL_MARGIN - _MIC_W / 2
+LBL_MIC_Y = MIC[1]
+assert LBL_MIC_Y - _MIC_H / 2 >= HEX_FIELD_Y1 + LABEL_MARGIN, (
+    f"the MIC label reaches y={LBL_MIC_Y - _MIC_H/2:.2f} and the hex field ends at "
+    f"{HEX_FIELD_Y1} — it would cut into the vent cells.")
+assert LBL_MIC_X - _MIC_W / 2 >= HOLES[2][0] + CBORE_D / 2 + LABEL_MARGIN, (
+    "the MIC label runs into the upper-left screw counterbore")
+assert LBL_MIC_X + _MIC_W / 2 <= MIC[0] - MIC_HOLE_D / 2 - LABEL_MARGIN + 1e-9, (
+    "the MIC label runs into the mic hole")
+
+# CAP LABELS. The remaining cap thickness is the thing to watch, and it was worth a number
+# rather than a shrug: the big cap goes 1.70 -> 1.22mm under its label. As a cantilever plate
+# (b~13, L~7, E~3500MPa) a 2N press bows it 0.033mm, against 0.012mm before the label and a
+# ~0.25mm switch travel. So the label costs ~8% of travel in bow. Negligible — but it is
+# negligible because it was computed, not because 1.22 > 0.90 sounded comfortable.
+for _cx in BTN:
+    _cy, _R, _deb = cap_geometry(_cx[0])
+    _big = (_cx[0] == BTN_BOOT_X)
+    _rem = WALL - _deb - LABEL_DEBOSS
+    assert _rem >= 1.20, (
+        f"a label on the cap at x={_cx[0]} leaves {_rem:.2f}mm of cap. Too floppy to drive "
+        f"the pip; either shallow the label or shallow the cap deboss.")
+    if _big:
+        _slack = _hex_holds(_VOL_W, _VOL_H, _R - CAP_INSET, LABEL_MARGIN, "VOL on the big cap")
+    else:
+        _pw = 2 * (PWR_R + LABEL_W / 2)
+        _slack = _hex_holds_circle(_pw, _R - CAP_INSET, LABEL_MARGIN,
+                                   "power symbol on the small cap")
+
+
 def back_shell():
     p  = rbox(OX0,OX1,OY0,OY1, BACK_Z, SEAM_Z, OUT_R)
     # board + glass pocket, and the back-component cavity, in one cut
     p -= rbox(PK0,PK1,PY0,PY1, CAV_FLOOR, SEAM_Z+1, POCK_R)
+    # ---- BACK-FACE LABELS, cut EARLY and on purpose. ----
+    # Boolean cost in OCC depends on how many faces the operand already has, so the same four
+    # cuts are cheap here and expensive after the ~110-cell hex field lands. The RESULT is
+    # order-independent (p-A-B == p-B-A); only the bill changes. Cutting the cap labels here
+    # also means they do not depend on the cap recess existing yet -- both are just cuts.
+    #
+    # Which label goes on which cap is keyed on the SWITCH x, never on "the big one": the
+    # apparent side flips between figures of this same part, and reading a side off a picture
+    # is what put the caps on backwards the first time.
+    for (_cx, _cy) in BTN:
+        _cyh, _R, _deb = cap_geometry(_cx)
+        p -= _back_label(_LBL["VOL"] if _cx == BTN_BOOT_X else _LBL["PWR"],
+                         cap_center_x(_cx), _cyh,
+                         BACK_Z - 1.0, BACK_Z + _deb + LABEL_DEBOSS)
+    # SD reads bottom-to-top, beside the slit it names; MIC sits beside the mic bore.
+    p -= _back_label(_LBL["SD"],  LBL_SD_X,  LBL_SD_Y,
+                     BACK_Z - 1.0, BACK_Z + LABEL_DEBOSS, rot90=True)
+    p -= _back_label(_LBL["MIC"], LBL_MIC_X, LBL_MIC_Y,
+                     BACK_Z - 1.0, BACK_Z + LABEL_DEBOSS)
     # screw standoffs up to the PCB back face
     for (hx,hy) in HOLES:
         # FLARED boss: BOSS_D at the PCB face (the vendor keepout applies THERE), widening to
@@ -969,7 +1178,7 @@ def back_shell():
     for (a,b) in _lo:
         p -= bx(OX0-1, PK0+0.01, a,b, CAV_FLOOR, PCB_BOT)
     # ---- mic BACK relief: works whichever way the port faces ----
-    p -= cyl(MIC[0],MIC[1], BACK_Z-1, CAV_FLOOR+0.01, 3.00)
+    p -= cyl(MIC[0],MIC[1], BACK_Z-1, CAV_FLOOR+0.01, MIC_HOLE_D)
     # ---- NO LED WINDOW, NO DIFFUSER ----
     # There used to be a 12mm bore over the WS2812 plus a 16mm seat for a printed
     # translucent disc. Both are gone: the fine hex field below passes straight over the
@@ -1021,7 +1230,8 @@ def back_shell():
     # them gives 16.30 + 0.80 + 1.85 = 18.95. An earlier estimate of 18.5 omitted the cell's
     # half-height; an earlier one of 34 was measured against a different cap architecture
     # entirely. The field yields 8mm so the caps can be thumb-sized — JP authorised that trade.
-    p -= _hex_panel(9.0, 41.0, HEX_FIELD_Y0, 75.0, BACK_Z-1, CAV_FLOOR+1, 3.2, 0.8)
+    p -= _hex_panel(HEX_FIELD_X0, HEX_FIELD_X1, HEX_FIELD_Y0, HEX_FIELD_Y1,
+                BACK_Z-1, CAV_FLOOR+1, 3.2, 0.8)
     return p
 
 # diffuser() deleted along with the LED window it seated into — see back_shell().
