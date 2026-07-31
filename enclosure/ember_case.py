@@ -1519,8 +1519,38 @@ GRILLE_SLOT_W2 = 2.60
 # 0.45 is the trap: it leaves 0.1206mm, which passes a solids count and does not print — too
 # thin to be a web, too thick to be a merge. The assert below rejects exactly that band, so
 # this constant can be changed freely but not into a sliver.
-GRILLE_FLARE  = 0.60
-GRILLE_MOUTH_WEB = HEX_WEB - math.sqrt(3) * GRILLE_FLARE       # -0.1392 at 0.60
+# ⚠️ WAS 0.60 (MERGED ON PURPOSE) UNTIL THE PART CAME OFF THE BED WITH NO GRILLE. Issue #28.
+#
+# JP: "the hex holes on the front grill are too big" and then "they didn't print because of too
+# far bridging." The apertures DID NOT FORM. Everything above this line is correct and none of it
+# is about printing: the merge was chosen for acoustics, measured, asserted against the sliver
+# band, and documented. What nobody asked is what the merge does to the UNSUPPORTED SPAN.
+#
+# MEASURED on the shipped ember-stand.stl — downward-facing near-horizontal facets, which are by
+# definition bridge undersides, with their X-coverage resolved into contiguous runs:
+#
+#     z ~ 32.5   35.283 mm   ONE run, no gaps
+#     z ~ 34.5   37.078 mm   ONE run, no gaps      <- 37mm of unsupported bridge
+#
+# ⚠️ ZERO WEBS IN A 37MM RUN. FDM bridges reliably to ~10-20mm. The merge is not merely visible
+# at the mouth — it DELETES THE WEBS THAT WOULD HAVE ANCHORED EACH BRIDGE, welding the truncated
+# top row of cells and the field rectangle's top edge into one continuous span.
+#
+# ⚠️ AND THE OBVIOUS LEVER IS THE WRONG ONE. The issue asks for smaller hexes; smaller hexes do
+# NOT fix this. The merge threshold is HEX_WEB/sqrt(3) = 0.5196 and HEX_WEB stays 0.90 at every
+# lattice scale, so a finer field with this flare merges exactly as completely and still will not
+# print. Finer cells arguably make it worse: more cells per row means more truncation.
+#
+# 0.25 gives a 0.4670mm mouth web -- above the 0.45 floor the assert below names, with margin
+# rather than sitting on it. It keeps 42% of the original relief.
+#
+# THE ACOUSTIC OBJECTION TO CUTTING THE FLARE HAS COLLAPSED, and it is worth saying why rather
+# than just doing it: the flare exists because a sharp-edged mouth sheds vortices and chuffs at
+# level. That is a real effect. But AN ACOUSTIC BENEFIT THAT DOES NOT PRINT IS NOT A BENEFIT --
+# the shipped geometry had no apertures at all, so it had no relief either. 42% of a feature that
+# exists beats 100% of one that does not.
+GRILLE_FLARE  = 0.25
+GRILLE_MOUTH_WEB = HEX_WEB - math.sqrt(3) * GRILLE_FLARE       # 0.4670 at 0.25
 GRILLE_MOUTH_MERGED = GRILLE_MOUTH_WEB <= 0.0
 assert GRILLE_MOUTH_WEB >= 0.45 or GRILLE_MOUTH_MERGED, (
     f"the grille's flared mouth web is {GRILLE_MOUTH_WEB:.4f}mm — a fin: too thin to print and "
