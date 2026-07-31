@@ -68,7 +68,7 @@ and a `../cadenv` that does not exist. See [`README.md`](README.md) for first-ti
 | File | Qty | Print orientation | Supports | Notes |
 |---|---|---|---|---|
 | `ember-front-bezel.stl` | 1 | **front face DOWN** on the bed — ✅ **the STL is now exported already in this orientation, so load and print; no flip needed** (issue #25: it used to export face-UP, standing the part on four ⌀5.40 boss tips totalling 71.9 mm² with the whole 1847.9 mm² face in the air) | **none** | The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are bed-side chamfers, so they self-support. **The debossed honeycomb and the wyrm mark are bed-side recesses**, 0.48 mm deep — exactly three layers at this part's 0.16 mm — and print as bridged voids, which is *why* they are recesses: on a bed face, relief only goes inward. |
-| `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** *(measured)* | ⛔ **Set gap-closing radius / hole horizontal expansion to 0 before slicing — see below, a default will weld the buttons shut.** Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Counterbores are flat-floored ⌀5.80 pockets opening onto the bed. (This line said "countersinks widen downward" — a leftover from the deleted conical version; the head is cylindrical.) ⚠️ **REPRINT if you have not started this part yet — it gained five connector labels** (issue #27). **Labels** (`SD`, `MIC`, `VOL`, power symbol, and now `UART` `I2C` `SPK` `BAT` `IO`) are debossed **0.40 mm = 2 layers at the shell's own 0.20** (was 0.48 = 3 layers at the *bezel's* 0.16 — issue #26), and the two cap labels sit at the bottom of bridged recesses, so they are the first thing sag will blur. **The nine labels are exactly what the gap-closing warning above protects** — every one is a 0.90 mm groove, which is precisely the width a default gap-closer welds shut, and a welded label reads as a smudge rather than as a missing feature. **The debossed cap faces are bed-side recesses and they bridge 13.27 mm (BOOT) / 8.27 (RESET)** — expect visible sag in the middle of both, and run the fan at 100 % for the first ~5 layers. |
+| `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** *(measured)* | ⛔ **Set gap-closing radius / hole horizontal expansion to 0 before slicing — see below, a default will weld the buttons shut.** Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Counterbores are flat-floored ⌀5.80 pockets opening onto the bed. (This line said "countersinks widen downward" — a leftover from the deleted conical version; the head is cylindrical.) ⚠️ **REPRINT if you have not started this part yet — it gained five connector labels (#27) and a speaker-plug relief (#33).** The relief is a **through-opening in the back slab** over the speaker connector, x 44.54–50.35, y 31.79–40.94 — it prints as a bed-side aperture, so it costs nothing and needs no support. It stops at the *cavity* wall, not the outer edge, so the shell's outline is unbroken. **Labels** (`SD`, `MIC`, `VOL`, power symbol, and now `UART` `I2C` `SPK` `BAT` `IO`) are debossed **0.40 mm = 2 layers at the shell's own 0.20** (was 0.48 = 3 layers at the *bezel's* 0.16 — issue #26), and the two cap labels sit at the bottom of bridged recesses, so they are the first thing sag will blur. **The nine labels are exactly what the gap-closing warning above protects** — every one is a 0.90 mm groove, which is precisely the width a default gap-closer welds shut, and a welded label reads as a smudge rather than as a missing feature. **The debossed cap faces are bed-side recesses and they bridge 13.27 mm (BOOT) / 8.27 (RESET)** — expect visible sag in the middle of both, and run the fan at 100 % for the first ~5 layers. |
 | `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | ⚠️ **REPRINT — this part is 16 mm taller than the one you have, and its grille is finer** (issues #29/#30/#31 + #28, see *The plinth* below). **Bridges, quoted by the span the printer actually crosses — the *narrow* dimension, since a bridge is laid the short way:** chamber ceiling **15.3 mm**, speaker-wire channel **24.7 mm** (both unchanged, both printed fine for JP), cable egress **6.0 mm**. ⚠️ **And one that will droop: the baffle recess's straight top edge is a 37.1 mm bridge**, 2.2 mm wide, at z ≈ 50.5 — it is *not* a grille aperture and the #28 rescale did not touch it, because it is a single pocket rather than a lattice. Expect visible sag in that one strip; it is cosmetic and it is a known open item. **The egress figure is 6.0 and not 14** because the channel's R4 corners taper the void closed over the last 4 mm, leaving only 6 mm genuinely flat at the top — and it is a **true bridge** rather than an anchored ledge, because the channel is open through the plinth's full depth beneath it, so there is no material behind the span. Leave bridging on (slicer default). The plinth is **solid in the model on purpose**: a hollow one would have made the cradle floor bridge ~56 mm, whereas a solid one is just infill and the transition needs no bridge at all. Set infill by the *slicer*, not by hollowing the CAD. ✅ **The gap-closing / hole-horizontal-expansion warning on the shell row does NOT extend to this part's new features** — the egress is 14 mm wide and the corridor 18, three orders off anything that setting welds shut. Two features depend on it, not three; the grille's 0.90 mm webs are the ones to worry about. The **finger scoop** in the rear slot wall opens *upward*, so every wall is near-vertical: no bridge. (It is **one** opening, x 13.94–50.51, not two — `SCALLOP_MIN_RIB` merges them.) The **rear rim is now notched** across x 13.20–50.23 down to z 43.62 so you can reach the caps; the two full-height zones either side of it are what still holds the slab. The **wire saddle** merges into the notch's right-hand end — deliberate, same rule. |
 | `ember-stand-base.stl` | 1 | flat | none | Closes the speaker chamber. Press fit. ⚠️ **Resized in `89001ea` — reprint if you made one earlier.** |
 
@@ -662,7 +662,7 @@ strip **beside the side channel it names**, rotated to read bottom-to-top like `
 |---|---|--:|---|
 | `BAT` | **X = 0** (microSD side) | 23.20 | `BAT`, 2-pin, marked `− +` |
 | `UART` | X = 0 | 34.98 | `UART`, 4-pin `RXD TXD GND 5V` |
-| `SPK` | **X = 50** (mic side) | 36.36 | `SPEAKER`, 2-pin |
+| `SPK` | **X = 50** (mic side) | 36.36 | `SPEAKER`, 2-pin — ⚠️ **top-entry**, see below |
 | `I2C` | X = 50 | 49.92 | `I2C`, `3.3V GND IO15(SCL) IO16(SDA)` |
 | `IO` | X = 50 | 67.77 | `IO2 IO3 IO1x IO21` |
 
@@ -680,6 +680,36 @@ strip **beside the side channel it names**, rotated to read bottom-to-top like `
 > one with the `− +` polarity marks. If `BAT` is right, the chain is right and so are the other
 > four. This is the same discipline that caught BOOT and RESET being swapped: a physical
 > observation anchored to a coordinate beats any amount of re-derivation from a drawing.
+>
+> ✅ **And one bench observation has already corroborated it.** JP reported (#33) that *the
+> speaker plug is top-entry, unlike the side-entry connectors*. Measured out of the STEP,
+> **exactly one connector is different** — `CONN_R[0]` is 4.70 mm tall where the other four are
+> 3.40, and it is the only one reaching the board's own minimum Z. It is the one the drawing's
+> chain names `SPEAKER`. A hands-on observation and a documentary one landing on the same solid
+> is two witnesses of different kinds; the build asserts they keep agreeing.
+
+### The speaker plug is top-entry — that is why there is a hole above it (#33)
+
+Its plug and wires leave the board **into the shell**, not sideways, and there was only
+**0.80 mm** of headroom above it (every other connector has 2.10). So the back slab is opened
+over it: **x 44.54–50.35, y 31.79–40.94, straight through.**
+
+> **A through-opening rather than a blind pocket, and the reason is a bound rather than a
+> measurement.** Nobody has the plug's height — it is your speaker's own pigtail and it is not
+> in the vendor model. A blind pocket leaving a printable floor caps headroom at **3.00 mm**; a
+> 2-pin 1.25 mm plug protrudes ~1.5–2.5 mm past its header and the wires then have to turn.
+> "Probably enough" fails an acceptance test that reads *the shell closes fully*. A
+> through-opening cannot be too shallow.
+>
+> ⚠️ It reaches the **cavity** wall on purpose. The connector fills the cavity to within
+> 0.80 mm, so the lead cannot pass over the top of it — a 1 mm wire in a 0.80 mm gap is the
+> pinched-lead hazard the stand's wire saddle exists to prevent. Taking the opening out to
+> x 50.35 lets the lead get outboard of the connector, rise into the cavity, and leave through
+> the side channel that already serves this port.
+
+**`SPK` is therefore the one label not level with its port** — its ink sits immediately *below*
+the opening rather than on top of it. A label beside a visible hole points harder than a label
+over an invisible connector.
 
 **Some labels are not centred on their port, and that is deliberate.** `BAT` and `UART` are only
 11.78 mm apart while their ink is 13.28 and 18.04 mm long, so centring both is arithmetically

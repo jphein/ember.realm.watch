@@ -163,6 +163,54 @@ PIP_D           = 3.00              # pip that reaches the plunger. WAS 4.00, an
 LED             = (29.00, 45.60)    # WS2812B 5x5, on the BACK, fires rearward
 ANT             = (17.57, 32.21, 80.04, 85.70)  # PCB antenna -- KEEPOUT, no metal
 CONN_R         = [(32.54,40.19),(44.84,54.99),(62.69,72.84)]  # X=50 edge connectors
+# X extent of the X=50 edge connectors, MEASURED off the STEP solids. Stored because the
+# speaker relief (#33) needs it and nothing else in this file knew how far inboard they reach.
+CONN_R_X       = (45.29, 49.49)
+# >>> THE SPEAKER CONNECTOR IS TOP-ENTRY, AND IT IS THE ONLY ONE. <<<  (issue #33)
+#
+# JP, board and shell in hand: the speaker plug and its wires leave the board UPWARD into the
+# shell, not sideways like every other connector, so the side-channel treatment is the wrong
+# shape for it and the shell bears on the plug instead of closing.
+#
+# ⚠️ THAT OBSERVATION INDEPENDENTLY CONFIRMS THE #27 MAPPING, which is worth more than the
+# relief it asks for. Measured out of the STEP, the five connectors are:
+#
+#     CONN_R[0]  z -6.30..-1.60  H 4.70   0.80mm to CAV_FLOOR   <- SPK, per the silkscreen
+#     CONN_R[1]  z -5.00..-1.60  H 3.40   2.10mm
+#     CONN_R[2]  z -5.00..-1.60  H 3.40   2.10mm
+#     CONN_L[0]  z -5.00..-1.60  H 3.40   2.10mm
+#     CONN_L[1]  z -5.00..-1.60  H 3.40   2.10mm
+#
+# EXACTLY ONE connector is taller than the others, it is 1.30mm taller, it reaches the board's
+# own minimum Z, and it is the one the vendor silkscreen chain names SPEAKER. A physical
+# observation ("the speaker one is different") and a documentary one (the drawing) agreeing on
+# the same solid is the standard this file holds for handedness — see BTN_TIP_Z, where the
+# bench test beat the drawing. There is an assert in __main__ that keeps them agreeing.
+SPK_CONN_I     = 0                 # index into CONN_R. Derived-and-asserted, not chosen.
+# ---- and the relief it needs. A THROUGH-OPENING, and the reasoning is a bound, not a guess ----
+#
+# The plug's height is the one number nobody has: it is JP's speaker's own pigtail and it is
+# not in the STEP. So the choice was made on which failure is available rather than on a
+# dimension I would have had to invent.
+#
+#   headroom today                                    0.80mm
+#   a blind pocket, leaving 0.40mm of printable floor 0.80 + 2.20 = 3.00mm    <- BOUNDED
+#   a through-opening                                 unbounded              <- cannot be short
+#
+# A 2-pin 1.25mm plug protrudes ~1.5-2.5mm past its header and its wires then need to turn.
+# 3.00mm might do and might not, and "might" fails an acceptance test that reads "the shell
+# closes fully". A through-opening cannot be too shallow, which is the whole argument.
+#
+# ⚠️ IT MUST REACH THE SIDE WALL, and that is the part a footprint-shaped hole would miss. The
+# connector already fills the cavity to within 0.80mm, so the lead cannot travel over the top
+# of it to the side channel — a 1mm wire in 0.80mm of gap is the pinched-wire hazard the stand's
+# wire saddle exists to prevent, reintroduced 40mm away. Taking the opening outboard to OX1
+# merges it with the existing side channel over the same Y span, so the plug drops in and the
+# lead leaves sideways through a route that already exists.
+SPK_RELIEF_CLR = 0.75              # per side, plug housing vs connector body
+SPK_RELIEF_Y   = (CONN_R[SPK_CONN_I][0] - SPK_RELIEF_CLR,
+                  CONN_R[SPK_CONN_I][1] + SPK_RELIEF_CLR)
+SPK_RELIEF_X0  = CONN_R_X[0] - SPK_RELIEF_CLR
 CONN_L         = [(21.07,25.32),(29.91,40.06)]                # X=0  edge connectors
 CONN_R_EDGE_X  = BW      # the long edge CONN_R sits on
 CONN_L_EDGE_X  = 0.0     # the long edge CONN_L sits on
@@ -1291,6 +1339,7 @@ def _pack_labels(items, y_lo, y_hi, what):
     return c
 
 
+_FACE_OPENING = {"SPK": SPK_RELIEF_Y}   # ports whose relief pierces the back face
 _CH_HI, _CH_LO = side_channels()                  # x=BW edge, x=0 edge
 _conn_place = {}                                  # name -> (x, y, own channel span)
 for _names, _spans, _x, _yhi, _what in (
@@ -1298,9 +1347,18 @@ for _names, _spans, _x, _yhi, _what in (
         # this strip and is not moving for us. The right strip is empty, so it gets the lot.
         (CONN_LBL_L, _CH_LO, LBL_CONN_X_L, LBL_SD_Y - _SD_W / 2 - LABEL_WORD_GAP, "x=0"),
         (CONN_LBL_R, _CH_HI, LBL_CONN_X_R, _LBL_Y_HI, "x=%g" % BW)):
-    _items = [(_n, (_spans[_i][0] + _spans[_i][1]) / 2,
-               _SF.ink_size(_n, LABEL_H_FLAT, LABEL_W, LABEL_GAP)[0])
-              for _i, _n in enumerate(_names)]
+    # ⚠️ A PORT WITH A HOLE IN THE FACE CANNOT HAVE ITS LABEL ON TOP OF IT (#33). SPK's relief
+    # is a through-opening across y 31.79..40.94, which is exactly where SPK's ink wanted to
+    # be, so its nominal moves to just clear of the opening instead of onto its port. That is
+    # not a downgrade in association: a label beside a visible hole points harder than a label
+    # over an invisible connector. The `nearest label wins` ledger below is what checks it.
+    _items = []
+    for _i, _n in enumerate(_names):
+        _len = _SF.ink_size(_n, LABEL_H_FLAT, LABEL_W, LABEL_GAP)[0]
+        _nom = (_spans[_i][0] + _spans[_i][1]) / 2
+        if _n in _FACE_OPENING:
+            _nom = min(_nom, _FACE_OPENING[_n][0] - LABEL_WORD_GAP - _len / 2)
+        _items.append((_n, _nom, _len))
     for _n, _cy in zip(_names, _pack_labels(_items, _LBL_Y_LO, _yhi, _what)):
         _conn_place[_n] = (_x, _cy, _spans[list(_names).index(_n)])
 
@@ -1318,9 +1376,28 @@ for _n, (_x, _cy, _own) in _conn_place.items():
     # their channels leaves 16.88mm for a 15.66mm + word-space column. The strict rule would
     # have forced the word space back down to 1.22mm, i.e. back to labels that merge.
     _port = (_own[0] + _own[1]) / 2
-    assert _cy - _w / 2 <= _port <= _cy + _w / 2, (
-        f"the {_n} label's ink spans y {_cy-_w/2:.2f}..{_cy+_w/2:.2f} and its port centres at "
-        f"{_port:.2f} — nothing is level with the connector, so the label names nothing")
+    # >>> THE RULE IS "EVERY PORT'S NEAREST LABEL IS ITS OWN". <<<
+    #
+    # It was "the ink spans the port's centreline", which is the stronger and nicer property
+    # and four of the five still satisfy it exactly. SPK cannot: #33 put a through-opening
+    # over its port, so no ink can be level with it. Weakening to nearest-wins is not giving
+    # up — it is the property that was actually meant. "This label names that port" IS a
+    # nearest-neighbour claim, and stating it that way covers the case where the port's own
+    # relief is the thing the label points at.
+    _dist = lambda cy, w: max(0.0, abs(_port - cy) - w / 2)
+    _mine = _dist(_cy, _w)
+    for _o, (_ox, _ocy, _) in _conn_place.items():
+        if _o == _n or (_ox < BW / 2) != (_x < BW / 2):
+            continue
+        _ow = _SF.ink_size(_o, LABEL_H_FLAT, LABEL_W, LABEL_GAP)[0]
+        assert _dist(_ocy, _ow) > _mine, (
+            f"the {_o} label is nearer to {_n}'s port at y={_port:.2f} "
+            f"({_dist(_ocy, _ow):.2f}mm) than {_n}'s own is ({_mine:.2f}mm) — the two labels "
+            f"have swapped ports, or one has been packed past the other")
+    assert _mine <= LABEL_WORD_GAP + (_own[1] - _own[0]) / 2, (
+        f"the {_n} label's ink is {_mine:.2f}mm from its port at y={_port:.2f} — near enough "
+        f"to win the nearest-label test only because nothing else is close, which is not the "
+        f"same as labelling it")
     _s0, _s1 = (0.0, float(HEX_FIELD_X0)) if _x < BW / 2 else (float(HEX_FIELD_X1), float(BW))
     assert _s0 + LABEL_MARGIN <= _x - _h / 2 and _x + _h / 2 <= _s1 - LABEL_MARGIN, (
         f"the {_n} label is {_h:.2f}mm across and its margin strip is x {_s0:g}..{_s1:g} — it "
@@ -1417,6 +1494,20 @@ def back_shell():
         p -= bx(BW+FIT-0.01, OX1+1, a,b, CAV_FLOOR, PCB_BOT)
     for (a,b) in _lo:
         p -= bx(OX0-1, PK0+0.01, a,b, CAV_FLOOR, PCB_BOT)
+    # ---- SPEAKER PLUG RELIEF (#33). The one TOP-ENTRY connector; see SPK_CONN_I. ----
+    #
+    # Through the back slab, and outboard only as far as PK1 — the CAVITY wall, not the shell's
+    # outer edge. ⚠️ THE FIRST CUT RAN TO OX1 AND BIT A NOTCH OUT OF THE SHELL'S OUTLINE, which
+    # a slice of the mesh showed and no assert would have. It is not needed: the lead only has
+    # to get OUTBOARD OF THE CONNECTOR (x > 49.49) before it can rise into the cavity, which is
+    # clear there, and leave through the side channel that already serves this Y span. Stopping
+    # at PK1 = 50.35 leaves the outer wall whole and the outboard face flush with the cavity's
+    # own wall, so there is no sliver between them.
+    p -= bx(SPK_RELIEF_X0, PK1 + 0.01, SPK_RELIEF_Y[0], SPK_RELIEF_Y[1],
+            BACK_Z - 1.0, CAV_FLOOR + 0.01)
+    assert PK1 > CONN_R_X[1], (
+        f"the relief stops at x={PK1:.2f} but the speaker connector reaches {CONN_R_X[1]:.2f} — "
+        f"the lead would still be trapped under the connector with nowhere to rise")
     # ---- mic BACK relief: works whichever way the port faces ----
     p -= cyl(MIC[0],MIC[1], BACK_Z-1, CAV_FLOOR+0.01, MIC_HOLE_D)
     # ---- NO LED WINDOW, NO DIFFUSER ----
@@ -2724,6 +2815,35 @@ if __name__ == "__main__":
     sv, _ = interference(Pos(0,0,-2.0) * parts["ember-front-bezel"])
     print(f"  [self-test] bezel sunk 2mm -> {sv:9.3f} mm^3 "
           f"({'detector WORKS' if sv > 1.0 else '!!! DETECTOR BLIND !!!'})")
+
+    # THE TOP-ENTRY CONNECTOR MUST BE THE ONE THE SILKSCREEN CALLS SPEAKER.  #33 x #27.
+    #
+    # ⚠️ THIS IS THE ONLY CHECK IN THE FILE THAT TESTS THE PORT MAPPING AGAINST SOMETHING
+    # PHYSICAL. #27's mapping rests on a vendor drawing; JP's #33 report rests on holding the
+    # board. They agree today — the connector that is 1.30mm taller than the other four, and
+    # the only one that reaches the board's own minimum Z, is exactly the one the drawing's
+    # dimension chain names SPEAKER. Two witnesses of different kinds, so this asserts they
+    # keep agreeing rather than letting either drift alone. It also guards the relief: cut
+    # over the wrong connector, it is a hole in the case above nothing.
+    _depth = []
+    for _yy in CONN_R:
+        _z = min((sd.bounding_box().min.Z for sd in bsolids
+                  if sd.bounding_box().max.X > BW - 8
+                  and sd.bounding_box().min.Y > _yy[0] - 0.5
+                  and sd.bounding_box().max.Y < _yy[1] + 0.5
+                  and sd.bounding_box().min.Z < -1.0), default=0.0)
+        _depth.append(_z)
+    print(f"  [#33] CONN_R depths {[round(z,2) for z in _depth]}  "
+          f"deepest = index {_depth.index(min(_depth))}, SPK_CONN_I = {SPK_CONN_I}")
+    assert _depth.index(min(_depth)) == SPK_CONN_I, (
+        f"the deepest CONN_R connector is index {_depth.index(min(_depth))} but SPK_CONN_I is "
+        f"{SPK_CONN_I}. The top-entry connector JP identified by hand and the one the vendor "
+        f"silkscreen names SPEAKER are no longer the same solid — do not move SPK_CONN_I to "
+        f"make this pass, the two witnesses disagreeing is the finding")
+    assert min(_depth) < sorted(_depth)[1] - 1.0, (
+        f"[self-test] the CONN_R depths are {[round(z,2) for z in _depth]} — the top-entry "
+        f"connector is no longer distinguishable from the side-entry ones by depth, so the "
+        f"check above cannot identify anything and is not evidence")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
