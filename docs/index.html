@@ -1809,13 +1809,40 @@ footer p{margin:.4rem 0}
   </p>
 
   <p>
-    The grille is a <b>hexagonal honeycomb</b> — 33 hexes, 6.50&nbsp;mm across the flats on a
-    7.40&nbsp;mm pitch, 0.90&nbsp;mm web, solved <em>numerically</em> to <b>673.0&nbsp;mm²
-    open</b>: exactly the figure the slotted version hit. So the change is aesthetic, and
-    that is only true because <b>these were never louvers</b>. Both patterns are
+    The grille is a <b>hexagonal honeycomb</b> — 33 cells placed, 6.50&nbsp;mm across the flats
+    on a 7.40&nbsp;mm pitch, 0.90&nbsp;mm web, solved <em>numerically</em> to
+    <b>673.0&nbsp;mm² open</b>: exactly the figure the slotted version hit. So the change is
+    aesthetic, and that is only true because <b>these were never louvers</b>. Both patterns are
     straight-through bores; the earlier slots were raked <em>in the plane</em> of the wall,
     not angled through its thickness, so nothing about the angle ever steered sound.
   </p>
+
+  <div class="note">
+    <b>That grille has two open areas, and the number above is only one of them.</b> Rastered
+    at 0.01&nbsp;mm in the plane the bores actually pass through:
+    <div class="tablewrap" style="margin:.6rem 0">
+      <table>
+        <thead><tr><th></th><th>area</th><th>openings</th></tr></thead>
+        <tbody>
+          <tr><td><b>Throat</b> — the un-flared bores, the acoustic restriction</td><td><b>678.0&nbsp;mm²</b></td><td><b>27</b></td></tr>
+          <tr><td><b>Mouth</b> — the flared face you can touch</td><td><b>886.1&nbsp;mm²</b></td><td><b>1</b></td></tr>
+          <tr><td>the field itself, 37 × 24 with r1.5 corners</td><td>886.1&nbsp;mm²</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <b>The acoustic solve survives — 678.0 against the stated 673.0, +0.7&nbsp;%</b>, so the
+    driver's ~700&nbsp;mm² radiating area is 97&nbsp;% matched. 673 was never wrong about the
+    thing that governs level; it described the <em>throat</em>. What was wrong was reading it as
+    a description of the face.
+    <p style="margin:.6rem 0 0">
+      <b>And 33 cells produce 27 openings</b>, because six are clipped away by the field's
+      rounded corners. The build asserts <code>len(_cells.solids())&nbsp;≥&nbsp;30</code>, which
+      counts the <em>cutting tools</em> rather than the holes they leave — correct for the
+      question it asks (<em>have the cells fused into one solid?</em>) and <strong>not an
+      aperture count</strong>, which is exactly how a reader would take it. A number can be
+      right, load-bearing, and about a different object than its name suggests.
+    </p>
+  </div>
 
   <div class="note">
     <b>What you actually see from the outside is one opening, not thirty-three — and that is
@@ -1823,8 +1850,10 @@ footer p{margin:.4rem 0}
     sheds vortices and chuffs at level. But the flare grows a cell faster than the pitch allows:
     merging begins at <code>web/√3 = 0.5196</code>, and at 0.60 the flared cells interpenetrate
     by 0.14&nbsp;mm. So <strong>the outer 0.40&nbsp;mm of the baffle is a single aperture with
-    the honeycomb set back behind it.</strong> The 673&nbsp;mm² above describes the bores; the
-    open area at the mouth is larger and is being re-derived rather than guessed at here.
+    the honeycomb set back behind it.</strong> Measured, the mouth is <b>886.1 of the field's
+    886.1&nbsp;mm²</b> — the flared cells cover the rounded rectangle completely, so from
+    outside this is not thirty-three chamfered holes but <b>one 37 × 24&nbsp;mm opening</b> with
+    the honeycomb 0.40&nbsp;mm behind it.
     <p style="margin:.6rem 0 0">
       <b>It is a three-way choice, not a dial, and the middle option is the trap.</b> Any flare
       at all puts the web at the mouth under the 0.90&nbsp;mm floor the rest of the part

@@ -130,7 +130,11 @@ pigtail. Each revision was a confident design built on an assumption the model c
 
 Because the module carries its own rear volume, **chamber volume barely matters
 acoustically**. The front path is the acoustic design — hence the deliberately small
-2.50 mm diaphragm-to-baffle gap and the 33-hex grille solved to 673 mm² open. **Skip the
+2.50 mm diaphragm-to-baffle gap and the 33-cell grille solved to 673 mm² nominal — measured,
+the **throat is 678.0 mm² across 27 apertures** (+0.7 %, so the solve holds and the driver's
+~700 mm² is 97 % matched) while the **mouth is 886.1 mm² in a single opening**, because the
+0.60 mm flare merges the face on purpose. The nominal figure describes the throat, which is the
+restriction that governs level. **Skip the
 wadding** (nothing to damp); **still seal the joints** (to stop the *front* cavity venting
 anywhere but the grille).
 
@@ -188,8 +192,9 @@ Full crash-recovery audit with ranked findings:
   delivered it was 11 spines over a 50 × 15 field with 190 mm² open, sized for the round ⌀28
   driver that no longer exists, and applied as-is it would have cost 72% of the open area. The
   rake, the thick-to-thin gradient and the capsule ends survive; the length taper was moved
-  into width. The grille is now a 33-hex field solved to the same 673 mm² as the plain array
-  it replaced, so the choice between it and the ridge is aesthetic, not acoustic.
+  into width. The grille is now a 33-cell field solved to the same 673 mm² nominal as the plain
+  array it replaced (throat measured at 678.0 mm², +0.7 %), so the choice between it and the
+  ridge is aesthetic, not acoustic.
 - The HA long-lived access token in `configuration.yaml` is **revoked and verified dead**
   (old token → 401, `ha-llat` → 200, Ember still reachable).
 - `~/Projects/esp3d` created for the Ender 3 Neo work. **It has no git remote yet.**

@@ -107,6 +107,21 @@ assert len(_cells.solids()) >= 30
 > **Assert the property, not a proxy for it.** An aggregate — area, volume, a count of
 > writes — can be exactly correct about something that is structurally broken.
 
+**A postscript that sharpens this rather than softening it.** `len(_cells.solids())` counts the
+**cutting tools**, not the holes they leave in the part. It is exactly right for the question it
+was added to answer — *have the cells fused into one solid?* — and it is **not an aperture
+count**, which is how the line reads. Measured on the field as built: **33 cells placed produce
+27 openings**, six being clipped away by the field's rounded corners, and the assert would pass
+identically at either number.
+
+So the replacement for a proxy was another proxy, and that is fine as long as it is *named*.
+The rule survives with a clause: **assert the property, and then say which property**, because
+the next reader will take the count for the thing it superficially describes. The same field
+also has two open areas — a **678.0 mm² throat** across those 27 apertures and an
+**886.1 mm² mouth** in a single opening, since the flare merges the face on purpose — so
+"the grille's open area" was ambiguous for as long as it went unqualified, while every number
+attached to it was correct.
+
 ### 6. A test that could not fail at all
 
 The clearance checker once returned a confident `CLEAR` that meant nothing: the vendor
