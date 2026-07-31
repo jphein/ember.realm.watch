@@ -406,6 +406,109 @@ It is now recorded as a **number, not a threshold** — `KNOWN_NONMANIFOLD = {"e
 instruction not to raise the baseline to make a build pass. A known defect with a stated cause is
 honest; a green light over an unmeasured one is not.
 
+### 16. A measurement that was right along one axis and wrong along the others
+
+A new variant, and the first one here where the check **fired correctly and reported the wrong
+number**. Not a check that could not fail — a check that failed *selectively*, along directions
+nobody had enumerated.
+
+A print-readiness audit reported two features below the 0.80 mm two-extrusion floor: **0.75–0.90 mm**
+in the stand and **0.60–0.75 mm** in the back shell. Both were real features in real places. Both
+numbers were wrong, and both were wrong in the alarming direction. Re-measured, they are the
+**stand's grille web at 0.900 mm** and the **back panel's web at 0.808 mm** — i.e. `HEX_WEB = 0.90`
+and `_hex_panel`'s `web=0.80`, exactly as declared, to within 8 µm. **Neither part has a
+sub-nozzle feature.** A day went into hunting for a structural sliver that was a documented print
+floor with a bad ruler held against it.
+
+Two causes, both in the metric this file already recommends:
+
+**The structuring element is anisotropic.** `opening_loss` erodes and dilates with a
+**4-connected** neighbourhood, whose k-step ball is an L1 diamond. Its width in direction **n** is
+`2k·px·max(|nx|,|ny|)` — full across the axes, only `1.41·k·px` across the diagonals. So it
+measures an axis-aligned wall correctly and a 45° wall as up to **29 % thinner than it is**, or
+misses it entirely. This part is 15° slot faces, 24° raked grille bores and hex webs at 0/60/120°:
+of the 226 webs in the back panel, **186 have normals at 60°** — the population the diamond
+mis-measures. The metric was validated on the wyrm silhouette, which is axis-aligned pixel art.
+**It was correct for the shape it was written against and was then reused on tilted geometry.**
+
+**And it under-reports at the bin edge, so the quantisation caveat points the wrong way.** The
+documented caveat is that a reported 0.60 means `[0.60, 0.75)`. It does not: a band survives
+erosion by k only if its *rasterised* width exceeds `2k·px` **everywhere along its length**, so a
+band at or just above the bin edge erodes to nothing wherever rasterisation rounds down. A true
+0.900 reports 0.75 and a true 0.800 reports 0.60. **The true value can be above the bin, not
+inside it** — which is exactly the direction a caveat must not be wrong in.
+
+**What settles it is a positive control with an orientation in it.** Plant a 0.600 mm rib twice,
+once axis-aligned and once at 45°, and require both found at that width and a 1.500 mm rib
+ignored. The diamond finds the first and **misses the second completely**. That control is four
+lines and it would have caught this the day the metric was written — the existing one asserted
+`k2_loss < 0.005` on a shape whose answer nobody knew independently.
+
+The replacement is not a fourth metric. **Opening was always the right idea**; only the ball was
+wrong. Open with a **Euclidean disc** — two distance transforms, exact and O(n): a disc of radius
+`r` fits at `p` iff `EDT(mask)[p] ≥ r`, and the opening is everything within `r` of that set. Then
+**read the thickness off the EDT rather than off the threshold that found it**: `2·max(EDT)` inside
+a located blob *is* its local thickness, continuous-valued, so the `2k·px` ladder and its caveat
+both disappear. That is where 0.900 and 0.808 come from.
+
+Three things generalise:
+
+- **A metric has a domain of validity, and orientation can be part of it.** "Thinner than 0.80 mm"
+  sounds orientation-free and is not. Anything built from a discrete neighbourhood inherits that
+  neighbourhood's geometry, and the inheritance is invisible in the call site.
+- **A wrong number is more expensive than a missing one**, because it is actionable. "No result"
+  gets re-measured; "0.75 mm in the load path" gets hunted. The first hypothesis on record placed
+  the stand's feature between the slab slot and the USB-C well — and those two cuts share one
+  `Pos·Rot` frame with `align=MIN` and `align=MAX` at the same local `z = 0`, so **they are
+  coplanar and no sliver between them is geometrically possible.** Two lines of source refuted it;
+  the number's authority meant nobody read them.
+- **Localise before attributing.** A z-range is not a finding. Labelling the thin material as
+  connected components in 3-D gives each feature its own XY extent and its own bounding planes,
+  and then the attribution is read off the mesh instead of argued. The stand's web was confirmed
+  by predicting the *whole lattice* from the constants — five rows at 6.4044 mm pitch, alternate
+  rows offset by exactly `dx/2` — and finding all five. One blob that fits a story is §15 again;
+  a periodicity that matches to within a pixel is a fingerprint.
+
+A fourth, found while writing this up and belonging to the same family: the first version of the
+new locator reported a blob of 7.804 mm³ over 13 layers — 3.0 mm² per layer — alongside a "max
+layer area" of 38.01 mm². Those cannot both describe one feature, and the blob's z range ended at
+exactly `z = ST_H`, the rim's horizontal top face. It was the tangential-slice artefact already
+recorded above, surviving a ≥3-layer persistence filter because the spurious sheet was
+3-D-connected to a genuine sliver beneath it. **Summarising a profile by its maximum is how ~90
+separate bridges became one 55.9 mm bridge**; print the profile.
+
+### 16. Absence of a log is not absence of execution
+
+A boot-time resync was added and instrumented with a log line. The line never appeared. It was
+re-instrumented unguarded — nothing. Moved to its own trigger so no earlier action could block
+it, and raised to ERROR level so nothing could filter it — still nothing. Three flashes, each
+concluding the code had not run.
+
+**The code had been running the whole time.** `esphome logs` subscribes over the device API
+*seconds after the device boots*, so a line emitted during `setup()` has no connected listener
+and is simply gone. The transport was never live at the moment being measured, and that was
+assumed rather than established.
+
+Every check along the way was sound and every conclusion drawn from them was wrong: the
+generated code was confirmed present in `main.cpp`, the logger was confirmed at DEBUG with no
+tag filter, and the boot log was confirmed captured across a reboot with a client attached. All
+true. None of them established the one thing that mattered — **whether a listener existed at
+the instant the line was emitted.**
+
+The fix was to stop testing the messenger and test the thing: wait until a client is certainly
+attached, then **read the hardware register back** and print it beside the value it should hold.
+That returned `number=42dB | codec REG16=0x07 (42dB) | MATCH` on the first try — and 42 dB is
+not the default, so it is the case that was actually broken.
+
+**The general form: when an observation is negative, ask what would have to be true for a
+positive to reach you.** A silent instrument and a silent subject are indistinguishable until
+you prove the instrument can speak. §13 is the same rule for `grep` — a search proving absence
+needs a positive control — and this is that rule for logging, arrived at again by paying for it.
+
+Worth noting the cost honestly: four flash cycles on a diagnostic line, versus one on the
+measurement that settled it. The measurement was available from the beginning and was reached
+only after the inferences ran out.
+
 ---
 
 ## The cheapest countermeasure found so far: ask, don't assemble
@@ -586,7 +689,7 @@ survived on a published page.
 
 ### On measuring minimum feature size
 
-Two metrics were tried and both returned confident, wrong numbers:
+**Three** metrics were tried and all three returned confident, wrong numbers:
 
 1. *"Grow until the thinnest row-run clears the floor"* — never terminates usefully.
    Dilation always creates 1 px boundary rows, so the measure never improves. It ran to
@@ -594,7 +697,20 @@ Two metrics were tried and both returned confident, wrong numbers:
 2. *"The k at which erosion empties the mask"* — that is the **thickest** feature. The last
    region standing is the fattest one. It cleared a 0.6 mm tail tip as though it were
    4.9 mm.
+3. *"Opening with a 4-connected structuring element"* — right idea, wrong ball. See §16: the
+   L1 diamond is `2k·px` wide across the axes and only `1.41·k·px` across the diagonals, so on
+   this part's 15°/24°/60° geometry it reported a 0.900 mm web as 0.75 and a 0.800 mm web as
+   0.60. It also under-reports **at** the bin edge, so "0.60 means [0.60, 0.75)" is wrong in
+   the unsafe direction.
 
-**Morphological opening is the honest test:** a feature thinner than 2k does not survive
-erode-then-dilate by k. Neither wrong metric was ever checked against a shape whose answer
-was already known.
+**Opening is the honest test — with a Euclidean disc, and with the thickness read off the
+distance transform rather than off the threshold that found it.** A disc of radius `r` fits at
+`p` iff `EDT(mask)[p] ≥ r`, and the opening is everything within `r` of that set: two distance
+transforms, exact, isotropic, O(n), and no `2k·px` ladder to caveat. `2·max(EDT)` inside a
+located blob is its true local thickness — measured that way, the two webs above come out at
+0.900 and 0.808 against declared 0.90 and 0.80.
+
+**None of the three wrong metrics was ever checked against a shape whose answer was already
+known**, and the fourth is only trustworthy because it is: a control plants a 0.600 mm rib
+axis-aligned **and at 45°**, requires both found at that width, and requires a 1.500 mm rib
+ignored. Orientation belongs in that control — it is what caught fault 3.

@@ -206,6 +206,51 @@ esphome:
     # all three at once: speaker->set_volume() writes the DAC, and on_volume mirrors
     # the value back into spk_volume so the number and the media_player entity agree
     # too. Priority -200 so it lands after every component has finished setup().
+    # MIC PGA RESYNC — ITS OWN TRIGGER, DELIBERATELY, AND THE REASON IS A DIAGNOSIS.
+    #
+    # This was first appended to the -200 sequence below and produced NO log line on the
+    # device across three flashes, guarded and unguarded. The generated code was present
+    # (main.cpp:8128), the logger was at DEBUG with no tag filter, and the boot log was
+    # captured with a client already attached across a reboot. So the code existed, the
+    # level permitted it, and it still did not appear — which points at the SEQUENCE rather
+    # than at the action: an on_boot `then:` is an ordered list, and anything earlier in it
+    # that blocks or fails takes everything after it down silently.
+    #
+    # Rather than keep testing hypotheses about which earlier action that might be — four
+    # wrong ones earlier today came from exactly that habit — this gets its own trigger,
+    # where no other action can precede it. It is also strictly better design: a resync
+    # that only matters to one component should not be the tail of a list about the DAC.
+    #
+    # -300 so it lands after the -200 block regardless of what that block does.
+    - priority: -300
+      then:
+        - number.set:
+            id: mic_gain_num
+            value: !lambda 'return id(mic_gain_num).state;'
+        # ---- PROVE IT, at a moment the proof can actually be observed ----
+        #
+        # Four flashes were spent watching for a boot-time log line that never appeared,
+        # concluding each time that the code had not run. That inference was unfounded:
+        # `esphome logs` subscribes over the API SECONDS after the device boots, so a line
+        # emitted during setup has nowhere to go. ABSENCE OF A LOG IS NOT ABSENCE OF
+        # EXECUTION unless you can show the transport was live when it was emitted — and
+        # that was never established. The generated code was in main.cpp the whole time.
+        #
+        # So this stops testing the messenger and tests the thing: wait until a client is
+        # certainly attached, then READ REG16 BACK OFF THE CODEC and print it beside the
+        # number's state. Agreement proves the resync reached the hardware; disagreement
+        # names the bug precisely. Either way it is a measurement rather than an inference
+        # from silence.
+        - delay: 25s
+        - lambda: |-
+            uint8_t reg = 0xFF;
+            const bool ok = id(es8311_dac)->read_byte(0x16, &reg);
+            const int want = (int) lroundf(id(mic_gain_num).state / 6.0f);
+            ESP_LOGI("mic", "BOOT RESYNC CHECK: number=%.0fdB (REG16 should be 0x%02X) | "
+                            "codec REG16=0x%02X (%ddB) | read_ok=%d | %s",
+                     id(mic_gain_num).state, want, reg, reg * 6, (int) ok,
+                     (ok && reg == want) ? "MATCH" : "MISMATCH");
+
     - priority: -200
       then:
         - media_player.volume_set:
@@ -216,6 +261,28 @@ esphome:
         # after boot still pops, since there is no previous stop to inherit a mute
         # from. Must run after the es8311 is set up, hence the late priority.
         - audio_dac.mute_on: es8311_dac
+
+        # AND PUT THE MIC PGA WHERE HA THINKS IT IS, for the identical reason spelled out
+        # above — which is the uncomfortable part of this fix.
+        #
+        # THE BUG WAS ALREADY DOCUMENTED IN THIS FILE, 700 LINES UP, WITH THE LINE NUMBERS.
+        # TemplateNumber::setup() calls publish_state() and never control(), so a restored
+        # value never runs its `set_action`. That was found, fixed and written up for
+        # spk_volume — and then a second restoring number was added and shipped with the
+        # same defect, because the fix had been applied to an INSTANCE rather than turned
+        # into a rule. A note saying "this component behaves like X" does not protect the
+        # next component that behaves like X.
+        #
+        # The mic case fails more quietly than the volume one did. The es8311 driver writes
+        # REG16 in its own setup() from the compile-time `mic_gain: 36db` still on the
+        # audio_dac, so after a reboot the number reads whatever was stored while the PGA
+        # sits at 36dB. Set 12dB, reboot, and HA shows 12 while the hardware is at 36 —
+        # ⚠️ and the ONLY value immune is the default, which is exactly what anyone would
+        # test with. Found by a reviewer reading the component source, not by running it.
+        #
+        # Pushed back THROUGH the number rather than writing REG16 here, so the register
+        # keeps a single writer. Two places writing one register is how the amp ended up
+        # with three writers and one of them reachable.
 
         # ---- REPUBLISH THE MODE, or the select lies after a reboot ----
         #
