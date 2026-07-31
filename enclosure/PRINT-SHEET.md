@@ -67,8 +67,8 @@ and a `../cadenv` that does not exist. See [`README.md`](README.md) for first-ti
 
 | File | Qty | Print orientation | Supports | Notes |
 |---|---|---|---|---|
-| `ember-front-bezel.stl` | 1 | **front face DOWN** on the bed | **none** | The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are bed-side chamfers, so they self-support. **The debossed honeycomb and the wyrm mark are bed-side recesses**, 0.48 mm deep — exactly three layers at this part's 0.16 mm — and print as bridged voids, which is *why* they are recesses: on a bed face, relief only goes inward. |
-| `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** *(measured)* | ⛔ **Set gap-closing radius / hole horizontal expansion to 0 before slicing — see below, a default will weld the buttons shut.** Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Countersinks widen downward onto the bed. **Labels** (`SD`, `MIC`, `VOL`, power symbol) are debossed 0.48 mm = 3 layers at 0.16, and the two cap labels sit at the bottom of bridged recesses, so they are the first thing sag will blur. **The debossed cap faces are bed-side recesses and they bridge 13.27 mm (BOOT) / 8.27 (RESET)** — expect visible sag in the middle of both, and run the fan at 100 % for the first ~5 layers. |
+| `ember-front-bezel.stl` | 1 | **front face DOWN** on the bed — ✅ **the STL is now exported already in this orientation, so load and print; no flip needed** (issue #25: it used to export face-UP, standing the part on four ⌀5.40 boss tips totalling 71.9 mm² with the whole 1847.9 mm² face in the air) | **none** | The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are bed-side chamfers, so they self-support. **The debossed honeycomb and the wyrm mark are bed-side recesses**, 0.48 mm deep — exactly three layers at this part's 0.16 mm — and print as bridged voids, which is *why* they are recesses: on a bed face, relief only goes inward. |
+| `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** *(measured)* | ⛔ **Set gap-closing radius / hole horizontal expansion to 0 before slicing — see below, a default will weld the buttons shut.** Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Counterbores are flat-floored ⌀5.80 pockets opening onto the bed. (This line said "countersinks widen downward" — a leftover from the deleted conical version; the head is cylindrical.) **Labels** (`SD`, `MIC`, `VOL`, power symbol) are debossed **0.40 mm = 2 layers at the shell's own 0.20** (was 0.48 = 3 layers at the *bezel's* 0.16 — issue #26), and the two cap labels sit at the bottom of bridged recesses, so they are the first thing sag will blur. **The debossed cap faces are bed-side recesses and they bridge 13.27 mm (BOOT) / 8.27 (RESET)** — expect visible sag in the middle of both, and run the fan at 100 % for the first ~5 layers. |
 | `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | Chamber ceiling is a **17 mm bridge** and the cable channel a **16 mm bridge** — leave bridging on (slicer default) and they're fine. The **finger scoop** in the rear slot wall opens *upward*, so every wall is near-vertical and the pocket floor is solid: no bridge at all. (It is **one** opening, x 13.94–50.51, not two: `SCALLOP_MIN_RIB` merges them because the current caps would leave a 0.51 mm rib between, which is a fin rather than a wall. Measured as one span in the mesh.) The **wire saddle** merges into its right-hand end for the same reason — that is deliberate, and it is what keeps the rear bearing rim in two clean segments totalling 15.64 mm instead of leaving a 0.85 mm fin. |
 | `ember-stand-base.stl` | 1 | flat | none | Closes the speaker chamber. Press fit. ⚠️ **Resized in `89001ea` — reprint if you made one earlier.** |
 
@@ -102,6 +102,22 @@ and cabinets want mass.
 
 The bezel gets the fine layer height because its front face is the one you look at, and
 because the mic bore is only ⌀2.40 mm — at 0.2 mm layers it starts to close up.
+
+⚠️ **These two numbers are now CONSUMED BY THE MODEL, not just advice to the slicer.**
+`ember_case.py` carries `LAYER_H_BEZEL = 0.16` and `LAYER_H_SHELL = 0.20`, and every recess floor,
+the counterbore and the living-hinge thickness are whole multiples of *their own part's* value —
+asserted, with a control. **So changing a number in this table changes the geometry**, and the
+build will refuse rather than silently put a floor mid-layer.
+
+> Until issue #26 there was a single `LAYER_H = 0.16` labelled "the shell parts". It was the
+> **bezel's** value wearing the shell's name, and it was load-bearing in both directions at once —
+> correct where the bezel consumed it, wrong where the shell did. Three further depths
+> (`DEBOSS_BIG`, `DEBOSS_SMALL`, `HINGE_T`) turned out to be mid-layer at **every** layer height
+> this project uses, which is why nothing had ever caught them.
+>
+> **If the shell is ever moved to 0.16** — its only real cost is ~25 % more print time, and the
+> counterbore stops being exactly flush — change `LAYER_H_SHELL` and rebuild. Everything
+> re-derives. Do not change one depth by hand.
 
 The stand wants **more walls and more infill than feels necessary**: it is a speaker
 enclosure, and cabinet stiffness/mass is what stops a 2 W driver sounding like a rattle.
@@ -138,13 +154,13 @@ meet almost exactly, and the hinge shoulders are where it shows first.
 
 - **Free the pads with a fresh blade at assembly step 3**, before anything else goes together.
 - ⚠️ **Cut from the outside inward and stop at the hinge.** The hinge is the one feature designed
-  to flex — a 0.90 mm membrane at a calculated 1.20 % strain against PLA's ~2 % yield. **A knife
+  to flex — a 0.80 mm membrane at a calculated 1.07 % strain against PLA's ~2 % yield. **A knife
   nick there is a stress riser the calculation does not include.**
 
 ### The cap-face bridges are 13.27 and 8.27 mm, and they grew 82 % without being noticed
 
 The BOOT cap's deboss floor spans `R·√3` = **13.268 mm**; RESET's is **8.268**. Both bridge
-routinely over a 0.90 / 0.50 mm recess — **this is a cosmetic note, not a defect.** Expect sag in
+routinely over a 0.80 / 0.40 mm recess — **this is a cosmetic note, not a defect.** Expect sag in
 the middle of the faces you look at and press. Fan at 100 % for the first few layers.
 
 > **Worth knowing how the number got there.** At the old caps that span was **7.275 mm**
@@ -176,7 +192,7 @@ is no shallow overhang anywhere to print badly. Where the 499.12 mm² is:
 
 | printed z | area | what |
 |---|---|---|
-| 0.50–1.00 | **211.66 mm²** | **the two cap-deboss floors — the only genuine bridges**, 13.27 and 8.27 mm |
+| 0.40–0.80 | ⚠️ **re-measure** | **the two cap-deboss floors — the only genuine bridges**, 13.27 and 8.27 mm. The band moved: the deboss depths were 0.90/0.50 and are now **0.80/0.40** (issue #26 — neither old value was a whole number of layers at any layer height this project uses). The 211.66 mm² figure was measured on the old depths and is **not** re-derived here |
 | 3.00–3.50 | 71.44 mm² | the four counterbore floors — **annular ledges, not bridges** (see below) |
 | 8.00–8.50 | 171.63 mm² | side channels + the USB-C relief roofs |
 | 9.00–9.50 | 14.00 mm² | |
@@ -202,7 +218,7 @@ back** into a **flat-bottomed counterbore**, so no heads appear on the front fac
 
 > ⛔ **This changed, and the previous guidance would send you to the wrong shelf.** This sheet
 > used to specify a **countersunk (flat) head** for a conical countersink. The part now has a
-> **⌀5.80 × 3.04 mm flat counterbore** for a **cylindrical** head. **A conical head in a flat
+> **⌀5.80 × 3.00 mm flat counterbore** for a **cylindrical** head. **A conical head in a flat
 > counterbore does not seat on anything** — it contacts the bore edge on a circle, or bottoms on
 > its point. That is worse than either geometry the old text analysed, so all of it is deleted
 > rather than adjusted, including its length table: see the length note below.
@@ -211,7 +227,7 @@ back** into a **flat-bottomed counterbore**, so no heads appear on the front fac
 |---|---|
 | Screw | `M3 × 0.5 × 12` **ISO 4762** socket cap, hex recess |
 | Head | ⌀**5.50** measured, not tabulated |
-| Counterbore | ⌀**5.80** (0.30 diametral clearance, 0.15 a side) × **3.04 mm** deep — **19 layers exactly** at 0.16 |
+| Counterbore | ⌀**5.80** (0.30 diametral clearance, 0.15 a side) × **3.00 mm** deep — **15 layers exactly** at the shell's 0.20, and **exactly the measured 3.00 mm head height**, so the head is dead flush with no rounding |
 | Through-hole | ⌀3.30 |
 | Pilot in the bezel boss | ⌀**2.50**, blind |
 
@@ -233,7 +249,7 @@ entirely, and none of its numbers transfer. Re-derived for the new screw:
 bottom of a blind pilot before the head reaches its floor, so it feels tight while clamping
 nothing. That hazard survived the redesign unchanged; only the numbers moved.
 
-- **The counterbore is deeper than the back wall, and that is by design.** 3.04 mm of bore in a
+- **The counterbore is deeper than the back wall, and that is by design.** 3.00 mm of bore in a
   2.60 mm wall passes into the cavity — where the boss **flares to ⌀8.40** at the cavity floor,
   tapering to ⌀5.40 at the PCB face. The flare is what the bore lands in. ⌀8.40 comfortably
   surrounds ⌀5.80, so there is material all the way round.
@@ -242,9 +258,14 @@ nothing. That hazard survived the redesign unchanged; only the numbers moved.
   supported on its full outer circumference, cantilevering 1.25 mm inward** — `(5.80 − 3.30)/2`.
   Four of them come to **71.44 mm²** against **71.47 predicted** for four OD 5.80 / ID 3.30
   rings, which is agreement to 0.03 mm². A ring like that needs no fan and no attention.
-  > **The exact-layer-count depth is still right, for a smaller reason than a bridge.** 19 × 0.16
+  > **The exact-layer-count depth is still right, for a smaller reason than a bridge.** 15 × 0.20
   > puts the floor on a **clean layer boundary**, so the head seats on solid material instead of
   > on a partial layer. That is worth having; "it bridges 3.30 mm" was not the reason.
+  >
+  > ⚠️ **This used to read 19 × 0.16 = 3.04, and that was issue #26.** 0.16 is the *bezel's* layer
+  > height, borrowed by a shell feature. At the shell's own 0.20 the old 3.04 was 15.2 layers — a
+  > mid-layer floor under a load-bearing head. The 0.04 mm of deliberate sink is also gone: 3.00
+  > divides 0.20 exactly, so correcting #26 deleted a compromise rather than adding one.
 - A head bearing on a **flat** floor gets a genuine full-face seat, so **no re-nip is needed** —
   that advice belonged to the conical staircase and went with it.
 - **Heat-set inserts will NOT fit.** The vendor specifies a ⌀5.60 pad around each mounting

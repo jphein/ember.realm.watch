@@ -212,18 +212,47 @@ SCREW_LEN       = 12.00  # UNDER-HEAD length, which is how ISO 4762 is dimension
                          # countersunk screw's stated length INCLUDES its head; a socket cap's
                          # does not. That difference is why a 12mm cap out-performs the 14mm
                          # countersunk this used to specify.
-LAYER_H         = 0.16   # PRINT-SHEET's layer height for the shell parts. NAMED because three
-                         # separate features are whole multiples of it and each used to say so
-                         # only in a comment.
+# ============================================================================
+# LAYER HEIGHT IS PER-PART.  IT IS NOT ONE NUMBER, AND TREATING IT AS ONE WAS ISSUE #26.
+# ============================================================================
+#
+# ⚠️ THIS WAS A SINGLE `LAYER_H = 0.16` COMMENTED "PRINT-SHEET's layer height for the shell
+# parts", AND THAT COMMENT WAS FALSE. PRINT-SHEET's settings table is FOUR COLUMNS —
+# bezel / shell / stand / base — and reads 0.16 for the BEZEL and 0.20 for the other three. The
+# 0.16 was the bezel's value, borrowed by the shell and relabelled as the shell's on the way.
+#
+# It was load-bearing in both directions at once, which is why it survived: `BEZEL_DEBOSS`
+# consumed it and was CORRECT, while `CBORE_DEPTH` and `LABEL_DEBOSS` consumed the same constant
+# and were wrong for a shell sliced at 0.20 — 15.2 and 2.4 layers, both mid-layer floors. The
+# claims "19 layers exactly" and "3 layers at 0.16" were true of the number and false of the part.
+#
+# ⚠️ AND THE ISSUE UNDERSTATED IT. Auditing every Z depth against BOTH candidates found three more
+# mid-layer floors, and unlike the two above these are misaligned at EVERY layer height in play:
+#
+#     DEBOSS_BIG    0.90   5.625 layers @0.16   4.5 layers @0.20
+#     DEBOSS_SMALL  0.50   3.125               2.5
+#     HINGE_T       0.90   5.625               4.5
+#
+# So the real defect was never "one constant borrowed the wrong value". It was that Z depths were
+# never checked against ANY layer height, and two of them happened to divide 0.16 — which is what
+# made the other three invisible. `HINGE_T` is the serious one: it is the strain-critical
+# dimension (`strain = (t/2)*theta/L`), computed to three significant figures throughout this
+# file, and the slicer was picking its actual value.
+LAYER_H_BEZEL   = 0.16   # PRINT-SHEET: the bezel alone. Its front face is the one you look at and
+                         # its mic bore is only d2.40, which starts to close up at 0.20.
+LAYER_H_SHELL   = 0.20   # PRINT-SHEET: shell, stand and base. ⚠️ The bezel's reasons DO NOT apply
+                         # here — the shell's fine features (the 0.60 button moat, the 0.80 hex
+                         # webs, the 0.90 label grooves) are all VERTICAL walls, and layer height
+                         # does not govern the width of a vertical wall.
 CBORE_CLR       = 0.30   # diametral clearance, 0.15 a side
 CBORE_D         = SCREW_HEAD_D + CBORE_CLR              # 5.80
-# DEPTH IS A WHOLE NUMBER OF LAYERS, AND IT ROUNDS *DEEPER* THAN FLUSH.
-# JP chose flush, which wants 3.00 — but 3.00 is 18.75 layers at 0.16 and a floor cannot land
-# mid-layer. 18 layers (2.88) leaves the head 0.12mm PROUD, and proud is the one failure that
-# matters: it stops the part sitting flat and stops the screw clamping. 19 layers (3.04) sinks it
-# 0.04mm BELOW flush, which is invisible and harmless. Same asymmetry the old cone block found by
-# a different route — sunk beats proud — so the rounding goes toward sunk.
-CBORE_DEPTH     = 19 * LAYER_H                          # 3.04
+# DEPTH IS A WHOLE NUMBER OF LAYERS, AND AT 0.20 IT IS EXACTLY FLUSH.
+# The measured head is 3.00 and 3.00 / 0.20 = 15 exactly, so the head sits DEAD FLUSH with no
+# rounding at all. ⚠️ This retires a compromise rather than adding one: at the borrowed 0.16 the
+# head was 18.75 layers, 18 left it 0.12 PROUD (which stops the part sitting flat and stops the
+# screw clamping) and 19 sank it 0.04 to avoid that. The fudge existed only because the shell was
+# being sliced at the bezel's layer height. Correcting #26 deletes it.
+CBORE_DEPTH     = 15 * LAYER_H_SHELL                    # 3.00 — exactly the head height
 # ---- BOSS FLARE.  THIS EXISTS BECAUSE THE HEAD IS 3.00mm TALL.  DO NOT REMOVE IT. ----
 #
 # A flush 3.04mm pocket floors at z -6.66, which is 0.44mm PAST CAV_FLOOR — out of the solid back
@@ -386,11 +415,29 @@ HEX_FIELD_Y1 = 75.00
 # resting on the case; recessed ones cannot be pressed by a flat object at all. The unequal
 # DEPTHS still give a thumb two independent discriminators in the dark — size and depth — on
 # a case that carries no lettering.
-DEBOSS_BIG   = 0.90   # BOOT/volume, the one you reach for
-DEBOSS_SMALL = 0.50   # RESET, deliberately shyer under the finger
+# ⚠️ WERE 0.90 / 0.50, AND NEITHER WAS A WHOLE NUMBER OF LAYERS AT ANY LAYER HEIGHT THIS PROJECT
+# USES — 5.625 / 3.125 at 0.16 and 4.5 / 2.5 at 0.20. Both recess floors landed mid-layer, on the
+# visible back face, and issue #26 did not name either of them: it named the two constants that
+# happened to divide 0.16. These are now 4 and 2 layers of the SHELL's own height.
+# THE DIFFERENTIAL IS WHAT MATTERS AND IT IS PRESERVED EXACTLY. 0.90-0.50 and 0.80-0.40 are both
+# 0.40mm, so the "two independent discriminators in the dark — size and depth" property is
+# untouched; only the absolute depths moved, and both got shallower by the same amount.
+DEBOSS_BIG   = 4 * LAYER_H_SHELL   # 0.80  BOOT/volume, the one you reach for
+DEBOSS_SMALL = 2 * LAYER_H_SHELL   # 0.40  RESET, deliberately shyer under the finger
 CAP_INSET  = 1.00    # cap circumradius is R - this, leaving a shoulder inside the island
                      # edge so the raised cap can never bridge the slot and weld shut.
-HINGE_T    = 0.90    # living-hinge thickness
+# ⚠️ WAS 0.90, WHICH IS 5.625 LAYERS AT 0.16 AND 4.5 AT 0.20 — MID-LAYER AT BOTH. This is the
+# STRAIN-CRITICAL dimension: `strain = (t/2)*theta/L` is computed to three significant figures
+# throughout this file and asserted at <=2.0%, and t was whatever the slicer rounded 0.90 to. A
+# precise calculation on a dimension nobody controlled. 0.90 -> 1.00 would have raised strain 11%
+# against an assert that never knew.
+# 0.80 IS CHOSEN OVER 1.00 FOR TWO REASONS. It is 4 layers at 0.20 AND 5 layers at 0.16, so it
+# stays aligned whichever way the PRINT-SHEET table lands — the only value in this block that is
+# robust to that decision. And it moves strain DOWN ~11% (t scales it linearly), which is the safe
+# direction on a flexure whose failure mode is cracking. ⚠️ It also softens the press slightly;
+# 1.00 would firm it up at +11% strain, still inside the 2.0% limit. That is a FEEL choice and
+# therefore JP's — see the report on issue #26.
+HINGE_T    = 4 * LAYER_H_SHELL   # 0.80  living-hinge thickness
 # FLEXURE LENGTH IS PER-BUTTON, AND IT IS A STRENGTH FIX, NOT A FEEL ONE.
 #
 # The hinge rotation is not a free variable: theta = pip travel / the pip's distance from the
@@ -478,7 +525,7 @@ def cyl(x,y,z0,z1,d):
 # lands on its own logo. Same trap that killed the raised button caps on the back shell, in
 # the same session, on the opposite face — which is the tell that it is a property of the
 # process rather than a one-off mistake: on a bed face, relief only goes inward.
-BEZEL_DEBOSS = 3 * LAYER_H  # every debossed feature on the front face. EXACTLY 3 layers at the
+BEZEL_DEBOSS = 3 * LAYER_H_BEZEL  # every debossed feature on the front face. EXACTLY 3 layers at
                       # 0.16mm PRINT-SHEET specifies for this part. It was 0.45, which is
                       # 2.8125 layers — the recess floor landed mid-layer and the comment
                       # claimed "3 layers at 0.15", a layer height this part does not use. Two
@@ -961,7 +1008,7 @@ def side_channels():
 #
 # DEBOSSED, and for the same reason the button caps are: this face prints against the bed, so
 # a raised feature becomes the lowest thing on the part and the shell balances on it. The
-# depth is 3 * LAYER_H, identical to BEZEL_DEBOSS -- one named layer count, two faces.
+# depth is a whole number of the SHELL's layers -- see LABEL_DEBOSS for why it is 2 and not 3.
 #
 # ⚠️ MIRRORED IN X, AND THIS IS THE ONE THAT SHIPS BACKWARDS IF NOBODY WRITES IT DOWN.
 # The back face is seen from -Z. For a viewer there with +Y up, their right-hand direction is
@@ -982,7 +1029,12 @@ LABEL_W      = 0.90            # groove width == this repo's nozzle floor, the s
                                # a consequence of a typeface -- see tools/strokefont.py.
 LABEL_GAP    = 1.90            # centreline gap between glyphs -> exactly 1.00mm of material.
                                # 1.80 was tried and lands the gap ON 0.90, i.e. zero margin.
-LABEL_DEBOSS = 3 * LAYER_H     # 0.48. Same three layers as BEZEL_DEBOSS.
+# ⚠️ WAS `3 * LAYER_H` = 0.48, i.e. three layers of the BEZEL's height applied to a SHELL feature
+# — 2.4 layers at the shell's own 0.20. TWO layers, not three, and the reason is the pad assert
+# below rather than taste: at 3 shell layers (0.60) the big cap keeps
+# WALL - DEBOSS_BIG - LABEL_DEBOSS = 2.60 - 0.80 - 0.60 = 1.20, exactly ON the 1.20 floor, and a
+# value sitting on a constraint boundary has no slack. 2 layers leaves 1.40.
+LABEL_DEBOSS = 2 * LAYER_H_SHELL   # 0.40
 LABEL_H_CAP  = 3.80            # centreline cap height on a button face (ink 4.70)
 LABEL_H_FLAT = 5.50            # centreline cap height on the flat back  (ink 6.40)
 LABEL_MARGIN = 0.80            # keepout from any edge or neighbouring feature
@@ -2056,6 +2108,49 @@ KNOWN_NONMANIFOLD = {"ember-front-bezel": 3}
 # ============================================================================
 # 6. build + verify
 # ============================================================================
+# ============================================================================
+# PRINT ORIENTATION IS APPLIED AT EXPORT, NOT IN THE MODEL (issue #25)
+# ============================================================================
+#
+# The parts were exported in raw model coordinates, and for the BEZEL that is an unprintable
+# orientation. Measured off the shipped mesh:
+#
+#     at MIN z:  coplanar area   71.9 mm2   (x 1.30..48.70, y 1.30..84.70)
+#     at MAX z:  coplanar area 1847.9 mm2   (the full -2.95..52.95 outline)
+#
+# 71.9 mm2 is exactly the four annular boss tips — 4 * (pi/4)(5.40^2 - 2.50^2) = 71.96 — so the
+# file as shipped stands the part on four ⌀5.40 pillars with the whole 1847.9 mm2 slab 4.70mm in
+# the air. ⚠️ THAT IS THE SAME FAILURE THIS FILE ALREADY REJECTED ON THE OTHER FACE: the proud
+# button caps would have balanced the shell "on two hexagons totalling ~74mm2". 71.9 against 74 —
+# the same defect, the same magnitude, arrived at from the opposite direction, and PRINT-SHEET has
+# said "front face DOWN" the whole time. It only ever worked because a human flipped it in the
+# slicer.
+#
+# ⚠️ A RIGID ROTATION IS NOT A GEOMETRY CHANGE, so this is NOT a reprint: JP's printed bezel was
+# flipped in the slicer and is dimensionally identical to what this now exports. The STL bytes move;
+# the part does not.
+#
+# ROTATE ABOUT X, NOT Y, AND THE CHOICE IS DELIBERATE. Both are 180deg proper rotations
+# (det = +1, so neither mirrors — which matters more in this file than in most). But about X maps
+# (x,y,z) -> (x,-y,-z) and PRESERVES THE X COORDINATE, and X is the axis this project has been
+# read backwards on repeatedly — the mic at x=40, the switch pair, the microSD edge. About Y would
+# send the mic to x=10 in the exported file and hand the next person a fresh handedness puzzle for
+# no benefit.
+#
+# Only the bezel needs it. The other three already export print-face-down: the shell's bed face is
+# its back at min z (3678.3 mm2 coplanar), the stand's is its base (3183.8), and the base plate is
+# a flat slab that is symmetric in Z.
+PRINT_FLIP = {"ember-front-bezel"}
+
+def _print_oriented(name, part):
+    """The part as it should sit in the exported STL: bed face at min Z, resting on z=0."""
+    if name not in PRINT_FLIP:
+        return part
+    q  = Rot(180, 0, 0) * part
+    bb = q.bounding_box()
+    return Pos(0.0, -bb.min.Y, -bb.min.Z) * q
+
+
 if __name__ == "__main__":
     out = os.path.dirname(os.path.abspath(__file__))
     parts = {"ember-front-bezel": front_bezel(),
@@ -2067,6 +2162,7 @@ if __name__ == "__main__":
     except Exception as e:
         print("!! stand failed:", e)
     for n,p in parts.items():
+        p = _print_oriented(n, p)
         bb = p.bounding_box()
         print(f"{n:20s} vol={p.volume/1000:7.2f} cm^3   "
               f"bbox {bb.size.X:6.2f} x {bb.size.Y:6.2f} x {bb.size.Z:6.2f}")
@@ -2146,6 +2242,7 @@ def _bearing_footprint():
     return (st & probe).volume / 0.4
 
 
+
 def _check_geometry():
     import math
     # ------------------------------------------------------------------
@@ -2221,6 +2318,39 @@ def _check_geometry():
     assert _sw >= SD_CARD_W + 2*0.60, (
         f"microSD slit is {_sw:.2f}mm along Y — a {SD_CARD_W}mm card plus a finger needs "
         f">={SD_CARD_W + 1.2:.2f}. JP asked for 'a finger friendly slit'")
+    # 0j. EVERY FLOOR THAT MATTERS LANDS ON A LAYER BOUNDARY OF ITS OWN PART'S HEIGHT (#26).
+    #
+    #     ⚠️ THE LIST IS ENUMERATED, NOT BLANKET, AND THAT IS THE WHOLE DESIGN OF THIS CHECK.
+    #     "Every Z dimension must be a whole number of layers" is over-strict, and over-strict is
+    #     not safe — it is just wrong in the other direction, and it gets switched off. A part's
+    #     overall HEIGHT landing mid-layer only makes the topmost layer thin, which no slicer minds
+    #     and nothing bears on. What matters is a floor something SITS on, LOOKS at, or is MADE OF.
+    #
+    #     And an enumeration is exactly the countermeasure this failure needed: the defect was
+    #     never that a check was wrong, it was that Z depths were never on any list. Three of the
+    #     six below were mid-layer at EVERY layer height in use and no check had an opinion.
+    _floors = [
+        ("CBORE_DEPTH",  CBORE_DEPTH,  LAYER_H_SHELL, "the screw head bears on this floor"),
+        ("LABEL_DEBOSS", LABEL_DEBOSS, LAYER_H_SHELL, "visible recess floor, back face"),
+        ("DEBOSS_BIG",   DEBOSS_BIG,   LAYER_H_SHELL, "visible AND tactile cap recess floor"),
+        ("DEBOSS_SMALL", DEBOSS_SMALL, LAYER_H_SHELL, "visible AND tactile cap recess floor"),
+        ("HINGE_T",      HINGE_T,      LAYER_H_SHELL, "material LEFT; it sets flexure strain"),
+        ("BEZEL_DEBOSS", BEZEL_DEBOSS, LAYER_H_BEZEL, "visible recess floor, front face"),
+    ]
+    #     DELIBERATELY EXCLUDED, stated so the omissions are decisions rather than oversights:
+    #       WALL    2.60 - cavity ceiling, seen only from inside, nothing bears on it (13L @0.20)
+    #       BEZEL_T 3.00 - the slab/boss shoulder, 18.75L at 0.16. Neither bearing nor visible.
+    _lerr = lambda _d, _lh: abs(_d/_lh - round(_d/_lh))
+    for _nm, _d, _lh, _why in _floors:
+        assert _lerr(_d, _lh) < 1e-9, (
+            f"{_nm} = {_d:.4f} is {_d/_lh:.3f} layers at its part's {_lh} — a floor cannot land "
+            f"mid-layer, and this one matters because {_why}. Make it a whole multiple of its OWN "
+            f"part's layer height; do not borrow the other part's, which is what #26 was")
+    #     CONTROL — the checker must be shown to fire, and these are not invented perturbations:
+    #     they are the exact values that shipped, against the shell's real layer height.
+    assert _lerr(0.90, 0.20) > 1e-9, "control failed: 0.90 (old DEBOSS_BIG/HINGE_T) reads aligned"
+    assert _lerr(0.48, 0.20) > 1e-9, "control failed: 0.48 (old LABEL_DEBOSS) reads aligned"
+    assert _lerr(3.04, 0.20) > 1e-9, "control failed: 3.04 (old CBORE_DEPTH) reads aligned"
     # 0g. the islands must clear BOTH obstructions near each screw hole. _island_cx() solves for
     #     this, so this asserts the SOLVE rather than restating it — a second hand-typed number
     #     here would be the very thing that block was rewritten to remove.
