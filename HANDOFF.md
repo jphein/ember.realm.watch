@@ -168,8 +168,16 @@ own reachability check. `SLOT_FLOOR` is now 24.0, with a 22 × 22 mm USB-C well 
       which coal flares only ever answered sign. Mirrored ⇒ `spark_col` needs `59 - tx/4`.
       There is no `transform:`, no `swap_xy` and no calibration anywhere in the config, so the
       orientation is **unknown**, not known-and-adjusted.
-- [ ] Ember is not in `status.realm.watch/checks.json`. Deliberately deferred pending a
-      DHCP reservation; that reason has mostly expired.
+- [x] **Ember is registered in `status.realm.watch`** — `status.realm.watch@99dcc78`, deployed
+      and reading **up**. It is a **TCP check on the ESPHome API**, `ember-satellite.lan:6053`,
+      not HTTP: the firmware declares no `web_server:`, so there is no port 80 and no
+      `/api/version` to poll, and forcing it into the realm-sigil pattern would have meant
+      inventing an endpoint. TCP 6053 is also strictly better than ping — it proves the
+      firmware is accepting connections, which is what HA needs; ping only proves the radio
+      answers.
+      > ⚠️ Not `binary_sensor.ember_reachable`, which was the other candidate: that polls
+      > `familiar.lan:8091/health` and measures the **inference backend**, not the device.
+      > Its name and its subject are different things.
 
 Full crash-recovery audit with ranked findings:
 `~/.claude/projects/-home-jp-Projects-familiar-realm-watch/scratch/hosyond-s3/loose-ends.md`
