@@ -557,61 +557,6 @@ def rrect_y(cx, cz, w, h, r, y0, depth):
     return Pos(cx, y0, cz) * (Rot(-90,0,0) * extrude(sk, depth))
 
 
-def gable_y(cx, cz, w, h, r, rise, y0, depth):
-    """rrect_y with its straight top edge replaced by a shallow GABLE.  Issue #38.
-
-    Same frame and argument order as rrect_y, plus `rise`: the apex goes UP from the top edge,
-    never down, so the pocket only ever grows into wall above it and never into whatever it
-    contains.
-
-    ⚠️ THE TRIANGLE'S BASE IS THE ROUNDED RECT'S TOP EDGE, w - 2r, NOT w. Spanning the full
-    width would bury the two top corner radii and hand the recess square corners — the gable is
-    meant to replace the flat top, not the corners. So the run of each slope is (w/2 - r), which
-    is also the number the span arithmetic below is written in.
-
-    A ROUNDED RECT CANNOT DO THIS AND THE ARITHMETIC SAYS SO, which is why there is a new helper
-    rather than a bigger `r`: killing a straight top of width W needs r >= W/2, `RectangleRounded`
-    caps r at min(W,H)/2, and containing the grille field caps it lower still. The radius buys a
-    few millimetres and then stops. A gable has no such ceiling because its apex is a POINT.
-
-    ⚠️ THE PROFILE'S v COORDINATES ARE NEGATED, AND THIS IS THE TRAP rrect_y HIDES.
-    `Rot(-90,0,0)` maps (x,y,z) -> (x, z, -y), so a sketch's +v becomes global -z. rrect_y has
-    never had to care because `RectangleRounded` is SYMMETRIC about its own centre: the sign
-    flip maps the profile onto itself and is invisible. A gable is not symmetric, so the first
-    cut of this helper put the apex 3mm BELOW the recess floor instead of above its top edge —
-    and the build passed, the mesh was watertight, the apex-height assert (which checks
-    arithmetic, not geometry) was green, and the feature simply was not there. It was caught by
-    measuring the void's width up the mesh. A helper that works only because every previous
-    caller was symmetric is a trap primed for whoever brings the first asymmetric profile.
-    """
-    body = rrect_y(cx, cz, w, h, r, y0, depth)
-    if rise <= 0:
-        return body
-    hw = w / 2.0 - r
-    # ⚠️ AND THE VERTEX ORDER IS REVERSED TO MATCH. Negating v flips the polygon's WINDING,
-    # which flips the face normal, which makes `extrude` run the other way — so the second
-    # cut of this helper put the apex correctly at the top and then extruded the roof
-    # BACKWARDS out of the front face, into open air, removing 25mm3 of nothing. Two sign
-    # errors from one negation, in two different axes, and the first assert only checked Z.
-    roof = Pos(cx, y0, cz) * (Rot(-90, 0, 0) * extrude(
-        Polygon((hw, -h / 2.0), (-hw, -h / 2.0), (0.0, -h / 2.0 - rise), align=None), depth))
-    out = body + roof
-    # THE POST-CONDITION CHECKS ALL THREE AXES, because it took two goes to learn that one
-    # negation can move the solid in two of them. A tool that is the wrong shape cuts the
-    # wrong thing silently: the mesh stays watertight, the clearance check stays clean, and
-    # the feature is simply absent.
-    _bb = out.bounding_box()
-    for _ax, _got, _want in (("Z-apex", _bb.max.Z, cz + h / 2.0 + rise),
-                             ("Z-base", _bb.min.Z, cz - h / 2.0),
-                             ("Y-near", _bb.min.Y, y0),
-                             ("Y-far",  _bb.max.Y, y0 + depth)):
-        assert abs(_got - _want) < 1e-6, (
-            f"gable_y {_ax} is {_got:.3f}, expected {_want:.3f} — the roof prism is misplaced. "
-            f"Negating the profile's v flips both its sign in Z and its WINDING, and the "
-            f"winding is what sets the extrusion direction in Y. See the note above")
-    return out
-
-
 def cyl(x,y,z0,z1,d):
     return Pos(x,y,z0) * Cylinder(d/2, z1-z0,
                                   align=(Align.CENTER,Align.CENTER,Align.MIN))
@@ -2000,36 +1945,6 @@ GRILLE_INSET  = 1.0
 # That is a bigger effect than anything available from volume here.
 BAFFLE_T      = 2.20    # wall thickness in the grille region only (was ST_WALL=4.0)
 GRILLE_RECESS = ST_WALL - BAFFLE_T
-# ---- #38: the baffle recess's straight top edge was a 37.1mm bridge ----
-#
-# Found while fixing #28 and deliberately left there, because it is NOT a grille aperture: it
-# is one pocket, not a lattice, so neither smaller hexes nor GRILLE_FLARE could touch it —
-# measured, 0.0% change between flare 0.60 and 0.25. It survived every lever aimed at the
-# grille because it was never made of cells.
-#
-# >>> A GABLE, NOT A BIGGER RADIUS, AND THE ARC IS RULED OUT BY ARITHMETIC RATHER THAN TASTE. <<<
-#
-#   removing a 41.2mm straight top needs r >= 20.60
-#   RectangleRounded caps r at min(W,H)/2 = 14.10                 -> impossible
-#   and containing the 38 x 25 grille field caps it at 5.463      -> 30.27mm still straight
-#
-# An arc has a HORIZONTAL TANGENT at its crown, so it re-creates a flat span however big it
-# gets. A gable's apex is a point and has none. That is the whole difference.
-#
-# ⚠️ AND WHAT THIS BUYS IS HONEST TO STATE: IT CONVERTS A BRIDGE INTO AN OVERHANG, IT DOES NOT
-# DELETE THE OVERHANG. With run 17.0 and rise 3.0 the slopes sit 10.0deg off horizontal, so:
-#
-#   before   34.0mm of FULLY UNSUPPORTED span on a single layer
-#   after     2.27mm  (= 2 * 17.0 * LAYER_H_SHELL / 3.0, the void's width one layer down
-#                       from the apex) and below that a one-sided overhang stepping
-#                       17.0 * 0.20 / 3.0 = 1.13mm inward per layer
-#
-# 34mm sags; 2.27mm bridges perfectly. The 10deg band will show texture and will not droop into
-# the void, because every layer of it is anchored along its outer edge. Sag -> texture is the
-# trade, and it is a good one, but "fixed" would be the wrong word for it.
-BAFFLE_GABLE_RISE = 3.0   # apex goes UP into wall. Dropping the shoulders instead would eat
-                          # the 1.60mm of headroom over the grille field, so the peak must rise.
-                          # Room: apex lands at z 37.60 with ST_H = 40.00 above it.
 # Slots widened 2.20 -> 2.60 at the same pitch: open area over the field goes 65% -> 76%,
 # which puts it above the driver's effective radiating area (~700mm2) rather than below.
 # The remaining material still spans only 0.80mm between slots, so it stays printable.
@@ -2391,18 +2306,10 @@ def desk_stand():
     # BAFFLE RECESS. Cut from the OUTSIDE, so the inside face the speaker tapes to stays
     # flat and unbroken — the recess must not touch the bonded area. Slightly larger than
     # the grille field so the thin region fully contains the slots.
-    # ⚠️ GABLED TOP (#38) — do NOT revert this to rrect_y and do NOT touch DRIVER_W/H/R/CLR to
-    # shorten the span. Those four are the driver's locating geometry and the bonded pad's
-    # outline; trading the speaker's fit for a bridge would be a bad swap. The gable is free.
-    p -= gable_y(ST_W/2, dz,
+    p -= rrect_y(ST_W/2, dz,
                  DRIVER_W + 2*DRIVER_CLR, DRIVER_H + 2*DRIVER_CLR,
-                 DRIVER_R + DRIVER_CLR, BAFFLE_GABLE_RISE,
+                 DRIVER_R + DRIVER_CLR,
                  -0.5, GRILLE_RECESS + 0.5)
-    _gable_apex = dz + (DRIVER_H + 2*DRIVER_CLR)/2 + BAFFLE_GABLE_RISE
-    assert _gable_apex <= ST_H - 2.0, (
-        f"the baffle gable's apex reaches z={_gable_apex:.2f} and the stand's rim is at "
-        f"{ST_H} — under 2mm of wall over the recess. Lower BAFFLE_GABLE_RISE; do not drop "
-        f"the shoulders instead, that eats the headroom over the grille field")
 
     if GRILLE_STYLE == "hex":
         _cells = _hex_field(dz)
