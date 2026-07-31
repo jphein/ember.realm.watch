@@ -1935,3 +1935,98 @@ The general form, and the reason it belongs in this section rather than beside t
 advice: **each fix to a search widens what it can find and leaves a new class it cannot.** A
 zero from a hardened instrument is more persuasive than a zero from a naive one and is not more
 conclusive. Ask what the *current* version cannot see before believing its absence.
+
+### 27. Controls fired in both directions, and made a wrong conclusion feel earned
+
+§13 established that a check proving absence needs a positive control. §19 established that
+an instrument's window is part of the instrument. This is those two colliding, and the
+collision is worse than either alone: **running the control is what stopped the window from
+being examined.**
+
+A comment in the firmware instructed the reader to regenerate a duplicated code block using
+`make_paste_block.py`. Searching for it:
+
+- not in the worktree — `find` over the tree;
+- not in any commit on any branch — `git log --all --diff-filter=A`;
+- **and both searches were controlled.** The `find` returned 8 other `.py` files. The
+  history search returned 28 added across all history. Neither instrument was silent.
+
+That is §13 satisfied, deliberately and in both directions, and the conclusion written into
+the firmware was **"make_paste_block.py has never existed."**
+
+It existed. It was in a session scratch directory, with its own output beside it as evidence
+it had run. A colleague found it in one command.
+
+#### The controls are what did the damage
+
+Every clause of the search was true. The defect is one word: *never*. The searches
+established **not in the repo**; the claim asserted **not in the world**; and the repo was
+the only place that had been looked.
+
+The uncomfortable part is the direction the controls pushed. A bare `0` invites the question
+*"is my search working?"* — which is the question §13 exists to force. Having asked it, and
+having watched the instrument return 8 and 28 on cases where the answer was known, the zero
+stopped feeling like a result that needed interrogating and started feeling like a
+measurement. **The control retired the wrong doubt.** It answered *can this instrument
+speak?* and was read as answering *is this conclusion sound?*
+
+> **A control proves the instrument fires inside its window. It says nothing whatsoever
+> about the window.** And because a passing control feels like diligence, it is the most
+> likely thing to end an inquiry one step early.
+
+#### The aggravating detail, which is what makes this worth its own number
+
+The scratch directory was **named in the author's own brief at the start of the session**,
+for an unrelated reason — a patch sitting in it that was not to be disturbed. The window was
+not unavailable, unknown, or expensive. It was one `ls` away and it was never examined,
+*because the controls had already made the zero feel earned.*
+
+So this is not §19's lesson (a bound chosen from an assumption about where the answer would
+be). The bound here was not chosen at all. It was inherited from the tool — `find` was
+pointed at a repo because that is what one points `find` at — and then ratified by evidence
+that could not speak to it.
+
+#### The true finding was strictly stronger, which is the cost
+
+*"The tool never existed"* supports a comfortable story: the six stale-copy bugs the comment
+was mitigating were not carelessness, because the prescribed process was never runnable.
+
+What was actually true is worse and more useful. **The process existed, worked, and was
+excluded from the only place anyone could find it.** It ran exactly once, for one person,
+inside one session, and was invisible to everyone afterwards — one directory-cleanup from
+being gone. The mitigation for a drift problem was itself outside version control, which is
+a failure mode worse than drift, because drift is at least discoverable. And it belongs to a
+class already in this file: **committed is not deployed**, arriving as **uncommitted is not
+available.**
+
+The false version also pointed at the wrong remedy. *Never existed* implies **write a
+generator**. *Exists, uncommitted* implies **commit the generator** — which took one `cp`,
+and which is what actually happened.
+
+#### Two second-order findings, only reachable once the tool was believed to exist
+
+- **A correct fix silently invalidated it.** The generator matched a literal pre-extraction
+  include path; that path was later corrected in the harness — a real fix, because the old one
+  meant the harness did not compile from a clone — and the correction **broke the generator**,
+  which was not in the repo to be updated. It aborts with `REFUSING: the span-table include
+  marker was lost`, exactly as designed. **No diff could ever have shown this**, because one of
+  the two coupled files was outside version control.
+- **And a claim about tooling went stale the moment the tooling changed.** The same half of the
+  duplication had been called *"unguardable by diff"* — true of a plain diff, false as a
+  conclusion, because the generator performs exactly that translation. Committing it made the
+  comparison mechanical and the guard now exists. **True of the tools one had; false of the tools
+  that existed.**
+
+#### What to do instead
+
+The remedy is not a better control; it is one question asked *after* the control passes:
+
+> **Where could the answer be that I did not look?** Not *is my instrument working* — the
+> control settles that — but *what is outside its window*, asked as a separate step, because
+> a passing control actively discourages asking it.
+
+And a cheap structural version, since a question relies on remembering to ask: **state the
+window in the claim itself.** *"Not in the repo"* is a sentence that cannot be falsified by
+a scratch directory. *"Never existed"* invites exactly that refutation. Writing the narrower
+sentence costs nothing and would have made the finding correct, publishable, and — as it
+turned out — more useful than the one that was written.
