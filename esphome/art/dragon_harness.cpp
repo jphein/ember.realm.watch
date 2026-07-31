@@ -153,6 +153,18 @@ static bool g_audio_live = false, g_guttering = false;
 // Baseline switch: renders the fire EXACTLY as it ships, so the dragon's added
 // run count is measured against the real thing rather than estimated.
 static bool g_no_dragon = false;
+// Mirrors the firmware's `silenced` = (st == 3) && op_mode >= 1. Default false, so every
+// recorded runs/frame figure is unchanged by its introduction — verified, not assumed.
+// No scenario sets it yet; it exists so the harness compiles the SHIPPED painter rather
+// than one missing a line.
+//
+// ⚠️ THE EXPLANATION LIVES HERE AND NOT AT THE USE SITE, AND THE GENERATOR IS WHY.
+// make_paste_block.py aborts if any `g_*` symbol survives into the extracted body, and
+// its leftover scan is textual — so a COMMENT naming this global is enough to trip it.
+// That refusal is correct rather than pedantic: the extracted body is pasted into the
+// YAML, where `g_silenced` does not exist, so a comment referencing it would ship as a
+// dangling pointer. Below the marker, use the `silenced` alias and never name this.
+static bool g_silenced = false;
 static bool g_wake_reset = false;
 static void wake_reset() { g_wake_reset = true; }
 
@@ -186,6 +198,10 @@ static void paint_flame_frame() {
 
   const int st = g_va_state;
   const bool guttering = g_guttering;
+  // Same convention as `guttering`: the alias is declared HERE, above the
+  // THE HEARTH-WYRM marker, so the extracted body reads the firmware's spelling and the
+  // generator needs no mapping entry. Mirrors `silenced = (st == 3) && op_mode >= 1`.
+  const bool silenced = g_silenced;
   const uint32_t frames = g_frames;
   const uint32_t spoken_ms = (frames - g_frames_mark) / 16u;
   float prog = 0.0f;
@@ -289,6 +305,17 @@ static void paint_flame_frame() {
       wake_t = 0.03f;            // asleep
       break;
   }
+  // A speech-muting mode must not animate a working jaw: the reply is on screen, so a
+  // mouth that opens is a decision the device did not make. Zero extra pixels, zero
+  // extra runs. Note what is deliberately NOT damped — the eye, the startle strength
+  // and the wake curve — because every mode listens, and damping those would misreport
+  // the microphone.
+  //
+  // ⚠️ RECONCILED FROM THE YAML, 2026-07-31. This line shipped in ember-satellite.yaml
+  // and was missing here, so the harness was rendering a jaw that opens in a mode where
+  // the device keeps it shut — and its absence meant regenerating the paste block would
+  // have silently reverted the shipped behaviour.
+  if (silenced) jaw = 0;
   // The startle, on ANY touch.
   //
   // An earlier draft graded this: hard startle if the tap landed ON the wyrm, a
@@ -463,10 +490,38 @@ static void paint_flame_frame() {
   // harness still reports `tiling ok` and ALL CHECKS PASSED, because every pixel really
   // is written exactly once. It is written with rubbish. Same family as the MAXH clip.
   //
-  // The knob is genuinely decoupled; a fix belongs in the yaml (guard CW == 4, or index
-  // by `x / CW` and size the arrays by NC, and reword :1922 either way). Flagged to the
-  // firmware owner rather than changed here.
+  // The knob is genuinely decoupled. This was previously "a fix belongs in the yaml …
+  // Flagged to the firmware owner rather than changed here" — the firmware owner DID add
+  // the guards, and the loop was never closed back here, so that note went stale while
+  // describing an item that was already closed elsewhere. It was true when written.
+  //
+  // ⚠️ AND THE ASYMMETRY WAS BACKWARDS, WHICH IS WHY THESE ARE NOW HERE TOO. The asserts
+  // lived only in ember-satellite.yaml — the copy that CANNOT be sanitised — and were
+  // absent from this file, which is the copy where `NC = 80` was actually tried and
+  // smashed the stack. The one place the guard could have fired at compile time was the
+  // one place it was missing. Both belong in both.
   const int NC = 60, CW = 4;
+  // CW is a lie by omission: the column index at the hot loop is `x >> 2`, so the 4 is
+  // hardcoded there and setting CW to anything else changes NOTHING. The
+  // -Wunused-variable this used to produce was a TRUE signal, previously documented as
+  // expected noise. This assert CONSUMES CW, which both states the constraint and
+  // silences the warning for the right reason rather than suppressing it.
+  static_assert(CW == 4,
+      "CW is not a knob: the column index is `x >> 2`, which hardcodes CW == 4. "
+      "Changing CW silently does nothing. Change the shift too, or neither.");
+  // NC has two failure directions at different severities, so this is an equality:
+  //   NC < 60  the per-column arrays are literal [60] but filled `for (i < NC)`, while
+  //            the read index runs 0..59 for any NC. At NC=40 entries [40..59] are never
+  //            written and ARE READ EVERY FRAME — the right third renders from stack
+  //            garbage and check_tiling still passes, every pixel written once, with
+  //            rubbish.
+  //   NC > 60  writes PAST four stack arrays inside the per-frame render. ASan here:
+  //            stack-buffer-overflow, WRITE of size 1. THE DEVICE HAS NO SUCH SIGNAL.
+  // `NC * CW == 240` is the assert to reach for first and does NOT catch this: 40*6=240.
+  static_assert(NC == 60,
+      "NC is not a knob: the per-column arrays are literal [60] and the read index "
+      "runs 0..59 regardless. Below 60 reads uninitialised stack; above 60 writes "
+      "past the arrays. Resize the arrays too, or leave NC alone.");
   const int GRATE = 8;                  // one course of hex cells; was 3 solid rows
   const int base_row = FLAM_H - GRATE;
   const int MAXH = FLAM_H - 12;         // 64. WAS 68 -- the deeper grate's price.

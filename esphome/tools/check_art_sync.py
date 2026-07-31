@@ -34,14 +34,28 @@ WHAT THIS CHECKS
   either copy cannot produce a false positive — which matters, because a guard that
   fires on comment churn gets disabled, and a disabled guard protects nothing.
 
-WHAT IT DOES NOT CHECK, and the gap is the point
-  Only the TABLES. The ~250 lines of painter LOGIC are also duplicated between the
-  harness's `paint_flame_frame()` and the YAML's `paint_flame` lambda, and comparing
-  those textually is not reliable (the harness reads `it.` stubs where the firmware reads
-  `id(...)`, so they are legitimately different text expressing the same thing). **That
-  half of the divergence surface stays unguarded until #10 lands and there is only one
-  copy.** Stated here rather than implied, because a guard that covers half a surface
-  reads as covering the surface.
+WHAT IT DOES NOT CHECK
+  Only the TABLES. The ~250 lines of painter LOGIC are also duplicated, between the
+  harness's `paint_flame_frame()` and the YAML's `paint_flame` lambda.
+
+  ⚠️ **A CORRECTION TO WHAT THIS DOCSTRING USED TO SAY.** It claimed that half "stays
+  unguarded until #10 lands", on the grounds that the two copies are legitimately
+  different text — the harness reads `g_*` globals and `it.` stubs where the firmware
+  reads `id(...)` and ESPHome substitutions, so a plain diff would be all noise. The
+  reasoning was right about a plain diff and the conclusion was wrong, because it ignored
+  the one artifact that performs exactly that translation: `make_paste_block.py`. Once the
+  generator was committed the comparison became mechanical, and it is now
+  `check_paint_sync.py`. The claim was true of the tools I had and false of the tools that
+  existed — which is the same shape as concluding the generator had never existed because
+  it was not in the repo.
+
+WHY BOTH SCRIPTS ARE KEPT
+  `check_paint_sync.py` subsumes this one on paper: its reconstruction splices the tables
+  in, so it compares them too. But it can only run if the GENERATOR runs — and the
+  generator has already been silently broken once, by a correct fix to its input, while
+  nobody could see it. This script compares the tables by VALUE and needs no generator, so
+  it still answers "have the tables drifted?" on a day when that one answers nothing.
+  Different dependencies, different failure modes; that is the whole argument.
 
 RUN
   python3 esphome/tools/check_art_sync.py
