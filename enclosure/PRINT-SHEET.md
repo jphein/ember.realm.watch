@@ -1,36 +1,29 @@
 # Ember satellite case — print sheet
 
-> # ⛔ `ember-stand-base.stl` CANNOT SEAT — do not rely on it closing the chamber
+> # ✅ CLEARED — `ember-stand-base.stl` seats. Fixed in `89001ea`. **REPRINT IT.**
 >
-> The plate is **1.40 mm too deep** in the committed geometry, so **the sealed speaker chamber
-> cannot be closed with it.** Re-derived from the committed `ember_case.py`, not relayed:
+> ⚠️ **If you printed the base plate before this, it is the wrong part — reprint it.** It was
+> **1.40 mm too deep** and the sealed speaker chamber could not be closed with it. It is
+> 2.8 cm³, the fastest part on the sheet.
 >
-> ```
-> stand_base()  spans y 4.30 .. 20.70          <- 20.7 is a hardcoded literal
-> chamber rear  cy1 = ST_WALL + FRONT_GAP + DRIVER_T + PAD_PROUD + 2.0 = 19.30
-> overshoot     20.70 - 19.30 = 1.40 mm
+> Re-measured here on the rebuilt solids, the same two ways the warning was raised:
 >
-> and the same answer from the other direction, booleaned rather than reasoned:
-> desk_stand() & stand_base()  =  269.136 mm³
->   interference bbox  x 5.300..58.700   y 19.300..20.700   z 0.400..4.000
->   depth in Y = 1.400 mm
-> ```
+> | | before | after |
+> |:--|:--|:--|
+> | plate Y extent | 4.30 – **20.70** | 4.30 – **19.00** |
+> | interference with the stand | **269.136 mm³** | **0.000 mm³** |
+> | plate size | 53.40 × **16.40** × 3.60 | 53.40 × **14.70** × 3.60 |
 >
-> **The plate carried its own private copy of the chamber's rear wall.** That wall was later
-> *derived* from the parts it actually depends on and moved to 19.30; the literal did not
-> follow. The plate is only 3.15 cm³, so a wasted print is trivial — **the reason this is a
-> stop is that the chamber cannot be sealed**, and a leak there lets the front wave escape and
-> cancel, which is the whole point of the sealed design.
+> **The cause is the part worth keeping.** The plate's `20.7` was `21.00 − 0.30` — the chamber's
+> rear wall *was* 21.0 and 0.30 was the plate's clearance. That wall later became a *derived*
+> value (baffle + front gap + driver body + tape pad = **19.30**) and **the plate kept its
+> private copy of the old number.** The plate is now derived from the same constants and
+> asserted, with a self-test: pushing it 0.5 mm deeper must be *detected*, because `0.000` is
+> also what a broken detector returns.
 >
-> ⚠️ **Nothing in the build could have caught it, and that is worth knowing before you trust
-> the other checks.** Every clearance check compares a part to **the board**, and this plate
-> never goes near the board. The mesh checks look at **one STL at a time**. This is the
-> project's first *two parts must agree* defect, and **a part too big to fit its mate
-> intersects nothing anybody was measuring.**
->
-> A fix is in progress. This block comes out when it lands — if the repo has moved on, check
-> `git log enclosure/ember_case.py` before trusting it. *Found by `morpheus-thin`; the numbers
-> above re-derived here independently.*
+> **Nothing in the build could have caught it.** Every clearance check compares a part to *the
+> board*, and this plate never goes near the board; the mesh checks look at one STL at a time.
+> **A part too big to fit its mate intersects nothing anybody was measuring.**
 
 > # ✅ CLEARED — `ember-stand.stl` is printable. Fixed in `338a900`.
 >
@@ -77,20 +70,22 @@ and a `../cadenv` that does not exist. See [`README.md`](README.md) for first-ti
 | `ember-front-bezel.stl` | 1 | **front face DOWN** on the bed | **none** | The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are bed-side chamfers, so they self-support. **The debossed honeycomb and the wyrm mark are bed-side recesses**, 0.48 mm deep — exactly three layers at this part's 0.16 mm — and print as bridged voids, which is *why* they are recesses: on a bed face, relief only goes inward. |
 | `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** | Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Countersinks widen downward onto the bed. **The debossed cap faces are bed-side recesses** — a few layers bridge over each, no supports. |
 | `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | Chamber ceiling is a **17 mm bridge** and the cable channel a **16 mm bridge** — leave bridging on (slicer default) and they're fine. The **finger scoop** in the rear slot wall opens *upward*, so every wall is near-vertical and the pocket floor is solid: no bridge at all. (It is **one** opening, x 13.94–50.51, not two: `SCALLOP_MIN_RIB` merges them because the current caps would leave a 0.51 mm rib between, which is a fin rather than a wall. Measured as one span in the mesh.) The **wire saddle** merges into its right-hand end for the same reason — that is deliberate, and it is what keeps the rear bearing rim in two clean segments totalling 15.64 mm instead of leaving a 0.85 mm fin. |
-| `ember-stand-base.stl` | 1 | flat | none | ⛔ **See the block at the top — it does not seat in the committed geometry.** Closes the speaker chamber. Press fit. |
+| `ember-stand-base.stl` | 1 | flat | none | Closes the speaker chamber. Press fit. ⚠️ **Resized in `89001ea` — reprint if you made one earlier.** |
 
 Outer sizes: slab (bezel + shell assembled) **55.9 × 91.9 × 17.4 mm**; stand **64 × 64 × 40 mm**.
 Material use ≈ **121 cm³** total (~150 g in PLA), measured from the current STLs by
 signed-tetrahedron volume — not an estimate. Per part: stand 93.1, back shell 17.6, bezel
-7.5, base 3.2 cm³. The stand is three quarters of the print because it is a speaker cabinet,
+7.5, base **2.8** cm³. The stand is three quarters of the print because it is a speaker cabinet,
 and cabinets want mass.
 
 > **Mesh state, stated honestly because a print sheet is where it matters.** Three of the four
 > STLs are watertight: zero boundary edges, zero non-manifold edges. **`ember-front-bezel.stl`
 > carries 3 non-manifold edges** — coplanar-seam artefacts from the wyrm mark's 104 stacked
 > row-spans, inside a solid that is otherwise valid with **zero boundary edges**. There is no
-> hole; every slicer tried repairs it without comment. If your slicer reports it, that is the
-> expected number and not a download problem. Anything *above* three, or any boundary edge at
+> hole. **Observed rather than predicted: JP has printed this part and the dimensions are
+> good**, so those 3 edges did not stop a real print on a real slicer. That is one print on one
+> slicer — it is *not* a claim that every slicer repairs this silently. If yours reports it,
+> that is the expected number and not a download problem. Anything *above* three, or any boundary edge at
 > all, means something new broke — the build asserts on exactly that.
 
 ---
@@ -124,14 +119,39 @@ only escaping through holes. That is why there is no diffuser part — see the L
 
 ## Fasteners
 
-**4 × M3 × 14 mm countersunk (flat-head) self-tapping**, driven **from the back**, so no
-screw heads appear on the front face.
+**4 × M3 × 15 mm countersunk (flat-head) self-tapping** — ×14 also works — driven **from the
+back**, so no screw heads appear on the front face.
 
 Load path: screw head countersunk in the back shell → 5.5 mm standoff → through the PCB's
 ⌀3.20 hole → **self-taps into a blind ⌀2.50 pilot in the bezel boss**.
 
-- 14 mm is right: the tip lands 4.3 mm into the bezel boss with 1.9 mm of pilot spare, and
-  1.5 mm of solid skin remains under the front face. **16 mm bottoms out — don't.**
+**Buy ×15 if you are buying. ×14 works. ⛔ ×16 bottoms out.** The pilot ends at z 6.20 and
+each screw's tip sits at `BACK_Z + length`:
+
+| screw | tip reaches | engagement | |
+|---|---|---|---|
+| M3 × 12 | z +2.30 | 2.30 mm = 0.77 D | too short |
+| M3 × 14 | z +4.30 | 4.30 mm = **1.43 D** | works — what this sheet has always said |
+| **M3 × 15** | z +5.30 | 5.30 mm = **1.77 D** | **best**, and still 0.90 mm clear of the pilot end |
+| M3 × 16 | z +6.30 | — | ⛔ **bottoms out** |
+
+⚠️ **The usual "2 × diameter of engagement" is not reachable in this geometry at all** — there
+is only 6.20 mm of pilot, so 6.0 mm is the whole hole. ×14 at 1.43 D is *adequate* rather than
+wrong: you are clamping a 12 g PCB, not resisting a working load.
+
+⛔ **And the natural instinct — a longer screw is safer — is exactly backwards here.** At ×16
+the tip hits the bottom of the blind pilot before the head reaches its seat, so it **feels
+tight while clamping nothing**. That failure reads as "tightened fine" and leaves a loose
+bezel, which is the worst way for it to present.
+
+- **Get DIN 965-class heads (⌀ ≤ 6.4 mm).** The countersink is cut to a 6.40 mm mouth. An
+  **ISO 10642 socket countersunk head is 6.72 mm and will sit proud.** Same thread, same
+  length, wrong head — and the packet often just says "M3 countersunk".
+- The countersink's included angle is **84.7°** against a standard 90° head, so the head bears
+  on a narrow annulus near the bore rather than on the full cone. It will not fail at *snug* —
+  but **do not lean on these**: over-torque pulls the head into the back face and craters it.
+  A revision to a true 90° is in progress; the ⌀5.60 vendor pad is the constraint on widening.
+- 1.5 mm of solid skin remains under the bezel's front face at ×14.
 - **Heat-set inserts will NOT fit.** The vendor specifies a ⌀5.60 pad around each mounting
   hole, so bosses are capped at ⌀5.40. An M3 insert needs a ⌀4.0–4.2 bore, leaving a 0.6 mm
   wall that will split. Self-tappers only.
@@ -352,21 +372,39 @@ below Fs does nothing and a mistuned one is worse than sealed.
 1. Plug the speaker pigtail into the board's **SPEAKER** 1.25 mm 2P header (long edge).
 2. Seat the driver in the stand, wires out through the cable channel, press on
    `ember-stand-base`, seal the seam.
-   > ⛔ **This step cannot be completed with the committed plate** — it is 1.40 mm too deep and
-   > will not seat. See the block at the top of this page. Everything downstream of here
-   > assumes a sealed chamber.
-3. Lay the board **face down into the bezel**. The glass does **not** touch the bezel —
+   > ⚠️ **Lay the speaker lead into the rear saddle _before_ the slab goes in.** There is
+   > 0.40 mm between the slab and the wall against a 1.2–2.0 mm lead, so it cannot be threaded
+   > afterwards — and a pinched lead presents as **intermittent audio**, which reads as a
+   > firmware fault and will be debugged as one.
+3. **Free the button pads first, with the shell still on its own.** `SLOT_W = 0.60` is
+   **1.50 nozzle widths at 0.4 mm**, so expect some fusing across the printed-in-place slots,
+   especially at the hinge shoulders. Run a fresh craft-knife blade round each pad and check
+   both hinge properly. **Do this now** — later means working next to a taped driver inside a
+   part that is mostly closed.
+4. Lay the board **face down into the bezel**. The glass does **not** touch the bezel —
    there is a deliberate 0.40 mm gap. The four bosses land on the PCB's top face.
-4. Drop the back shell on. Check the five 1.25 mm connectors and the microSD sit in the
+5. ⛔ **THE ROCK TEST — no screws yet, and this is the one irrecoverable failure on the page.**
+   Set the bezel onto the shell dry and press the centre.
+   > - **It rocks on the rim** → the glass gap is intact. Proceed.
+   > - **It sits dead solid while the seam is still visibly open** → it is bearing on the
+   >   **glass**. **Stop.** Shim the four bosses with 0.2 mm washers, or take 0.2 mm off the
+   >   boss ends. **Do not "just tighten it".**
+   >
+   > Worst case the gap is ≈0.15 mm and still positive, but pressure on an LCD leaves a
+   > permanent bright blotch, and it is the most expensive component in the build. Five
+   > seconds.
+6. Drop the back shell on. Check the five 1.25 mm connectors and the microSD sit in the
    side channels before pulling anything tight.
-5. Four M3 × 14 countersunk from the back. Snug, not hard — you are clamping a PCB.
-6. ~~Press `ember-diffuser` into the ⌀16 seat around the rear glow window.~~
+7. Four M3 × 15 (or × 14) countersunk from the back. Snug, not hard — you are clamping a PCB.
+   **Tighten in two diagonal passes**, not one screw at a time: the screws pull the bezel
+   down, and going round in order tips it and loads one corner of the glass on the way.
+8. ~~Press `ember-diffuser` into the ⌀16 seat around the rear glow window.~~
    **REMOVED.** There is no diffuser and no seat. The ⌀12 rear glow window and its ⌀16
    diffuser seat were both deleted when the back shell became a fine hex field: the LED's
    light now leaves through the apertures over it — 8 within r6, 23 within r10, 32 within
    r12 — plus straight through the wall if you print in white. Many small apertures in a
    translucent panel scatter; one large bore behind a printed disc just shows you the die.
-7. Slide the slab into the stand slot; route the USB-C cable down the channel and out the back.
+9. Slide the slab into the stand slot; route the USB-C cable down the channel and out the back.
    **The two button caps end up inside the slot**, well below the stand's rim — reach them
    through the **finger scallops** in the rear wall, coming down the back of the slab from
    above. If a finger does not fit, that is the fault this feature exists to fix and something
@@ -394,6 +432,22 @@ below Fs does nothing and a mistuned one is worse than sealed.
 
 ## Why some numbers are what they are
 
+- **The glass gap survives printer Z error structurally, not by tolerance stacking — and that
+  is a design property somebody could destroy.** The bezel's underside is located by the
+  **shell's wall top**, and the board by the **shell's standoffs**. Both are printed in the same
+  part, on the same Z axis, from the same bed, so a global Z error scales them *together* and
+  the gap is preserved. The stack is exactly consistent — standoff 5.50 + PCB 1.60 + bezel boss
+  4.70 = **11.80**, and the shell's `CAV_FLOOR → SEAM_Z` is **11.80** — and the shell's 14.40 mm
+  height is **72 layers exactly** at 0.20 mm, so there is no quantisation error either.
+  ⚠️ **Move either datum onto the bezel and that cancellation is gone**, and the gap starts
+  stacking two parts' errors instead of one part's. What is left is the LCD/TP tolerance
+  (−0.20 worst case) and first-layer squish (~−0.05): realistic worst case ≈ **0.15 mm**, still
+  positive. Thin, but positive — which is why step 5's rock test exists rather than a caliper.
+- **The board pocket starts at printed z 2.60, and that is deliberate.** The shell prints back
+  face down, so the pocket floor sits 2.60 mm above the bed — **elephant foot lands in solid
+  wall, not in the pocket.** That is the classic printed-pocket failure, *tight at the bottom
+  only*, designed out. ⚠️ If you are tempted to extend the pocket down to the bed to save
+  material, that is what you would be undoing.
 - **`GLASS_GAP = 0.40` — the bezel never touches the capacitive glass.** The vendor tolerances
   the LCD at 2.3 ±0.1 and the touch panel at 1.0 ±0.1, so the glass front face can sit up to
   0.2 mm high. A rigid printed bezel bearing on glass is how you crack a display. The entire
@@ -507,6 +561,36 @@ is one parameter, not a redesign.
 
 ---
 
+## What this sheet cannot tell you
+
+Named explicitly, because **a checklist that implies it covered everything is worse than one
+that marks its own edges.** None of these is measurable from the geometry, and no amount of
+re-checking the model will settle them:
+
+1. **Whether the printed-in-place button slots opened.** 1.50 nozzle widths is above the point
+   where a slicer refuses and below the point where it is safe. See step 3.
+2. **Your actual printed pilot diameter.** Modelled 2.50 and printed holes come out 0.1–0.3 mm
+   undersize, which lands it mid-band for thread-forming — **measure one boss before you drive
+   four screws.**
+3. **Thread quality in your PLA at your temperatures** — brittle when cold, gummy when hot.
+4. **Your module's real LCD + touch-panel stack height.** This is the entire glass-gap risk, and
+   it is why step 5 is a feel test rather than a number.
+5. **Whether the driver's own pigtail reaches the wire pass.** A property of the module, not of
+   the case.
+6. **Whether the seal actually seals.** A leaky "sealed" box costs exactly the low end the
+   chamber exists to produce, and an audible A/B sealed-vs-unsealed is the only test.
+7. **Acoustics.** The throat is 678.0 mm² against the driver's ~700 mm² — 97 % on paper.
+   Whether the merged 0.40 mm mouth chuffs at level is not predictable from area.
+8. **Your USB-C cable's overmould.** The well is generous — 22 × 12 mm, 20.7 mm along the tilt —
+   but plugs vary more than the spec suggests.
+9. **Cosmetics of the grille mouth.** From outside it is *one* 37 × 24 mm aperture with the
+   honeycomb 0.40 mm behind it, not 33 chamfered holes. Deliberate, and possibly not what you
+   pictured.
+
+The one that has moved from this list to fact: **the bezel's 3 non-manifold edges did not
+matter** — it printed, and the dimensions are good.
+
+---
 ## Provenance
 
 Everything structural was **measured from the vendor STEP solid**
