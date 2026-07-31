@@ -1,5 +1,37 @@
 # Ember satellite case — print sheet
 
+> # ⛔ `ember-stand-base.stl` CANNOT SEAT — do not rely on it closing the chamber
+>
+> The plate is **1.40 mm too deep** in the committed geometry, so **the sealed speaker chamber
+> cannot be closed with it.** Re-derived from the committed `ember_case.py`, not relayed:
+>
+> ```
+> stand_base()  spans y 4.30 .. 20.70          <- 20.7 is a hardcoded literal
+> chamber rear  cy1 = ST_WALL + FRONT_GAP + DRIVER_T + PAD_PROUD + 2.0 = 19.30
+> overshoot     20.70 - 19.30 = 1.40 mm
+>
+> and the same answer from the other direction, booleaned rather than reasoned:
+> desk_stand() & stand_base()  =  269.136 mm³
+>   interference bbox  x 5.300..58.700   y 19.300..20.700   z 0.400..4.000
+>   depth in Y = 1.400 mm
+> ```
+>
+> **The plate carried its own private copy of the chamber's rear wall.** That wall was later
+> *derived* from the parts it actually depends on and moved to 19.30; the literal did not
+> follow. The plate is only 3.15 cm³, so a wasted print is trivial — **the reason this is a
+> stop is that the chamber cannot be sealed**, and a leak there lets the front wave escape and
+> cancel, which is the whole point of the sealed design.
+>
+> ⚠️ **Nothing in the build could have caught it, and that is worth knowing before you trust
+> the other checks.** Every clearance check compares a part to **the board**, and this plate
+> never goes near the board. The mesh checks look at **one STL at a time**. This is the
+> project's first *two parts must agree* defect, and **a part too big to fit its mate
+> intersects nothing anybody was measuring.**
+>
+> A fix is in progress. This block comes out when it lands — if the repo has moved on, check
+> `git log enclosure/ember_case.py` before trusting it. *Found by `morpheus-thin`; the numbers
+> above re-derived here independently.*
+
 > # ✅ CLEARED — `ember-stand.stl` is printable. Fixed in `338a900`.
 >
 > This block used to read **DO NOT PRINT `ember-stand.stl` YET**: the speaker-wire pass into
@@ -45,7 +77,7 @@ and a `../cadenv` that does not exist. See [`README.md`](README.md) for first-ti
 | `ember-front-bezel.stl` | 1 | **front face DOWN** on the bed | **none** | The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are bed-side chamfers, so they self-support. **The debossed honeycomb and the wyrm mark are bed-side recesses**, 0.48 mm deep — exactly three layers at this part's 0.16 mm — and print as bridged voids, which is *why* they are recesses: on a bed face, relief only goes inward. |
 | `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** | Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Countersinks widen downward onto the bed. **The debossed cap faces are bed-side recesses** — a few layers bridge over each, no supports. |
 | `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | Chamber ceiling is a **17 mm bridge** and the cable channel a **16 mm bridge** — leave bridging on (slicer default) and they're fine. The **finger scoop** in the rear slot wall opens *upward*, so every wall is near-vertical and the pocket floor is solid: no bridge at all. (It is **one** opening, x 13.94–50.51, not two: `SCALLOP_MIN_RIB` merges them because the current caps would leave a 0.51 mm rib between, which is a fin rather than a wall. Measured as one span in the mesh.) The **wire saddle** merges into its right-hand end for the same reason — that is deliberate, and it is what keeps the rear bearing rim in two clean segments totalling 15.64 mm instead of leaving a 0.85 mm fin. |
-| `ember-stand-base.stl` | 1 | flat | none | Closes the speaker chamber. Press fit. |
+| `ember-stand-base.stl` | 1 | flat | none | ⛔ **See the block at the top — it does not seat in the committed geometry.** Closes the speaker chamber. Press fit. |
 
 Outer sizes: slab (bezel + shell assembled) **55.9 × 91.9 × 17.4 mm**; stand **64 × 64 × 40 mm**.
 Material use ≈ **121 cm³** total (~150 g in PLA), measured from the current STLs by
@@ -320,6 +352,9 @@ below Fs does nothing and a mistuned one is worse than sealed.
 1. Plug the speaker pigtail into the board's **SPEAKER** 1.25 mm 2P header (long edge).
 2. Seat the driver in the stand, wires out through the cable channel, press on
    `ember-stand-base`, seal the seam.
+   > ⛔ **This step cannot be completed with the committed plate** — it is 1.40 mm too deep and
+   > will not seat. See the block at the top of this page. Everything downstream of here
+   > assumes a sealed chamber.
 3. Lay the board **face down into the bezel**. The glass does **not** touch the bezel —
    there is a deliberate 0.40 mm gap. The four bosses land on the PCB's top face.
 4. Drop the back shell on. Check the five 1.25 mm connectors and the microSD sit in the

@@ -290,7 +290,15 @@ the outside.
 
 So there is one now. **Four parts, none needing supports**, in [`enclosure/`](enclosure/):
 
-> ✅ **All four are ready for a bed.** `ember-stand.stl` was held back — the speaker-wire pass
+> ⛔ **`ember-stand-base.stl` does not seat.** It is **1.40 mm too deep** in the committed
+> geometry — the plate carried a hardcoded copy of the chamber's rear wall (20.7) while that
+> wall was later derived and moved to 19.30, and the literal did not follow. **The sealed
+> speaker chamber cannot be closed with it.** The part is 3.15 cm³ so the print is cheap; the
+> assembly is the problem. A fix is in progress. **Nothing in the build could have caught this**
+> — every clearance check compares a part to *the board*, and this plate never goes near the
+> board. See [`enclosure/PRINT-SHEET.md`](enclosure/PRINT-SHEET.md).
+>
+> ✅ **The other three are ready for a bed.** `ember-stand.stl` was held back — the speaker-wire pass
 > into the sealed chamber was blocked by a 0.50 mm skin of the tape pad, leaving a 0.40 mm slit
 > where a 1.2–2.0 mm lead has to pass. Fixed in `338a900`: the clear aperture is now **28.69 mm²
 > of 30 (95.6 %), up from 2.37 (7.9 %)**, and the stand has no feature below 0.60 mm. Two other
