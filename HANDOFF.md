@@ -13,19 +13,50 @@ before that and still describe four parts as ready. **They are not.**
 |---|---|---|
 | **front bezel** | yes | ✅ **correct, keep** — proven byte-identical through every change since |
 | **back shell** | yes | ⛔ **superseded, reprint** — microSD slit was on the wrong edge and ~24 mm out; an opening exposed the LCD driver flex; the two button caps were on the wrong ends |
-| **stand / dock** | yes | ⛔ **superseded** — the finger pockets follow the caps, which swapped. JP is reprinting by choice |
+| **stand / dock** | yes | ⚠️ **superseded but FUNCTIONAL — see below. Do not reprint it to fix the buttons.** JP is reprinting by choice, for the next prototype |
 | **stand base** | **never** | ✅ committed version is the fixed one (the previous was 1.40 mm too deep to seat) |
 
-⚠️ **BEFORE SLICING THE BACK SHELL, CHECK THE COUNTERBORE LANDED.** JP's screws are **cylindrical
-socket-cap heads**, not countersunk. If the shell still has the conical countersink, the head bears
-on a rim instead of seating and over-torque craters the visible face. `grep -c CBORE_
-enclosure/ember_case.py` — at the time of writing this was **partial**, and labels were **not
-started**. It is a small change, but only if someone looks.
+### ✅ THE PRINTED STAND STILL WORKS. Measured, `86748c6`.
+
+The two finger pockets **had already merged into one scoop** spanning board x **6.94 … 43.51**, and
+that scoop contains **both caps in their new swapped positions**:
+
+| cap | new island x | cap spans | in the printed scoop? | 6 mm fingertip | 16 mm thumb |
+|---|---|---|---|---|---|
+| BOOT (big / volume) | 16.66 | 8.00 … 25.32 | **yes, wholly** | clear | clear |
+| RESET (small) | 35.66 | 29.89 … 41.43 | **yes, wholly** | clear | 0.15 mm clipped |
+
+The 0.15 mm on the small cap is irrelevant — RESET is deliberately *not* thumb-sized, and the
+thumb-sized cap is fully clear. **The reprint is cosmetic.** Measured against the **committed
+source that produced the STL JP actually printed** (old `CAP_CX` 33.05 / 14.51, `SCALLOP_CLR` 1.80,
+`SCALLOP_MIN_RIB` 3.00), not against the new source. It survives only because the *merge rule*
+made the scoop far wider than either cap needs — had the pockets stayed separate, the swap would
+have missed both.
+
+### ✅ The counterbore has landed (was "partial" when the line above was written)
+
+`CBORE_D` / `CBORE_DEPTH` / `BOSS_FLARE_D` are all in `ember_case.py` as of `86748c6`, the conical
+countersink and its entire rationale are deleted, and the back-shell STL is rebuilt. **Nothing to
+check before slicing.** ⚠️ **Labels are still NOT started** — see Open.
 
 **Fastener, fully measured by JP (not nominal):** M3 × 0.5 × 12 **ISO 4762 socket cap, hex recess**,
-head **5.50 × 3.00**. Flush. Engagement **5.30 mm = 1.77 D**. The boss flare exists *because* the
-head is 3.00 — a flush pocket otherwise floors 0.40 mm into the cavity where the bore is wider than
-the boss. Do not remove it.
+head **5.50 × 3.00**. Flush, in a flat-bottomed **counterbore**.
+
+- Depth is **3.04 mm = 19 layers**, not 3.00: flush wants 3.00, which is 18.75 layers and cannot
+  land a flat floor. 18 layers leaves the head **proud**, which stops the part sitting flat — so it
+  rounds *deeper*, sinking the head 0.04 mm. Invisible.
+- **Engagement 5.34 mm = 1.78 D**, clearing the end of the pilot by 0.86 mm. (An earlier note said
+  5.30 / 1.77 D / 0.90 — that was computed at a 3.00 depth, before the layer rounding.)
+- **The boss flare exists *because* the head is 3.00 mm.** A flush pocket floors **0.44 mm** into
+  the cavity, where the d5.80 bore is wider than the d5.40 boss and the head has nothing to bear
+  on. The boss flares to **d8.40** below the PCB face. ⚠️ **The permission is a distinction, not a
+  licence: the vendor's ⌀5.60 pad keepout applies AT the PCB face, not below it.** Anyone
+  "restoring" the boss to a uniform 5.40 to match the keepout comment silently deletes the seat.
+  There is an annulus assert guarding it, with a control that reproduces the un-flared defect.
+
+⚠️ **Slicer, unchanged and still critical: gap-closing radius / hole horizontal expansion must be
+`0`.** The button moat is 0.60 mm and gap-closing welds it shut, fusing the printed-in-place caps
+to the shell. The model cannot defend against this.
 
 **Root cause, and the part worth carrying forward:** the vendor STEP had **four features missing or
 fictional** — both switches absent, the mic port suppressed, and a 0.5 mm plate taken for the
@@ -101,6 +132,13 @@ clearance check is skipped.
   hinges dropped to ~1.20% (from 2.29% / 2.18%). The assert was tightened 2.5% → **2.0%** in the
   same change, because a threshold calibrated to what the *old* caps could achieve is a ratchet
   pointing the wrong way.
+- ⛔ **NUMBERS IN THIS ITEM ARE VOID as of `86748c6` — the switches swapped and the islands are now
+  SOLVED, not typed.** Current: islands **16.66 / 35.92→35.66**, switches **BOOT 13.45 / RESET
+  36.58** (BOOT and RESET are the *opposite* ends from what this item says). The obstruction is no
+  longer a countersink but a d5.80 counterbore *plus* a d8.40 boss flare. Marked here rather than
+  left to the header caveat, per `docs/verification.md` §12: **a caveat is read once and an
+  instruction is read at the moment of acting on it.** The reasoning below still holds; only the
+  figures and the sides are wrong.
 - **The cap islands are offset from their switches** — centres at x 33.05 and 14.51 against
   switches at 36.58 and 13.45 — because a 17.32 mm island centred on the switch would eat into
   the M3 countersink. `PIP_D` shrank 4.00 → **3.00** to make that placeable: the island narrows
@@ -210,9 +248,21 @@ to pay it on somebody's behalf.
 
 ## Open
 
-- [ ] **Print it.** Start with `ember-front-bezel.stl` — cheapest to reprint, and it now carries
-      both the mic port and the whole debossed face, so it is the part most needing a fit check
-      *and* the one that tells you whether 0.48 mm reads at arm's length.
+- [x] ~~**Print it.** Start with `ember-front-bezel.stl`~~ — **done, and the bezel is correct.**
+      It has stayed **byte-identical** through every change since, verified by `git diff` on the
+      STL across three rebuilds. 0.48 mm was legible. **Next print is `ember-back-shell.stl`** (the
+      fix), then optionally the stand and the never-printed `ember-stand-base.stl`.
+- [ ] **Debossed labels above the cutouts and on the buttons — requested by JP, NOT STARTED.**
+      Recessed only: the shell prints back-face-down, so raised text becomes the lowest feature and
+      the part balances on it. Depth **0.48 mm = 3 × `LAYER_H`**. Size the type from the **nozzle,
+      not from taste** — a stroke under ~0.90 mm does not resolve at 0.4 mm, and this repo already
+      fixes 0.90 as the floor (`assert _mf >= 0.90` on the wyrm mark). Plan: bold face at ~4.5 mm
+      cap height, then **measure the realised minimum stroke with the wyrm mark's own machinery and
+      assert it**, rather than trusting a stroke/height ratio.
+      > ⚠️ **`BTN_R_SMALL` is only 10.00 mm across flats.** `RESET` at a legible size will not fit,
+      > and shrinking it to fit goes under the 0.90 mm floor where it prints as mush — worse than
+      > no label. Likely a symbol or a two-character mark. **That is an aesthetic call on a face JP
+      > looks at, so it is JP's, not the model's.**
 - [ ] Button feel is the thing most likely to need a second print — but **the knob is
       `HINGE_L_BOOT` / `HINGE_L_RESET` (1.20 / 2.00), not `HINGE_T`.** Strain is `(t/2)·θ/L`
       with θ fixed by pip travel over the pip's lever arm, so thickening a hinge to firm it up
@@ -281,3 +331,15 @@ Two corollaries earned the hard way:
 - **A total can absorb a complete regional absence.** The bezel honeycomb's first run put 75
   cells in the chin and *none* on the rails, and the assert passed because it read
   `count ≥ 60`. Count the regions, not the total.
+- **A constant with no consumer cannot be wrong in a way anything detects.** `SD_PLATE` was read
+  only by humans — the openings it named were hand-typed literals — so nothing recomputed when it
+  was wrong, and a 26.50 mm channel with 18.54 mm of nothing behind it passed every check, because
+  every check compared the *part* to the *board* and an opening over an absent component is
+  agreement. It is the **second** instance in one file, a screenful from the dead `GRILLE_SLOT_W`
+  already written up here. **Knowing the failure mode did not prevent it.** Openings now derive
+  from a component table, with the converse asserted.
+- **When a rounded number *is* a clearance, the direction of the rounding is part of the
+  constraint.** `round(..., 2)` on a solved island position spent 0.0003 mm of the clearance it had
+  just computed — and the new assert caught it on its first run, which is the *first* fault in this
+  file's history found by a check rather than by a person holding a part. It rounds *away* from the
+  obstruction now. A value sitting on a boundary has no slack to round into.
