@@ -30,3 +30,6 @@ print-ready/
 # Gated exports: a build writes here and only renames to .stl once every check passes.
 # A leftover .partial means a build FAILED — it is a diagnostic, not an artifact.
 *.stl.partial
+
+# Harness render dumps (dragon_harness dumps wyrm_<state>.ppm into the cwd) — generated, look-then-delete
+wyrm_*.ppm
