@@ -1,28 +1,30 @@
 # Ember satellite case — print sheet
 
-> # ⛔ DO NOT PRINT `ember-stand.stl` YET
+> # ✅ CLEARED — `ember-stand.stl` is printable. Fixed in `338a900`.
 >
-> **The speaker-wire pass into the sealed chamber is blocked by the tape pad**, in the STL
-> currently committed. Measured off `ember-stand.stl` by ray-casting the mesh, not inferred
-> from the source:
+> This block used to read **DO NOT PRINT `ember-stand.stl` YET**: the speaker-wire pass into
+> the sealed chamber was blocked by a 0.50 mm skin of the tape pad, leaving a slit ≈5.9 mm
+> wide × 0.40 mm tall where a 1.2–2.0 mm lead has to pass. The pass was cut from y = 19.0,
+> which is *behind* the pad's inner face, so the pad survived as a membrane over the mouth.
 >
-> | | |
-> |:--|:--|
-> | Nominal pass | 6.00 × 5.00 mm, cut from y = 19.0 |
-> | What is actually open | a slit **≈5.9 mm wide × 0.40 mm tall**, at z 6.00–6.40 only |
-> | What blocks it | a **0.50 mm membrane of pad material at y 18.50–19.00**, standing across the mouth for the whole height z 6.4 → 11.0 |
+> Re-measured in the rebuilt mesh by the same ray-cast, so the numbers are comparable rather
+> than two different questions:
 >
-> A 2-core speaker lead is 1.2–2.0 mm. **It does not fit.** The tape pad stands `PAD_PROUD`
-> off the chamber's rear wall and the pass is cut from *behind* the pad's inner face, so the
-> pad survives as a skin over the opening.
+> | | before | after |
+> |:--|:--|:--|
+> | Clear aperture into the chamber | **2.37 mm² of 30 (7.9 %)** | **28.69 mm² (95.6 %)** |
+> | The blocking membrane | 0.474 mm, 12.4 mm³, 23 layers | **gone** — clear at z 6.5 / 8.0 / 10.0 |
+> | Thinnest feature in the stand | 0.474 mm | 0.600 mm, 0.01 mm²/layer (a pre-existing 1-pixel corner) |
+> | Features below 0.60 mm | 1 | **0** |
 >
-> The stand is **three quarters of the whole print** (93 cm³), so this is the one part where
-> printing before the fix lands is expensive. The other three parts are unaffected —
-> `ember-front-bezel.stl` has been printed and is fine.
+> The cut is now keyed to `PAD_PROUD` instead of a typed 19.0, and an assert intersects the
+> finished solid with the pad's own plane over the channel's footprint and requires it empty —
+> so it measures the **aperture**, not the constants. Two more slivers went with it: the wire
+> groove's 25.6 mm knife edge against the R10 rear corner (`WIRE_X` 57.0 → derived 52.50) and
+> the 0.85 mm fin the old saddle left on the bearing rim (now 5.35 mm).
 >
-> *Found by `morpheus-thin`; re-measured here independently before this warning was written.
-> A fix is in progress and this block comes out when it lands — if you are reading this and
-> the repo has moved on, check `git log enclosure/ember_case.py` before trusting it.*
+> *Found and fixed by `morpheus-thin`. `ember-front-bezel.stl` had already been printed and is
+> unaffected — that part is byte-identical across the fix, deliberately.*
 
 Board: **LCDWIKI/QDtech ES3C28P** (Hosyond 2.8" ESP32-S3).
 Source of truth: `ember_case.py` (build123d). The STLs are output, not the artifact.
@@ -42,7 +44,7 @@ and a `../cadenv` that does not exist. See [`README.md`](README.md) for first-ti
 |---|---|---|---|---|
 | `ember-front-bezel.stl` | 1 | **front face DOWN** on the bed | **none** | The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are bed-side chamfers, so they self-support. **The debossed honeycomb and the wyrm mark are bed-side recesses**, 0.48 mm deep — exactly three layers at this part's 0.16 mm — and print as bridged voids, which is *why* they are recesses: on a bed face, relief only goes inward. |
 | `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** | Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Countersinks widen downward onto the bed. **The debossed cap faces are bed-side recesses** — a few layers bridge over each, no supports. |
-| `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | ⛔ **See the block at the top of this page — do not print this part yet.** Chamber ceiling is a **17 mm bridge** and the cable channel a **16 mm bridge** — leave bridging on (slicer default) and they're fine. The two **finger scallops** in the rear slot wall open *upward*, so every wall is near-vertical and the pocket floor is solid: no bridge at all. |
+| `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | Chamber ceiling is a **17 mm bridge** and the cable channel a **16 mm bridge** — leave bridging on (slicer default) and they're fine. The **finger scoop** in the rear slot wall opens *upward*, so every wall is near-vertical and the pocket floor is solid: no bridge at all. (It is **one** opening, x 13.94–50.51, not two: `SCALLOP_MIN_RIB` merges them because the current caps would leave a 0.51 mm rib between, which is a fin rather than a wall. Measured as one span in the mesh.) The **wire saddle** merges into its right-hand end for the same reason — that is deliberate, and it is what keeps the rear bearing rim in two clean segments totalling 15.64 mm instead of leaving a 0.85 mm fin. |
 | `ember-stand-base.stl` | 1 | flat | none | Closes the speaker chamber. Press fit. |
 
 Outer sizes: slab (bezel + shell assembled) **55.9 × 91.9 × 17.4 mm**; stand **64 × 64 × 40 mm**.
