@@ -126,8 +126,8 @@ vendor's annotated board photo, §4.1 Figure 4.1):
   > it backwards and the big inviting thumb cap ends up over **RESET**.
 
   **They are not equivalent, and only one is an input.** BOOT is GPIO0 and is the
-  entire hardware input budget for this board — short press summons the volume overlay
-  and steps it, long press opens the power menu. RESET is hardwired to `CHIP_PU`: it
+  entire hardware input budget for this board — short press summons the audio overlay
+  (volume and mic gain) and steps it, long press opens the power menu. RESET is hardwired to `CHIP_PU`: it
   reboots the MCU *and* the LCD, and firmware **cannot read it at all**. The only other
   free broken-out pins are GPIO 2, 14 and 21, and reaching them means soldering.
 
@@ -213,8 +213,8 @@ placed but slightly short.
 2. **Don't clamp the long edges** (§1). Land the front lip on the short-end strips.
 3. **Give the rear LED somewhere to go.** Otherwise Ember loses its status glow
    entirely. *Since resolved:* this was first a ⌀12 mm window with a separate printed
-   translucent disc seated in it, and is now a field of 127 hex apertures across the
-   back — 3.2 mm across the flats on a 0.8 mm web, 55% open. Many small openings scatter;
+   translucent disc seated in it, and is now a field of 113 hex apertures across the
+   back — 3.2 mm across the flats on a 0.8 mm web, 56% open. Many small openings scatter;
    one large bore just shows you the die. That deleted a part, a seat and a second
    filament, and the case is printed in white, so the shell is translucent enough to
    glow between the holes as well as through them.

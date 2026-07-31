@@ -16,16 +16,24 @@ and a `../cadenv` that does not exist. See [`README.md`](README.md) for first-ti
 
 | File | Qty | Print orientation | Supports | Notes |
 |---|---|---|---|---|
-| `ember-front-bezel.stl` | 1 | **front face DOWN** on the bed | **none** | The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are bed-side chamfers, so they self-support. **The debossed honeycomb and the wyrm mark are bed-side recesses**, 0.45 mm deep, and print as bridged voids — which is *why* they are recesses: on a bed face, relief only goes inward. |
+| `ember-front-bezel.stl` | 1 | **front face DOWN** on the bed | **none** | The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are bed-side chamfers, so they self-support. **The debossed honeycomb and the wyrm mark are bed-side recesses**, 0.48 mm deep — exactly three layers at this part's 0.16 mm — and print as bridged voids, which is *why* they are recesses: on a bed face, relief only goes inward. |
 | `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** | Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Countersinks widen downward onto the bed. **The debossed cap faces are bed-side recesses** — a few layers bridge over each, no supports. |
 | `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | Chamber ceiling is a **17 mm bridge** and the cable channel a **16 mm bridge** — leave bridging on (slicer default) and they're fine. The two **finger scallops** in the rear slot wall open *upward*, so every wall is near-vertical and the pocket floor is solid: no bridge at all. |
 | `ember-stand-base.stl` | 1 | flat | none | Closes the speaker chamber. Press fit. |
 
 Outer sizes: slab (bezel + shell assembled) **55.9 × 91.9 × 17.4 mm**; stand **64 × 64 × 40 mm**.
-Material use ≈ **124 cm³** total (~154 g in PLA), measured from the current STLs by
-signed-tetrahedron volume — not an estimate. Per part: stand 95.9, back shell 17.5, bezel
+Material use ≈ **121 cm³** total (~150 g in PLA), measured from the current STLs by
+signed-tetrahedron volume — not an estimate. Per part: stand 93.1, back shell 17.6, bezel
 7.5, base 3.2 cm³. The stand is three quarters of the print because it is a speaker cabinet,
 and cabinets want mass.
+
+> **Mesh state, stated honestly because a print sheet is where it matters.** Three of the four
+> STLs are watertight: zero boundary edges, zero non-manifold edges. **`ember-front-bezel.stl`
+> carries 3 non-manifold edges** — coplanar-seam artefacts from the wyrm mark's 104 stacked
+> row-spans, inside a solid that is otherwise valid with **zero boundary edges**. There is no
+> hole; every slicer tried repairs it without comment. If your slicer reports it, that is the
+> expected number and not a download problem. Anything *above* three, or any boundary edge at
+> all, means something new broke — the build asserts on exactly that.
 
 ---
 
@@ -267,7 +275,8 @@ below Fs does nothing and a mistuned one is worse than sealed.
 | `TILT` | 15° | viewing angle |
 | `GRILLE_STYLE` | `"hex"` | `"ridge"` swaps the 33-hex field for lyra's raked dorsal-spine motif. **Both are solved to the same 673 mm² open area**, so this is aesthetic, not acoustic — the rake never did acoustic work, since these are straight-through bores raked *in the plane* of the wall, not louvered vanes angled through its thickness |
 | `SCALLOP_D` / `SCALLOP_Z0` | 12.0 / 5.0 | the finger pockets over the button caps. Deeper reaches further behind the slab and eats the stand's rear wall — there is an assert holding 3 mm of wall at the rim. Raising `SCALLOP_Z0` keeps more of the lower rear grip and gives the finger less room |
-| `BEZEL_DEBOSS` | 0.45 | how deep the honeycomb and wyrm cut into the front face. An assert holds ≥2.00 mm of bezel over the glass, so there is headroom — but this is the face you look at, and deeper is not automatically better on a 0.16 mm layer height |
+| `BEZEL_DEBOSS` | 0.48 | how deep the honeycomb and wyrm cut into the front face. **Keep it an exact multiple of the bezel's 0.16 mm layer height** — it was 0.45, which is 2.8125 layers, so the recess floor landed wherever the slicer's rounding fell rather than on a real layer boundary. An assert holds ≥2.00 mm of bezel over the glass, so there is headroom, but this is the face you look at |
+| `BTN_R_BIG / BTN_R_SMALL` | 8.6603 / 5.7735 | the hex caps — **15.00 and 10.00 mm across the flats.** Shrinking them moves the hinge closer to the pip, which raises θ and therefore strain; the thumb-sized caps are what took both hinges to ~1.20% |
 
 ---
 
@@ -288,13 +297,22 @@ below Fs does nothing and a mistuned one is worse than sealed.
   resting on the case can hold BOOT low across a reset.
 - **The bezel face is debossed too, and for the same reason on the opposite face.** 57
   honeycomb cells across the chin, a 16-cell chain up each rail (2.60 mm across the flats on a
-  0.70 mm web), and the hearth-wyrm 27.00 × 11.25 mm in the brow — all 0.45 mm deep. This part
+  0.70 mm web), and the hearth-wyrm **25.65 × 11.25 mm** in the brow — all **0.48 mm** deep,
+  which is exactly three layers at this part's 0.16 mm. This part
   prints front face down, so a raised logo would be the lowest feature and the bezel would land
   on it. **On a bed face, relief only goes inward** — that it bit both shell parts in the same
   session, on opposite faces, is the tell that it is a property of the process, not a mistake.
   The wyrm's *size* is set by the print floor rather than the space available: its verified
   minimum feature is 1.2333 mm at unit scale, and scaling it to fill the brow would take the
   thinnest part of the creature under the 0.90 mm floor.
+  **The mark is mirrored, and its placement is a centring rather than a margin.** The creature
+  is drawn facing left, so unmirrored its *tail* pointed at the mic port and the gesture ran off
+  the face. Mirrored, the head faces the flare. Ink runs x 7.700–33.351 and the flare's right
+  edge is at 42.300, which puts the creature-and-port group dead on **x 25.000 — the face
+  centreline** — and that is asserted, because every other check on this face is a clearance and
+  a clearance is satisfied by any amount of slack in the wrong place. The cost, on the record:
+  this is the one of the wyrm's four renderings that is handed the other way, and it is **not**
+  at top-left.
 - **Two of those cells used to sit on a screw boss, and it mattered for printing.** Nine chin
   cells per boss overlapped the fastener — four over the 2.50 mm pilot, five over the 5.40 mm
   pad — thinning the bezel roof over a self-tapper from 1.50 mm to **1.05 mm**. It was never a
@@ -302,23 +320,31 @@ below Fs does nothing and a mistuned one is worse than sealed.
   sheet: the chin honeycomb should stop cleanly short of all four boss positions.
 - **The hinges are sized by strain, not by feel — and the intuitive fix cracks them.** Bending
   strain in a flexure is `(t/2)·θ/L`, and **θ is not a free variable**: it is pip travel over
-  the pip's distance from the hinge. The *smaller* cap therefore bends *further* — 5.56° on
-  RESET against 3.50° on BOOT — because its pip sits on a shorter arm. At a shared 1.00 mm
-  flexure that put RESET at **4.37%**, past PLA's ~2% yield and into its 4–6% break band. The
-  natural remedy, thickening RESET's hinge so it presses firmer, takes it to **6.79%**: strain
-  scales *with* thickness, so the obvious fix points the wrong way. Lengthening the flexure is
-  what actually works. Shipped: **RESET 2.18% at L = 2.00, BOOT 2.29% at L = 1.20**, both under
-  the 2.5% assert. The force ordering stays mildly inverted and that is the accepted trade — an
-  easy RESET is an annoyance, a cracked RESET hinge is a dead part, and findability is already
-  carried by cap size and deboss depth, which cost no strain at all.
+  the pip's distance from the hinge. The *smaller* cap therefore bends *further*, because its
+  pip sits on a shorter arm. At 9.01 mm caps and a shared 1.00 mm flexure that put RESET at
+  **4.37%**, past PLA's ~2% yield and into its 4–6% break band. The natural remedy, thickening
+  RESET's hinge so it presses firmer, takes it to **6.79%**: strain scales *with* thickness, so
+  the obvious fix points the wrong way. Lengthening the flexure works — and so, it turned out,
+  does **making the caps bigger**, which was asked for on looks: a wider hex puts the hinge
+  further from the pip, so θ falls with it. Shipped at 15.00 / 10.00 mm across the flats:
+  **BOOT 1.20% (θ 1.83°, L = 1.20) and RESET 1.19% (θ 3.04°, L = 2.00)**, against an assert
+  that was tightened from 2.5% to **2.0%** at the same time — the old threshold was calibrated
+  to what 9 mm caps could achieve rather than to what the material wants, and an assert
+  inherited from a worse version of the part is a ratchet pointing the wrong way. The force
+  ordering stays mildly inverted and that is the accepted trade — an easy RESET is an
+  annoyance, a cracked RESET hinge is a dead part, and findability is already carried by cap
+  size and deboss depth, which cost no strain at all.
   > **Every other check in this file would have passed all three variants happily.** The
   > geometry is valid, nothing collides, the pad stays attached, the solid is watertight, it
   > prints. It just breaks in your hand after a few dozen presses. Every assert here was about
   > *shape*; this is a property of the *material*. Worth asking of any parts library: which of
   > your invariants are about form, which are about matter, and is the second list empty?
 - **The stand has finger scallops, and a taller cap would not have worked.** Docked, the stand
-  swallows the first 16.56 mm of the slab, so BOOT's cap sat 3.81 mm *below* the rim and
-  RESET's 6.23 — with 0.40 mm between the cap face and a solid wall. A finger does not fit in
+  swallows the first 16.56 mm of the slab. At the old 9.01 mm caps that put BOOT's cap 3.81 mm
+  *below* the rim and RESET's 6.23 — with 0.40 mm between the cap face and a solid wall. The
+  thumb-sized caps changed the arithmetic but not the conclusion: BOOT's top edge now stands
+  **2.19 mm proud of the rim**, while **RESET is still 2.81 mm under it**, so the scallops are
+  still what makes both buttons pressable while docked. A finger does not fit in
   0.40 mm, so **the obstruction is beside the cap, not above it**, and no amount of cap height
   reaches past material that is alongside it. A scallop rather than a through-window because
   the rear wall is ~19 mm thick there — a window would be a tunnel, not an access port. And a

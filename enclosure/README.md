@@ -48,6 +48,36 @@ deliberately sunk 2 mm into the board and the detector **still** said `0.000`. T
 permanent self-test doing exactly that, and it must report **1467.842 mm³**. If it ever
 reports zero, the checker is broken — not the parts.
 
+**`--- MESH CHECK ---`** is arithmetic on the exported triangles: every undirected edge shared
+by exactly two, every directed edge appearing once. Current output, re-derived from the
+committed STLs:
+
+| part | triangles | boundary edges | non-manifold |
+|---|---|---|---|
+| `ember-front-bezel` | 10 162 | 0 | **3** (known, see below) |
+| `ember-back-shell` | 12 628 | 0 | 0 — watertight |
+| `ember-stand` | 3 268 | 0 | 0 — watertight |
+| `ember-stand-base` | 12 | 0 | 0 — watertight |
+
+⚠️ **This repo used to claim "all parts watertight, 0 non-manifold edges", and that claim was
+worthless.** The check behind it imported each STL with build123d and counted boundary edges —
+but `import_stl` returns a **single `Face` with zero edges and zero volume**, so the count was
+0 because there was nothing to count. A perfect result about an empty object, over four parts
+of wildly different complexity, reported instantly. Measured properly, the bezel had 9
+non-manifold and 22 mis-oriented edges.
+
+**Three parts are genuinely watertight. The bezel carries 3 non-manifold edges, in a solid that
+is otherwise valid** — `is_valid` true, exactly one solid, zero boundary edges — and the
+count is 3 whether the union is built in 2D or 3D, at tessellation tolerances from 0.1 to
+0.001, before or after `clean()`. It is a mesher artefact at coplanar face seams, not a hole:
+there is nothing for material to leak through, and every slicer tested repairs it silently.
+The cause is the mark's 104 stacked row-spans touching edge-to-edge where one row's run ends
+where the next begins; inflating each span by 20 µm took 9 to 3.
+
+It is recorded as a **number, not a threshold** — `KNOWN_NONMANIFOLD = {"ember-front-bezel": 3}`.
+A boundary edge fails the build outright; exceeding the baseline fails it too. **Do not raise
+the baseline to make a build pass.**
+
 **`[geometry]`** asserts the things a boolean is structurally blind to, because nothing
 intersects:
 
@@ -61,7 +91,9 @@ intersects:
 | **the back shell must be exactly 1 solid** | the only assert here that tests the thing rather than a proxy. If the hinge-tab arithmetic is wrong the slot ring closes and a pad is not a printed-in-place hinge but a loose hexagon that falls out on the bed. A dimension check cannot see that, and neither can the clearance check — **a severed pad collides with nothing** |
 | per-region bezel cell counts, never a total | the first honeycomb run put 75 cells in the chin and **zero** on the rails, and the assert passed because it read `count ≥ 60`. A total absorbed a complete regional absence |
 | the wyrm mark must be **exactly 1 component** | it shipped as **two** — head floating 1.215 mm above the shoulders with no neck — while the minimum-feature check read a healthy 1.23 mm. **A gap is not a thin feature**: morphological opening measures where material *exists* and is blind to material that is *absent*, so every instrument was green about a logo that had come apart |
-| the mark must clear the mic flare and fit the brow with real slack | it previously occupied 11.28 of 11.29 mm of usable brow and sat 1.21 mm from a 1.20 mm keepout. Both true, both luck, and neither would have survived the mark changing size |
+| the mark must clear the mic flare and fit the brow with real slack | it previously occupied 11.25 of 11.29 mm of usable brow and sat 1.21 mm from a 1.20 mm keepout. Both true, both luck, and neither would have survived the mark changing size. It now has 11.69 mm of brow and 0.44 mm of slack, against a 0.30 mm floor |
+| **the wyrm-and-port group must centre on the face** | the one assert on this face that is not a clearance, and it exists because **a clearance is satisfied by any amount of slack in the wrong place**. Ink 7.700–33.351 plus the mic flare's right edge at 42.300 centres on **x 25.000**, the exact face centreline. Nothing else here would have noticed it drift |
+| **mesh arithmetic on the exported STLs** | the check this replaced *could not fail* — see the mesh row in the table below |
 
 **A test that measures interference cannot find occlusion**, and *"does it collide"* and
 *"can you get at it"* are different questions — passing the first says nothing about the
@@ -74,8 +106,10 @@ for five in this project on defects invisible in correct-looking source.
 |---|---|
 | `DRIVER_W/H/R/T` | the speaker. Currently a 40 × 27 × 10 mm **sealed-back module** with tape on its back |
 | `HINGE_L_BOOT / HINGE_L_RESET` | 1.20 / 2.00 — the thinned-flexure length, **and the correct knob for button feel.** Longer is softer *and* safer |
-| `HINGE_T = 0.90` | ⚠️ not the feel knob. Strain is `(t/2)·θ/L` and θ is fixed by pip travel over the pip's arm, so **thickening a hinge moves it toward fracture**, not toward a firmer press. Asserted at ≤2.5% |
-| `BTN_R_BIG / BTN_R_SMALL` | the hex caps, 5.20 and 3.80 mm circumradius. **Not free choices**: pinned between the island's bottom edge (below y=0.80 it cuts the shell's bottom wall) and the slot's outer edge (must clear the hex field at y=11.0), and a flat-top hex spans `R·√3` in Y |
+| `HINGE_T = 0.90` | ⚠️ not the feel knob. Strain is `(t/2)·θ/L` and θ is fixed by pip travel over the pip's arm, so **thickening a hinge moves it toward fracture**, not toward a firmer press. Asserted at ≤2.0% — the threshold was tightened from 2.5% when the thumb-sized caps made 2.5% an inheritance from a worse version of the part |
+| `BTN_R_BIG / BTN_R_SMALL` | the hex caps, **8.6603 and 5.7735 mm circumradius — 15.00 and 10.00 mm across the flats.** Thumb-sized, and the reason is strain rather than taste: a bigger hex puts the hinge further from the pip, so θ falls with it. **Not free choices**: pinned between the island's bottom edge (below y=0.80 it cuts the shell's bottom wall) and the slot-and-hinge reach, which must clear the back hex field at `HEX_FIELD_Y0` (19.00) with 0.80 mm to spare. A flat-top hex spans `R·√3` in Y |
+| `CAP_CX_BOOT / CAP_CX_RESET` | 33.05 / 14.51 — the island centres, which are **not** the switch coordinates (36.58 / 13.45). A 17.32 mm island centred on the switch would eat into the M3 countersink, so the islands are offset off-switch and the pip reaches across |
+| `PIP_D = 3.00` | the pip that reaches the plunger. It was 4.00, and shrinking it is what made the offset islands placeable — the island narrows toward its bottom flat, exactly where the pip sits, so a 4.00 mm pip left a 0.40 mm window of legal island X. That is not a tolerance, it is a hope |
 | `DEBOSS_BIG / DEBOSS_SMALL` | 0.90 / 0.50. Deliberately **unequal**, so a thumb has two discriminators in the dark — size and depth — on a case with no lettering |
 | `GRILLE_STYLE` | `"hex"` or `"ridge"`. Both solved to the same 673 mm² open area, so it is aesthetic rather than acoustic |
 | `SCALLOP_D / SCALLOP_Z0` | the finger pockets that make the docked buttons reachable at all. Module scope on purpose: `_check_geometry()` asserts against them, and a second hand-typed `12.00` in the assert is exactly the duplicate-constant trap this file has been bitten by |

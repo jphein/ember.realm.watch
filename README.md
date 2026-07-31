@@ -92,6 +92,53 @@ reading the config.
 
 ---
 
+## The two knobs on the device itself
+
+A short press anywhere raises an overlay carrying **both** audio controls, as a pair that reads
+*how loudly it speaks / how well it hears*:
+
+| | Range | Readout |
+|---|---|---|
+| **Volume** | 0–100% in 5% steps, wrapping at the top | 20 hearth stones, one per 5% |
+| **Mic gain** | **0–42 dB in 6 dB steps** | **8** hearth stones |
+
+⚠️ **The 6 dB step is the hardware's, not a taste.** The ES8311's ADC PGA is a 3-bit field in
+REG16 with exactly eight legal values — 0/6/12/18/24/30/36/42 dB — so nothing between them is
+representable, and a continuous slider would report a setting the codec cannot hold. **The stone
+count is the hardware's resolution**, which is why the gain row draws eight where volume draws
+twenty: the readout must not imply a precision that does not exist. The first lit stone is 0 dB,
+because 0 dB is a real setting and not "off". Exposed to Home Assistant as
+`number.ember_satellite_mic_gain`.
+
+Setting it writes REG16 directly *as well as* calling `set_mic_gain()`. The setter only assigns
+a member — the driver writes the register once, in its own `setup()` — so calling the setter
+alone would change nothing until the next boot, which presents exactly like a control that does
+not work.
+
+The same asymmetry bit the *restore* path, and it is worth knowing about if you add another
+persisted number here: `TemplateNumber::setup()` calls `publish_state()` and never `control()`,
+so a restored value never runs its set action. Set 12 dB, reboot, and HA would read 12 while the
+PGA sat at the compile-time 36 — **and the one value immune to the bug was the default, which is
+what anyone would test with.** There is now a dedicated `on_boot` trigger that pushes the stored
+value back *through* the number, so REG16 keeps a single writer, and it was verified by reading
+the register back rather than by inference.
+
+Two deliberate trades, both reversals of earlier decisions:
+
+- **The fire is hidden while the overlay is open.** Two controls with touch-sized targets do not
+  fit in the scroll band alone, so the overlay grew into the flame band. The targets are 56 px
+  ≈ 10.3 mm rather than shrinking below the ~9 mm minimum: five seconds of hidden fire beats a
+  target you miss. Mode 1 keeping the fire alive had been a deliberate choice, so this reverses
+  a decision rather than filling a gap.
+- **The gain buttons are silent where the volume buttons chime.** Volume earns a tone because it
+  is the one control that cannot be judged visually — the tone *is* the readout. A tone for mic
+  gain plays out of the **speaker** and says nothing about how well the **microphone** hears:
+  acknowledgement dressed as measurement. The overlay also stops short of the telemetry band, so
+  the live dBFS meter stays visible while you adjust — and a chime would be captured by the very
+  mic being read and spike the number.
+
+---
+
 ## Hardware
 
 An **LCDWIKI/QDtech ES3C28P**, sold as a "Hosyond 2.8in ESP32-S3 Touchscreen".
@@ -239,7 +286,7 @@ So there is one now. **Four parts, none needing supports**, in [`enclosure/`](en
 | | |
 |---|---|
 | `ember-front-bezel.stl` | front face down. Carries the ⌀2.40 mm mic port, the screen window, a debossed honeycomb and the hearth-wyrm |
-| `ember-back-shell.stl` | back face down. Two printed-in-place hexagonal button pads on living hinges |
+| `ember-back-shell.stl` | back face down. Two printed-in-place hexagonal button pads on living hinges, 15.00 and 10.00 mm across the flats |
 | `ember-stand.stl` | bottom face down. A 15° cradle that **is** the speaker cabinet, with finger scallops reaching the buttons |
 | `ember-stand-base.stl` | flat. Closes the chamber |
 
@@ -269,6 +316,15 @@ python3 -m venv cadenv && ./cadenv/bin/pip install -r tools/requirements.txt
 > report **1467.842 mm³**. And *a boolean cannot see occlusion* — the stand covered a fifth of
 > the screen, then buried both buttons, without ever intersecting anything. Both were found by
 > rendering the thing and looking at it.
+>
+> The first lesson landed a second time, on the mesh check. The repo asserted *"all parts
+> watertight, 0 non-manifold edges"* on a check that imported each STL with build123d and
+> counted boundary edges — and `import_stl` returns a single `Face` with **zero edges and zero
+> volume**, so the count was zero because there was nothing to count. The true figures, printed
+> on every build: **three parts watertight; `ember-front-bezel` carries 3 non-manifold edges**
+> in a valid solid with zero boundary edges, a coplanar-seam artefact from the wyrm mark's
+> stacked row-spans that slicers repair. It is recorded as a number rather than a threshold, and
+> raising it to make a build pass is explicitly forbidden.
 
 ---
 

@@ -207,7 +207,7 @@ figcaption{
    light theme never once drew this line art in the colour it was asking for. It looked
    fine, which is why it lasted: dark ink on a near-white panel is high contrast by
    accident. --ember is the real light-theme counterpart to --gold — warm, and 7.1:1 on
-   --panel where --accent/--amber manages only 4.4:1. For 127 hex apertures at a 1.4px
+   --panel where --accent/--amber manages only 4.4:1. For 113 hex apertures at a 1.4px
    stroke that difference is legibility, not taste. */
 @media (prefers-color-scheme:light){
   .linework{background:var(--panel); color:var(--ember)}
@@ -566,9 +566,42 @@ footer p{margin:.4rem 0}
 
   <div class="note">
     <b>Feedback comes from the thing you touched.</b> Tapping the hearth startles the wyrm.
-    Tapping a volume stone lights the stone and does <em>not</em> disturb the fire, because
-    the fire isn't what you touched. That rule decided every acknowledgement on the device.
+    Tapping a volume stone lights the stone and nothing else moves, because the fire isn't what
+    you touched. That rule decided every acknowledgement on the device.
   </div>
+
+  <h3 style="margin-top:2rem">Two knobs, and the second one is shaped by the codec</h3>
+  <p>
+    A short press raises an overlay carrying both audio controls as a pair — <em>how loudly it
+    speaks</em> and <em>how well it hears</em>. Volume runs 0–100% in 5% steps and wraps at the
+    top. <strong>Mic gain runs 0–42&nbsp;dB in 6&nbsp;dB steps, and the step is the hardware's.</strong>
+    The ES8311's ADC gain is a <strong>3-bit field</strong> with exactly eight legal values, so
+    nothing between them is representable and a continuous slider would report a setting the
+    codec cannot hold. It was a compile-time constant until recently, which is the wrong shape
+    for a knob whose right value depends on the room, the distance and how loudly you talk —
+    every adjustment cost a reflash.
+  </p>
+  <div class="note">
+    <b>The stone count <em>is</em> the hardware's resolution.</b> Volume draws twenty hearth
+    stones, one per 5%. Gain draws <b>eight</b> — one per legal register value — so the readout
+    cannot imply a precision the codec does not have. The first stone lights at 0&nbsp;dB, because
+    0&nbsp;dB is a real setting and not "off". The same rule that gave the fire its temperature
+    scale, applied to a control: <em>show the resolution you actually have</em>.
+  </div>
+  <p>
+    <b>Two trades came with it, and both reverse an earlier decision rather than filling a
+    gap.</b> The overlay grew into the flame band, so <strong>the fire is hidden while it is
+    open</strong> — two touch-sized targets do not fit in the scroll band alone, and 56&nbsp;px
+    ≈ 10.3&nbsp;mm beats shrinking below the ~9&nbsp;mm a fingertip needs. Five seconds of hidden
+    fire is a better trade than a target you miss.
+    <br><br>
+    And <strong>the gain buttons are silent where the volume buttons chime.</strong> Volume earns
+    a tone because it is the one control that cannot be judged visually — the tone <em>is</em>
+    the readout. A tone for mic gain plays out of the <em>speaker</em> and says nothing about how
+    well the <em>microphone</em> hears: acknowledgement dressed as measurement. It would also be
+    captured by the very mic being adjusted, and spike the live dBFS meter that the overlay
+    deliberately stops short of covering.
+  </p>
 </section>
 
 <section class="wrap">
@@ -668,8 +701,8 @@ footer p{margin:.4rem 0}
     the honeycomb pitch, while the button caps are flat-top because a pad is a living hinge and
     a pointy-top hex would put a vertex where the hinge must be. So the rule is not one
     orientation for the object — it is <em>match what the element represents</em>. This chip
-    stands for the button beneath it, so it is flat-top like the cap; the volume overlay's
-    hearth stones are a field, so they are pointy-top like the grille. The chip was pointy-top
+    stands for the button beneath it, so it is flat-top like the cap; the volume and mic-gain
+    stones are a field, so they are pointy-top like the grille. The chip was pointy-top
     for a while on a stated reason that was simply false about the physical part.
   </div>
 </section>
@@ -1044,7 +1077,7 @@ footer p{margin:.4rem 0}
     <li><span class="k">Glass</span><span class="v">The touch panel spans the full 50&nbsp;mm PCB width<small>So the shell cannot clamp the long edges at all — there is no bezel to grip. Only the two ~8.2&nbsp;mm strips at the short ends are available, which is, conveniently, exactly where the screw holes are.</small></span></li>
     <li><span class="k">Screws</span><span class="v">Heat-set inserts are ruled out by measurement, not taste<small>The vendor's 5.60&nbsp;mm pad caps the boss at 5.40, and an M3 insert's 4.1&nbsp;mm bore leaves a 0.6&nbsp;mm wall that splits. So it is 4× M3 self-tappers from the back — no screw heads on the face anyone looks at.</small></span></li>
     <li><span class="k">Stand</span><span class="v">The 15° desk cradle is also the speaker cabinet<small>A sealed ~26&nbsp;cm³ volume behind the driver, which is the difference between a speaker in a box and a speaker in a hole. One part doing two jobs because the geometry allowed it.</small></span></li>
-    <li><span class="k">LED</span><span class="v">The WS2812 fires <em>backwards</em><small>A closed back would hide Ember's status glow completely, so the back has to be porous. It was a ⌀12&nbsp;mm window behind a printed translucent disc; it is now a field of 127 hex apertures, and the disc is gone. Many small openings scatter — one big bore just shows you the die.</small></span></li>
+    <li><span class="k">LED</span><span class="v">The WS2812 fires <em>backwards</em><small>A closed back would hide Ember's status glow completely, so the back has to be porous. It was a ⌀12&nbsp;mm window behind a printed translucent disc; it is now a field of 113 hex apertures, and the disc is gone. Many small openings scatter — one big bore just shows you the die.</small></span></li>
   </ul>
 
   <div class="warn">
@@ -1081,6 +1114,31 @@ footer p{margin:.4rem 0}
     <em>name</em> promised something it wasn't doing. The three defects it found afterwards are
     the argument for fixing tests before trusting them.
   </p>
+
+  <div class="note">
+    <b>The same lesson arrived a second time, and the person it caught had spent the day writing
+    it down.</b> This repo asserted, in three documents, that all four parts were
+    <em>watertight with 0 non-manifold edges</em>. The check behind it imported each STL with
+    build123d and counted boundary edges — and <code>import_stl</code> returns a <b>single face
+    with zero edges and zero volume</b>. The count was zero because there was nothing to count:
+    a perfect result about an empty object.
+    <p style="margin:.6rem 0 0">
+      <b>The tell was available and unexamined.</b> Four parts of wildly different complexity —
+      a 12-triangle plate and a 10,000-triangle bezel — agreeing <em>exactly</em>, instantly.
+      Numbers that clean are a question, not a pass.
+    </p>
+    <p style="margin:.6rem 0 0">
+      Run properly — arithmetic on the triangles, every undirected edge shared by exactly two —
+      <b>three parts are genuinely watertight and the front bezel is not.</b> It carries
+      <b>3 non-manifold edges</b> in a solid that is otherwise valid, with zero boundary edges:
+      coplanar-seam artefacts where the wyrm mark's 104 stacked row-spans meet, which every
+      slicer tried repairs without comment. There is no hole. It is recorded as a
+      <em>number</em> rather than a threshold — a boundary edge fails the build outright,
+      exceeding the baseline fails it too, and raising the baseline to make a build pass is
+      explicitly forbidden. <strong>A known defect with a stated cause is honest; a green light
+      over an unmeasured one is not.</strong>
+    </p>
+  </div>
 
   <div class="note">
     <b>Status: boolean-verified at 0.000&nbsp;mm³ interference against the vendor solid —
@@ -1132,12 +1190,18 @@ footer p{margin:.4rem 0}
       <strong>Those hinges are sized by strain, and the intuitive fix cracks them.</strong>
       Bending strain in a flexure is <code>(t/2)·θ/L</code>, and <em>θ is not a free
       variable</em> — it is pip travel over the pip's distance from the hinge. So the
-      <em>smaller</em> cap bends <em>further</em>: 5.56° against 3.50°, because its pip sits on
-      a shorter arm. At a shared 1.00&nbsp;mm flexure that put RESET at <strong>4.37%</strong>,
+      <em>smaller</em> cap bends <em>further</em>, because its pip sits on a shorter arm. At
+      9&nbsp;mm caps and a shared 1.00&nbsp;mm flexure that put RESET at <strong>4.37%</strong>,
       past PLA's ~2% yield and into its 4–6% break band. The natural remedy — thicken that
       hinge so it presses firmer — takes it to <strong>6.79%</strong>, because strain scales
-      <em>with</em> thickness. Lengthening the flexure is what actually works: RESET now runs
-      2.00&nbsp;mm and BOOT 1.20, for 2.18% and 2.29%.
+      <em>with</em> thickness. Lengthening the flexure works. So, unexpectedly, does
+      <strong>making the caps bigger</strong>, which was asked for on looks: a wider hex puts
+      the hinge further from the pip, so θ falls with it. At the shipped 15.00 and
+      10.00&nbsp;mm across the flats, BOOT bends 1.83° and RESET 3.04°, for
+      <strong>1.20% and 1.19%</strong> — and the assert was tightened from 2.5% to
+      <strong>2.0%</strong> in the same change, because a threshold calibrated to what the old
+      caps could manage is a ratchet pointing the wrong way. <em>Tighten a threshold when the
+      design improves.</em>
       <br><br>
       <strong>Every other check on this part passes all three of those variants happily.</strong>
       The geometry is valid, nothing collides, the pad stays attached to its hinge, the solid is
@@ -1151,10 +1215,19 @@ footer p{margin:.4rem 0}
       that is the honeycomb pitch. A pad cannot be: it is a living hinge, so it must stay
       attached along its top edge — and a pointy-top hexagon puts a <em>vertex</em> there. A
       hinge of zero width is not a hinge, it is a tear. Flat-top puts a full edge of length
-      <i>R</i> at the top. <i>R</i> is not a taste choice either: the island cannot drop below
-      y&nbsp;0.80 without cutting the shell's bottom wall, and the slot's outer edge has to
-      clear the hex field at y&nbsp;11.0, which pins it. BOOT is 10.40&nbsp;mm across corners,
-      RESET 7.60.
+      <i>R</i> at the top. <i>R</i> is bounded rather than free: the island cannot drop below
+      y&nbsp;0.80 without cutting the shell's bottom wall, and the slot and hinge cuts have to
+      clear the back hex field with 0.80&nbsp;mm to spare — which is why that field's lower
+      boundary moved up to y&nbsp;19.00 when the caps grew. <strong>BOOT is 15.00&nbsp;mm across
+      the flats and RESET 10.00</strong>, thumb-sized on request and, as it turned out, the
+      cheapest strain fix available.
+      <br><br>
+      <strong>The caps do not sit over their own switches.</strong> A 17.32&nbsp;mm island
+      centred on the switch would eat into the M3 countersink, so the islands are offset to
+      x&nbsp;33.05 and 14.51 against switches at 36.58 and 13.45, and the pip reaches across.
+      That only became placeable when the pip shrank from 4.00 to 3.00&nbsp;mm: the island
+      narrows toward its bottom flat, exactly where the pip sits, so a 4.00&nbsp;mm pip left a
+      0.40&nbsp;mm window of legal island X. <em>That is not a tolerance, it is a hope.</em>
       <br><br>
       <strong>The cap faces are debossed, not raised — and the first version had it
       backwards.</strong> "Buttons you can feel" reads as a boss, so they stood 1.20&nbsp;mm
@@ -1177,7 +1250,7 @@ footer p{margin:.4rem 0}
       cannot express two directions, so wrapping is the only way down.
       <br><br>
       Which is which is now settled on hardware rather than inferred: pressing them on the
-      bare board raises the volume overlay from the switch on the microSD side, and the
+      bare board raises the audio overlay from the switch on the microSD side, and the
       microSD cage sits at board x&nbsp;33.7–44.8, so <strong>BOOT is the one at
       x&nbsp;36.58</strong> and RESET is at x&nbsp;13.45. In this figure the
       <strong>heavier outline is BOOT</strong>. That is deliberately a statement about
@@ -1197,8 +1270,8 @@ footer p{margin:.4rem 0}
       and it exists because this one cannot: a figure of the shell alone can never answer a
       question about the shell in the stand.
       <br><br>
-      The field above is 127 hexagons, 3.2&nbsp;mm across the flats on a 0.8&nbsp;mm web —
-      55% open. It replaced two rows of straight slot vents and does three jobs at once: it
+      The field above is 113 hexagons, 3.2&nbsp;mm across the flats on a 0.8&nbsp;mm web —
+      56% open. It replaced two rows of straight slot vents and does three jobs at once: it
       vents, it passes the rear-firing WS2812's light, and at that pitch it reads as a texture
       rather than as holes. The web is 0.8&nbsp;mm because that is two extrusion widths at a
       0.4&nbsp;mm nozzle, and every hexagon sits wholly inside the patch — one clipped by the
@@ -1261,7 +1334,7 @@ footer p{margin:.4rem 0}
       <em>is</em> the enclosure, and the base plate is its lid rather than a foot.
       <br><br>
       <em>Read this render for proportion, not for detail.</em> The bezel's honeycomb and the
-      wyrm mark are 0.45&nbsp;mm recesses in a shaded view at this scale, so they register as
+      wyrm mark are 0.48&nbsp;mm recesses in a shaded view at this scale, so they register as
       a faint texture along the chin and a smudge on the brow rather than as the motif they
       are. <strong>The next figure is a section rather than a render, for exactly that
       reason</strong>, and it is the one to look at if you want to see the face.
@@ -1286,7 +1359,7 @@ footer p{margin:.4rem 0}
       recently, and no measurement objected.
       <br><br>
       This figure exists because the shaded render above <em>cannot</em> do this job, and that
-      is not the render's fault. A 0.45&nbsp;mm recess on a 92&nbsp;mm part is sub-pixel depth
+      is not the render's fault. A 0.48&nbsp;mm recess on a 92&nbsp;mm part is sub-pixel depth
       at page scale, and a shaded view has only the recess side-walls to work with, so the
       motif arrives as noise. <strong>A figure that technically contains the information but
       cannot deliver it fails in the same way as one that omits it</strong> — which is the
@@ -1311,11 +1384,36 @@ footer p{margin:.4rem 0}
   <p>
     The bezel carries a <strong>debossed honeycomb</strong> — 57 cells across the chin and a
     16-cell chain up each rail, 2.60&nbsp;mm across the flats on a 0.70&nbsp;mm web — and the
-    <strong>hearth-wyrm</strong> cut into the brow, 27.00 × 11.25&nbsp;mm.
-    Everything on this face is <strong>0.45&nbsp;mm deep</strong> — under three layers at the
-    0.16&nbsp;mm this part wants, which is the point: deep enough to read and to feel, shallow
-    enough that it never comes near the glass.
+    <strong>hearth-wyrm</strong> cut into the brow, 25.65 × 11.25&nbsp;mm.
+    Everything on this face is <strong>0.48&nbsp;mm deep</strong> — <em>exactly</em> three layers
+    at the 0.16&nbsp;mm this part wants, which is the point: deep enough to read and to feel,
+    shallow enough that it never comes near the glass, and landing on a real layer boundary
+    rather than wherever rounding falls. It was 0.45, which is 2.8125 layers.
   </p>
+  <div class="note">
+    <b>The wyrm on this face is mirrored, and that is the whole composition.</b> The creature is
+    drawn facing <em>left</em>. Unmirrored, its <em>tail</em> pointed at the mic port and the
+    gesture ran off the edge of the face — so the port became the end of a sentence with nothing
+    leading to it, and the 12&nbsp;mm before it read as dead air rather than as spacing.
+    Mirrored, the head faces the flare and the same emptiness becomes direction: the port is
+    where sound enters, so a hearth-wyrm attending it is the device's function drawn on its own
+    face.
+    <p style="margin:.6rem 0 0">
+      <b>And the placement is a centring, not a margin.</b> Ink runs x&nbsp;7.700–33.351, the
+      flare's right edge is at 42.300, and the creature-and-port group therefore centres on
+      <b>x&nbsp;25.000 — the face centreline, exactly.</b> That is <em>asserted</em>, and it is
+      the only assert on this face that is not a clearance. The distinction is the point:
+      <strong>a clearance is satisfied by any amount of slack in the wrong place</strong>, so
+      nothing else here would have noticed the frieze drifting. The 4.35&nbsp;mm gap to the
+      flare reads as attention — 2.0 crowds and 5.0 drifts, both rendered and looked at.
+    </p>
+    <p style="margin:.6rem 0 0">
+      <b>The cost is on the record.</b> This is now the one of the wyrm's four renderings that
+      is handed the other way — the device's spans, this page's SVG and the stand's grille all
+      share the original handedness. And it is <em>not</em> at top-left, which is where it was
+      first asked for. Both costs were shown before the choice was made.
+    </p>
+  </div>
   <p>
     <b>Every feature here is a recess, and that is forced rather than chosen.</b> The bezel
     prints front face down, so any raised feature on this face becomes the lowest point of the
@@ -1323,7 +1421,7 @@ footer p{margin:.4rem 0}
     button caps — opposite face, same session, same part of the process. On a bed face,
     relief only goes inward. A deboss that breaks through is a hole, so the remaining
     thickness over the glass is asserted rather than eyeballed: 3.00&nbsp;mm of bezel minus
-    0.45 leaves 2.55.
+    0.48 leaves 2.52.
   </p>
   <div class="note">
     <b>Four things this face got wrong before it got right, and each one was green at the

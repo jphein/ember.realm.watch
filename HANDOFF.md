@@ -8,11 +8,11 @@ repeatedly here, and the running log of the times it did is [`docs/verification.
 
 | | |
 |---|---|
-| **Device** | Conversation, multi-turn, no pop, responsive taps. Three operating modes, verified across a power cycle on hardware. |
+| **Device** | Conversation, multi-turn, no pop, responsive taps. Three operating modes, verified across a power cycle on hardware. Volume **and mic gain** are live controls in the single-press overlay. |
 | **Repo** | <https://github.com/jphein/ember.realm.watch> |
 | **Site** | <https://jphein.github.io/ember.realm.watch/> — page + print sheet |
 | **STL downloads** | all **four** + `ember_case.py` from raw GitHub |
-| **Enclosure** | boolean-verified 0.000 mm³ against the vendor solid; geometry asserts pass |
+| **Enclosure** | boolean-verified 0.000 mm³ against the vendor solid; geometry asserts pass. Mesh: three parts watertight, `ember-front-bezel` at its documented baseline of 3 non-manifold edges and **zero** boundary edges |
 
 `~/Projects/ha` is clean and in sync. Ember has been fully extracted from it.
 
@@ -57,22 +57,65 @@ clearance check is skipped.
 
 ### What landed most recently
 
-- **Hexagonal button caps, debossed rather than raised.** BOOT 10.40 mm across corners at
-  0.90 mm deep, RESET 7.60 at 0.50. Flat-top, against the motif, because the pad is a living
-  hinge and a pointy-top hex would put a *vertex* where the hinge must be.
-- **Finger scallops in the stand's rear slot wall.** Both caps were completely buried — BOOT's
-  top edge 3.81 mm below the stand's rim, with 0.40 mm between the cap face and solid wall. A
-  taller cap could not have helped: the obstruction is *beside* the cap, not above it.
+- **Thumb-sized hexagonal button caps, debossed rather than raised.** BOOT **15.00 mm across
+  the flats** (17.32 across corners) at 0.90 mm deep, RESET **10.00** (11.55) at 0.50. Flat-top,
+  against the motif, because the pad is a living hinge and a pointy-top hex would put a *vertex*
+  where the hinge must be. They were 9.01 / 6.58 mm, and the reason to grow them was **strain,
+  not looks**: a wider hex puts the hinge further from the pip, so θ falls with it and both
+  hinges dropped to ~1.20% (from 2.29% / 2.18%). The assert was tightened 2.5% → **2.0%** in the
+  same change, because a threshold calibrated to what the *old* caps could achieve is a ratchet
+  pointing the wrong way.
+- **The cap islands are offset from their switches** — centres at x 33.05 and 14.51 against
+  switches at 36.58 and 13.45 — because a 17.32 mm island centred on the switch would eat into
+  the M3 countersink. `PIP_D` shrank 4.00 → **3.00** to make that placeable: the island narrows
+  toward its bottom flat, exactly where the pip sits, so a 4.00 mm pip left a 0.40 mm window of
+  legal island X. The back hex field's lower boundary moved to a named `HEX_FIELD_Y0 = 19.00`
+  to clear them — and the assert that checks the caps against it had been reading a hardcoded
+  `11.0`, firing against a boundary the part no longer had.
+- **Finger scallops in the stand's rear slot wall.** At the old cap size both caps were
+  completely buried — BOOT's top edge 3.81 mm below the stand's rim, with 0.40 mm between the
+  cap face and solid wall. A taller cap could not have helped: the obstruction is *beside* the
+  cap, not above it. With the thumb-sized caps BOOT's top edge now stands 2.19 mm *proud* of
+  the rim and RESET's is still 2.81 mm under it, so the scallops still do the work.
 - **Debossed honeycomb + the hearth-wyrm on the bezel face.** 57 cells in the chin, a 16-cell
-  chain up each rail, the wyrm 27.00 × 11.25 mm in the brow. All 0.45 mm deep, because on a
+  chain up each rail, the wyrm **25.65 × 11.25 mm** in the brow. All **0.48 mm** deep — exactly
+  three layers at the bezel's 0.16 mm, where 0.45 was 2.8125 layers and left the recess floor
+  wherever the slicer's rounding fell. Recesses at all because on a
   bed face relief can only go inward. The chin was 75 until the screw-boss keepout was
   actually *applied* rather than merely listed in a comment; nine cells per boss, two bosses
   in the chin. The wyrm was also shipping as **two disconnected pieces** — head floating
   1.215 mm above the shoulders — while the minimum-feature check read a healthy 1.23 mm,
   because **a gap is not a thin feature** and morphological opening cannot see absent
   material. `WYRM_COMPONENTS == 1` is now asserted.
+- **The mark is mirrored and centred on the face centreline, and it is not at top-left.** The
+  creature is drawn facing left, so unmirrored its *tail* pointed at the mic port and the
+  gesture ran off the face. Mirrored, the head faces the flare. Ink 7.700–33.351 plus the
+  flare's right edge at 42.300 centres the group on **x 25.000** exactly, and that centring is
+  **asserted** — every other check on this face is a clearance, and a clearance is satisfied by
+  any amount of slack in the wrong place. The cost, accepted knowingly: this hands the creature
+  relative to its other three renderings.
+- **A mesh check that can actually fail.** The repo used to assert *"all parts watertight, 0
+  non-manifold edges"* on a check that imported each STL with build123d and counted boundary
+  edges — but `import_stl` returns a single `Face` with **zero edges and zero volume**, so the
+  count was zero because there was nothing to count. Measured properly: **three parts are
+  genuinely watertight; `ember-front-bezel` carries 3 non-manifold edges** inside a solid that
+  is otherwise valid with zero boundary edges — coplanar-seam artefacts where the mark's 104
+  stacked row-spans meet, which every slicer repairs. Recorded as a number
+  (`KNOWN_NONMANIFOLD = {"ember-front-bezel": 3}`), not a threshold, and reported on every
+  build. **Do not raise the baseline to make a build pass.**
 - **A new figure, `site/renders/case-docked-rear.svg`**, wired into the site — the slab docked,
   from behind. It exists because a question was asked that no existing figure could answer.
+- **Mic gain is a live control** (`number.ember_satellite_mic_gain`), where it used to be the
+  compile-time `mic_gain: 36db` and every adjustment cost a reflash. **0–42 dB in 6 dB steps,
+  and the hardware forces the step**: the ES8311's REG16 takes a 3-bit field with exactly eight
+  legal values, so nothing between them is representable and a continuous slider would report a
+  setting the codec cannot hold. It lives in the **single-press overlay beside volume**. The set
+  action writes REG16 directly as well as calling `set_mic_gain()`, because the setter only
+  assigns a member — the driver writes the register once, in `setup()`, so the setter alone
+  would present exactly like a control that does not work. The restore path had the mirror-image
+  fault (`TemplateNumber::setup()` publishes but never calls `control()`, so a stored value never
+  ran its set action, and **the only value immune was the default**); fixed with its own `on_boot`
+  trigger and verified by reading REG16 back, not by inference.
 
 ### The speaker took three revisions — read this before changing anything
 
@@ -112,11 +155,13 @@ own reachability check. `SLOT_FLOOR` is now 24.0, with a 22 × 22 mm USB-C well 
 
 - [ ] **Print it.** Start with `ember-front-bezel.stl` — cheapest to reprint, and it now carries
       both the mic port and the whole debossed face, so it is the part most needing a fit check
-      *and* the one that tells you whether 0.45 mm reads at arm's length.
+      *and* the one that tells you whether 0.48 mm reads at arm's length.
 - [ ] Button feel is the thing most likely to need a second print — but **the knob is
       `HINGE_L_BOOT` / `HINGE_L_RESET` (1.20 / 2.00), not `HINGE_T`.** Strain is `(t/2)·θ/L`
       with θ fixed by pip travel over the pip's lever arm, so thickening a hinge to firm it up
-      moves it *toward* fracture. See "the hinges are sized by strain" below.
+      moves it *toward* fracture. Cap size is the *other* lever and it moves the right way:
+      both hinges are at ~1.20% since the caps went thumb-sized. See "the hinges are sized by
+      strain" below.
 - [ ] Touchscreen X handedness is still unconfirmed, but it is now **one tap away**: the raw
       touch X is captured *before* the clamp and shown on the telemetry band's idle line for 3 s
       after a tap. Tap near each edge — that answers sign *and* range together, where watching
