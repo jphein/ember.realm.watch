@@ -19,7 +19,9 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, os.path.join(REPO, "esphome", "art"))
+sys.path.insert(0, HERE)
 import dragon as D  # noqa: E402
+import minfeature as MF  # noqa: E402  -- the min-feature metric, with its control
 
 # The grille field, from ember_case.py. Kept in sync by the assert at the bottom.
 FIELD_W, FIELD_H = 37.0, 24.0
@@ -172,7 +174,12 @@ def main() -> int:
     m = thicken(m, 2)
 
     def opening_loss(mask, k):
-        """Fraction of area in features THINNER than 2k, by morphological opening."""
+        """Fraction of area in features thinner than 2k px — 4-CONNECTED, i.e. WRONG.
+
+        Kept only so the generated header can report what the old number was. Do not use it
+        to decide anything: its structuring element is an L1 diamond, so it is right across
+        the axes and up to 29% narrow across the diagonals. See minfeature.py.
+        """
         e = mask.copy()
         for _ in range(k):
             t = e.copy()
@@ -188,14 +195,30 @@ def main() -> int:
         return (mask.sum() - o.sum()) / max(mask.sum(), 1)
 
     grow = 2
-    # THIRD AND FINAL VERSION OF THIS METRIC, because the first two were both wrong:
+    # FOURTH VERSION OF THIS METRIC. The first three were all wrong, and the third is the one
+    # that used to live in this function:
     #   1. "grow until the thinnest ROW-RUN clears the floor" — never terminates usefully,
     #      since dilation always creates 1px boundary rows. It ran to 6px and tripled area.
     #   2. "the k at which erosion empties the mask" — that is the THICKEST feature, not the
     #      thinnest; the last region standing is the fattest one.
-    # Opening is the honest test: a feature thinner than 2k does not survive erode-then-
-    # dilate by k. At 2px dilation the loss at k=2 is 0.0%, so every feature is >= 1.23mm.
-    k2_loss = opening_loss(m, 2)
+    #   3. opening with a 4-CONNECTED element — right idea, wrong ball. It is anisotropic (see
+    #      minfeature.py) and it under-reports at the bin edge, so "1.23mm" below was never a
+    #      measurement of this shape at all: 4*scale is FOUR PIXELS, a statement about the grid.
+    # Opening with a EUCLIDEAN DISC, with the thickness read off the distance transform, is the
+    # honest test. minfeature.selftest() proves it on planted ribs — including a diagonal one,
+    # which is what caught metric 3 — on every run, because a detector that has not detected
+    # anything today is not known to work.
+    MF.selftest()
+    k2_loss = opening_loss(m, 2)                    # the OLD number, reported for comparison
+    min_bound = 4 * scale                           # the OLD contract: a conservative bound
+    min_true = MF.min_feature(m, scale, ceiling_mm=20 * scale)
+    # THE BOUND MUST ACTUALLY BE A BOUND. Never once checked until now, and it is the property
+    # every consumer of WYRM_MIN_FEATURE silently depends on: scaling by floor/bound only
+    # guarantees >= floor if the true minimum is >= bound. It is, by 4.3x.
+    assert min_true >= min_bound - 1e-9, (
+        f"WYRM_MIN_FEATURE={min_bound:.4f}mm is NOT a lower bound — the silhouette's true "
+        f"thinnest feature is {min_true:.4f}mm, so a consumer scaling by floor/{min_bound:.4f} "
+        f"gets features BELOW its print floor")
     ncomp, gap_px = components(m)
 
     rects = []
@@ -216,15 +239,35 @@ def main() -> int:
         f.write("bottom-left of the grille field. Traced from esphome/art/dragon.py, the same\n")
         f.write("curves the device and the website draw.\n")
         f.write(f'"""\n\n')
-        f.write(f"# {len(rects)} rects, {area:.1f} mm2, dilated {grow}px.\n")
-        f.write(f"# Opening at k=2 loses {100*k2_loss:.1f}% -> every feature >= "
-                f"{4*scale:.2f} mm, printable.\n")
+        f.write(f"# {len(rects)} rects, {area:.1f} mm2, dilated {grow}px, "
+                f"canvas {w}x{h}px at {scale:.4f} mm/px.\n")
         f.write(f"WYRM_W, WYRM_H = {w*scale:.4f}, {h*scale:.4f}\n")
         f.write(f"WYRM_AREA = {area:.4f}\n")
-        f.write(f"# MIN FEATURE, verified by opening — import this, never transcribe the\n")
-        f.write(f"# number above. A consumer that scales this silhouette must divide its own\n")
-        f.write(f"# print floor by THIS, or its min-feature assert is arithmetic, not a test.\n")
-        f.write(f"WYRM_MIN_FEATURE = {4*scale:.4f}\n")
+        f.write(f"# MIN FEATURE. TWO NUMBERS, BECAUSE THEY ARE NOT THE SAME THING AND THE\n")
+        f.write(f"# DIFFERENCE USED TO BE HIDDEN.\n")
+        f.write(f"#\n")
+        f.write(f"# WYRM_MIN_FEATURE is the CONSUMER CONTRACT and a conservative LOWER BOUND:\n")
+        f.write(f"# scale this silhouette by (your print floor / this) and every feature comes\n")
+        f.write(f"# out at or above your floor. It is 4*px = four pixels of the canvas, so it\n")
+        f.write(f"# is a statement about the GRID, not a measurement of the shape -- which is\n")
+        f.write(f"# why it errs safe. Erring safe is the whole reason it is still here.\n")
+        f.write(f"#\n")
+        f.write(f"# WYRM_MIN_FEATURE_MEASURED is the shape's ACTUAL thinnest feature, by\n")
+        f.write(f"# Euclidean-disc opening with the thickness read off the distance transform\n")
+        f.write(f"# (tools/minfeature.py, whose control runs on every regeneration). The build\n")
+        f.write(f"# asserts MEASURED >= WYRM_MIN_FEATURE, i.e. that the bound IS a bound -- a\n")
+        f.write(f"# check nobody had ever run.\n")
+        f.write(f"#\n")
+        f.write(f"# THE GAP MATTERS TO CONSUMERS: it is {min_true/min_bound:.2f}x, so a\n")
+        f.write(f"# consumer scaling by floor/{min_bound:.4f} gets a mark whose thinnest\n")
+        f.write(f"# feature is {min_true/min_bound:.2f}x its floor, not equal to it. Anything\n")
+        f.write(f"# that reports `WYRM_MIN_FEATURE * s` as the result is ARITHMETIC, NOT A\n")
+        f.write(f"# TEST -- it returns the floor by construction whatever the shape does.\n")
+        f.write(f"# Use MEASURED * s for that.\n")
+        f.write(f"WYRM_MIN_FEATURE = {min_bound:.4f}\n")
+        f.write(f"WYRM_MIN_FEATURE_MEASURED = {min_true:.4f}\n")
+        f.write(f"# The old 4-connected metric, kept only for comparison: it reported the loss\n")
+        f.write(f"# at k=2 as {100*k2_loss:.1f}%. It is anisotropic -- see minfeature.py.\n")
         f.write(f"# CONNECTED COMPONENTS of the silhouette. {ncomp} means the mark is NOT one\n")
         f.write(f"# piece: body_mask()|head_mask(0) unions two sprites and the k=0 head pose\n")
         f.write(f"# leaves the neck clear of the body. On screen the fire fills the gap; in\n")
@@ -238,12 +281,13 @@ def main() -> int:
         f.write("]\n")
 
     print(f"  {len(rects)} rects  |  {w*scale:.1f} x {h*scale:.1f} mm  |  area {area:.1f} mm2")
-    print(f"  dilated {grow}px | opening k=2 loses {100*k2_loss:.1f}% "
-          f"-> every feature >= {4*scale:.2f} mm")
+    print(f"  dilated {grow}px | bound 4*px = {min_bound:.4f} mm | MEASURED min feature "
+          f"{min_true:.4f} mm ({min_true/min_bound:.2f}x the bound)")
+    print(f"  old 4-connected metric, for comparison: k=2 loses {100*k2_loss:.1f}%")
     assert k2_loss < 0.005, (
-        f"{100*k2_loss:.1f}% of the silhouette is thinner than {4*scale:.2f}mm — "
+        f"{100*k2_loss:.1f}% of the silhouette is thinner than {min_bound:.2f}mm — "
         f"increase the dilation")
-    print(f"  min feature {4*scale:.4f} mm | {ncomp} connected component(s)"
+    print(f"  {ncomp} connected component(s)"
           + (f" | body<->head gap {gap_px*scale:.3f} mm" if ncomp > 1 else ""))
     if ncomp > 1:
         print(f"  !! THE SILHOUETTE IS {ncomp} PIECES. Any consumer that renders it WITHOUT\n"

@@ -492,6 +492,42 @@ recorded above, surviving a ≥3-layer persistence filter because the spurious s
 3-D-connected to a genuine sliver beneath it. **Summarising a profile by its maximum is how ~90
 separate bridges became one 55.9 mm bridge**; print the profile.
 
+**And the replacement metric has its own direction of blindness, which is stated in the tool
+rather than left to be discovered.** A smooth surface running nearly *tangent* to the voxel grid
+produces a false thin region: rasterising a smooth convex boundary makes a staircase, and a
+staircase is locally **concave** at every riser, so disc-opening clips the long shallow treads
+that appear where the surface is almost parallel to the grid. On the stand it shows at the left
+rear corner where the R10 arc leaves the straight side x = 0 tangentially — 0.36 mm² per layer
+over the full 40 mm height, reported at 0.618 mm. **The solid runs continuously from x = 0.00 to
+63.90 behind it.** The discriminator is *void on both sides*: a real thin feature has void within
+the threshold on two opposing faces, a tangency artefact has void on one and the whole part on
+the other. This is the Z tangential-slice artefact arriving in XY. **Every discretised metric has
+a direction in which it lies; the work is knowing which one, not believing there isn't one.**
+
+Two smaller lessons from landing the fixes, both about numbers rather than checks:
+
+- **A coefficient captured at one operating point, reused as if it were the law.** The grille's
+  flared bores merge when `sqrt(3)·flare` exceeds `HEX_WEB`. The merge *threshold* was derived
+  correctly as `HEX_WEB/√3 = 0.5196`, but the residual web at a candidate flare was then computed
+  as `0.90 − 1.0392·flare` — and **1.0392 is √3 × 0.60, the growth at the flare that happened to
+  be in the file.** It gave 0.432 mm where the truth is 0.1206 mm, and it survived because it was
+  the right number one line earlier. A constant lifted out of a worked example carries that
+  example's operating point with it, invisibly. The guard is now the general form written out:
+  `GRILLE_MOUTH_WEB = HEX_WEB - sqrt(3)*GRILLE_FLARE`, evaluated at import.
+- **An area floor in pixels is not a tolerance.** The new metric's artefact filter was
+  `AREA_FLOOR_PX = 44 # ~0.25 mm2 at px=0.075`. The enclosure grids at 0.075 mm/px; the wyrm
+  silhouette grids at 0.3083, where the same 44 px is **4.18 mm² — a floor 17× larger**, which
+  swallowed the tail extremities and reported a minimum four times too coarse. It is now derived
+  from the threshold (`2r²`, ~9× the unavoidable corner loss) and therefore scale-free. The
+  earlier version of this same mistake is in the file above: a metric validated at one scale and
+  reused at another.
+
+Landed with each new guard **proved at its boundary**: 40 sweep cases, every PASS/FAIL flip
+landing exactly on a limit computed independently of the assert's own expression. Two of them
+reject the geometry that shipped — the pip clearance goes negative at the previous `PIP_D = 4.00`,
+and the wire saddle's rim rule rejects the previous `WIRE_X = 57.0` for the 0.85 mm fin it left on
+the bearing rim.
+
 ### 17. Absence of a log is not absence of execution
 
 A boot-time resync was added and instrumented with a log line. The line never appeared. It was

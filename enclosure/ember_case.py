@@ -740,6 +740,12 @@ SLAB_T   = FRONT_Z-BACK_Z          # 17.40  (bezel front .. shell back)
 TILT     = 15.0                    # degrees back from vertical, seated viewer
 SLOT_CLR = 0.40
 ST_W, ST_D, ST_H = 64.0, 64.0, 40.0
+# CORNER RADIUS OF THE STAND'S PLAN PROFILE. Hoisted out of desk_stand()'s rbox() call, where
+# it was a literal 10.0, because a second feature now has to know about it: the rear face is
+# only flat for x <= ST_W - ST_R, and a cut placed outboard of that is measuring its depth
+# against a surface that is not there. See WIRE_X. A literal that two features depend on is
+# exactly the duplicate-constant trap this file keeps being bitten by.
+ST_R     = 10.0
 ST_WALL  = 4.0
 # DRIVER — JP's actual speaker is a RECTANGLE with rounded corners, 40 x 27 mm,
 # not the round 28mm driver this was first cut for. Rectangular drivers are the norm
@@ -880,7 +886,39 @@ GRILLE_SLOT_W2 = 2.60
 # Outer chamfer on each slot. A sharp-edged slot mouth sheds vortices and chuffs at
 # level; a flare is the standard fix and costs nothing to print because it opens
 # downward-outward, i.e. it is self-supporting in the stand's print orientation.
+#
+# >>> THE FLARE AND HEX_WEB ARE COUPLED, AND THE COUPLING IS INVISIBLE AT BOTH CALL SITES. <<<
+#
+# `_hex_field(flare=f)` grows each cell's circumradius by f, so its ACROSS-FLATS grows by
+# sqrt(3)*f, while the lattice pitch does not move. The web at the flared MOUTH is therefore
+#
+#     GRILLE_MOUTH_WEB = HEX_WEB - sqrt(3)*GRILLE_FLARE
+#
+# and the flared cells MERGE at flare = HEX_WEB/sqrt(3) = 0.5196. At 0.60 they interpenetrate
+# by 0.1392mm, so the outer 0.40mm of the 2.20mm baffle is ONE aperture and the 33-cell pattern
+# only begins 0.40mm inside the recess floor. Measured in the STL: the webs exist only over
+# y 2.20..4.00, exactly as that arithmetic predicts.
+#
+# THAT IS A CHOICE AND IT IS KEPT ON PURPOSE, but it had to be found by measurement, because
+# `assert len(_cells.solids()) >= 30` — the check that exists precisely to catch merged cells —
+# is computed on the UN-flared term and is structurally incapable of seeing it. An assert on
+# the wrong object reads as coverage. Fixed below.
+#
+# There is no value that gives relief AND keeps HEX_WEB's 0.90 floor: any flare at all thins
+# the mouth. The three coherent settings are flare 0 (0.900 web, no relief), flare <= 0.2598
+# (0.450 web, printable but under the part's own floor), and >= 0.5196 (merged on purpose).
+# 0.45 is the trap: it leaves 0.1206mm, which passes a solids count and does not print — too
+# thin to be a web, too thick to be a merge. The assert below rejects exactly that band, so
+# this constant can be changed freely but not into a sliver.
 GRILLE_FLARE  = 0.60
+GRILLE_MOUTH_WEB = HEX_WEB - math.sqrt(3) * GRILLE_FLARE       # -0.1392 at 0.60
+GRILLE_MOUTH_MERGED = GRILLE_MOUTH_WEB <= 0.0
+assert GRILLE_MOUTH_WEB >= 0.45 or GRILLE_MOUTH_MERGED, (
+    f"the grille's flared mouth web is {GRILLE_MOUTH_WEB:.4f}mm — a fin: too thin to print and "
+    f"too thick to be a deliberate merge. Either GRILLE_FLARE <= "
+    f"{(HEX_WEB-0.45)/math.sqrt(3):.4f} for a printable 0.45mm mouth web, or >= "
+    f"{HEX_WEB/math.sqrt(3):.4f} to merge on purpose. This is the SCALLOP_MIN_RIB rule: a wall "
+    f"or no wall, never a fin")
 
 def _hex_panel(x0, x1, y0, y1, z0, z1, aflat, web):
     """Fine hex lattice filling a rectangular patch, extruded through Z.
@@ -949,7 +987,7 @@ def desk_stand():
     # the render showed it eating into the driver seat and the grille field, which
     # both live on the front wall.  Generous R10 corners + the leaning slab give
     # the form; the front wall stays solid and predictable from z=0 to z=ST_H.
-    p = rbox(0,ST_W, 0,ST_D, 0,ST_H, 10.0)
+    p = rbox(0,ST_W, 0,ST_D, 0,ST_H, ST_R)
     # slab slot, leaning back by TILT
     slot = Box(SLAB_W+2*SLOT_CLR, SLAB_T+2*SLOT_CLR, 70,
                align=(Align.CENTER,Align.CENTER,Align.MIN))
@@ -1124,6 +1162,18 @@ def desk_stand():
     # meets one continuous flat plane and nothing — no fillet, no print artefact at the
     # wall/floor junction — interrupts the bond. Added, not subtracted: this is the one
     # feature in the stand that is material rather than a void.
+    #
+    # ⚠️ THAT CLAIM WAS FALSE OF THE PART FOR AS LONG AS THIS COMMENT HAS EXISTED, and it is
+    # worth correcting rather than deleting, because the comment is how it survived. The
+    # speaker-wire pass is cut through this pad 129 lines below, and it used to start 0.50mm
+    # BEHIND the pad's inner face — so 6.0 x 4.6mm of the "continuous flat plane" was a
+    # 0.474mm membrane with a hole behind it. Worse than the fillet the sentence rules out,
+    # and the sentence is what stopped anyone looking. There is now an aperture assert at that
+    # cut; the bond loses a 6 x 5mm notch, 30 of ~1150mm2 (2.6%), at the pad's bottom edge
+    # where the driver's own JST pigtail leaves anyway.
+    #
+    # A COMMENT THAT GUARANTEES A PROPERTY IS A LIABILITY UNLESS SOMETHING CHECKS IT. This one
+    # promised an uninterrupted bond surface and outlived the geometry that made it true.
     pad = rrect_y(ST_W/2, dz,
                   DRIVER_W + 2*DRIVER_CLR, DRIVER_H + 2*DRIVER_CLR,
                   DRIVER_R + DRIVER_CLR,
@@ -1156,8 +1206,26 @@ def desk_stand():
         assert _n >= 30, (
             f"hex grille collapsed to {_n} solid(s) — the cells have merged, so the web is "
             f"negative and the part would print as one opening with loose prisms")
-        bars = _cells + _hex_field(dz, flare=GRILLE_FLARE,
-                                   depth=GRILLE_RECESS + 2.4)
+        _flared = _hex_field(dz, flare=GRILLE_FLARE, depth=GRILLE_RECESS + 2.4)
+        # >>> AND THE SAME CHECK ON THE FLARED TERM, WHICH IS THE ONE THAT CAN MERGE. <<<
+        #
+        # The assert above is aimed at `_cells`, whose web is HEX_WEB by construction and does
+        # not depend on the flare at all — so it has never been able to fail for the reason it
+        # names, and it passed throughout the whole period the flared mouth WAS merged. That is
+        # this file's own recurring fault, in one of its own guards: an invariant whose success
+        # condition is insensitive to the failure mode it appears to cover.
+        #
+        # Only asserted when the design CLAIMS separate flared cells. At GRILLE_FLARE >= 0.5196
+        # the merge is deliberate (see the constant), and a merged mouth must not be a build
+        # failure — but it must not be an accident either, which is what GRILLE_MOUTH_WEB and
+        # its assert make impossible.
+        if not GRILLE_MOUTH_MERGED:
+            _nf = len(_flared.solids())
+            assert _nf >= 30, (
+                f"the FLARED grille cells collapsed to {_nf} solid(s) at GRILLE_FLARE="
+                f"{GRILLE_FLARE} — mouth web {GRILLE_MOUTH_WEB:.4f}mm. `_cells` is unaffected "
+                f"by the flare, so the assert above cannot see this")
+        bars = _cells + _flared
     else:
         bars = None
         _fw = DRIVER_W - 2*GRILLE_INSET
@@ -1247,17 +1315,50 @@ def desk_stand():
     # enclosure and leaves the driver's own wires with nowhere to go. The board's
     # speaker header is on a long edge, so the wire has to reach the slab slot.
     #
-    # This channel runs from inside the chamber (y=19, chamber ends at 21) rearward to
-    # y=30, meeting the board cable route that starts at 29. From there the wire follows
-    # the same path up to the slot. 6 x 5mm: enough for a 2-core lead, small enough to
-    # seal.
+    # This channel runs from inside the chamber rearward to y=30, meeting the board cable
+    # route that starts at 29. From there the wire follows the same path up to the slot.
+    # 6 x 5mm: enough for a 2-core lead, small enough to seal.
+    #
+    # >>> IT MUST START INSIDE THE TAPE PAD, NOT BEHIND IT. THIS CUT WAS 92% BLOCKED. <<<
+    #
+    # It read `19.0`, which was `cy1` when cy1 was 21.0 and is 0.50mm BEHIND the pad's inner
+    # face now that the pad exists. `p += pad` (above) fills y cy1-PAD_PROUD .. cy1 across
+    # x 11.40..52.60, so a cut starting at cy1 leaves the pad's full PAD_PROUD standing across
+    # the whole mouth of this channel:
+    #
+    #     a 0.474mm membrane at x 29.00..35.00, z 6.40..11.00 — 12.4mm3 over 23 layers,
+    #     a rock-steady 2.69mm2 per layer, THE THINNEST FEATURE IN THE PART
+    #     clear aperture into the chamber: 2.37 of 30mm2 (7.9%) — one 5.92 x 0.40mm slit
+    #     at z 6.00..6.40, under the pad's bottom edge
+    #
+    # A 2-core speaker lead is 1.2-2.0mm. It does not fit. So the sealed chamber had no usable
+    # exit again — which is JP's own catch ("the chamber had no exit at all") reintroduced by a
+    # feature added 129 lines away, in the same file, months of reasoning apart.
+    #
+    # THE TWO LESSONS, because the fix is one line and they are not:
+    #   1. A CUT AND THE FEATURE IT PASSES THROUGH MUST SHARE A CONSTANT. `19.0` was correct
+    #      against the geometry of the day and became wrong silently, from a distance, without
+    #      anything in either place changing. Keyed to PAD_PROUD it cannot drift again.
+    #   2. NOTHING COULD HAVE CAUGHT IT. Every check here compares parts to the BOARD, and a
+    #      blocked hole intersects nothing — an absence cannot collide, and neither can an
+    #      absence that failed to happen. The assert below therefore measures the APERTURE,
+    #      not the constants: it intersects the finished solid with the pad's own plane over
+    #      the channel's footprint and requires it EMPTY. That is the property. Asserting
+    #      `_passY0 <= cy1 - PAD_PROUD` would only restate the line above it.
     #
     # >>> IT MUST BE SEALED AFTER WIRING — a dab of silicone, hot glue or putty. <<<
     # An unsealed hole turns the sealed box into a leaky one and costs exactly the low
     # end the chamber exists to produce. Sizing it for a bead of sealant rather than
     # trying to make it wire-tight is deliberate: a press-fit hole that has to be forced
     # abrades the insulation.
-    p -= bx(ST_W/2-3, ST_W/2+3, 19.0, 30.0, 6.0, 11.0)
+    _passY0 = cy1 - PAD_PROUD - 0.01
+    p -= bx(ST_W/2-3, ST_W/2+3, _passY0, 30.0, 6.0, 11.0)
+    _probe = bx(ST_W/2-3, ST_W/2+3, cy1 - PAD_PROUD, cy1, 6.0, 11.0)
+    _blocked = (p & _probe).volume
+    assert _blocked < 0.01, (
+        f"{_blocked:.3f}mm3 of material still blocks the speaker-wire pass in the tape pad's "
+        f"own plane (y {cy1-PAD_PROUD:.2f}..{cy1:.2f}) — the chamber has no usable wire exit. "
+        f"The pass must start at or inside y={cy1-PAD_PROUD:.2f}, not behind the pad")
     # ---- SPEAKER WIRE: A RIM SADDLE AND A GROOVE DOWN THE BACK ----
     #
     # THE SADDLE IS NOT COSMETIC — it removes a hazard that would have been misdiagnosed.
@@ -1278,11 +1379,62 @@ def desk_stand():
     # So the rim is lowered locally to give the lead a defined crossing, and a shallow groove
     # carries it down the back face to the existing cable route. Neither cut roofs anything, so
     # neither adds a bridge; both are open to the outside and print unsupported.
-    WIRE_X   = 57.0    # stand x where the shell's side channel exits (board x=50)
     WIRE_W   = 5.0     # saddle width
     WIRE_D   = 2.5     # saddle depth below the rim
     GROOVE_W = 3.0
     GROOVE_D = 2.0
+    # >>> WIRE_X IS DERIVED FROM THE CORNER, NOT FROM WHERE THE WIRE COMES OUT. <<<
+    #
+    # It was 57.0, commented "stand x where the shell's side channel exits (board x=50)".
+    # That is a true fact about the WIRE and the wrong constraint on the CUT, and the two were
+    # conflated: x=57 lies inside the rear R10 corner, whose arc is centred (ST_W-ST_R,
+    # ST_D-ST_R) = (54, 54). So the rear face there is NOT at y=64 —
+    #
+    #     x = 55.50 -> 63.887      x = 59.00 -> 62.660
+    #     x = 57.00 -> 63.539      x = 59.50 -> 62.352
+    #     x = 58.50 -> 62.930      x = 60.00 -> 62.000
+    #
+    # — and a groove cut to y = ST_D - 2.0 = 62.0 therefore left only 0.930mm of wall behind
+    # its floor instead of 2.0, plus a wedge outboard of its own wall tapering 0.768mm (at
+    # y=62.5) to ZERO at y=62.93. Measured in the STL: a 0.671mm feature over z 11.80..37.40,
+    # 128 layers, median 0.05mm2 per layer. A 25.6mm-tall knife edge on the part that carries
+    # the leaning slab, on a face you can see, and the slicer drops everything under 0.4mm of
+    # it — so it prints ragged as well as thin.
+    #
+    # Nothing measured the wall thickness BEHIND a groove, and nothing would have: the boolean
+    # checks compare parts to the BOARD, and a groove cut too deep into a rounded corner
+    # collides with nothing at all. Same absence-cannot-collide blindness as the well through
+    # the floor.
+    #
+    # So the groove's OUTBOARD edge is pinned to the corner's tangent point and WIRE_X follows
+    # from it. The wire then crosses the rim 4.5mm inboard of where the shell releases it and
+    # runs laterally along the top of the rear rim to get there — which is open air above the
+    # slot's rear wall, where nothing obstructs it and nothing can pinch it.
+    WIRE_X   = ST_W - ST_R - GROOVE_W/2                 # 52.50
+    assert WIRE_X + GROOVE_W/2 <= ST_W - ST_R + 1e-9, (
+        f"the groove's outboard edge at x={WIRE_X + GROOVE_W/2:.2f} is past the rear face's "
+        f"flat region (x <= {ST_W - ST_R:.2f}), so its {GROOVE_D}mm depth is measured against "
+        f"the R{ST_R:g} corner arc and leaves a knife edge outboard of it")
+    # AND THE SADDLE MUST NOT LEAVE A FIN AGAINST THE SCALLOP — the SCALLOP_MIN_RIB rule, which
+    # only ever governed the two scallops against each other, applied to the cut that comes
+    # after them. The merged scallop's right edge is at stand x = 50.51 and the saddle is 5mm
+    # wide, so inside the 3.49mm of flat face there is no position that both clears the scallop
+    # and stays off the corner: the saddle therefore MERGES with the scallop, deliberately.
+    #
+    # That is the better outcome and not merely the available one. At the old WIRE_X=57 the
+    # saddle sat at x 54.5..59.5 and left a 0.85mm-wide, 2.5mm-tall fin standing between it and
+    # the slot's side wall at x=60.35 — ON THE REAR RIM, which is the bearing surface under the
+    # leaning slab. Merging removes that fin and the rim's bearing line goes 15.13 -> 15.64mm.
+    _scallop_x1 = ST_W/2 + (_spans[-1][1] - BW/2)
+    _rib_to_scallop = (WIRE_X - WIRE_W/2) - _scallop_x1
+    assert _rib_to_scallop <= 0.0 or _rib_to_scallop >= SCALLOP_MIN_RIB, (
+        f"the saddle leaves a {_rib_to_scallop:.2f}mm rib between itself and the scallop at "
+        f"x={_scallop_x1:.2f} — under {SCALLOP_MIN_RIB}mm that is a fin on the bearing rim, "
+        f"not a wall. Either overlap the scallop or clear it by {SCALLOP_MIN_RIB}mm")
+    assert WIRE_X + WIRE_W/2 <= ST_W/2 + SLAB_W/2 + SLOT_CLR - SCALLOP_MIN_RIB, (
+        f"the saddle's outboard edge at x={WIRE_X + WIRE_W/2:.2f} leaves under "
+        f"{SCALLOP_MIN_RIB}mm of rim before the slot's side wall at "
+        f"x={ST_W/2 + SLAB_W/2 + SLOT_CLR:.2f} — that is the 0.85mm fin the old WIRE_X=57 left")
     p -= bx(WIRE_X-WIRE_W/2, WIRE_X+WIRE_W/2, 44.0, ST_D+1, ST_H-WIRE_D, ST_H+1)
     p -= bx(WIRE_X-GROOVE_W/2, WIRE_X+GROOVE_W/2, ST_D-GROOVE_D, ST_D+1,
             12.0, ST_H-WIRE_D+0.01)
@@ -1448,6 +1600,37 @@ def _check_geometry():
     # 2. room under the slab for a USB-C plug
     below = SLOT_FLOOR - ST_WALL
     assert below >= 16.0, f"only {below:.1f}mm under the slab for a USB-C plug (need >=16)"
+    # 2c. THE PIP MUST STAY INSIDE ITS ISLAND — 0.423mm, the tightest margin on the part.
+    #
+    # The pip is centred on the SWITCH and the island on CAP_CX_*, so they are deliberately
+    # off-centre from each other: the BOOT island is offset 3.53mm in X to clear the (46,4)
+    # countersink. A flat-top hexagon narrows toward each flat, so an off-centre disc runs out
+    # of hexagon long before it runs out of circumradius, and NOTHING ELSE HERE WOULD NOTICE:
+    # a pip hanging over the island's edge does not collide with the board, and the minimum-wall
+    # metric measures the material that IS there, never the material a feature needed and
+    # missed.
+    #
+    # Exact, not sampled: a flat-top hexagon's six flats sit at R*sqrt(3)/2 from the centre with
+    # outward normals every 60deg starting at 30deg, so the clearance is
+    #     R*sqrt(3)/2  -  max over flats of (pip offset . flat normal)  -  PIP_D/2
+    # BOOT 0.423mm, RESET 0.960mm. The 0.423 agrees to three decimals with the independent
+    # [32.56, 33.54] feasible window that chose CAP_CX_BOOT = 33.05 (0.866 * 0.49 = 0.424),
+    # which is two derivations meeting rather than one being trusted.
+    #
+    # 0.40 is one extrusion width at the 0.4mm nozzle. This assert is deliberately tight: BOOT
+    # passes with 0.023mm to spare, so it fails the moment a cap, an island or the pip moves.
+    # That is the point — PIP_D was 4.00 until recently, and at 4.00 this is NEGATIVE.
+    for _cx, _cy in BTN:
+        _cyh, _R, _ = cap_geometry(_cx)
+        _dx, _dy = _cx - cap_center_x(_cx), _cy - _cyh
+        _worst = max(_dx*math.cos(math.radians(_a)) + _dy*math.sin(math.radians(_a))
+                     for _a in range(30, 360, 60))
+        _clr = _R*math.sqrt(3)/2 - _worst - PIP_D/2
+        assert _clr >= 0.40, (
+            f"the pip at board x={_cx} clears its island's nearest flat by only {_clr:.3f}mm "
+            f"(island centre {cap_center_x(_cx)}, R={_R:.4f}, PIP_D={PIP_D}) — under one "
+            f"0.40mm extrusion width the pip overhangs the island into the printed-in-place "
+            f"slot and has nothing to stand on")
     # 2b. THE STAND MUST NOT STAND ON A RING.
     #
     # The USB-C well once ran 30mm down the tilted axis, reaching z = -4.98 and cutting

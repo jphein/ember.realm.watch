@@ -8,14 +8,34 @@ bottom-left of the grille field. Traced from esphome/art/dragon.py, the same
 curves the device and the website draw.
 """
 
-# 104 rects, 193.4 mm2, dilated 2px.
-# Opening at k=2 loses 0.0% -> every feature >= 1.23 mm, printable.
+# 104 rects, 193.4 mm2, dilated 2px, canvas 120x50px at 0.3083 mm/px.
 WYRM_W, WYRM_H = 37.0000, 15.4167
 WYRM_AREA = 193.3503
-# MIN FEATURE, verified by opening — import this, never transcribe the
-# number above. A consumer that scales this silhouette must divide its own
-# print floor by THIS, or its min-feature assert is arithmetic, not a test.
+# MIN FEATURE. TWO NUMBERS, BECAUSE THEY ARE NOT THE SAME THING AND THE
+# DIFFERENCE USED TO BE HIDDEN.
+#
+# WYRM_MIN_FEATURE is the CONSUMER CONTRACT and a conservative LOWER BOUND:
+# scale this silhouette by (your print floor / this) and every feature comes
+# out at or above your floor. It is 4*px = four pixels of the canvas, so it
+# is a statement about the GRID, not a measurement of the shape -- which is
+# why it errs safe. Erring safe is the whole reason it is still here.
+#
+# WYRM_MIN_FEATURE_MEASURED is the shape's ACTUAL thinnest feature, by
+# Euclidean-disc opening with the thickness read off the distance transform
+# (tools/minfeature.py, whose control runs on every regeneration). The build
+# asserts MEASURED >= WYRM_MIN_FEATURE, i.e. that the bound IS a bound -- a
+# check nobody had ever run.
+#
+# THE GAP MATTERS TO CONSUMERS: it is 4.27x, so a
+# consumer scaling by floor/1.2333 gets a mark whose thinnest
+# feature is 4.27x its floor, not equal to it. Anything
+# that reports `WYRM_MIN_FEATURE * s` as the result is ARITHMETIC, NOT A
+# TEST -- it returns the floor by construction whatever the shape does.
+# Use MEASURED * s for that.
 WYRM_MIN_FEATURE = 1.2333
+WYRM_MIN_FEATURE_MEASURED = 5.2688
+# The old 4-connected metric, kept only for comparison: it reported the loss
+# at k=2 as 0.0%. It is anisotropic -- see minfeature.py.
 # CONNECTED COMPONENTS of the silhouette. 1 means the mark is NOT one
 # piece: body_mask()|head_mask(0) unions two sprites and the k=0 head pose
 # leaves the neck clear of the body. On screen the fire fills the gap; in
