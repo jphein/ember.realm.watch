@@ -140,7 +140,11 @@ The BOOT cap's deboss floor spans `R·√3` = **13.268 mm**; RESET's is **8.268*
 routinely over a 0.90 / 0.50 mm recess — **this is a cosmetic note, not a defect.** Expect sag in
 the middle of the faces you look at and press. Fan at 100 % for the first few layers.
 
-> **Worth knowing how the number got there.** At the old 9.01 mm caps that span was **7.275 mm**.
+> **Worth knowing how the number got there.** At the old caps that span was **7.275 mm**
+> — both figures computed from `BTN_R_*` and `CAP_INSET` rather than measured, so the ratio
+> is exact and end-to-end on one basis. *(Voxel-measuring both ends instead gives 7.20 → 13.20
+> and +83 %; pairing one measured end with one computed end gives +84 %, which is wrong while
+> looking like the most careful option. **State the basis, not just the value.**)*
 > Growing the caps to thumb-size took it to 13.268 — **+82 %** — inside a change that was
 > reviewed for hinge strain, lever ratio, countersink clearance and the hex-field boundary.
 > **Printability of the recess floor was not on that list.** A checklist that is complete for

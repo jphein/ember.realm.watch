@@ -1425,3 +1425,47 @@ And a note on how both were found: **not in the diff.** Both were caught by some
 *result* — the rendered page, days of context later, without the old version in view. That is an
 argument for the review pass existing at all, rather than for reviewing more carefully. A diff
 shows you what an edit did; only the finished artifact shows you what it no longer says.
+
+### 24. A correct measurement of the wrong object
+
+Three times this month a number was right, its arithmetic was right, and the sentence built on it
+described something that does not exist in the world.
+
+**The grille.** The model places 33 hexagonal cells, and the assert counting them is correct. But
+each bore is flared 0.60 mm at its mouth, and the flare grows a cell faster than the pitch
+allows — so the outer 0.40 mm of the baffle is **one merged opening**, 886.1 mm² of an 886.1 mm²
+field. "33 apertures" is true of the *cell list* and false of the *face you can touch*.
+
+**The countersink.** With the mouth matched to a named head, the head sits on a **full conical
+seat** — geometrically exact. Sliced at 0.20 mm, that cone is a **staircase of 8 annular steps**,
+so the head bears on 8 step corners. Better than the single line contact it replaced, and not
+what "full conical seat" makes a reader picture.
+
+**The layer count.** `14.40 / 0.20 = 72` exactly, from the constants. Measure the same height off
+the exported binary STL and you get **71.999998**, because float32 cannot represent 14.4. The
+claim is about the design; the mesh is a lossy transcription of it.
+
+In all three the CAD figure is correct. **What differs is which object the sentence is about** —
+and the two objects share a name, which is what makes the slip invisible.
+
+> **Ask what the process does to a number before repeating it.** Between the model and the thing
+> a person holds there is a mesher, a slicer, a nozzle and a float — and each of them is entitled
+> to change the answer.
+
+This is a near neighbour of §5 and worth keeping distinct from it. §5 is a **metric measuring the
+wrong property**: open area was insensitive to whether a region was connected, so the number was
+about something other than what mattered. Here the metric is right and the *referent* has moved —
+a **correct measurement of the wrong object**.
+
+The countermeasures differ, which is the practical reason to separate them. §5 wants a **better
+assert**: measure connectivity, not area. This one cannot be asserted away, because the model
+genuinely does contain 33 cells and a true cone — there is nothing in the source to catch. It
+wants a **question**, asked when writing the sentence rather than when writing the code:
+
+- *Is this a property of the model, or of the part?*
+- *Which of the mesher, the slicer, the nozzle and the float touches it on the way out?*
+- *Would somebody holding the object recognise the description?*
+
+The last one is the cheapest and the most reliable. A reader with the printed bezel in their hand
+counts one grille opening, not thirty-three — and no amount of correct arithmetic upstream makes
+the sentence true for them.
