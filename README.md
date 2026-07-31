@@ -278,6 +278,23 @@ clipped flat while every pixel remains covered exactly once. If you touch `GRATE
 It mirrors the lambda in `ember-satellite.yaml`. Change one, change the other — it is
 only worth running while it is the same code.
 
+> ⚠️ **It currently is not, and the divergence has been measured: 8 lines, YAML ahead.**
+> Seven of them are the two `static_assert`s on `CW` and `NC`; one is `if (silenced) jaw = 0;`.
+> That is not accidental drift — the harness's own comment says of those asserts *"a fix belongs
+> in the yaml … Flagged to the firmware owner rather than changed here"*, and the fix was made
+> there and never brought back. **A deliberate one-way handoff, completed on one side.**
+>
+> The consequence is worth stating because it is the wrong way round: the guards on `NC`/`CW`
+> now live **only in the copy that cannot be host-compiled**, and are **absent from the harness**
+> — which is exactly where someone tried `NC = 80` and smashed the stack. *The assert that would
+> have caught it at compile time is missing from the only place it could have fired.*
+>
+> **Half of this is now mechanical.** `esphome/tools/check_art_sync.py` compares the ~700 lines
+> of generated span tables by value and fails a commit if they disagree. The ~250 lines of
+> painter *logic* stay manual on purpose — the two copies are legitimately different text
+> (`it.` stubs against `id(...)`), so a diff would be noise. That half closes when #10 removes
+> the duplicate outright.
+
 ---
 
 ## The enclosure

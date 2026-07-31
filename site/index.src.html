@@ -973,10 +973,24 @@ footer p{margin:.4rem 0}
   <div class="note">
     <b>An invariant a test can check.</b> Because the framebuffer persists between frames, a
     gap in the fire leaves stale pixels behind and an overlap silently doubles the cost the
-    whole design exists to avoid. So a host-side harness compiles the real drawing code and
-    asserts that every row of the band is covered exactly once, in every state. It has caught
-    a destructive dead-zone bug, a false-feedback bug, and three of the author's own ordering
+    whole design exists to avoid. So a host-side harness compiles the drawing code and asserts
+    that every row of the band is covered exactly once, in every state. It has caught a
+    destructive dead-zone bug, a false-feedback bug, and three of the author's own ordering
     mistakes.
+    <p style="margin:.6rem 0 0">
+      ⚠️ <b>It compiles a <em>copy</em> of that code, and the copy is measurably behind — 8 lines,
+      device ahead.</b> Seven are the two <code>static_assert</code>s on the band's width and
+      column count. Those were deliberately handed to the device-side file and never brought
+      back, so <strong>the guards now live only in the copy that cannot be host-compiled, and are
+      missing from the harness — which is precisely where someone tried the value that smashed
+      the stack.</strong> The assert that would have caught it is absent from the only place it
+      could have fired.
+      <br><br>
+      The generated span tables are now compared by value on every commit, so that half cannot
+      drift again. The painter logic stays manual deliberately: the two copies are legitimately
+      different text, so a diff would be noise rather than signal. <b>A duplicate you have
+      measured is a liability you can price; the danger is the one you assume is identical.</b>
+    </p>
   </div>
 </section>
 
