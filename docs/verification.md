@@ -803,6 +803,83 @@ survived on a published page.
 | minimum feature by **morphological opening** | `enclosure/tools/make_wyrm_spans.py` | traced art is printable — see the note below |
 | `check_tiling`, write-once | `esphome/art/dragon_harness.cpp` | every pixel in the band written exactly once |
 | `CLAIMS` / `BLOCKED` provenance guard | `site/og_card.py` | the build **refuses** to emit a known-wrong engine name |
+| **restore-without-resync** | `esphome/tools/check_restore_resync.py` | a restoring control cannot come back from a reboot lying about the hardware |
+| **generated pages are current** | `site/check_generated_current.py` | the **published** page matches the source in the same commit |
+
+### Two guards that exist because a note was not enough
+
+Both of these started as documentation, and documentation is what failed.
+
+**`check_restore_resync.py`** — `TemplateNumber::setup()` calls `publish_state()` and never
+`control()`, so a `restore_value: true` control comes back after a reboot *showing* its stored
+value while its `set_action` — the thing that writes the hardware — never runs. The entity and
+the device disagree, and the entity is the one people read.
+
+That was diagnosed for `spk_volume`, fixed, and written up **in a comment carrying the exact
+source line numbers**. Then `mic_gain_num` was added 700 lines below that comment with the
+identical defect. **The fix had been applied to an instance rather than turned into a rule**,
+and a note saying "this component behaves like X" does not protect the next component that
+behaves like X. The script is the rule: every `number`/`select`/`switch` with `restore_value`
+*and* an action must be named by some `on_boot` trigger.
+
+⚠️ **Its failure mode is quiet and the one immune case is the one you would test with.** For
+mic gain the codec kept its compile-time default, so the divergence only appeared after storing
+a *non-default* value. Set it to the default, reboot, and everything looks perfect.
+
+It **deliberately does not check that the resync is correct**, only that one exists — claiming
+more than it verifies is the thing this file catalogues. Current state: `number.spk_volume` and
+`number.mic_gain_num`, both resynced. That the class has exactly two members was reached
+independently by a second method, which is the only reason it counts as known.
+
+**`check_generated_current.py`** — `docs/` is rendered, not written. `site/build.py` produces
+`docs/index.html` from `site/index.src.html`, and `site/build_print_sheet.py` produces
+`docs/print-sheet.html` from `enclosure/PRINT-SHEET.md`. Editing a source without re-running
+its build leaves the **published** page stale while the repo looks entirely correct — so every
+check that compares the repo against the truth passes, and only a visitor sees the old text.
+
+Three instances in one day, escalating:
+
+1. `docs/assets/case-hero.png` was one render behind the case geometry. Cosmetic.
+2. The live status page ran **8 checks behind its own committed config** — four projects
+   registered and not monitored.
+3. `docs/print-sheet.html` kept saying **"⛔ DO NOT PRINT `ember-stand.stl`"** after the source
+   had been cleared. That is the document somebody reads *while a printer is running*, and it
+   was wrong in the direction that costs a part you could have had.
+
+⚠️ **Nobody made a mistake in any of the three.** `enclosure/PRINT-SHEET.md` does not look like
+a build input — it is a markdown file sitting in the enclosure directory, and nothing at the
+point of editing says a page depends on it. **The coupling is invisible exactly where the
+editing happens**, which is why the countermeasure has to be mechanical rather than a note
+asking people to remember. That generalises past this repo: when a defect keeps recurring
+without anyone being careless, look for a dependency that is real but unstated at the site of
+the change.
+
+Both scripts take `--self-test`, and both self-tests are written to **exercise the path that
+runs in anger** rather than a parallel one. `check_generated_current.py` routes its real check
+and its self-test through the same `_compare()`, and requires *two* results: zero reports when
+the pages are current, and one report per pair when deliberately-stale bytes are fed in. **A
+detector that always fires is as useless as one that never does**, and the first draft of that
+self-test compared a string with itself plus a suffix — which would have passed forever while
+proving nothing. That is §6 and §14 in a file whose whole subject is §6 and §14.
+
+### Installing the hooks — `.git/hooks` is not tracked, so a fresh clone has none
+
+```bash
+printf '%s\n' '#!/usr/bin/env bash' \
+  'root="$(git rev-parse --show-toplevel)"' \
+  'staged() { git diff --cached --name-only; }' \
+  'if staged | grep -q "^esphome/ember-satellite[.]yaml$"; then' \
+  '  python3 "$root/esphome/tools/check_restore_resync.py" || exit 1' \
+  'fi' \
+  'if staged | grep -qE "^(site/index[.]src[.]html|enclosure/PRINT-SHEET[.]md)$"; then' \
+  '  python3 "$root/site/check_generated_current.py" || exit 1' \
+  'fi' > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+```
+
+Each guard fires **only when its own source is staged**, and that is deliberate rather than
+lazy: **a hook that runs on every commit gets disabled, and a disabled hook protects nothing.**
+The obvious improvement — make it run always — is the change that ends with someone typing
+`--no-verify` by reflex.
 
 ### On measuring minimum feature size
 
