@@ -1005,6 +1005,7 @@ survived on a published page.
 | grille web + open area asserts | `enclosure/ember_case.py` | printable material between apertures; open area above the driver's radiating area |
 | minimum feature by **morphological opening** | `enclosure/tools/make_wyrm_spans.py` | traced art is printable — see the note below |
 | `check_tiling`, write-once | `esphome/art/dragon_harness.cpp` | every pixel in the band written exactly once |
+| bezel↔shell **mating probe** (check 5) | `enclosure/ember_case.py` | a d2.10 probe runs clean through both parts at every `HOLES` XY — the one property that is not intrinsic to a single part, so no other check can see it. Probes the **geometry**, not the constant (`HOLES == HOLES` is vacuous), and its control threshold is set by the **insensitive** part: the shell's d3.30 bore only blocks past 0.60 mm of drift where the bezel's d2.50 pilot blocks past 0.20 |
 | `CLAIMS` / `BLOCKED` provenance guard | `site/og_card.py` | the build **refuses** to emit a known-wrong engine name |
 | **restore-without-resync** | `esphome/tools/check_restore_resync.py` | a restoring control cannot come back from a reboot lying about the hardware |
 | **chime preempt guard halves agree** | `esphome/tools/check_chime_guards.py` | a chime case cannot be guarded in the enumeration and unguarded where the guard bites |
