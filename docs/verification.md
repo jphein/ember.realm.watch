@@ -477,7 +477,7 @@ recorded above, surviving a ≥3-layer persistence filter because the spurious s
 3-D-connected to a genuine sliver beneath it. **Summarising a profile by its maximum is how ~90
 separate bridges became one 55.9 mm bridge**; print the profile.
 
-### 16. Absence of a log is not absence of execution
+### 17. Absence of a log is not absence of execution
 
 A boot-time resync was added and instrumented with a log line. The line never appeared. It was
 re-instrumented unguarded — nothing. Moved to its own trigger so no earlier action could block
