@@ -418,10 +418,23 @@ esphome upload  ember-satellite.yaml --device ember-satellite.local   # OTA
 esphome logs    ember-satellite.yaml --device ember-satellite.local
 ```
 
-> ⚠️ **`esphome upload` does NOT compile.** It ships whatever is already in
+> ⚠️ **`esphome config` is not a build check.** It validates YAML — schema, pins,
+> substitutions, jinja — and **never builds the lambdas**. A config with unambiguous
+> C++ errors in them returns `Configuration is valid!` and exit 0. Worse, the dump
+> **echoes the broken lambda source back at you verbatim**, so it prints the C++ and
+> then declares the configuration valid, which reads as though it examined what it
+> printed. It round-tripped it as an opaque string. **Use `esphome compile`** — no
+> device needed, and it is the step that builds the C++.
+>
+> ⚠️ **`esphome upload` does NOT compile either.** It ships whatever is already in
 > `.esphome/build/`, silently. Always `esphome compile` first, or use `esphome
 > run` which does both. Two debugging rounds were lost to flashing a stale
 > binary whose symptoms reproduced to the millisecond.
+>
+> **These two are neighbours and fail the same way**: each is a step you would
+> reasonably read as "check it before flashing", and neither compiles anything. Between
+> them, a C++ error can survive a validation *and* a flash and first appear as a device
+> that does not boot.
 
 Compiling on a workstation is roughly 5× faster than building on the HA host.
 

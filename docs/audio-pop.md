@@ -253,11 +253,27 @@ lands inside that window.
 The re-mute is **deferred 200 ms and cancellable**, which is not belt-and-braces.
 Asserting REG31 mute steps the DAC output while the amp is still enabled — the same
 class of transient this whole subsystem exists to suppress, at the other end of
-playback. Two things argue it's harmless (the last frame is end-of-speech
-near-silence; ES8311 mute is normally a soft step) and one argues it isn't (this
-board's 0.39 µF coupling caps are worst-case for pop per the amp's own datasheet).
-Not worth betting on. Deferring also coalesces bursts, and cancelling on resume means
-a stuttering reply can't be muted mid-sentence.
+playback.
+
+⚠️ **One of the two arguments that used to appear here was wrong, and this document
+already contained the refutation.** It read *"ES8311 mute is normally a soft step"*.
+It is not: as established 200 lines above, `REG37 = 0x08` sets `DAC_RAMPRATE = 0`,
+which is **"disable soft ramp"** — so **mute and unmute are hard steps.** The claim
+survived in one paragraph while the correct reading sat in another, which is the
+failure mode worth more than the correction: *a document can carry both a claim and
+its own refutation and read as consistent, because nobody holds two passages in mind
+at once.*
+
+So one argument remains, and it is enough: this board's 0.39 µF coupling caps are
+worst-case for pop per the amp's own datasheet, and stepping the DAC while the amp is
+still enabled is not worth betting on. Deferring also coalesces bursts, and cancelling
+on resume means a stuttering reply can't be muted mid-sentence.
+
+**The hard step is also good news elsewhere**, and the design already relies on it: a
+mute that cannot slew cannot leak, so asserting REG31 silences the output promptly and
+reliably. What it cannot do is *cover* a transient by ramping through it — which is why
+the explanation of why unmuting works rests on REG31 being enforced inside the clock
+domain, not on any ramp.
 
 ---
 
