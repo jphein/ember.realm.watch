@@ -1452,7 +1452,21 @@ SCALLOP_CHAMFER = 0.90  # on the pocket MOUTH, where the rim plane cuts the pris
 # for the question it asks (have the cells fused) and not a count of holes in the part. The
 # smallest surviving opening is 12.85mm2, so no clipped slivers.
 GRILLE_STYLE  = "hex"
-HEX_R         = 3.75     # circumradius
+# ⚠️ WAS 3.75 (AF 6.4952) AND THE GRILLE DROOPED. Issue #28, and the diagnosis moved twice.
+#
+# JP first: "the hex holes on the front grill are too big." Then, decisively: "sagging/messy but
+# holes are open." THE APERTURES FORMED. So this is DROOP, not collapse — and that inverts which
+# lever is primary. Droop scales with unsupported SPAN LENGTH, so a bigger aperture droops more
+# even when it never fails to bridge. JP's original instinct was right and two of us reasoned
+# them out of it: the analysis everyone ran (mine included) was a COLLAPSE analysis, which asks
+# where a span fails to form at all. A span can form and still sag.
+#
+# AF 4.50 rather than the back face's 3.20: JP released the match-the-back-face constraint
+# ("they don't have to be exactly the same size ... but they do need to be smaller"), and 4.50
+# holds GRILLE_INSET at a comfortable 1.0 where 3.20 would need ~0.2.
+#
+# 2.5981 = 4.50/sqrt(3), so the ACROSS-FLATS is exactly 4.50. Cells go 33 -> 59.
+HEX_R         = 4.50/math.sqrt(3)   # circumradius; ACROSS-FLATS = 4.50 exactly
 HEX_WEB       = 0.90     # material between hexes; the print floor
 WYRM_ON       = False    # solid wyrm island in the grille field
 GRILLE_RAKE   = 24.0     # degrees back from vertical, from lyra's motif
@@ -1478,7 +1492,17 @@ GRILLE_TAPER  = 0.78     # narrowest / widest, toward the tail
 # Slots are clipped to the driver's RADIATING AREA, inset 1.5mm from its outline so
 # the grille never opens onto the frame — an open slot over the flange is a dust path
 # into the chamber and vents the enclosure it is meant to seal.
-GRILLE_INSET  = 1.5
+# 1.5 -> 1.0, AND THE REASON IS THE OPPOSITE OF THE INTUITION. A finer lattice is LESS open per
+# unit of field, not more, because HEX_WEB is a print floor that does not scale with the cells:
+#
+#     open fraction = (a/(a+w))^2      w = HEX_WEB = 0.90 always
+#     AF 6.4952 -> (6.4952/7.3952)^2 = 0.7714
+#     AF 4.5000 -> (4.5000/5.4000)^2 = 0.6944      -10 percentage points
+#
+# So shrinking the cells spends open area, and the field has to grow to pay for it. 1.0 keeps the
+# throat near the 673 mm2 the baffle was solved for; the build's own aperture measurement is the
+# authority, not this arithmetic, because the field rect clips edge cells.
+GRILLE_INSET  = 1.0
 # ── ACOUSTIC TUNING ────────────────────────────────────────────────────────────
 # The bottleneck was never the box volume, it was the BAFFLE. A slot behaves like a
 # short duct: its impedance scales with length/width, and 2.20mm slots through a 4.00mm
