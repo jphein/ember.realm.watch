@@ -2052,9 +2052,9 @@ survives when the reasoning fails.
 
 ### 28. A check that could not run, read as a check that found nothing
 
-Two instances the same day, in two different materials, by two different people — and a third
-reported that is not included here, for a reason given at the end. Even at two it is a property
-of the shape rather than of anyone's care, which is why they belong in one entry.
+Three instances the same day, in three different materials, by three different people, in three
+lanes that did not consult each other. **That is a property of the shape rather than of anyone's
+care**, which is why they belong in one entry — and the three look nothing alike.
 
 - **A control that broke its own subject.** A comment-churn control existed to prove a paint-body
   comparison was insensitive to prose. It rewrote every comment in the harness — which destroyed
@@ -2067,7 +2067,31 @@ of the shape rather than of anyone's care, which is why they belong in one entry
   returns `+inf` — and `+inf` compares as comfortably passing. An `S` at h 2.60 does exactly that.
   *Nothing was thin* is what *nothing was measured* looks like from outside. Fixed by returning a
   count alongside the value, with the contract stated at the definition: **callers must require
-  `measured > 0`.** (`enclosure/tools/strokefont.py`.)
+  `measured > 0`.** (`enclosure/tools/strokefont.py`; found by the agent working the label
+  material.)
+- **A waiter whose exit condition could never be true.** A loop was armed to watch the served
+  copies of the site converge after a push and report when they did:
+
+  ```bash
+  until … check_served_current.py | grep -q "all .* current\|0 artifact(s) served from an OLDER"; do sleep 60; done
+  ```
+
+  **On success the script prints neither string.** The `OLDER COMMIT` line sits inside a
+  conditional and only appears when the count is non-zero; `all … current` was never emitted at
+  all. Success printed a bare `0 of 24 not matching`. So the exit condition was unreachable and
+  the loop would have polled until its budget ran out.
+
+  ⚠️ **What made it worse than a wasted loop was a promise.** Its author had undertaken to report
+  *"if it stops being lag"* — so silence meant *still lagging*, and the one thing that could have
+  broken the silence was the thing that could not fire. **A promise to report, backed by a check
+  that cannot report, converts an unknown into a false negative.** Caught by running the command
+  by hand and noticing the success output matched neither pattern; not by review.
+
+  And the tool shares the blame: **it printed a count of failures and no affirmative success
+  token**, so a caller asking *did it pass?* had to match `0 of 24` — which embeds the artifact
+  count and breaks when one is added — or match the absence of a symptom, which is what happened.
+  It now prints `SERVED-SURFACE-CURRENT` on success, and the exit condition was run once in the
+  success state to prove it reachable before being trusted.
 
 In both, the code was correct, the arithmetic was correct, and the **verdict for "I could not
 look" was identical to the verdict for "I looked and it was fine."** Two states, one output.
@@ -2087,9 +2111,9 @@ the **loudest failure it knew**. This is the same defect a third way: the check 
 all, and inherited whichever verdict its scaffolding happened to default to. **Neither "it
 passed" nor "it failed" is evidence until a check can say "I did not run."**
 
-> **On the third instance.** A wait loop was reported as having polled a state it had no path to
-> observe, exhausted its budget, and returned the benign outcome. It is omitted because it could
-> not be verified against its own artifact — it belongs to neither of the tools above, and its
-> author was unavailable. **Two verified instances are worth more than three where one is a
-> paraphrase**, which is this file's own standing rule about assembling a claim from adjacent
-> true facts. If it is confirmed, it belongs here.
+> **How the third instance got in.** It was first offered second-hand and **left out**, because it
+> could not be verified against any artifact its describer owned. Its actual author then supplied
+> the loop verbatim, and the claim was checkable in one command against the tool it ran against —
+> which is how it is stated above. **Two verified instances were worth more than three where one
+> was a paraphrase**; three verified are worth more than two, and the difference between those
+> sentences was one person writing down what they actually typed.

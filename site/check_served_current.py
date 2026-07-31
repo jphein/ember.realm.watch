@@ -181,6 +181,13 @@ if behind:
           f"if it holds, treat it as a real failure to publish.")
     for r in behind: print(f"    {r[0]}: {r[2].split('->')[-1].strip()}")
 print(f"\n{len(bad)} of {len(rows)} not matching")
+# AN AFFIRMATIVE SUCCESS TOKEN, because a count of failures is not one. A caller asking
+# "did it pass?" otherwise has to match `0 of 24`, which embeds the artifact count and
+# breaks the moment one is added — or match the absence of a symptom, which is unreachable.
+# A waiter was written against this output with an exit condition that could never be true
+# (docs/verification.md §28); the loop was wrong and this output is what made it easy.
+if not bad and not behind:
+    print("SERVED-SURFACE-CURRENT: all artifacts match origin/main")
 for r in bad: print("   ", r[0], r[1], r[2], r[3])
 
 # separately: is the LOCAL tree ahead of / behind the remote? different question, not a defect
