@@ -2162,3 +2162,53 @@ unverified claim inherits the credibility of the ones beside it, so the better t
 the more effectively it is smuggled. Correctness of neighbours is not evidence about a claim —
 which is the same independence error as a control proving an instrument fires *inside* its window
 (§27) and a total being right about a region with no members in it (§9).
+
+### 30. The artifact was on disk before anything checked it
+
+`export_stl()` ran inside the first `if __name__ == "__main__":` block. `_check_geometry()` — the
+bearing floor, the mating engagement, the USB-C clearance — ran in a *second* `__main__` block 660
+lines later. **Every build this project has ever run wrote its STLs before its geometry asserts
+executed.**
+
+The split was not a decision. `_check_geometry()` is *defined* after the first block, so it could
+not be called from there; the structure is just where the function happened to sit. Nobody chose
+to check after exporting, and that is exactly why it survived — there was no decision to review.
+
+So `the STL is on disk` never meant `the checks passed`. It meant the build got as far as writing
+files. A stand violating its own bearing assert reached a slicing directory that way.
+
+#### Two failure modes, and the obvious one is the harmless one
+
+- **(a) A new bad artifact appears.** This is the one you think of.
+- **(b) The previous good artifact is destroyed on the way to failing.** `export_stl()` truncates
+  its target the moment it opens it, minutes before the assert fires.
+
+Gating with an early `return` fixes (a) and leaves (b) untouched. Only write-to-temp plus an
+atomic `os.replace` at the end makes the last good STL survive a failed build. **A fix aimed at
+the failure you noticed can leave the worse one running.**
+
+#### The control, and why one direction is not a control
+
+Deliberately failed the bearing assert: exit 1, the commit step never reached, all four shipped
+STLs byte-identical to baseline, four `.partial` files left as diagnostics. Under the old code
+those four files were already overwritten by the time the assert fired — verified mid-build, with
+the export loop finished and the shipped hashes still unchanged.
+
+That proves the gate *closes*. **A gate that never opens passes that test perfectly** — and because
+the previous good files survive untouched, nothing on disk would look wrong while the build
+silently stopped producing output. Both directions, or it is not a control (§27).
+
+#### The fix created a new failure mode, in a line it never touched
+
+The vendor STEP is untracked (17.7 MB), so a git worktree never has a copy and the unguarded
+`import_step` raised there. That was survivable *only because the STLs were already written* —
+agents in worktrees got usable output and read the traceback as cosmetic noise.
+
+Gating export flipped that same line from a soft failure into a hard one: a worktree build would
+now produce nothing at all. **The bug did not move. The write moved to the other side of it.**
+Reordering operations changes behaviour wherever a step was quietly failing, so the question to ask
+of any reorder is not "is the new order correct" but "what was already broken in between".
+
+And underneath it: the clearance check had **never actually run in a worktree**. Nobody noticed,
+because the STLs appeared anyway. §28 again — a check that could not run, read as a check that
+found nothing.

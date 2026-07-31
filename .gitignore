@@ -26,3 +26,7 @@ enclosure/cadenv/
 
 # frozen print sets — kept deliberately, see the print-* tags
 print-ready/
+
+# Gated exports: a build writes here and only renames to .stl once every check passes.
+# A leftover .partial means a build FAILED — it is a diagnostic, not an artifact.
+*.stl.partial

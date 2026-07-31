@@ -2803,6 +2803,41 @@ def _print_oriented(name, part):
     return Pos(0.0, -bb.min.Y, -bb.min.Z) * q
 
 
+def _find_step():
+    """Locate the 17.7MB vendor STEP used by the clearance check.
+
+    It is UNTRACKED ON PURPOSE (too big for the repo), so a git worktree never gets a copy and
+    `import_step` raised here. That was survivable only because the STLs had ALREADY been
+    written by the time it blew up — an agent in a worktree got usable output and read the
+    traceback as cosmetic. Gating export behind the checks flips that same line from a soft
+    failure into a hard one: a worktree build would now produce nothing at all. The bug did not
+    move; the write moved to the other side of it. So resolve the asset from the MAIN worktree
+    as well, which makes the clearance check actually RUN in a worktree instead of merely not
+    killing it — the check was never running there, and nobody noticed because the STLs
+    appeared anyway.
+    """
+    rel = os.path.join("ES3C28P_3D", "ES3C28P_3D.step")
+    cands = [os.path.join(_HERE, "..", rel), os.path.join(_HERE, rel)]
+    # A worktree's .git is a FILE holding "gitdir: /main/.git/worktrees/<name>"; the main
+    # checkout is three dirnames up from that.
+    for _probe in (os.path.join(_HERE, ".git"), os.path.join(_HERE, "..", ".git")):
+        if os.path.isfile(_probe):
+            with open(_probe) as fh:
+                line = fh.read().strip()
+            if line.startswith("gitdir:"):
+                gd = line.split(":", 1)[1].strip()
+                root = os.path.dirname(os.path.dirname(os.path.dirname(gd)))
+                cands += [os.path.join(root, "enclosure", rel), os.path.join(root, rel)]
+    for c in cands:
+        if os.path.exists(c):
+            return c
+    raise FileNotFoundError(
+        "the ES3C28P STEP is missing from every candidate path, so the clearance check cannot "
+        "run and NO STL will be committed. Tried:\n  " + "\n  ".join(cands))
+
+
+STL_TMP = ".stl.partial"   # exports land here; renamed to .stl only once every check passes
+
 if __name__ == "__main__":
     out = os.path.dirname(os.path.abspath(__file__))
     parts = {"ember-front-bezel": front_bezel(),
@@ -2826,12 +2861,18 @@ if __name__ == "__main__":
                 f"({PRINT_LIFT[n]}) does not match how far below z=0 the part is modelled")
         print(f"{n:20s} vol={p.volume/1000:7.2f} cm^3   "
               f"bbox {bb.size.X:6.2f} x {bb.size.Y:6.2f} x {bb.size.Z:6.2f}")
-        export_stl(p, os.path.join(out, n+".stl"))
+        # WRITE TO A TEMP NAME. The final rename happens only after EVERY check passes —
+        # see the commit step at the bottom of this file. Until 2026-07-31 this wrote
+        # straight to n+".stl", 660 lines before _check_geometry() ran, so a failing
+        # assert left a finished-looking STL on disk AND had already overwritten the
+        # previous good one. That is how a part violating its own bearing floor
+        # reached a slicer. "The STL is on disk" never meant "the checks passed".
+        export_stl(p, os.path.join(out, n+STL_TMP))
 
     print("\n--- MESH CHECK (the STL itself, not the solid) ---")
     _mesh_bad = []
     for n in parts:
-        _t, _b, _nm, _dd = _check_manifold(os.path.join(out, n+".stl"))
+        _t, _b, _nm, _dd = _check_manifold(os.path.join(out, n+STL_TMP))
         _expect = KNOWN_NONMANIFOLD.get(n, 0)
         _ok = (_b == 0 and _nm <= _expect)
         print(f"  {n:20s} {_t:6d} tris   boundary {_b:2d}   non-manifold {_nm:2d}"
@@ -2848,9 +2889,7 @@ if __name__ == "__main__":
     print("\n--- BOOLEAN CLEARANCE CHECK vs vendor STEP ---")
     # Also anchored to this file, not to cwd: with `out` derived from the working directory,
     # `../ES3C28P_3D/` resolved outside the repo and the clearance check silently skipped.
-    _step = os.path.join(_HERE, "..", "ES3C28P_3D", "ES3C28P_3D.step")
-    if not os.path.exists(_step):
-        _step = os.path.join(_HERE, "ES3C28P_3D", "ES3C28P_3D.step")
+    _step = _find_step()
     raw = import_step(_step)
     # !! The STEP lives in its own frame (X -52.75..-2.75, Y 6..92).  Move it into
     # !! board coords (X 0..50, Y 0..86) or every boolean silently returns empty.
@@ -3491,3 +3530,14 @@ if __name__ == "__main__":
     # a loop-local and never wrote back. The mating check at 5 depends on that; see its comment.
     _e, _v, _b = _check_geometry(parts)
     print(f"  [geometry] engagement {_e:.1f}mm | VA starts {_v:.1f}mm | {_b:.1f}mm under for USB-C  OK")
+
+    # ── COMMIT. Every check above has passed, so the temp exports become the real STLs.
+    # Reached only on success: any assert anywhere above raises and this never runs, which
+    # leaves the PREVIOUS good STLs untouched on disk. That second property is the one that
+    # actually bit — the old files were being clobbered before anything failed, so guarding
+    # only "no new file is written" would have missed it entirely.
+    for n in parts:
+        _tmp = os.path.join(out, n + STL_TMP)
+        if os.path.exists(_tmp):
+            os.replace(_tmp, os.path.join(out, n + ".stl"))   # atomic within a filesystem
+    print(f"  [export] committed {len(parts)} STLs — all checks passed first")
