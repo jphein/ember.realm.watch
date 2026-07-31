@@ -224,6 +224,10 @@ bezel, which is the worst way for it to present.
   on its **rim**, a line contact, so the load is concentrated: over-torque there pulls the head
   into the back face and craters it. It will not fail at *snug*.
 - 1.5 mm of solid skin remains under the bezel's front face at ×14.
+- **The thinnest wall at each screw hole got 17 % thicker as a side effect of fixing the seat.**
+  Between the countersink's small end and the cavity floor there is now **1.050 mm** of shell,
+  where the old 1.70 mm-deep cone left **0.900**. That is the point a screw driven off-axis
+  would break through into the cavity, and a shallower cone simply removes less material.
 - **Heat-set inserts will NOT fit.** The vendor specifies a ⌀5.60 pad around each mounting
   hole, so bosses are capped at ⌀5.40. An M3 insert needs a ⌀4.0–4.2 bore, leaving a 0.6 mm
   wall that will split. Self-tappers only.
@@ -511,13 +515,17 @@ below Fs does nothing and a mistuned one is worse than sealed.
   the gap is preserved. The stack is exactly consistent — standoff 5.50 + PCB 1.60 + bezel boss
   4.70 = **11.80**, and the shell's `CAV_FLOOR → SEAM_Z` is **11.80** — and the shell's 14.40 mm
   height is **72 layers exactly** at 0.20 mm, so there is no quantisation error either.
+  > ⚠️ **Take that 72 from the constants, not from the mesh.** Binary STL stores float32 and
+  > 14.4 is not representable, so measuring the exported part gives 14.399999… and
+  > **71.999998 layers**. That is storage precision, not a geometry change — but it is exactly
+  > the kind of number that makes someone think a datum moved.
   ⚠️ **Move either datum onto the bezel and that cancellation is gone**, and the gap starts
   stacking two parts' errors instead of one part's. What is left is the LCD/TP tolerance
   (−0.20 worst case) and first-layer squish (~−0.05): realistic worst case ≈ **0.15 mm**, still
   positive. Thin, but positive — which is why step 5's rock test exists rather than a caliper.
-- **The board pocket starts at printed z 2.60, and that is deliberate.** The shell prints back
-  face down, so the pocket floor sits 2.60 mm above the bed — **elephant foot lands in solid
-  wall, not in the pocket.** That is the classic printed-pocket failure, *tight at the bottom
+- **The board pocket starts at printed z 2.60 — 13.00 layers exactly — and that is deliberate.**
+  The shell prints back face down, so the pocket floor sits 2.60 mm above the bed and
+  **elephant foot lands in the 13 solid layers below it, not in the pocket.** That is the classic printed-pocket failure, *tight at the bottom
   only*, designed out. ⚠️ If you are tempted to extend the pocket down to the bed to save
   material, that is what you would be undoing.
 - **`GLASS_GAP = 0.40` — the bezel never touches the capacitive glass.** The vendor tolerances
