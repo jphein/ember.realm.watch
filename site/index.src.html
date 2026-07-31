@@ -1239,13 +1239,24 @@ footer p{margin:.4rem 0}
     button caps at the ends the derived switch identification puts them, flat counterbores rather
     than the conical countersinks the screws used to want, and the <b>56&nbsp;mm stand</b>.
     <p style="margin:.6rem 0 0">
-      That stand got <em>taller</em>, not smaller, and the reason is a cable: the USB-C plug's
-      first bend is <b>40&nbsp;mm from the tip</b> and the port fixes its direction at 15° off
-      vertical, down and forward. On the 40&nbsp;mm stand the port sat 25.92&nbsp;mm above the
-      desk with 26.83&nbsp;mm of straight run available, so a straight tail ended
-      <strong>13.2&nbsp;mm below the desk</strong> — the device would not seat, and the plug
-      levered it out. <b>Recessing the slot floor cannot fix that at any depth</b>, because the
-      deficit is larger than the whole floor thickness. The stand had to grow.
+      That stand got <em>taller</em>, not smaller, and the reason is a cable. The USB-C plug's
+      first bend is <b>40&nbsp;mm from the tip</b> — measured — and the port fixes its direction
+      at 15° off vertical, down and forward, so a straight tail drops
+      <code>40·cos15° = 38.64&nbsp;mm</code> plus half the cable's own thickness to keep its
+      <em>centreline</em> clear of the desk. That needs <b>40.89&nbsp;mm</b>. On the 40&nbsp;mm
+      stand the port sat <b>25.92&nbsp;mm</b> up, so the tail ended <strong>14.97&nbsp;mm below
+      the desk</strong> — the device would not seat and the plug levered it out.
+      <b>Recessing the slot floor cannot fix that at any depth</b>, because the deficit is larger
+      than the whole floor thickness. The derived floor is 54.97&nbsp;mm; the stand is cut at 56.
+    </p>
+    <p style="margin:.6rem 0 0">
+      ⚠️ <b>One term in that is assumed, not measured.</b> The cable's <em>rigid length</em> was
+      measured on the real lead; its <b>outside diameter is an assumption</b> — 4.5&nbsp;mm, a
+      chunky USB-C. It enters as <code>OD/2</code>, so <strong>if anyone ever measures it the
+      floor moves by half the change</strong>, and a thinner lead would have made a 40&nbsp;mm
+      stand fail by less rather than not at all. <b>The conclusion is robust and the margin is
+      not</b> — which is worth separating, because the first invited the redesign and only the
+      second would be revisited.
     </p>
   </div>
 
