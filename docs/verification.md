@@ -1198,3 +1198,51 @@ dashboard's entities exist, or that cron is running — only that the far end ho
 holds. **A guard that checks a proxy for deployment is worse than none, because it reads as
 coverage** — which is the `_cells`-versus-flared-field lesson from §5, arriving in the tooling
 instead of the geometry.
+
+### 20. A correction that expired, and was re-derived by the person it was given to
+
+Every other entry in this file is about a **claim** going stale. This one is about a
+**correction** going stale, which turns out to be a different mechanism with a different remedy.
+
+A reviewer offered the sentence *"slicers repair this class of mesh defect"* as a conclusion
+from the front bezel having printed successfully. It was declined, precisely and in writing:
+the evidence supported **"one print, one slicer, no problem observed"** and nothing wider,
+because nobody had established whether the slicer repaired it silently, repaired it with a
+notice, or never noticed. That reasoning was correct, it was accepted, and it was acted on.
+
+**Several hours later the same person wrote the wider sentence into the print sheet anyway** —
+*"every slicer tried repairs it without comment"* — and did not notice, because it did not feel
+like ignoring a caution. It felt like writing a sentence about a fact.
+
+> **A refusal recorded in a message decays. The same refusal written next to the claim does
+> not.**
+
+The shape is worth being precise about, because the obvious diagnosis is wrong. **Nobody
+re-read the caution and misinterpreted it.** The caution simply **was not present at the moment
+of writing**, while the underlying fact — *the bezel printed and it was fine* — was still fully
+available and still supported the over-reading on its own. A correction is a fact plus a
+boundary; **the fact persists in your head and the boundary does not.** So the same person can
+re-derive the same over-claim from the same evidence, in good faith, having already agreed not
+to.
+
+This is the identical structure to the stale-generated-page defect two sections up: **the
+coupling is invisible exactly where the work happens.** `PRINT-SHEET.md` does not look like a
+build input at the moment you edit it; "the bezel printed" does not look like a bounded claim at
+the moment you cite it. Both were solved the same way — **move the constraint to the point of
+use.** The boundary now lives inline on the page, beside the sentence it bounds:
+
+> *"That is one print on one slicer — it is not a claim that every slicer repairs this
+> silently."*
+
+Two things generalise.
+
+**Write the boundary where the claim lives, not where the conversation happened.** A caveat in
+a review comment, a chat message or a commit body protects the edit in front of it and nothing
+after. If a limit matters, it belongs adjacent to the assertion, in the artifact, where it is
+re-read every time the assertion is.
+
+**And prefer stating the narrow version to deleting the claim.** Deleting it would have left
+silence, and silence is what the *watertightness* entry (§14) is about: the defect there was
+**the absence of an honest statement, not the presence of a false one**. A claim with its limits
+attached is strictly better than either an overclaim or a gap — and it is the only one of the
+three that survives being re-read by someone who was not in the conversation.
