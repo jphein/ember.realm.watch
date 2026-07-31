@@ -851,6 +851,12 @@ int main() {
       {"error",      4, false, false, -1},
       {"tap",        0, false, false,  0},
       {"daylight",   3, true,  false, -1},
+      // #10's marshalling guard. g_hist_idx was pinned to 0 and g_level_hist filled
+      // identically in every scenario above, so the runs/frame acceptance test could not
+      // distinguish a correct marshalling of either from one that dropped them. st MUST
+      // be 1: the history is only read on the listening branch, so this scenario would
+      // satisfy a coverage counter and still leave the numbers blind at any other state.
+      {"hist-rotated", 1, false, false, -1},
   };
 
   for (int c = 0; c < (int) (sizeof(cases) / sizeof(cases[0])); c++) {
@@ -862,8 +868,11 @@ int main() {
     g_tts_est_ms = k.live ? 4200 : 0;
     g_frames_mark = 0;
     g_spark_col = (k.hit >= 0) ? (k.hit ? 30 : 5) : -1;
+    const bool rot = (std::string(k.name) == "hist-rotated");
+    g_hist_idx = rot ? 37 : 0;
     for (int i = 0; i < 120; i++)
-      g_level_hist[i] = 0.25f + 0.6f * fabsf(sinf((float) i * 0.21f));
+      g_level_hist[i] = rot ? 0.15f + 0.70f * fabsf(cosf((float) i * 0.37f))
+                            : 0.25f + 0.60f * fabsf(sinf((float) i * 0.21f));
     const bool loud = (std::string(k.name) == "listen-loud");
     g_db_rms = loud ? -12.0f : -40.0f;
     g_db_peak = loud ? -12.0f : -34.0f;
