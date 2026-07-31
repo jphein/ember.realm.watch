@@ -111,6 +111,43 @@ WIN_MARGIN = 0.40    # bezel window oversize beyond the visible area
 BOSS_D     = 5.40    # <= 5.60 pad diameter, per the vendor keepout
 PILOT_D    = 2.50    # M3 self-tapper pilot
 SCREW_D    = 3.30    # M3 shank clearance through the shell
+# ---- COUNTERSINK, SIZED TO A NAMED HEAD RATHER THAN TO AN ANGLE ----
+#
+# It was `cone(..., BACK_Z+1.70, 6.40, SCREW_D)`, whose included angle is
+# 2*atan(1.55/1.70) = 84.7deg against a standard 90deg flat head. A head STEEPER than its hole
+# never touches the flanks: it bears on a line — its own top rim against the cone — instead of
+# on the full conical seat, at several times the intended contact stress, on a fastener a person
+# torques by feel, and the crater lands on the VISIBLE back face.
+#
+# ⚠️ AND "MAKE THE ANGLE 90deg" IS NOT THE FIX. My own audit recommended widening the mouth to
+# 6.70 to get 90deg, and that is WORSE: with the flanks parallel but the mouth wider than the
+# head, a 6.00 head sinks 0.35mm instead of 0.22 and STILL rim-contacts. Computed:
+#
+#     countersink              angle  | 6.00 head        | 6.40 head        | 6.72 head
+#     d6.40 x 1.70 (as built)   84.7  | -0.22 rim        | flush, rim       | proud
+#     d6.70 x 1.70 (my "fix")   90.0  | -0.35 rim        | -0.15 rim        | proud
+#     d6.40 x 1.55 (this)       90.0  | -0.20 rim        | FLUSH, FULL SEAT | proud
+#
+# A FULL CONICAL SEAT NEEDS TWO THINGS AT ONCE — 90deg AND mouth == head diameter. Fixing the
+# angle alone while leaving the diameter free is the same shape as every fault in
+# docs/verification.md: the corrected property was not the one that governed the outcome.
+#
+# So the head is NAMED and the depth follows from it. 6.40 is chosen over 6.00 deliberately:
+# a head LARGER than the mouth sits PROUD, which stops the part sitting flat and stops the screw
+# clamping, and proud is worse than sunk. At 6.40 a DIN 965 M3 head (6.0 max) sinks 0.20mm —
+# no worse than today — and a 6.40 head seats fully. ⚠️ An ISO 10642 socket countersunk M3
+# (6.72 head) would sit proud; if that is the screw, this becomes 6.72 / 1.71.
+CSK_HEAD_D     = 6.40    # THE HEAD THIS IS CUT FOR. State the screw, not just the angle.
+CSK_HEAD_ANGLE = 90.0    # ISO/DIN countersunk flat head, included
+CSK_OVER       = 0.01    # cone starts this far outside the face, so no coplanar seam
+CSK_DEPTH      = 1.55    # was 1.70. Asserted against the head angle below — not derived from
+                         # it, so the assert can actually fail.
+assert abs(((CSK_HEAD_D + 2*CSK_OVER - SCREW_D) / 2) / (CSK_DEPTH + CSK_OVER)
+           - math.tan(math.radians(CSK_HEAD_ANGLE / 2))) < 1e-9, (
+    f"the countersink's radial rate does not match a {CSK_HEAD_ANGLE}deg head: mouth "
+    f"{CSK_HEAD_D}, depth {CSK_DEPTH}, bore {SCREW_D} give an included angle of "
+    f"{2*math.degrees(math.atan(((CSK_HEAD_D + 2*CSK_OVER - SCREW_D)/2)/(CSK_DEPTH+CSK_OVER))):.2f}"
+    f"deg. A head steeper than its hole bears on a line, not on the cone")
 # ---- HEXAGONAL BUTTON CAPS ----
 # The pads were rectangles. JP: "i wanted the buttons to be hexagons not squares" — and
 # they should be, since every other aperture on this case is a hex cell.
@@ -695,7 +732,10 @@ def back_shell():
     for (hx,hy) in HOLES:
         p += cyl(hx,hy, CAV_FLOOR, PCB_BOT, BOSS_D)
         p -= cyl(hx,hy, BACK_Z-0.01, PCB_BOT+0.01, SCREW_D)
-        p -= cone(hx,hy, BACK_Z-0.01, BACK_Z+1.70, 6.40, SCREW_D)   # countersink
+        # mouth is CSK_HEAD_D *at the face*: the cone starts CSK_OVER outside it, so it is
+        # opened by 2*CSK_OVER to compensate. See the CSK_* block for why the head is named.
+        p -= cone(hx,hy, BACK_Z-CSK_OVER, BACK_Z+CSK_DEPTH,
+                  CSK_HEAD_D + 2*CSK_OVER, SCREW_D)                 # countersink
     # ---- USB-C opening + cable relief (bottom short edge) ----
     p -= bx(18.0,32.0, OY0-1, PY0+0.5, -6.60,-0.60)
     p -= bx(15.5,34.5, OY0-1, OY0+1.6, -8.20, 0.40)      # outside relief for overmould
