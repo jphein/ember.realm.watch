@@ -88,7 +88,53 @@ GLYPHS: dict[str, list[list[tuple[float, float]]]] = {
     "I": [[(0.08, 1.00), (0.08, 0.00)]],       # centred in its narrow 0.16 advance
     "C": [[(0.52, 0.78), (0.40, 1.00), (0.12, 1.00), (0.00, 0.78),
            (0.00, 0.22), (0.12, 0.00), (0.40, 0.00), (0.52, 0.22)]],
+    # ---- added for the connector labels (issue #27): UART, I2C, SPK, BAT, IO ----
+    #
+    # Every join below is EXACT, and that is a requirement of min_gap rather than tidiness.
+    # A stroke that lands part-way along another (A's crossbar, T's stem, R's leg, K's
+    # diagonals) is skipped only when their distance is <= 1e-9 — an intentional join that
+    # misses by a hundredth reads as the worst possible defect, 0.000mm of material. So the
+    # crossbar's ends are computed ON the diagonals, not eyeballed near them:
+    #   A's left diagonal is (0,0)->(0.26,1), so at v it sits at u = 0.26v.  At v = 0.30 that
+    #   is 0.078, and the right diagonal mirrors to 0.52 - 0.078 = 0.442.
+    "U": [[(0.00, 1.00), (0.00, 0.22), (0.12, 0.00), (0.40, 0.00), (0.52, 0.22), (0.52, 1.00)]],
+    "A": [[(0.00, 0.00), (0.26, 1.00), (0.52, 0.00)],
+          [(0.078, 0.30), (0.442, 0.30)]],       # crossbar LOW on purpose — see the note below
+    "R": [[(0.00, 0.00), (0.00, 1.00), (0.34, 1.00), (0.52, 0.82),
+           (0.52, 0.68), (0.34, 0.50), (0.00, 0.50)],
+          [(0.26, 0.50), (0.52, 0.00)]],         # leg starts ON the bowl's bottom stroke
+    "T": [[(0.00, 1.00), (0.52, 1.00)], [(0.26, 1.00), (0.26, 0.00)]],
+    "P": [[(0.00, 0.00), (0.00, 1.00), (0.34, 1.00), (0.52, 0.82),
+           (0.52, 0.68), (0.34, 0.50), (0.00, 0.50)]],
+    # B's WAIST IS 0.42 AND THE CHECK IS WHAT CHOSE IT, TWICE. At the natural 0.66/0.34 the two
+    # right-hand verticals sit 0.32 apart, which is 0.86mm of material at h=5.50 — under the
+    # floor, and min_gap failed it on the first run. 0.36 fixed that; then the connector labels
+    # moved to LABEL_H_CONN = 4.50 and it failed again at 0.72.
+    # ⚠️ THE BOUND IS h-DEPENDENT AND THAT IS THE WHOLE TRAP: the glyph is normalised and the
+    # stroke is not, so separation >= 2w/h — 0.327 at 5.50, 0.400 at 4.50, 0.474 at LABEL_H_CAP.
+    # A glyph that passes at one label height is not thereby safe at another. 0.42 clears
+    # 4.50 at 0.99mm; a B on a button cap would still fail, and should.
+    "B": [[(0.00, 0.00), (0.00, 1.00), (0.34, 1.00), (0.52, 0.84),
+           (0.52, 0.71), (0.34, 0.50), (0.00, 0.50)],
+          [(0.34, 0.50), (0.52, 0.29), (0.52, 0.16), (0.34, 0.00), (0.00, 0.00)]],
+    "K": [[(0.00, 1.00), (0.00, 0.00)],
+          [(0.52, 1.00), (0.00, 0.45), (0.52, 0.00)]],   # both diagonals meet ON the stem
+    "2": [[(0.00, 0.78), (0.12, 1.00), (0.40, 1.00), (0.52, 0.78),
+           (0.52, 0.62), (0.00, 0.00), (0.52, 0.00)]],
 }
+# ⚠️ A's CROSSBAR SITS AT 0.30, NOT THE CONVENTIONAL ~0.38, AND IT IS NOT A STYLE CHOICE.
+# The counter of an A is a triangle that tapers to nothing at the apex, so min_gap cannot
+# score it — the two diagonals share the apex vertex and are skipped, and the crossbar joins
+# both exactly and is skipped. NOTHING MEASURES IT. What sets the crossbar height is therefore
+# arithmetic done here rather than a number the check will catch:
+#
+#   perpendicular separation of the diagonals at v  =  0.52*(1-v)*h*cos(atan 0.26)
+#   material there                                  =  that, minus w
+#
+# At h = 5.50 and w = 0.90 the counter is 1.04mm wide at v = 0.30 and closes at v = 0.675 —
+# a triangle ~1.0 x 2.1mm, comparable to the M valley this font already ships. At the
+# conventional 0.38 it would be 0.81mm at its widest, i.e. UNDER the floor, and every
+# instrument in this file would have called it fine.
 
 
 def ink_size(text: str, h: float, w: float, gap: float) -> tuple[float, float]:
@@ -262,6 +308,18 @@ def min_gap(paths, w: float):
             if (_touch(a0, b0) or _touch(a0, b1) or _touch(a1, b0) or _touch(a1, b1)):
                 continue
             (pa, pb), dist = _closest_pair(a0, a1, b0, b1)
+            # A T-JUNCTION IS NOT A GAP. Sharing an endpoint is not the only way two strokes
+            # meet: `A`'s crossbar and `T`'s stem land PART-WAY ALONG another stroke, so
+            # _touch misses them and the pair reads as 0.000mm of material -- an intentional
+            # join scored as the worst possible defect. Strokes that actually intersect or
+            # touch have no material between them by definition.
+            #
+            # The threshold is EXACT contact, not "close": a real defect sits somewhere in
+            # (0, w) and must still be caught, so anything above numerical noise is measured.
+            # Widening this to `dist < w` would skip every gap thinner than the stroke, which
+            # is the same self-defeating exemption as v3's midpoint rule (see above).
+            if dist <= 1e-9:
+                continue
             mid = ((pa[0] + pb[0]) / 2.0, (pa[1] + pb[1]) / 2.0)
             if _point_is_ink(mid, allsegs, w, exclude=(i, j)):
                 continue
@@ -317,7 +375,10 @@ def selftest() -> int:
     bad = 0
 
     # -- MATERIAL, and its CONTROLS. Two controls, because there are two ways to be thin.
-    for text, h in (("VOL", H_CAP), ("SD", H_FLAT), ("MIC", H_FLAT)):
+    for text, h in (("VOL", H_CAP), ("SD", H_FLAT), ("MIC", H_FLAT),
+                    # the connector set (#27). Every new glyph appears in at least one.
+                    ("UART", H_FLAT), ("I2C", H_FLAT), ("SPK", H_FLAT),
+                    ("BAT", H_FLAT), ("IO", H_FLAT)):
         d, _, n = min_gap(text_paths(text, h, W, GAP), W)
         print(f"  material  {text:<4} h={h:.2f}  {d:6.3f}mm  ({n} pairs measured)")
         if d < 0.90 or n == 0:
@@ -334,7 +395,12 @@ def selftest() -> int:
             ("S@h=3.20", text_paths("S", 3.20, W, GAP), "counters pinched"),
             ("S@h=2.60", text_paths("S", 2.60, W, GAP), "counters FUSED -> n=0"),
             ("SD gap=1.00", text_paths("SD", H_FLAT, W, 1.00), "letters jammed"),
-            ("power gap=30", power_paths(2.70, W, 30.0), "break too narrow")):
+            ("power gap=30", power_paths(2.70, W, 30.0), "break too narrow"),
+            # ⚠️ A REAL DEFECT THIS CHECK CAUGHT, kept as the control for the glyph it caught
+            # it in. B's two right-hand verticals were 0.32 apart, which is 0.86mm of material
+            # at flat-back height; the waist is 0.36 now. Shrinking the label to cap height
+            # reproduces the same failure, because the bound scales as 2w/h.
+            ("BAT@h=3.80", text_paths("BAT", H_CAP, W, GAP), "B's waist closes at cap height")):
         d, _, n = min_gap(paths, W)
         ok = d < 0.90 or n == 0
         print(f"  control   {what:<12} {d:6.3f}mm n={n:<3d} ({why}) -> "

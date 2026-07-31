@@ -68,7 +68,7 @@ and a `../cadenv` that does not exist. See [`README.md`](README.md) for first-ti
 | File | Qty | Print orientation | Supports | Notes |
 |---|---|---|---|---|
 | `ember-front-bezel.stl` | 1 | **front face DOWN** on the bed — ✅ **the STL is now exported already in this orientation, so load and print; no flip needed** (issue #25: it used to export face-UP, standing the part on four ⌀5.40 boss tips totalling 71.9 mm² with the whole 1847.9 mm² face in the air) | **none** | The visible face is the bed face — use a smooth PEI sheet. Mic flare + window are bed-side chamfers, so they self-support. **The debossed honeycomb and the wyrm mark are bed-side recesses**, 0.48 mm deep — exactly three layers at this part's 0.16 mm — and print as bridged voids, which is *why* they are recesses: on a bed face, relief only goes inward. |
-| `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** *(measured)* | ⛔ **Set gap-closing radius / hole horizontal expansion to 0 before slicing — see below, a default will weld the buttons shut.** Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Counterbores are flat-floored ⌀5.80 pockets opening onto the bed. (This line said "countersinks widen downward" — a leftover from the deleted conical version; the head is cylindrical.) **Labels** (`SD`, `MIC`, `VOL`, power symbol) are debossed **0.40 mm = 2 layers at the shell's own 0.20** (was 0.48 = 3 layers at the *bezel's* 0.16 — issue #26), and the two cap labels sit at the bottom of bridged recesses, so they are the first thing sag will blur. **The debossed cap faces are bed-side recesses and they bridge 13.27 mm (BOOT) / 8.27 (RESET)** — expect visible sag in the middle of both, and run the fan at 100 % for the first ~5 layers. |
+| `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** *(measured)* | ⛔ **Set gap-closing radius / hole horizontal expansion to 0 before slicing — see below, a default will weld the buttons shut.** Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Counterbores are flat-floored ⌀5.80 pockets opening onto the bed. (This line said "countersinks widen downward" — a leftover from the deleted conical version; the head is cylindrical.) ⚠️ **REPRINT if you have not started this part yet — it gained five connector labels** (issue #27). **Labels** (`SD`, `MIC`, `VOL`, power symbol, and now `UART` `I2C` `SPK` `BAT` `IO`) are debossed **0.40 mm = 2 layers at the shell's own 0.20** (was 0.48 = 3 layers at the *bezel's* 0.16 — issue #26), and the two cap labels sit at the bottom of bridged recesses, so they are the first thing sag will blur. **The nine labels are exactly what the gap-closing warning above protects** — every one is a 0.90 mm groove, which is precisely the width a default gap-closer welds shut, and a welded label reads as a smudge rather than as a missing feature. **The debossed cap faces are bed-side recesses and they bridge 13.27 mm (BOOT) / 8.27 (RESET)** — expect visible sag in the middle of both, and run the fan at 100 % for the first ~5 layers. |
 | `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | ⚠️ **REPRINT — this part is 16 mm taller than the one you have, and its grille is finer** (issues #29/#30/#31 + #28, see *The plinth* below). **Bridges, quoted by the span the printer actually crosses — the *narrow* dimension, since a bridge is laid the short way:** chamber ceiling **15.3 mm**, speaker-wire channel **24.7 mm** (both unchanged, both printed fine for JP), cable egress **6.0 mm**. ⚠️ **And one that will droop: the baffle recess's straight top edge is a 37.1 mm bridge**, 2.2 mm wide, at z ≈ 50.5 — it is *not* a grille aperture and the #28 rescale did not touch it, because it is a single pocket rather than a lattice. Expect visible sag in that one strip; it is cosmetic and it is a known open item. **The egress figure is 6.0 and not 14** because the channel's R4 corners taper the void closed over the last 4 mm, leaving only 6 mm genuinely flat at the top — and it is a **true bridge** rather than an anchored ledge, because the channel is open through the plinth's full depth beneath it, so there is no material behind the span. Leave bridging on (slicer default). The plinth is **solid in the model on purpose**: a hollow one would have made the cradle floor bridge ~56 mm, whereas a solid one is just infill and the transition needs no bridge at all. Set infill by the *slicer*, not by hollowing the CAD. ✅ **The gap-closing / hole-horizontal-expansion warning on the shell row does NOT extend to this part's new features** — the egress is 14 mm wide and the corridor 18, three orders off anything that setting welds shut. Two features depend on it, not three; the grille's 0.90 mm webs are the ones to worry about. The **finger scoop** in the rear slot wall opens *upward*, so every wall is near-vertical: no bridge. (It is **one** opening, x 13.94–50.51, not two — `SCALLOP_MIN_RIB` merges them.) The **rear rim is now notched** across x 13.20–50.23 down to z 43.62 so you can reach the caps; the two full-height zones either side of it are what still holds the slab. The **wire saddle** merges into the notch's right-hand end — deliberate, same rule. |
 | `ember-stand-base.stl` | 1 | flat | none | Closes the speaker chamber. Press fit. ⚠️ **Resized in `89001ea` — reprint if you made one earlier.** |
 
@@ -649,6 +649,52 @@ below Fs does nothing and a mistuned one is worse than sealed.
 | `TAIL_W` / `TAIL_Y` | 18.0 / 8.0 | the corridor from the well down into the plinth. **`TAIL_Y` is the constrained one**: at 10.0 it leaves a 0.95 mm fin against the chamber shaft |
 | `BEZEL_DEBOSS` | 0.48 | how deep the honeycomb and wyrm cut into the front face. **Keep it an exact multiple of the bezel's 0.16 mm layer height** — it was 0.45, which is 2.8125 layers, so the recess floor landed wherever the slicer's rounding fell rather than on a real layer boundary. An assert holds ≥2.00 mm of bezel over the glass, so there is headroom, but this is the face you look at |
 | `BTN_R_BIG / BTN_R_SMALL` | 8.6603 / 5.7735 | the hex caps — **15.00 and 10.00 mm across the flats.** Shrinking them moves the hinge closer to the pip, which raises θ and therefore strain; the thumb-sized caps are what took both hinges to ~1.20% |
+
+---
+
+## The connector labels — and the one thing worth checking by eye
+
+Nine debossed labels now: `SD`, `MIC`, `VOL`, the power symbol, and the five connectors —
+`UART`, `I2C`, `SPK`, `BAT`, `IO` (issue #27). Each connector label sits in the 9 mm margin
+strip **beside the side channel it names**, rotated to read bottom-to-top like `SD`.
+
+| label | board edge | port centre Y | silkscreen it matches |
+|---|---|--:|---|
+| `BAT` | **X = 0** (microSD side) | 23.20 | `BAT`, 2-pin, marked `− +` |
+| `UART` | X = 0 | 34.98 | `UART`, 4-pin `RXD TXD GND 5V` |
+| `SPK` | **X = 50** (mic side) | 36.36 | `SPEAKER`, 2-pin |
+| `I2C` | X = 50 | 49.92 | `I2C`, `3.3V GND IO15(SCL) IO16(SDA)` |
+| `IO` | X = 50 | 67.77 | `IO2 IO3 IO1x IO21` |
+
+> ⚠️ **JP: this is the one thing in the part that no check can prove, so please glance at it.**
+> `CONN_R` and `CONN_L` are anonymous Y-spans lifted out of the vendor STEP — the model has
+> never known which connector is the battery and which is the UART. The names come from the
+> **ES3C28P outline drawing's silkscreen**, and the order along each edge is pinned by that
+> drawing's own dimension chains, which the build asserts against the STEP: they close to
+> **0.02 mm** forward and miss completely when read from the other end, so the direction is
+> established rather than assumed. The microSD closes the same chain to 0.06 mm, which is what
+> ties the drawing's edge to this model's low-X edge.
+>
+> That is strong evidence and it is still not a bench test. **Hold the bare board next to the
+> printed shell and check one label against the silkscreen** — `BAT` is the easiest, it is the
+> one with the `− +` polarity marks. If `BAT` is right, the chain is right and so are the other
+> four. This is the same discipline that caught BOOT and RESET being swapped: a physical
+> observation anchored to a coordinate beats any amount of re-derivation from a drawing.
+
+**Some labels are not centred on their port, and that is deliberate.** `BAT` and `UART` are only
+11.78 mm apart while their ink is 13.28 and 18.04 mm long, so centring both is arithmetically
+impossible. They are packed apart **in port order** instead, and the build asserts that each
+label's ink still **spans its own port's centreline** — which is what a reader actually does,
+look across from the connector and read whatever is level with it — and that no label's ink
+reaches into a *different* connector's channel. Order is preserved by construction.
+
+> ⚠️ **They are also spaced by a word gap, not a keepout, and that distinction was found by
+> slicing the finished mesh rather than by any check.** The first cut printed `SPKI2C` and
+> `BATUARTSD`: every assert passed, but the gap *between* two labels (`LABEL_MARGIN`, 0.80 mm)
+> was **smaller than the gap between two letters of one word** (1.00 mm), so the eye read each
+> column as a single string. `LABEL_WORD_GAP` is now 2.00 mm — twice the letter space — and it
+> is derived from the number it has to beat. If you are reading the printed part and the labels
+> still run together, that is the defect to report.
 
 ---
 

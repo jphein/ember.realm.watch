@@ -1038,6 +1038,31 @@ LABEL_DEBOSS = 2 * LAYER_H_SHELL   # 0.40
 LABEL_H_CAP  = 3.80            # centreline cap height on a button face (ink 4.70)
 LABEL_H_FLAT = 5.50            # centreline cap height on the flat back  (ink 6.40)
 LABEL_MARGIN = 0.80            # keepout from any edge or neighbouring feature
+# ---- and two constants that exist only because a slice of the finished mesh was looked at ----
+#
+# >>> THE FIRST CUT OF THE CONNECTOR LABELS READ `SPKI2C` AND `BATUARTSD`. <<<
+#
+# Every assert passed. Each label cleared its 0.90mm floor, each sat on its own port, and no
+# two ink boxes came within LABEL_MARGIN. And the result was unreadable, because LABEL_MARGIN
+# is 0.80 while the material BETWEEN TWO GLYPHS of one word is LABEL_GAP - LABEL_W = 1.00 —
+# so the space between two labels was SMALLER than the space inside one, and the eye correctly
+# read them as a single word. A keepout is not a word space; nothing had ever needed the
+# difference before because no two labels had ever been neighbours.
+LABEL_WORD_GAP = 2 * (LABEL_GAP - LABEL_W)   # 2.00 — twice the material inside a word.
+# 3x was tried first and does not fit: at 3.00 the UART label is forced down until its ink
+# reaches into BAT's own channel, which trades a legibility defect for a naming one. 2.00 is
+# the largest word space the left strip can carry with all three labels still over their own
+# features, and it is double the 1.00mm that reads as a letter space.
+# ⚠️ AND SHRINKING THE LABELS TO AFFORD IT IS NOT AVAILABLE, WHICH IS WORTH RECORDING BECAUSE
+# IT WAS THE OBVIOUS MOVE AND IT FAILED ON THE FIRST BUILD. A 4.50 connector height was tried;
+# `S` immediately went under the floor at 0.638mm, because the glyph is normalised and the
+# 0.90 stroke is not, so every counter scales with h while the stroke does not:
+#
+#     S's material at h  =  (0.98 + 0.90) * h/5.50 - 0.90   ->  S needs h >= 5.27
+#
+# `SPK` contains an S, so the connector set cannot go below ~5.27 at all. Everything therefore
+# stays at LABEL_H_FLAT, and the room for the word space is found in the PLACEMENT RULE
+# instead — see _pack_labels and the ledger below.
 PWR_R        = 2.70            # power-symbol ring, centreline radius (ink dia 6.30)
 PWR_STEP_DEG = 12.0            # ring subdivision. Sagitta = r*(1-cos(6deg)) =
                                # 0.015mm, invisible at a 0.4mm nozzle, and the
@@ -1138,6 +1163,8 @@ _LBL["VOL"] = _SF.text_paths("VOL", LABEL_H_CAP,  LABEL_W, LABEL_GAP)
 _LBL["PWR"] = _SF.power_paths(PWR_R, LABEL_W, PWR_GAP_DEG, PWR_STEP_DEG)
 _LBL["SD"]  = _SF.text_paths("SD",  LABEL_H_FLAT, LABEL_W, LABEL_GAP)
 _LBL["MIC"] = _SF.text_paths("MIC", LABEL_H_FLAT, LABEL_W, LABEL_GAP)
+for _t in ("UART", "I2C", "SPK", "BAT", "IO"):          # the connector set, issue #27
+    _LBL[_t] = _SF.text_paths(_t, LABEL_H_FLAT, LABEL_W, LABEL_GAP)
 for _k in _LBL:
     _label_ok(_LBL[_k], _k)
 
@@ -1168,6 +1195,160 @@ assert LBL_MIC_X - _MIC_W / 2 >= HOLES[2][0] + CBORE_D / 2 + LABEL_MARGIN, (
     "the MIC label runs into the upper-left screw counterbore")
 assert LBL_MIC_X + _MIC_W / 2 <= MIC[0] - MIC_HOLE_D / 2 - LABEL_MARGIN + 1e-9, (
     "the MIC label runs into the mic hole")
+
+# ============================================================================
+# CONNECTOR LABELS -- issue #27.  UART / I2C / SPK / BAT / IO.
+# ============================================================================
+#
+# >>> THE MAPPING IS THE ENTIRE RISK IN THIS FEATURE, AND IT IS NOT DERIVABLE. <<<
+#
+# `CONN_R` and `CONN_L` are ANONYMOUS Y-SPANS lifted out of the vendor STEP. Nothing in this
+# file knows which of them is the battery and which is the UART, and a label is a coordinate
+# whose entire job is to point at something else — so getting it wrong produces exactly the
+# fault the opening/component ledger at check 0d exists for, except permanent, in plastic, and
+# on the port a person is about to plug a LiPo into. The block at BTN_TIP_Z is the precedent:
+# BOOT and RESET were swapped by re-deriving an assignment from a drawing IN GOOD FAITH.
+#
+# So the names come from the vendor silkscreen (Figure 5-1, ES3C28P outline drawing), and the
+# ORDER along each edge is pinned by that drawing's own dimension chains — which are asserted
+# below against this file's `CONN_*`, because a chain that closes is evidence and a chain
+# nobody checked is a chain someone read backwards.
+#
+#   silkscreen, X=0 edge (2 connectors)   BAT (2-pin, "- +")   UART (4-pin, RXD TXD GND 5V)
+#   silkscreen, X=50 edge (3 connectors)  SPEAKER (2-pin)      I2C (3.3V GND SCL SDA)   IO
+#
+# ⚠️ WHICH EDGE IS WHICH IS **NOT** TAKEN FROM THE DRAWING. That is the handedness question the
+# drawing cannot answer (see BTN_TIP_Z). It is taken from the five-way STEP solid fit that also
+# fixed CONN_R/CONN_L, corroborated here by the microSD: the chain puts the socket centre at
+# BL-35.03 and `SD_SOCKET` independently centres 0.06mm away, on the low-x edge. The drawing is
+# used only for the ORDER ALONG an edge, and Y is not the disputed axis.
+_DRAW_CHAIN_R = (13.55, 17.85, 18.25)   # CONN_R[0] -> [1] -> [2] -> board end
+_DRAW_CHAIN_L = (11.82, 15.97, 35.03)   # CONN_L[0] -> [1] -> microSD centre -> board end
+CONN_LBL_R = ("SPK", "I2C", "IO")       # X=50 edge, in increasing Y
+CONN_LBL_L = ("BAT", "UART")            # X=0  edge, in increasing Y
+
+
+def _chain_centres(chain):
+    """Feature centres implied by a drawing dimension chain that closes on the board end."""
+    out, y = [], float(BL)
+    for d in reversed(chain):
+        y -= d
+        out.append(y)
+    return list(reversed(out))
+
+
+# ⚠️ AND THE CONTROL IS THE REVERSED READING, because that is the mistake available here. A
+# chain is a list of gaps; reading it from the wrong end is a mirror in Y and produces a
+# perfectly self-consistent set of centres that lands on the wrong connectors. It has to MISS.
+for _chain, _spans, _what in ((_DRAW_CHAIN_R, CONN_R, "CONN_R"), (_DRAW_CHAIN_L, CONN_L, "CONN_L")):
+    _want = [(a + b) / 2 for (a, b) in _spans]
+    _got = _chain_centres(_chain)[:len(_want)]
+    assert all(abs(g - w) <= 0.05 for g, w in zip(_got, _want)), (
+        f"the vendor drawing's {_what} chain {_chain} implies centres "
+        f"{[round(g,2) for g in _got]} but the STEP gives {[round(w,2) for w in _want]} — the "
+        f"chain no longer closes, so the silkscreen ORDER it establishes is unsupported and "
+        f"the labels below may be naming the wrong ports. Do not adjust the tolerance")
+    _rev = [sum(_chain[:i + 1]) for i in range(len(_want))]
+    assert not all(abs(r - w) <= 0.05 for r, w in zip(_rev, _want)), (
+        f"[self-test] reading the {_what} chain from the OTHER end also closes, so the chain "
+        f"cannot tell which way round the edge runs and it is not evidence of the order")
+assert abs(_chain_centres(_DRAW_CHAIN_L)[2] - (SD_SOCKET[2] + SD_SOCKET[3]) / 2) <= 0.10, (
+    "the drawing's chain and SD_SOCKET disagree about the microSD centre — that closure is "
+    "what ties the drawing's bottom edge to this file's LOW-X edge, and without it the "
+    "BAT/UART pair could belong to either long edge")
+
+# ---- placement ----
+# One strip per edge, mirroring the SD rule (centred between the board edge and the hex field),
+# and one label per connector, ROTATED so the ink HEIGHT is what spends the strip's width.
+LBL_CONN_X_L = HEX_FIELD_X0 / 2.0                 # 4.50, the same strip SD uses
+LBL_CONN_X_R = (HEX_FIELD_X1 + BW) / 2.0          # 45.50
+# The Y window is set by the corner counterbores, which sit dead centre of BOTH strips.
+_LBL_Y_LO = HOLES[0][1] + CBORE_D / 2 + LABEL_MARGIN          #  7.70
+_LBL_Y_HI = HOLES[2][1] - CBORE_D / 2 - LABEL_MARGIN          # 78.30
+
+
+def _pack_labels(items, y_lo, y_hi, what):
+    """Centres for a column of labels: on their own feature where possible, else separated.
+
+    ⚠️ CENTRING EACH LABEL ON ITS OWN CONNECTOR DOES NOT FIT AND CANNOT BE MADE TO. BAT and
+    UART are 11.78mm apart and their ink is 13.28 and 18.04 long, so the two would overlap by
+    3.9mm; shrinking to fit needs h <= 2.93, which is far under the stroke floor. So the rule
+    is: nominal = the connector's own centre, then push apart to LABEL_MARGIN in increasing Y,
+    then slide the whole column down if it has run out the top. ORDER IS PRESERVED BY
+    CONSTRUCTION, which is the property that keeps each label next to its own port.
+    """
+    c = [n for (_, n, _) in items]
+    ln = [l for (_, _, l) in items]
+    for i in range(1, len(c)):
+        c[i] = max(c[i], c[i - 1] + (ln[i - 1] + ln[i]) / 2 + LABEL_WORD_GAP)
+    _over = (c[-1] + ln[-1] / 2) - y_hi
+    if _over > 0:
+        c = [v - _over for v in c]
+    assert c[0] - ln[0] / 2 >= y_lo - 1e-9, (
+        f"the {what} label column needs "
+        f"{sum(ln) + LABEL_WORD_GAP*(len(ln)-1):.2f}mm and the strip has "
+        f"{y_hi - y_lo:.2f}mm between the corner counterbores. Shorten a label or LABEL_H_FLAT")
+    return c
+
+
+_CH_HI, _CH_LO = side_channels()                  # x=BW edge, x=0 edge
+_conn_place = {}                                  # name -> (x, y, own channel span)
+for _names, _spans, _x, _yhi, _what in (
+        # ⚠️ the LEFT column stops at the SD label, not at the counterbore: SD is already on
+        # this strip and is not moving for us. The right strip is empty, so it gets the lot.
+        (CONN_LBL_L, _CH_LO, LBL_CONN_X_L, LBL_SD_Y - _SD_W / 2 - LABEL_WORD_GAP, "x=0"),
+        (CONN_LBL_R, _CH_HI, LBL_CONN_X_R, _LBL_Y_HI, "x=%g" % BW)):
+    _items = [(_n, (_spans[_i][0] + _spans[_i][1]) / 2,
+               _SF.ink_size(_n, LABEL_H_FLAT, LABEL_W, LABEL_GAP)[0])
+              for _i, _n in enumerate(_names)]
+    for _n, _cy in zip(_names, _pack_labels(_items, _LBL_Y_LO, _yhi, _what)):
+        _conn_place[_n] = (_x, _cy, _spans[list(_names).index(_n)])
+
+# ---- and the ledger: every label must name the connector it sits on ----
+#
+# This is check 0d's question asked of labels instead of openings, and it is the one thing
+# here a render cannot answer: a label 6mm off its port looks perfectly deliberate.
+for _n, (_x, _cy, _own) in _conn_place.items():
+    _w, _h = _SF.ink_size(_n, LABEL_H_FLAT, LABEL_W, LABEL_GAP)
+    # THE ASSOCIATION RULE IS "THE INK SPANS THE PORT'S CENTRELINE", not "the label's centre
+    # sits in the channel", and the weaker-looking rule is the better one for two reasons.
+    # It is what a reader actually does — look across from the port into the strip and read
+    # whatever is level with it — and the stricter rule is unsatisfiable here: BAT and UART
+    # are 11.78mm apart carrying 13.28 and 18.04mm of ink, so pinning both centres inside
+    # their channels leaves 16.88mm for a 15.66mm + word-space column. The strict rule would
+    # have forced the word space back down to 1.22mm, i.e. back to labels that merge.
+    _port = (_own[0] + _own[1]) / 2
+    assert _cy - _w / 2 <= _port <= _cy + _w / 2, (
+        f"the {_n} label's ink spans y {_cy-_w/2:.2f}..{_cy+_w/2:.2f} and its port centres at "
+        f"{_port:.2f} — nothing is level with the connector, so the label names nothing")
+    _s0, _s1 = (0.0, float(HEX_FIELD_X0)) if _x < BW / 2 else (float(HEX_FIELD_X1), float(BW))
+    assert _s0 + LABEL_MARGIN <= _x - _h / 2 and _x + _h / 2 <= _s1 - LABEL_MARGIN, (
+        f"the {_n} label is {_h:.2f}mm across and its margin strip is x {_s0:g}..{_s1:g} — it "
+        f"would foul the board edge or the hex field. Shrink LABEL_H_FLAT")
+    for _o, (_ox, _ocy, _oown) in _conn_place.items():
+        if _o == _n or (_ox < BW / 2) != (_x < BW / 2):
+            continue                              # different edge: no possible confusion
+        assert _cy + _w / 2 < _oown[0] or _cy - _w / 2 > _oown[1], (
+            f"the {_n} label's ink reaches into {_o}'s channel ({_oown[0]:.2f}..{_oown[1]:.2f}) "
+            f"— two ports and one label between them is worse than no label")
+        _ow = _SF.ink_size(_o, LABEL_H_FLAT, LABEL_W, LABEL_GAP)[0]
+        assert abs(_cy - _ocy) >= (_w + _ow) / 2 + LABEL_WORD_GAP - 1e-9, (
+            f"the {_n} and {_o} labels are {abs(_cy-_ocy)-(_w+_ow)/2:.2f}mm apart, under the "
+            f"{LABEL_WORD_GAP}mm word space — at {LABEL_GAP - LABEL_W}mm they read as ONE WORD, "
+            f"which is what `SPKI2C` and `BATUARTSD` were")
+# and nothing may collide with the label that was already on the left strip
+# ⚠️ A WORD SPACE, NOT A KEEPOUT. SD is the third label on this strip and it merges with UART
+# exactly as UART merged with BAT — the first cut read `BATUARTSD` as one string. LABEL_MARGIN
+# would satisfy a clearance check and still print an unreadable column.
+_uart_top = _conn_place["UART"][1] + _SF.ink_size("UART", LABEL_H_FLAT, LABEL_W, LABEL_GAP)[0] / 2
+assert _uart_top <= LBL_SD_Y - _SD_W / 2 - LABEL_WORD_GAP + 1e-9, (
+    f"the UART label ends at y={_uart_top:.2f} and the SD label's ink starts at "
+    f"{LBL_SD_Y - _SD_W/2:.2f} — under a {LABEL_WORD_GAP}mm word space they read as one word")
+# ⚠️ STATED RATHER THAN ASSERTED, because it is true and unavoidable: UART's ink DOES overlap
+# the microSD channel's Y span by ~1.8mm. The microSD is not one of the five ports being
+# labelled, it already carries its own label 0.8mm further on, and the alternative is a UART
+# label that no longer covers the UART. The foreign-channel assert above is therefore scoped
+# to the CONNECTORS, which is the confusion that actually matters.
 
 # CAP LABELS. The remaining cap thickness is the thing to watch, and it was worth a number
 # rather than a shrug: the big cap goes 1.70 -> 1.22mm under its label. As a cantilever plate
@@ -1212,6 +1393,13 @@ def back_shell():
                      BACK_Z - 1.0, BACK_Z + LABEL_DEBOSS, rot90=True)
     p -= _back_label(_LBL["MIC"], LBL_MIC_X, LBL_MIC_Y,
                      BACK_Z - 1.0, BACK_Z + LABEL_DEBOSS)
+    # CONNECTOR LABELS (#27). All rotated, like SD: they live in the 9mm margin strips beside
+    # the side channels they name, so the ink's HEIGHT is what has to fit the strip's width.
+    # Placement and the port mapping are derived and asserted at _conn_place — see the block
+    # there, and do not move one of these without re-reading it.
+    for _t, (_lx, _ly, _) in _conn_place.items():
+        p -= _back_label(_LBL[_t], _lx, _ly,
+                         BACK_Z - 1.0, BACK_Z + LABEL_DEBOSS, rot90=True)
     # screw standoffs up to the PCB back face
     for (hx,hy) in HOLES:
         # FLARED boss: BOSS_D at the PCB face (the vendor keepout applies THERE), widening to
