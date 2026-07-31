@@ -775,6 +775,28 @@ footer p{margin:.4rem 0}
     captured by the very mic being adjusted, and spike the live dBFS meter that the overlay
     deliberately stops short of covering.
   </p>
+  <div class="note">
+    <b>A stale comment has contradicting code beside it. A stale <em>message</em> has nothing.</b>
+    Setting the gain writes the codec register directly as well as calling the driver's setter,
+    because the setter only assigns a member and the register is written once at startup — an
+    asymmetry that has now produced two separate defects, the second of which had the property
+    that <strong>the only value immune to it was the default</strong>, which is exactly what
+    anyone would test with.
+    <p style="margin:.6rem 0 0">
+      So the agreement is no longer asserted, it is <em>measured</em>: the firmware reads the
+      register back every 60 seconds and publishes both what the chip holds and whether it
+      disagrees with the control. The check began as a log line, and the reason it did not stay
+      one is the asymmetry above — the thing capable of stating a gain the chip does not hold is
+      a dashboard card, so the verdict belongs where the false claim would be read.
+    </p>
+    <p style="margin:.6rem 0 0">
+      <b>And a failed read is not a disagreement.</b> If the register cannot be read, both
+      sensors are left untouched and a warning is logged, rather than publishing a mismatch from
+      an instrument that cannot see. The cost is stated rather than hidden: <em>no problem
+      reported</em> is therefore not the same as <em>verified in sync</em>, and the page that
+      says so is the same page that ships the check.
+    </p>
+  </div>
 </section>
 
 <section class="wrap">

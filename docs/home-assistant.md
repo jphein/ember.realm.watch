@@ -28,7 +28,7 @@ The device firmware is documented separately; this is the HA half.
 | `homeassistant/packages/ember_backend_health.yaml` | `/homeassistant/packages/` | `binary_sensor.ember_backend`, `binary_sensor.ember_reachable` |
 | `homeassistant/packages/ember_persona.yaml` | `/homeassistant/packages/` | `input_text.ember_persona_extra`, `input_text.ember_say` |
 | `homeassistant/packages/ember_announce.yaml` | `/homeassistant/packages/` | `script.ember_announce`, `…_if_awake`, `script.ember_say` |
-| `homeassistant/dashboards/ember-hearth.dashboard.json` | HA `.storage`, over WebSocket | the `ember-hearth` dashboard (4 views, 118 cards) |
+| `homeassistant/dashboards/ember-hearth.dashboard.json` | HA `.storage`, over WebSocket | the `ember-hearth` dashboard — 4 views (Hearth, Voice Pipeline, Diagnostics, Fleet) |
 | `homeassistant/tools/deploy-ha.sh` | — | copies packages + reloads only what changed |
 | `homeassistant/tools/build_ember_dashboard.py` | — | creates-if-absent + pushes the dashboard |
 
@@ -147,6 +147,10 @@ previous configuration.
 python3 homeassistant/tools/build_ember_dashboard.py --dry   # print, touch nothing
 python3 homeassistant/tools/build_ember_dashboard.py         # create-if-absent + push
 ```
+
+Both modes print `views=… sections=… cards=…` for the config they are about to push. **Read
+the count off the tool rather than off this page** — the dashboard changes more often than the
+prose does, and a card total frozen into a document is stale the next time a tile is added.
 
 > ⚠️ **This one goes to `ha.jphe.in`, not `ha.lan` — the opposite of every other command on
 > this page.** The host table in [§1](#host-names--read-this-before-you-type-a-deploy-command)
@@ -389,6 +393,64 @@ at exactly **16000/s** during TTS. Known-good baseline: a 27.2 s announcement pr
 injected silence.** Long utterances previously landed between 45.8 % and 93.9 %, so a
 shortfall now is a real regression rather than variance.
 
+### 6.6 Hearing: mic gain, and the entity that can call the dashboard a liar
+
+**`number.ember_satellite_mic_gain`** is the ES8311's analog ADC PGA, live from HA and from
+the device's own single-press overlay. It used to be the compile-time `mic_gain: 36db` on the
+`audio_dac` block, so every adjustment cost a reflash — the wrong shape for a knob whose right
+value depends on the room, the speaker's distance and how loudly they talk.
+
+| | |
+|:--|:--|
+| Range | **0–42 dB, step 6** |
+| Default | **36 dB** — deliberately *below* the maximum |
+| Exposed as | `number`, `mode: slider`, restores across reboots |
+
+⚠️ **The 6 dB step is the hardware's and cannot be refined.** REG16 takes a **3-bit field** with
+exactly eight legal values — 0/6/12/18/24/30/36/42 — so nothing between them is representable,
+and any UI offering a finer step would report a setting the codec cannot hold. If you ever see
+this control advertise a step other than 6, or a count other than eight stops, the firmware's
+range has drifted from the hardware and the *hardware* is right.
+
+**36 rather than 42 is deliberate.** ESPHome's own default is 42 — the top of the range — and
+stacked on the pipeline's `auto_gain` and `volume_multiplier` it clips and pins the level
+gauges. Higher is *more sensitive and more clipped*, not better. Tune against
+`sensor.ember_satellite_mic_rms` / `_mic_peak`, but only **mid-conversation**: `sound_level` is
+passive and publishes NAN whenever the mic isn't running ([§7.8](#78-the-mic-gauges-show-entity-is-non-numeric)).
+
+#### The number and the codec are two different facts
+
+Setting the number writes REG16 directly *as well as* calling the driver's setter, because the
+setter only assigns a member and the register is written once in the driver's own `setup()`.
+That asymmetry has now caused two real defects — a control that would have done nothing until
+the next boot, and a restored value that never reached the chip because
+`TemplateNumber::setup()` publishes without calling `control()`. In the second case **the only
+value immune was the default**, which is exactly what anyone would test with.
+
+So the agreement is measured rather than assumed, and published:
+
+| Entity | Is |
+|:--|:--|
+| `sensor.ember_satellite_mic_gain_codec` | what **REG16 actually holds**, in dB, read back off the chip |
+| `binary_sensor.ember_satellite_mic_gain_desync` | `device_class: problem` — **ON means the number and the codec disagree** |
+
+Both are diagnostic. One reader with two callers — a boot trigger at **+25 s** and a **60 s
+interval** — rather than the check written twice inline. Periodic rather than boot-only,
+because a divergence introduced *later* by anything writing REG16 outside the number would
+otherwise never surface. It is one I²C register read a minute on a control-plane bus.
+
+> ⚠️ **"No problem reported" is not the same as "verified in sync".** On an I²C read failure
+> the firmware **leaves both sensors untouched** and logs a warning, rather than publishing a
+> mismatch it cannot see. That is the right call — a confident answer from a blind instrument is
+> worse than no answer — but it means the desync sensor can be `off` simply because nothing has
+> successfully read the register recently. **Check that `…_mic_gain_codec` has a fresh value
+> before reading `…_desync` as assent.** Silence here is silence, not agreement.
+
+The reason this is an entity rather than a log line is worth keeping: a stale *comment* has
+contradicting code beside it, and a stale *message* has nothing. The thing capable of stating a
+gain the chip does not hold is a dashboard card, so the verdict is published where the false
+claim would be read.
+
 ---
 
 ## 7 · Troubleshooting
@@ -485,7 +547,10 @@ header reads `UNSPOKEN` and the sub-line says *the reply is on screen*.
 
 If you tapped and got **nothing at all** — no header change, no wyrm movement — the mode
 is not the cause and the touch controller may have stopped
-answering. Press **Rouse the touch sensor** (Diagnostics → Levers): it re-pulses the
+answering. Press **`button.ember_satellite_rouse_touch_sensor`** — *Rouse Touch Sensor*, on the
+Diagnostics view under **Levers · when something is wrong**. (The device's own power menu spells
+the same action *"Rouse the touch sensor"*; the HA entity is the shorter name, which is what to
+search for.) It re-pulses the
 FT6336G reset line and re-runs its setup. Deliberately reachable from HA rather than
 only from the device, because recovering a touchscreen must not require the touchscreen.
 It blocks ~310 ms and logs a *took a long time* warning — expected for a manual recovery
@@ -531,6 +596,27 @@ The phrase "Ember isn't listening" used to appear here and in the firmware, mean
 it is retired for exactly that reason.) HA renders NAN as
 `unknown`, and a `gauge` on a non-numeric state draws an **error box**, not an empty
 dial. Since the mic is idle most of the time, that error *was* the normal appearance.
+
+Consequence for tuning: those gauges are only meaningful **mid-conversation**, which is the one
+time you cannot be looking at the dashboard. Use them to judge
+[`number.ember_satellite_mic_gain`](#66-hearing-mic-gain-and-the-entity-that-can-call-the-dashboard-a-liar)
+by their *history*, not their instantaneous reading — a Peak pinned at the top of its scale is
+the symptom of too much gain.
+
+### 7.11 `Mic Gain` reads one value and the codec holds another
+
+`binary_sensor.ember_satellite_mic_gain_desync` is **ON**, or the dashboard is showing the
+warning card. Believe `sensor.ember_satellite_mic_gain_codec` — it is read back off REG16;
+the number entity only reports what it was *told*.
+
+Either something wrote REG16 without going through the number, or a restore did not reach the
+chip. The firmware re-checks every 60 s, so **it clears itself once they agree** — setting the
+gain to any value and back is enough to force a write. If it does not clear, the I²C bus is the
+next thing to look at, not the number.
+
+⚠️ The inverse is *not* symmetrical: `off` does not prove agreement. See the caveat in
+[§6.6](#66-hearing-mic-gain-and-the-entity-that-can-call-the-dashboard-a-liar) — a failed read
+leaves both sensors untouched rather than reporting a mismatch it cannot see.
 
 ### 7.9 Entities missing after a deploy
 

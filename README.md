@@ -123,6 +123,13 @@ what anyone would test with.** There is now a dedicated `on_boot` trigger that p
 value back *through* the number, so REG16 keeps a single writer, and it was verified by reading
 the register back rather than by inference.
 
+Because that asymmetry has now bitten twice, the agreement is measured rather than assumed: a
+60 s check reads REG16 back and publishes `sensor.ember_satellite_mic_gain_codec` (what the chip
+holds) and `binary_sensor.ember_satellite_mic_gain_desync` (`problem`, ON when they disagree).
+**A failed I²C read leaves both untouched rather than reporting a mismatch it cannot see** — so
+"no problem reported" is not the same as "verified in sync". Details in
+[`docs/home-assistant.md` §6.6](docs/home-assistant.md#66-hearing-mic-gain-and-the-entity-that-can-call-the-dashboard-a-liar).
+
 Two deliberate trades, both reversals of earlier decisions:
 
 - **The fire is hidden while the overlay is open.** Two controls with touch-sized targets do not
