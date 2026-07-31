@@ -9,23 +9,37 @@ had committed locally without pushing. "Served differs from my disk" is not the 
 "served differs from what the remote would produce" is.
 
 ⚠️ 2. RUN IMMEDIATELY AFTER A PUSH, THIS MEASURES THE EDGE, NOT THE PUSH. Observed: the
-fixed stand STL was pushed and raw.githubusercontent.com kept serving the OLD blob for
-about a minute (t+25s stale, t+50s match). For that window the page said "fixed" over a
-download that was not — the exact state a commit-ordering hold was meant to prevent,
-arriving by a route ordering cannot reach.
+fixed stand STL was pushed and the raw link kept serving the OLD blob for about a minute
+(t+25s stale, t+50s match). For that window the page said "fixed" over a download that
+was not — the exact state a commit-ordering hold was meant to prevent, arriving by a
+route ordering cannot reach.
 
-    The two surfaces go stale DIFFERENTLY and only one of them tells you:
+    Both surfaces are ordinary Fastly/Varnish edge caches, measured repeatedly:
 
-      GitHub Pages : cache-control: max-age=600, via: varnish, and an `age:` header.
-                     Observable — `age` says how old the cached copy is.
-      raw.github.. : cache-control: no-cache. So the staleness is NOT an HTTP cache you
-                     can reason about from headers; it is backend replication lag, and
-                     there is no header that bounds it. You cannot ask. You can only
-                     re-read.
+      GitHub Pages : cache-control: max-age=600, via: 1.1 varnish, and an `age:` header.
+      raw.github.. : cache-control: max-age=300, via: 1.1 varnish. `age:` is usually
+                     absent because x-served-by changes on nearly every request — a
+                     fleet of edge nodes, so requests keep landing on cold ones.
 
-    Hence --confirm: a mismatch is never reported on a single observation. It is re-read
-    after a delay and only reported if it PERSISTS. A single read cannot distinguish
-    "stale artifact" from "stale edge", and those need opposite responses.
+    ⚠️ AN EARLIER VERSION OF THIS DOCSTRING SAID raw SENDS `no-cache` AND IS THEREFORE
+    "NOT AN HTTP CACHE AT ALL, BUT REPLICATION LAG WITH NO HEADER TO BOUND IT". THAT WAS
+    WRONG, AND THE WAY IT WAS WRONG IS THE POINT. It was measured with
+
+        curl -sI https://github.com/<o>/<r>/raw/main/<path>          # no -L
+
+    which is a 302 to raw.githubusercontent.com. `curl -I` without `-L` reports the
+    headers of the REDIRECT, and github.com sends `cache-control: no-cache` on that hop.
+    So the reading was accurate about an object nobody downloads. Follow the redirect,
+    or address raw.githubusercontent.com directly, and it is max-age=300 every time.
+
+    (The page links visitors at the github.com/raw form, so a real visitor takes both
+    hops: an uncached 302, then a 300s-cached object.)
+
+    THE FIX DID NOT CHANGE, AND THAT IS WHY IT SURVIVED THE CORRECTION. Re-read and
+    report only what persists is correct against an edge cache and against replication
+    lag alike, and needs no header to work. A wrong stated reason attached to a correct
+    fix is worse than no reason, because it licenses the wrong change later — so the
+    reason is now the measured one.
 
 This is the same family as the two above: an instrument whose correctness depends on a
 condition it does not check. The reference point was the first one; timing is the second.

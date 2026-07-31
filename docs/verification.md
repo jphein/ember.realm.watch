@@ -528,6 +528,47 @@ reject the geometry that shipped — the pip clearance goes negative at the prev
 and the wire saddle's rim rule rejects the previous `WIRE_X = 57.0` for the 0.85 mm fin it left on
 the bearing rim.
 
+**And then the replacement metric was wrong twice more, in the same family as the three before
+it, written by the person who had just catalogued them.** Recorded in full because the pattern is
+the point — *knowing a failure mode confers no immunity; only a control that can express it does.*
+
+- **v1 took the maximum over a blob at a fixed ceiling.** On a located rib that is exact, and it
+  is where the two correct enclosure numbers came from. On a *whole object* it returns the fattest
+  point: at r = 10 px a 50 px-tall silhouette does not survive opening at all, every pixel became
+  one region, and `2·max(EDT)` over it returned **5.2688 mm — precisely the creature's own
+  thickest half-width doubled.** That is failure #2 above, verbatim, recommitted. It reached a
+  generated file and a commit message before anyone measured it.
+- **v2 swept the threshold upward and took the first region.** That fixes the whole-object case and
+  introduces a quieter error: below its true thickness a feature is only *partially* opened, so
+  what appears first is its 1–2 px **edge shell**, whose max EDT is a fraction of the real
+  thickness. On a planted 0.600 mm rib it returned 0.450. Granulometry under-reads the same rib for
+  the same reason, so **both agreed and both were wrong** — agreement between two methods that
+  share a bias is not corroboration.
+- **v2 also carried a `max_frac` guard** meant to reject "the region is the object". The control
+  caught that too: in a shape where the thin rib is legitimately 67 % of the area, the guard
+  rejected the correct answer. **A crude proxy for "void on both sides" rejects real features as
+  readily as artefacts.**
+- **v3 has no threshold at all.** The thickness at a feature's medial axis is `2·EDT`, so the
+  thinnest feature is twice the smallest *ridge* value of the distance transform. Exact on a rib,
+  independent of the object's size, independent of any upper bound, with no tolerance absorbing
+  anything. It returns 0.600 on both planted shapes.
+
+Two tells generalise, and both were sitting in plain output. `nebula-site` reached the same
+tautology from another direction and their formulation is the sharper one: **a measurement landing
+exactly on its own threshold is a question, not a pass** — their harness printed `minfeat 0.900`
+to three decimals. Mine landed on **the object's own thickest dimension** to four. Neither of us
+looked at the column that said so. And **a volume and a layer count that disagree about the same
+feature** — 7.804 mm³ over 13 layers is 3.0 mm² per layer, reported beside a "max layer area" of
+38.01 — is the same tell in arithmetic form.
+
+The consequence outside the tooling was a **wrong explanation given to the user twice**: that the
+bezel mark "cannot fill the brow because the print floor pins it" and is "as large as printability
+allows". Both have the sign inverted. **Scaling up multiplies every feature size, so a larger mark
+is strictly safer to print — the print floor bounds the scale from below and cannot cap it.** The
+mark's real thinnest feature at the shipped scale is **1.800 mm against a 0.90 mm floor**, twice
+the limit. The geometry was left untouched (a physical part exists and is fine); only the reason
+was corrected, in the docstring that carried it.
+
 ### 17. Absence of a log is not absence of execution
 
 A boot-time resync was added and instrumented with a log line. The line never appeared. It was
@@ -1002,15 +1043,57 @@ remote), **the timing** (before the edge caught up). Each time the arithmetic wa
 an unstated precondition was not. *An instrument is only as good as the assumptions it does not
 check — so enumerate them, because they will not announce themselves.*
 
-The measured detail is better than the guess, and it changed the fix: **the two surfaces go
-stale by different mechanisms and only one of them tells you.** GitHub Pages sends
-`cache-control: max-age=600` with `via: varnish` and an `age:` header, so the staleness is a
-real edge cache and its age is *observable*. `raw.githubusercontent.com` sends
-`cache-control: no-cache` — so what was seen there is not an HTTP cache at all but backend
-replication lag, and **no header bounds it.** You cannot ask; you can only re-read. The sweep
-therefore never reports a mismatch on a single observation: it re-reads after a delay and
-reports only what persists, because **one read cannot distinguish a stale artifact from a
-stale edge, and those need opposite responses.**
+Both surfaces are ordinary Fastly/Varnish edge caches: GitHub Pages sends
+`cache-control: max-age=600` with an `age:` header, and `raw.githubusercontent.com` sends
+`cache-control: max-age=300`. `age:` is usually absent on `raw` because `x-served-by` changes on
+nearly every request — a fleet of edge nodes, so requests keep landing on cold ones.
+
+#### A fourth member of the family, found by two people disagreeing about a header
+
+The paragraph above previously said something else, confidently: that `raw` sends
+`cache-control: no-cache`, and that its staleness was therefore **not** an HTTP cache but
+backend replication lag with *no header able to bound it*. Another engineer measured
+`max-age=300` on the same object, four times, and said so rather than deferring.
+
+Both readings were accurate. They were **of different objects.** The `no-cache` came from
+
+```
+curl -sI https://github.com/<owner>/<repo>/raw/main/<path>      # note: no -L
+```
+
+which is a **302** to `raw.githubusercontent.com`. **`curl -I` without `-L` reports the headers
+of the redirect**, and `github.com` sends `no-cache` on that hop. Follow the redirect, or
+address `raw.githubusercontent.com` directly, and it is `max-age=300` every time. The
+measurement was correct about an object nobody downloads.
+
+So the family gains a fourth member, and it is the one that generalises furthest:
+
+| | the unstated precondition |
+|---|---|
+| **the window** | that the answer lies inside `y > 19.4` |
+| **the reference** | that the working tree is what the remote would produce |
+| **the timing** | that the edge has caught up |
+| **the object** | **that the bytes measured are the bytes served** |
+
+A redirect is a different resource with different headers, and the tool hands you the first
+response without comment. **Before trusting a measurement, confirm it is of the thing you
+meant** — not merely that the arithmetic on it was right.
+
+⚠️ **The fix did not change, and that is why it survived the correction.** *Re-read and report
+only what persists* is correct against an edge cache and against replication lag alike, and
+needs no header to work. What changed was the **stated reason**, and this repo has already
+recorded why that matters: **a confident wrong reason attached to a correct fix is worse than
+no reason, because it licenses the wrong change later.** Someone reading "there is no TTL here"
+would have rejected a perfectly good TTL-based wait.
+
+The sweep therefore still never reports a mismatch on a single observation: it re-reads after a
+delay and reports only what persists, because **one read cannot distinguish a stale artifact
+from a stale edge, and those need opposite responses.**
+
+The other half is worth stating too. **Two people measuring the same thing and getting
+different answers is not a tie to be broken by seniority or by who measured last.** It is a
+statement that at least one instrument is pointed at the wrong object, and the cheapest next
+move is to find out which — which took one `curl -L` and settled it in under a minute.
 
 #### And the class this all belongs to: committed is not deployed, and deployed is not served
 
