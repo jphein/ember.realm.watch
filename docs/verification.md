@@ -1009,6 +1009,7 @@ survived on a published page.
 | **restore-without-resync** | `esphome/tools/check_restore_resync.py` | a restoring control cannot come back from a reboot lying about the hardware |
 | **chime preempt guard halves agree** | `esphome/tools/check_chime_guards.py` | a chime case cannot be guarded in the enumeration and unguarded where the guard bites |
 | **button-only navigability** | `esphome/tools/check_navigability.py` | every `ui_mode` is reachable, exitable and *actionable* without touch |
+| **shipped *paint body* == harness paint body** | `esphome/tools/check_paint_sync.py` | the ~1036-line painter the device runs is the one the harness sanitises and tiling-checks. It compares *through the generator*, so the two copies' legitimate text differences (`it.` stubs vs `id(...)`) stop mattering — which is why `check_art_sync` stays alongside it rather than being retired: this one **depends on the generator running**, and that one does not |
 | **shipped art *tables* == harness art tables** | `esphome/tools/check_art_sync.py` | the 30 generated span tables the device runs are the ones the harness sanitises and tiling-checks. ⚠️ **Tables only.** The ~250 lines of painter *logic* are also duplicated and deliberately **not** guarded — the two copies are legitimately different text (`it.` stubs vs `id(...)`), so a diff would be noise rather than signal. That half closes when #10 removes the copy |
 | **generated pages are current** | `site/check_generated_current.py` | the **published** page matches the source in the same commit |
 | **served surface matches the remote** | `site/check_served_current.py` | what a **visitor downloads** is what `origin/main` would produce — 24 artifacts, incl. every STL download link |
@@ -1082,6 +1083,7 @@ printf '%s\n' '#!/usr/bin/env bash' \
   '  python3 "$root/esphome/tools/check_chime_guards.py"   || exit 1' \
   '  python3 "$root/esphome/tools/check_navigability.py"   || exit 1' \
   '  python3 "$root/esphome/tools/check_art_sync.py"        || exit 1' \
+  '  python3 "$root/esphome/tools/check_paint_sync.py"      || exit 1' \
   'fi' \
   'if staged | grep -qE "^(site/index[.]src[.]html|enclosure/PRINT-SHEET[.]md)$"; then' \
   '  python3 "$root/site/check_generated_current.py" || exit 1' \
