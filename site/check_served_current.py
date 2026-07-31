@@ -53,6 +53,24 @@ def git(*a):
     r = subprocess.run(["git","-C",REPO,*a], capture_output=True)
     return r.stdout if r.returncode == 0 else None
 def sha(b): return hashlib.sha256(b).hexdigest()[:16] if b is not None else "-"
+
+def whose(path, digest, depth=12):
+    """Which recent commit's blob do these served bytes match?
+
+    This is the decisive test for "stale artifact vs stale edge", and it is strictly better
+    than re-reading. Three identical reads inside one 300s cache window prove nothing — they
+    are one observation taken three times. But if the served bytes ARE a recent ancestor's
+    version, the edge is simply behind and will catch up; if they match nothing in history,
+    something is actually wrong and no amount of waiting fixes it.
+    """
+    out = git("log", "--format=%h", f"-{depth}")
+    if not out: return None
+    for c in out.decode().split():
+        blob = git("show", f"{c}:{path}")
+        if blob is not None and sha(blob) == digest:
+            behind = git("rev-list", "--count", f"{c}..{REF}")
+            return c, int(behind.decode().strip()) if behind else -1
+    return None
 def fetch(u, with_meta=False):
     try:
         with urllib.request.urlopen(u, timeout=60) as r:
@@ -72,9 +90,22 @@ def check(label, url, path, note=""):
     served, src = fetch(url), git("show", f"{REF}:{path}")
     if served is None: rows.append((label,"FETCH-FAIL","",note,url,path)); return
     if src is None:    rows.append((label,"NOT-ON-REMOTE",path,note,url,path)); return
-    ok = sha(served) == sha(src)
-    rows.append((label, "match" if ok else "*** STALE ***",
-                 f"{sha(served)} vs {sha(src)}  {len(served)}b", note, url, path))
+    if sha(served) == sha(src):
+        rows.append((label, "match", f"{sha(served)} vs {sha(src)}  {len(served)}b",
+                     note, url, path)); return
+    # IDENTIFY BEFORE WAITING. Asking which commit the served bytes match is free and
+    # decisive; re-reading costs a cache TTL and, inside one window, only repeats a single
+    # observation. If the bytes are a recent ancestor's, the edge is behind and will catch
+    # up. If they match nothing in history, waiting will not help and something is wrong.
+    w = whose(path, sha(served))
+    if w:
+        rows.append((label, f"edge behind ({w[1]})",
+                     f"{sha(served)} vs {sha(src)}  -> serving {w[0]}, {w[1]} commit(s) behind",
+                     note, url, path))
+    else:
+        rows.append((label, "*** STALE ***",
+                     f"{sha(served)} vs {sha(src)}  -> matches NO recent commit",
+                     note, url, path))
 
 # controls, run against the same machinery the real checks use
 ctl_a = fetch(f"{BASE}/index.html"); ctl_b = git(f"show", f"{REF}:docs/index.html")
@@ -105,7 +136,7 @@ if "--prove-confirm" in sys.argv:
 
 # --- CONFIRM: never report a mismatch on one observation (see trap 2) ---
 CONFIRM = "--no-confirm" not in sys.argv
-mismatched = [r for r in rows if r[1] == "*** STALE ***"]
+mismatched = [r for r in rows if r[1] == "*** STALE ***"]  # unexplained only
 if mismatched and CONFIRM:
     import time
     wait = int(os.environ.get("SERVED_CONFIRM_WAIT", "60"))
@@ -122,18 +153,33 @@ if mismatched and CONFIRM:
         served, meta = fetch(url, with_meta=True)
         src = git("show", f"{REF}:{path}")
         agree = sha(served) == sha(src)
-        rows[i] = (r[0], "match (edge caught up)" if agree else "*** STALE ***",
-                   f"{sha(served)} vs {sha(src)}"
-                   + (f"  [age={meta.get('age')} cc={meta.get('cc')}]" if meta else ""),
-                   r[3], url, path)
+        detail = f"{sha(served)} vs {sha(src)}"
+        if meta: detail += f"  [age={meta.get('age')} cc={meta.get('cc')}]"
+        verdict = "match (edge caught up)"
         if not agree:
-            still.append(r[0])
+            w = whose(path, sha(served))
+            if w:
+                verdict = f"edge behind ({w[1]})"
+                detail += f"  -> serving {w[0]}, {w[1]} commit(s) behind"
+            else:
+                verdict = "*** STALE ***"
+                detail += "  -> matches NO recent commit — investigate"
+                still.append(r[0])
+        rows[i] = (r[0], verdict, detail, r[3], url, path)
     print(f"after re-read: {len(still)} genuinely stale "
           f"({', '.join(still) if still else 'none — all were edge lag'})\n")
 
 w = max(len(r[0]) for r in rows)
 for r in rows: print(f"{r[0]:{w}s}  {r[1]:22s} {r[2]}  {r[3]}")
-bad = [r for r in rows if not r[1].startswith("match")]
+bad = [r for r in rows if not (r[1].startswith("match") or r[1].startswith("edge behind"))]
+behind = [r for r in rows if r[1].startswith("edge behind")]
+if behind:
+    n = max(int(r[1].split("(")[1].rstrip(")")) for r in behind)
+    print(f"\n{len(behind)} artifact(s) served from an OLDER COMMIT — the edge is up to {n} "
+          f"commit(s) behind. Expected for a few minutes after a push (raw is max-age=300, "
+          f"Pages 600).\n⚠️  If this persists well past the TTL it stops being lag: re-run, and "
+          f"if it holds, treat it as a real failure to publish.")
+    for r in behind: print(f"    {r[0]}: {r[2].split('->')[-1].strip()}")
 print(f"\n{len(bad)} of {len(rows)} not matching")
 for r in bad: print("   ", r[0], r[1], r[2], r[3])
 
