@@ -298,3 +298,33 @@ def self_test() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(self_test() if "--self-test" in sys.argv else report())
+
+# ─────────────────────────────────────────────────────────────────────────────────────
+# ⚠️ SCOPE CORRECTION, FOUND AFTER c36c585 AND LEFT HERE RATHER THAN QUIETLY REWRITTEN.
+#
+# c36c585 says "#10 extracts paint_flame_frame() ENTIRE". That is FALSE, and the evidence
+# was available the whole time in the harness's own comment at :156.
+#
+# The firmware preamble and the harness preamble are NOT two copies of one thing. They
+# differ BY DESIGN:
+#
+#     harness                       firmware (ember-satellite.yaml)
+#     st = g_va_state               st = id(va_state), coerced to 3 when
+#                                     audio_live && !chiming && (st==0||st==2)
+#     silenced = g_silenced         silenced = (st == 3) && id(op_mode) >= 1
+#     frames_mark injected          maintained via `static bool was_live`
+#
+# `g_silenced` is documented at :156 as "Mirrors the firmware's silenced" — a MIRROR, so
+# the harness can force states the firmware derives. That is correct design, not drift,
+# and it is why make_paste_block.py starts extracting at the HEARTH-WYRM marker and not at
+# the top of the function.
+#
+# So the shareable region is the PASTE BLOCK ONLY. Everything above the marker is
+# per-environment and always will be. A "pure move" of the whole painter would have to
+# unify two preambles that are deliberately different — which is not a move, it is a
+# redesign, and it would delete the harness's ability to force a state.
+#
+# The 14-field number stays useful as the full state surface, and the four scenarios it
+# drove out (hist-rotated, silenced, mid-speech) exercise painter paths that had never run
+# in any test — worth having regardless of whether #10 ever lands. But nobody should read
+# c36c585 as a plan for the move.
