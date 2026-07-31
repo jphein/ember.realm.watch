@@ -857,6 +857,11 @@ int main() {
       // be 1: the history is only read on the listening branch, so this scenario would
       // satisfy a coverage counter and still leave the numbers blind at any other state.
       {"hist-rotated", 1, false, false, -1},
+      // Same guard, the other two blind fields. Both MUST be st 3: `silenced` only
+      // reaches geometry through `if (silenced) jaw = 0` on the speaking jaw, and
+      // frames_mark only moves anything while a TTS estimate is running.
+      {"silenced",     3, true,  false, -1},
+      {"mid-speech",   3, true,  false, -1},
   };
 
   for (int c = 0; c < (int) (sizeof(cases) / sizeof(cases[0])); c++) {
@@ -866,7 +871,11 @@ int main() {
     g_audio_live = k.live;
     g_guttering = k.gut;
     g_tts_est_ms = k.live ? 4200 : 0;
-    g_frames_mark = 0;
+    g_silenced = (std::string(k.name) == "silenced");
+    // Non-zero for one scenario so the acceptance test can see this field at all: it is
+    // subtracted from `frames` to make spoken_ms, so at 0 everywhere a dropped
+    // marshalling of it is arithmetically invisible.
+    g_frames_mark = (std::string(k.name) == "mid-speech") ? 24000u : 0u;
     g_spark_col = (k.hit >= 0) ? (k.hit ? 30 : 5) : -1;
     const bool rot = (std::string(k.name) == "hist-rotated");
     g_hist_idx = rot ? 37 : 0;
