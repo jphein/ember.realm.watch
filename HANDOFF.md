@@ -253,16 +253,37 @@ to pay it on somebody's behalf.
       STL across three rebuilds. 0.48 mm was legible. **Next print is `ember-back-shell.stl`** (the
       fix), then optionally the stand and the never-printed `ember-stand-base.stl`.
 - [ ] **Debossed labels above the cutouts and on the buttons — requested by JP, NOT STARTED.**
-      Recessed only: the shell prints back-face-down, so raised text becomes the lowest feature and
-      the part balances on it. Depth **0.48 mm = 3 × `LAYER_H`**. Size the type from the **nozzle,
-      not from taste** — a stroke under ~0.90 mm does not resolve at 0.4 mm, and this repo already
-      fixes 0.90 as the floor (`assert _mf >= 0.90` on the wyrm mark). Plan: bold face at ~4.5 mm
-      cap height, then **measure the realised minimum stroke with the wyrm mark's own machinery and
-      assert it**, rather than trusting a stroke/height ratio.
-      > ⚠️ **`BTN_R_SMALL` is only 10.00 mm across flats.** `RESET` at a legible size will not fit,
-      > and shrinking it to fit goes under the 0.90 mm floor where it prints as mush — worse than
-      > no label. Likely a symbol or a two-character mark. **That is an aesthetic call on a face JP
-      > looks at, so it is JP's, not the model's.**
+      Deliberately not started rather than half-built: a label is on a **visible face**, and one
+      whose strokes fall under the nozzle floor prints as mush, which is worse than no label. The
+      survey below is done, so this is a short job once the one decision is made.
+
+      Recessed only — the shell prints back-face-down, so raised text becomes the lowest feature
+      and the part balances on it. Depth **0.48 mm = 3 × `LAYER_H`**, matching `BEZEL_DEBOSS`.
+
+      **Size the type from the nozzle, not from taste.** A stroke under ~0.90 mm will not resolve
+      at 0.4 mm, and this repo already fixes 0.90 as the floor (`assert _mf >= 0.90` on the wyrm
+      mark). `tools/minfeature.py` → `min_feature(mask, px)` is directly reusable and carries its
+      own control; it needs a rasterised mask, so the remaining work is a PIL render of the glyphs
+      at the same size the model cuts them, measured and **asserted** — *not* a stroke/height ratio.
+
+      **Where it goes, measured (board coords):**
+
+      | label | location | verdict |
+      |---|---|---|
+      | `SD` | left margin strip **x 0–9, y 19–75**, free, adjacent to the slit at y 44.20–57.86. Reads **along Y** (rotated 90°); 4.5 mm cap height uses 4.5 of the 9 mm width | ✅ **unblocked** |
+      | `VOL` | big cap face — **13.27 mm across flats**, needs ~9.45 mm. Pad left after 0.90 deboss + 0.48 label = **1.22 mm**, thicker than the 0.90 hinge | ✅ **unblocked** |
+      | USB-C | **no room.** The two button islands span y 0.28–16.32 and leave only 3.4 mm between them; the y 16.32–19 band is 2.7 mm tall. A USB-C port is also self-evident | ⏭️ skip |
+
+      > ⚠️ **THE ONE DECISION, AND IT IS JP'S — the small RESET cap.** Its face is **8.27 mm across
+      > flats**, so at the legible 4.5 mm cap height it holds **exactly two characters (~6.12 mm)**.
+      > `RST` needs 9.45 mm and **does not fit**, and shrinking it goes under the 0.90 mm floor.
+      > So: a **two-character mark**, a **symbol**, or **leave it blank**.
+      >
+      > There is a real argument for blank that is not laziness: `RESET` is the button you should
+      > *not* press — holding BOOT across a reset enters ROM download mode, which presents as a
+      > brick — and the caps are already differentiated by **size and deboss depth** on purpose.
+      > Labelling only the one you want may be better human factors than labelling both.
+      > **Aesthetic call on a face JP looks at, so not the model's to make.**
 - [ ] Button feel is the thing most likely to need a second print — but **the knob is
       `HINGE_L_BOOT` / `HINGE_L_RESET` (1.20 / 2.00), not `HINGE_T`.** Strain is `(t/2)·θ/L`
       with θ fixed by pip travel over the pip's lever arm, so thickening a hinge to firm it up
