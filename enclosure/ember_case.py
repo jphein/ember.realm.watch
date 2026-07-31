@@ -607,13 +607,28 @@ def cyl(x,y,z0,z1,d):
 # lands on its own logo. Same trap that killed the raised button caps on the back shell, in
 # the same session, on the opposite face — which is the tell that it is a property of the
 # process rather than a one-off mistake: on a bed face, relief only goes inward.
-BEZEL_DEBOSS = 3 * LAYER_H_BEZEL  # every debossed feature on the front face. EXACTLY 3 layers at
+BEZEL_DEBOSS = 5 * LAYER_H_BEZEL  # every debossed feature on the front face. EXACTLY 5 layers at
                       # 0.16mm PRINT-SHEET specifies for this part. It was 0.45, which is
                       # 2.8125 layers — the recess floor landed mid-layer and the comment
                       # claimed "3 layers at 0.15", a layer height this part does not use. Two
                       # reviewers flagged it independently. The slicer would have rounded it
                       # harmlessly, but a depth that is an exact multiple means the floor is a
                       # real layer boundary rather than wherever the rounding fell.
+                      # ⚠️ 3 LAYERS (0.48) DID NOT READ. JP printed that bezel and asked for the
+                      # wyrm, the side hexes and the bottom hex field all deeper (#34) — size
+                      # unchanged, `BEZ_AFLAT` 2.60 stays, and the issue's own title said
+                      # "bigger bottom hexes" before the body retracted it. Depth only, and
+                      # global, because every region moved together.
+                      # THE FLOOR THIS LEAVES IS MEASURED, NOT ASSUMED. Ray-cast on a 0.4mm grid
+                      # over the exported bezel at 0.48: 3899 of 3901 debossed sample points sat
+                      # on exactly 2.520mm of web = a full 3.00 slab minus the deboss, with NO
+                      # back-side thinning anywhere. The four screw pilots DO reach up into the
+                      # slab (to SEAM_Z+1.5, leaving only 1.50mm there) but every debossed region
+                      # is held off them — the hex field by a BOSS_D/2 + BEZ_MARGIN + R keepout,
+                      # the wyrm by starting at x = 4.0 + BOSS_D/2 + MARK_MARGIN. So the binding
+                      # number really is the nominal one: 5 layers leaves 2.20mm, clearing the
+                      # 2.00 assert below by 0.20. The shell already runs DEBOSS_BIG = 0.80 on a
+                      # 2.60 wall and keeps far less than this.
 BEZ_AFLAT    = 2.60   # hex across flats. Finer than the back's 3.20 — this face is read
                       # from arm's length, and the brow is only 13.69mm tall.
 BEZ_WEB      = 0.70   # material between cells. ⚠️ NOT "two extrusion widths at a 0.4mm
