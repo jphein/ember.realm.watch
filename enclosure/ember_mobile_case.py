@@ -128,8 +128,26 @@ COVER_CLR   = 1.60          # finger room past the moat before the step starts
 COVER_Y0    = CAP_KEEPOUT + COVER_CLR                               # 18.00
 
 # ---- and everything downstream of it, in one chain so nothing can drift ----
-BAY_Y0   = COVER_Y0 + COV_WALL                          # 20.20
-BAY_Y1   = BAY_Y0 + BAY_L                               # 96.30
+BAY_Y0   = COVER_Y0 + COV_WALL                          # 20.20 — where the cell's RIM bears
+# ---- REVERSE-INSERTION KEYING.  The datum moves 0.60 and the case gets SHORTER. ----
+#
+# A protected 18650's positive terminal is a raised button; its negative end is the flat can
+# face. Put the contact behind a small aperture and a reversed cell physically cannot touch it:
+# the flat end lands on the keying wall and the circuit is OPEN rather than reversed.
+#
+# ⚠️ THE FAILURE DIRECTION IS THE WHOLE DESIGN. KEY_WALL_T must be under the SHALLOWEST button
+# anyone might fit, or a correctly-inserted cell also fails to make contact -- the keying would
+# then be indistinguishable from a flat battery. So it is set to the smallest printable wall
+# (3 layers) rather than to anything derived from the button, and check 15 asserts the margin.
+BUTTON_D_MAX = 6.00     # positive button across brands, protected wraps included
+BUTTON_H_MIN = 0.80     # shallowest protrusion assumed. ASSUMPTION, stated: common 18650 data
+                        # gives 0.8-1.5mm; JP should sanity-check against the cells he buys.
+KEY_CLR      = 0.50
+KEY_D        = BUTTON_D_MAX + 2*KEY_CLR                 # 7.00 — passes a button, stops a can
+KEY_WALL_T   = 3 * LH                                   # 0.60, and 0.60 < BUTTON_H_MIN
+KEY_PLATE_T  = 4 * LH                                   # 0.80, a 0.30 stamped contact plus room
+CELL_TIP_Y   = BAY_Y0 - KEY_WALL_T                      # 19.60 — the button tip's datum
+BAY_Y1   = CELL_TIP_Y + BAY_L                           # 95.70 (0.60 shorter than before)
 MOB_OY1  = BAY_Y1 + COV_WALL                            # 98.50  <- the case's new top
 BROW_Y0  = OY1                                          # 88.95, where back_shell ends
 COVER_Z0 = BACK_Z - COV_WALL - CELL_BORE_D              # -31.50, the cover's outer face
@@ -391,6 +409,53 @@ CELL_CAPACITY_MAH = 3400.0      # a typical protected 18650
 # ---- negative-lead groove down the divider's cell-facing face ----
 WGROOVE_D, WGROOVE_Z = 1.00, 16 * LH                    # 3.20 -- layer-aligned like everything
 
+# ============================================================================
+# 5d. THE CELL-BAY FAILURE VENT.  A LABYRINTH FOLDED INSIDE A 2.20 WALL.
+# ============================================================================
+#
+# A Li-ion cell in a sealed plastic box is the one thing in this design that can hurt someone,
+# and "the compartment is not sealed to the board cavity" was too weak an answer. The bay now
+# has a DELIBERATE path to outside air, and the enclosure is not the restriction:
+#
+#   ASSUMPTION, STATED BECAUSE IT SETS THE TARGET: an 18650's positive cap carries 3-4 vent
+#   ports; taking 3 x d2.0mm gives ~9.42 mm2. That is general cell construction, not a
+#   datasheet I hold -- if JP has real numbers, VENT_N is the knob.
+#
+# ⚠️ AND IT MUST NOT BE A HOLE. A straight slot through the wall is a light and dust path into
+# the bay, and it is also the easy mistake to make while "adding a vent". So the path is folded
+# INSIDE the 2.20 wall: cut VENT_D from the inside at one Y, VENT_D from the outside at a
+# different Y, and let the two overlap in depth to leave a connecting band. Gas turns twice; a
+# straight line finds 0.80mm of skin. Check 16 probes for exactly that, with a control that
+# drills the wall through and proves the probe can see it.
+#
+#   band width = 2*VENT_D - COV_WALL = 0.60, which is SLOT_W -- this repo's proven void at a
+#   0.4 nozzle with gap-closing set to 0 (PRINT-SHEET). Not a number picked for the vent.
+#
+# Every cut runs its long axis along model Z, which is the PRINT Z once the cover is on its bed
+# face: these are vertical slots, self-supporting, with no bridge anywhere. That is why the vent
+# is in a side wall and not the floor.
+VENT_N     = 4
+VENT_W     = 2.00       # slot width in Y
+VENT_RIB   = 1.20       # material between a unit's inner and outer slot -- forces the turn
+VENT_GAP   = 1.60       # material between units
+VENT_PITCH = 2*VENT_W + VENT_RIB + VENT_GAP             # 6.80
+VENT_D     = 7 * LH                                     # 1.40 from each face
+VENT_BAND  = 2*VENT_D - COV_WALL                        # 0.60
+VENT_SKIN  = COV_WALL - VENT_D                          # 0.80 left standing at each face
+VENT_Y0    = 30.00                                      # clear of every retention feature
+CELL_PORTS_MM2 = 3 * math.pi * (2.0/2)**2               # 9.42, the assumption above
+
+def _vent_units():
+    """(inner slot y, outer slot y, band y) for each labyrinth unit."""
+    out = []
+    for i in range(VENT_N):
+        iy0 = VENT_Y0 + i*VENT_PITCH
+        oy0 = iy0 + VENT_W + VENT_RIB
+        out.append(((iy0, iy0+VENT_W), (oy0, oy0+VENT_W), (iy0, oy0+VENT_W)))
+    return out
+VENT_Z0 = CELL_AXIS_Z + 1.00                            # -18.50, above the cradle's tangent
+VENT_Z1 = BACK_Z - 1.80                                 # -11.50, below the mating plane
+
 
 # ============================================================================
 # 6. PARTS
@@ -551,10 +616,29 @@ def back_cover():
     p -= bx(CELL_X1 - WGROOVE_D, CELL_X1, BAY_Y0, BAY_Y1, BACK_Z - WGROOVE_Z, BACK_Z)
 
     # ---- CONTACT POCKETS ----
-    # positive: flat plate in the bay's low-Y end wall.  negative: spring seat, high-Y end.
-    p -= bx(CELL_AXIS_X - 6.0, CELL_AXIS_X + 6.0, BAY_Y0 - 5 * LH, BAY_Y0,
-            CELL_AXIS_Z - 6.0, CELL_AXIS_Z + 6.0)
+    # POSITIVE, KEYED: a plate pocket, then a keying wall with an aperture only a button fits
+    # through. Stack in -Y from the bay: KEY_WALL_T (0.60) + KEY_PLATE_T (0.80) + 0.80 of
+    # outer wall = 2.20 exactly, so the keying costs NO length -- it consumes wall that was
+    # already there, and moving the tip datum to CELL_TIP_Y makes the case 0.60 SHORTER.
+    p -= bx(CELL_AXIS_X - 6.0, CELL_AXIS_X + 6.0,
+            CELL_TIP_Y - KEY_PLATE_T, CELL_TIP_Y,
+            CELL_AXIS_Z - 6.0, CELL_AXIS_Z + 6.0)                       # plate pocket
+    p -= cyl_y(CELL_AXIS_X, CELL_AXIS_Z, KEY_D, CELL_TIP_Y, BAY_Y0)     # the keying aperture
+    # ...and a notch beside the aperture so the positive lead can leave the plate pocket into
+    # the bay. Deliberately OFFSET from the aperture and only 2.00 wide: a flat can pressed
+    # against the keying wall has nothing that protrudes past it, so the notch cannot become a
+    # second route to the contact. (The aperture spans x 5.55..12.55; this sits outboard of it.)
+    p -= bx(CELL_AXIS_X + 4.0, CELL_AXIS_X + 6.0, CELL_TIP_Y - KEY_PLATE_T, BAY_Y0,
+            CELL_AXIS_Z - 1.0, CELL_AXIS_Z + 1.0)
+    # NEGATIVE: spring seat, high-Y end.
     p -= cyl_y(CELL_AXIS_X, CELL_AXIS_Z, 9.00, BAY_Y1 - 5 * LH, BAY_Y1)
+
+    # ---- THE FAILURE VENT: VENT_N labyrinth units through the cell lane's -X wall ----
+    for (iy0, iy1), (oy0, oy1), (by0, by1) in _vent_units():
+        p -= bx(CELL_X0 - VENT_D, CELL_X0, iy0, iy1, VENT_Z0, VENT_Z1)      # in, from the bay
+        p -= bx(OX0, OX0 + VENT_D, oy0, oy1, VENT_Z0, VENT_Z1)              # out, to the air
+        p -= bx(OX0 + VENT_D - VENT_BAND, OX0 + VENT_D, by0, by1,
+                VENT_Z0, VENT_Z1)                                           # the connecting band
 
     # ---- GRILLE. E._hex_panel is the SAME lattice maths as the stand's _hex_field: pass
     # aflat = sqrt(3)*HEX_R and dx, dy and R all evaluate identically. It is reused rather
@@ -1091,6 +1175,92 @@ def _check_mobile(parts):
           f"cannot clear it inside a {RIM_Y1-RIM_Y0:.2f}mm cavity that must hold the SPK "
           f"relief. OCCLUDED BY CONSTRUCTION (docs/enclosure.md:161 says as much for any "
           f"closed back cover). The 2.8in display is the battery indicator.")
+
+    # ---- 15. REVERSE-INSERTION KEYING.  Measured on phantoms, not argued from diameters. ----
+    assert KEY_WALL_T < BUTTON_H_MIN, (
+        f"the keying wall is {KEY_WALL_T} but the shallowest button assumed is {BUTTON_H_MIN} -- "
+        f"a correctly inserted cell would ALSO fail to reach the contact, and a keyed bay that "
+        f"rejects the right cell is worse than no keying at all")
+    assert KEY_D >= BUTTON_D_MAX + 2*0.25 and KEY_D + 4.0 < CELL_D_MAX, (
+        f"the d{KEY_D} aperture must clear a d{BUTTON_D_MAX} button and still be far under the "
+        f"d{CELL_D_MAX} can it has to stop")
+    # THE PROPERTY, BOTH WAYS. A reversed cell is a flat CELL_D_MAX face: pushed to the plate
+    # plane it must COLLIDE with the keying wall...
+    _rev = cyl_y(CELL_AXIS_X, CELL_AXIS_Z - CELL_BORE_CLR, CELL_D_MAX,
+                 CELL_TIP_Y, CELL_TIP_Y + 10.0)
+    _rv = (cov & _rev).volume
+    assert _rv > 1.0, (
+        f"a reversed cell reaches the contact plane with only {_rv:.2f} mm3 of interference -- "
+        f"the keying wall is not stopping it and the cell can be inserted backwards onto the "
+        f"contact")
+    # ...while the BUTTON, at the same plane, must pass cleanly through the aperture.
+    _btn = cyl_y(CELL_AXIS_X, CELL_AXIS_Z - CELL_BORE_CLR, BUTTON_D_MAX,
+                 CELL_TIP_Y, CELL_TIP_Y + KEY_WALL_T + 0.40)
+    _bv = (cov & _btn).volume
+    assert _bv < 0.5, (
+        f"the positive button fouls the keying aperture by {_bv:.2f} mm3 -- a correctly "
+        f"inserted cell cannot reach its contact either")
+    print(f"  [keying]  d{KEY_D} aperture: reversed d{CELL_D_MAX} can blocked ({_rv:.1f} mm3 "
+          f"interference), d{BUTTON_D_MAX} button passes ({_bv:.2f} mm3); wall {KEY_WALL_T:.2f} vs "
+          f"shallowest assumed button {BUTTON_H_MIN} (margin {BUTTON_H_MIN-KEY_WALL_T:.2f})")
+    print(f"             ⚠️ keying admits BUTTON-TOP cells only. Protected cells are button-top, "
+          f"so this enforces the protection policy mechanically; FLAT-TOP cells (always bare, "
+          f"always unprotected) cannot make contact at all. That is the intended exclusion.")
+
+    # ---- 16. THE FAILURE VENT: throat area, AND no line of sight. ----
+    #
+    # Two properties, and each is silent without the other: a vent big enough to be useful that
+    # is a straight hole, or a proper labyrinth so tight nothing flows.
+    # ⚠️ THE PROBE IS CLAMPED TO THE WALL, AND THE FIRST VERSION WAS NOT. Spanning
+    # OX0-0.5 .. CELL_X0+0.5 swept in 0.50mm of air OUTSIDE the part and 0.50mm of BAY INTERIOR
+    # either side of a 2.20 wall: 4.50 + 4.50 mm2 of free space per unit on top of the 4.20 that
+    # is actually the vent. It reported 52.80 where the truth is 16.80 -- and worse, with the
+    # band deleted entirely it would still have read 36.00 and passed. AN ASSERT THAT CANNOT
+    # FAIL. It only surfaced because the measured number beat the analytic one by 3x and that
+    # is a defect signal, not a win.
+    _throat = 0.0
+    for (iy0, iy1), (oy0, oy1), _b in _vent_units():
+        _yr = (iy1 + oy0) / 2.0          # the rib: the one Y where only the band is open
+        _pr = bx(OX0, CELL_X0, _yr - 0.01, _yr + 0.01, VENT_Z0 - 1, VENT_Z1 + 1)
+        _throat += (_pr - cov).volume / 0.02
+    # CONTROL, in the direction the old probe could not go: between two units the wall is solid
+    # and the same measurement must read ~0. Without this, "the wall is open" and "the probe is
+    # measuring fresh air" are the same number.
+    _solid_y = VENT_Y0 + 2*VENT_W + VENT_RIB + VENT_GAP/2
+    _spr = bx(OX0, CELL_X0, _solid_y - 0.01, _solid_y + 0.01, VENT_Z0 - 1, VENT_Z1 + 1)
+    _sopen = (_spr - cov).volume / 0.02
+    assert _sopen < 0.5, (
+        f"control failed: the wall between two vent units measures {_sopen:.2f} mm2 open, so "
+        f"the throat probe is counting something other than the vent")
+    assert _throat >= CELL_PORTS_MM2, (
+        f"the vent throat is {_throat:.2f} mm2 against an assumed {CELL_PORTS_MM2:.2f} mm2 of "
+        f"cell vent port -- the ENCLOSURE is the restriction, which is the one thing it must "
+        f"not be")
+    # >>> AND NO STRAIGHT PATH.  At each OUTER slot's Y the wall must still be obstructed. <<<
+    _los_min = 1.0
+    for _i, (_ii, (oy0, oy1), _b) in enumerate(_vent_units()):
+        _pr = bx(OX0, CELL_X0, (oy0+oy1)/2 - 0.01, (oy0+oy1)/2 + 0.01,
+                 VENT_Z0 + 0.5, VENT_Z1 - 0.5)
+        _los_min = min(_los_min, (cov & _pr).volume / _pr.volume)
+    assert _los_min > 0.25, (
+        f"a straight line through the wall at a vent's outer slot finds only "
+        f"{100*_los_min:.1f}% material -- the labyrinth has become a hole, and it is a light "
+        f"and dust path straight into the cell bay")
+    # CONTROL: drill one unit through and prove the probe actually detects it.
+    (_ci, (_co0, _co1), _cb) = _vent_units()[0]
+    _drilled = cov - bx(OX0 - 1, CELL_X0 + 1, _co0, _co1, VENT_Z0, VENT_Z1)
+    _cpr = bx(OX0, CELL_X0, (_co0+_co1)/2 - 0.01, (_co0+_co1)/2 + 0.01,
+              VENT_Z0 + 0.5, VENT_Z1 - 0.5)
+    _cfr = (_drilled & _cpr).volume / _cpr.volume
+    assert _cfr < 0.05, (
+        f"control failed: a wall deliberately drilled through still reads {100*_cfr:.1f}% "
+        f"material, so the line-of-sight probe cannot detect a straight hole")
+    print(f"  [vent]    {VENT_N} labyrinth units, throat {_throat:.2f} mm2 vs an assumed "
+          f"{CELL_PORTS_MM2:.2f} mm2 of cell port ({_throat/CELL_PORTS_MM2:.2f}x); "
+          f"band {VENT_BAND:.2f} x {VENT_Z1-VENT_Z0:.2f}, skin {VENT_SKIN:.2f} each face")
+    print(f"             control: solid wall between units {_sopen:.2f} mm2 open (must be ~0)")
+    print(f"             line of sight: worst outer slot is {100*_los_min:.0f}% obstructed; "
+          f"control on a drilled wall {100*_cfr:.1f}% (must be ~0)")
 
     # ---- 12. BED-FACE RULE: nothing proud of min Z on the cover ----
     # ember_case.py:2771 records this defect on BOTH shell parts in one session, on opposite
