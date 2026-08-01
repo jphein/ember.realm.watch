@@ -1,0 +1,15 @@
+{
+ "conversation_engine": "conversation.extended_openai_conversation_2",
+ "conversation_language": "en",
+ "language": "en",
+ "name": "familiar-ember",
+ "stt_engine": "stt.vosk",
+ "stt_language": "en",
+ "tts_engine": "tts.piper",
+ "tts_language": "en_GB",
+ "tts_voice": "en_GB-cori-medium",
+ "wake_word_entity": "wake_word.openwakeword",
+ "wake_word_id": "donk_ee",
+ "prefer_local_intents": true,
+ "id": "01kyqxx0e1rt0y7echpwxdvs3j"
+}

@@ -76,6 +76,28 @@ substitutions:
   # is a switch and why `listening` deliberately isn't one.
   chime_on_thinking: "0"
 
+  # ---- wake word ("don-kee"), SERVER-SIDE via HA openWakeWord ----
+  # 0 = off, touch-only (the shipped behaviour). 1 = arm continuous listening.
+  #
+  # DEFAULT 0 ON PURPOSE. Flipping this to 1 changes what the device does when
+  # nobody is touching it: it opens the mic and streams 16 kHz audio to HA forever.
+  # That is a privacy and airtime change, not just a feature flag, so it ships off
+  # and JP turns it on deliberately. Everything below is inert while this is 0.
+  #
+  # WHY SERVER-SIDE and not micro_wake_word: the only "don-kee" artifact that still
+  # exists is an openWakeWord model — verified by its tensor signature, input
+  # [1,16,96] float32, which is the openWakeWord classifier head that consumes the
+  # shared melspectrogram+embedding frontend. microWakeWord models are int8 and
+  # self-contained, and ESPHome implements only that second frontend. The two are
+  # NOT interconvertible: going on-device requires RETRAINING from audio samples,
+  # not a format conversion. See docs/wake-word.md for the provenance and the hash.
+  #
+  # ⚠️ This is the opposite of what the forward-compatibility note further down
+  # (search "FORWARD COMPATIBILITY") anticipated. That note assumed micro_wake_word
+  # would land one day; it still may, if the model is ever retrained. Until then the
+  # wake word lives in Home Assistant and the device is just a microphone for it.
+  wake_word_enabled: "0"
+
   # How long the touch spark takes to settle, ms. Long enough to read as a flare
   # rather than a flicker; short enough that it is gone before the pipeline answers.
   spark_ms_len: "500"
@@ -768,6 +790,16 @@ logger:
 api:
   encryption:
     key: !secret api_key
+  # Wake word can only be armed once HA is actually on the other end: arming is
+  # `voice_assistant.start_continuous`, which sends a pipeline-start request over
+  # this connection. Arming in on_boot would race the WiFi/API handshake and lose.
+  #
+  # This fires for ANY api client (the esphome CLI and the OTA dashboard included),
+  # not just HA. That is harmless — wake_word_arm is `mode: restart` and no-ops when
+  # the assistant is already running — but it is why the arm lives in a guarded
+  # script rather than being inlined here.
+  on_client_connected:
+    - script.execute: wake_word_arm
 
 ota:
   - platform: esphome
@@ -1613,6 +1645,41 @@ binary_sensor:
 #                  on every push-to-talk, which is why it is a follow-up and a
 #                  judgement call rather than something shipped silently.
 script:
+  # ---- ARM THE SERVER-SIDE WAKE WORD ("don-kee") ----
+  #
+  # Inert unless ${wake_word_enabled} is 1. See the substitution for why it ships 0.
+  #
+  # THE ONE NON-OBVIOUS THING, and the reason this is not simply `use_wake_word: true`
+  # on the voice_assistant block: `use_wake_word` is not a mode, it is a flag stamped
+  # onto EVERY pipeline-start request. voice_assistant.cpp:336 reads
+  #
+  #     if (!this->continue_conversation_ && this->use_wake_word_)
+  #         flags |= VOICE_ASSISTANT_REQUEST_USE_WAKE_WORD;
+  #
+  # with no test for whether this particular start was continuous or touch-initiated.
+  # So leaving the flag permanently true would make a TAP start at the wake-word stage
+  # too: you would press the glass and then still have to say "don-kee" before Ember
+  # heard you. That is a silent regression of the primary interaction, and it would
+  # not show up in `esphome config` — only on the device, under a finger.
+  #
+  # Hence the flag is owned here and toggled around every conversation: true only for
+  # the idle continuous listen, false for the duration of a real conversation. The
+  # touch path clears it (see talk_begin) and on_end/on_error re-arm by calling this.
+  - id: wake_word_arm
+    mode: restart
+    then:
+      - if:
+          condition:
+            and:
+              - lambda: 'return ${wake_word_enabled} != 0;'
+              # Do not stomp a conversation in flight. on_end re-arms, so a tap that
+              # lands while armed is not lost — it just re-arms a moment later.
+              - not:
+                  voice_assistant.is_running:
+          then:
+            - lambda: 'id(va).set_use_wake_word(true);'
+            - voice_assistant.start_continuous:
+
   # ---- IS THE CODEC WHERE HA THINKS IT IS? ----
   #
   # ONE READER, TWO CALLERS: the boot trigger 25s in, and a 60s interval. It exists as a
@@ -2050,6 +2117,45 @@ script:
             # said while the script sat there with zero callers. Reverting is not
             # available: a deadline would fight the recomputation. See the note at the
             # script's old site.
+            #
+            # ---- WAKE-WORD HAND-OFF (no-op unless ${wake_word_enabled} is 1) ----
+            #
+            # When the wake word is armed the assistant is ALREADY RUNNING — it is
+            # sitting in a continuous listen waiting for "don-kee". That breaks the
+            # tap in a way that is invisible in config and silent on device, because
+            # voice_assistant.cpp:682 guards the whole of request_start with
+            #
+            #     if (this->state_ == State::IDLE) { ... }
+            #
+            # and does nothing at all otherwise. So `voice_assistant.start` below
+            # would be DROPPED ON THE FLOOR for every tap while armed: no error, no
+            # log, just a screen that never starts listening. The stop is not
+            # politeness, it is what makes the tap work.
+            #
+            # Clearing use_wake_word first is the other half: the flag is stamped on
+            # every start request (see wake_word_arm), so leaving it true would make
+            # this tap-initiated pipeline start at the wake-word stage and demand the
+            # phrase anyway. Cleared here, restored by on_end/on_error.
+            #
+            # The wait is bounded because request_stop() walks the state machine down
+            # through STOP_MICROPHONE rather than jumping to IDLE, so IDLE arrives a
+            # few loops later. 1s is a ceiling, not a delay — the common case exits
+            # in a couple of ms. If it ever times out the start below still runs and
+            # simply no-ops, which is the same failure we have today, not a worse one.
+            #
+            # ALL OF THIS IS SKIPPED when the wake word is off: the assistant is idle,
+            # is_running() is false, and the tap path is byte-for-byte what it was.
+            - lambda: 'id(va).set_use_wake_word(false);'
+            - if:
+                condition:
+                  voice_assistant.is_running:
+                then:
+                  - voice_assistant.stop:
+                  - wait_until:
+                      condition:
+                        not:
+                          voice_assistant.is_running:
+                      timeout: 1s
             - voice_assistant.start:
 
   - id: ui_dispatch
@@ -5275,6 +5381,19 @@ voice_assistant:
         then:
           - script.execute: { id: chime, which: 0 }
 
+    # Re-arm the wake word (no-op unless ${wake_word_enabled} is 1). The touch path
+    # cleared use_wake_word and stopped the continuous listen to get the mic; this is
+    # where both come back. Without it the wake word works exactly ONCE per boot and
+    # then dies the first time anyone taps the glass — the sort of bug that reads as
+    # "it's flaky" for a week.
+    #
+    # Safe on the announcement path too: on_end fires for announcements BEFORE the
+    # audio plays (see the chime note above), and wake_word_arm re-arms into a
+    # continuous listen while the speaker is busy. That is fine — the assistant is
+    # IDLE at that moment by definition (on_end ran), and the mic and the DAC are
+    # separate hand-offs.
+    - script.execute: wake_word_arm
+
   on_error:
     - lambda: |-
         id(va_state) = 4;
@@ -5285,6 +5404,10 @@ voice_assistant:
         id(said_text) = code + " / " + message;
         id(scroll_gen)++;
     - script.execute: { id: chime, which: 1 }
+    # Re-arm here as well as in on_end. An errored conversation does NOT always reach
+    # on_end, so without this a single pipeline error (HA restarting, STT timing out)
+    # would leave the device deaf until the next tap or reconnect.
+    - script.execute: wake_word_arm
 
   # Wiring ANY on_timer_* sets has_timers_ -> FEATURE_TIMERS (voice_assistant.h:164),
   # which is what makes HA Assist timers work on this satellite. Only `finished` is
