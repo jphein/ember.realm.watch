@@ -92,19 +92,38 @@ COV_WALL = 11 * LH                                      # 2.20
 # the board provides ANY over-discharge / over-charge protection. If it does not, a protected
 # cell is MANDATORY -- which is exactly why this bay costs 9.55mm of case length rather than
 # being sized to 65.20 and saving it.
-CELL_D_MAX      = 19.00     # protected cell with its sleeve. Unprotected nominal is 18.60.
+#
+# >>> 2026-08-01 REVERSAL (JP): "no, I only use bare cells, no protected tops." <<<
+#
+# BARE FLAT-TOP 18650 IS NOW THE ONLY CELL CLASS. Everything below is re-primaried to it, and
+# two things that were true yesterday are now false:
+#
+#   * the 71.00 allowance existed solely for a protection PCB and its re-wrap. Gone -> the bay
+#     drops 6.50 and the case drops 5.90.
+#   * THE BUTTON KEYING IS VOID AND HAS BEEN REMOVED. A flat-top positive is the plain can face;
+#     it cannot reach a contact recessed behind an aperture, so the keyed cover would have
+#     rejected the only cells JP owns. There is NO mechanical keying available for flat-tops --
+#     both ends are geometrically identical. Reverse protection is now MARKINGS ONLY. See §"MARK".
+CELL_D_MAX      = 18.80     # bare flat-top can incl. wrap; bare stock is 18.4-18.6
 CELL_BORE_CLR   = 0.30      # per side, hand-drop fit for a cylinder
-CELL_BORE_D     = CELL_D_MAX + 2*CELL_BORE_CLR          # 19.60
-CELL_L_MIN      = 65.20     # unprotected
-CELL_L_MAX      = 71.00     # protected, worst case
+CELL_BORE_D     = CELL_D_MAX + 2*CELL_BORE_CLR          # 19.40 = 97 layers, and the cover
+                                                        # depth below must stay layer-whole
+CELL_L_NOM      = 65.20     # bare 18650
+CELL_L_TOL      = 0.30      # manufacturing spread, bare stock
+CELL_L_MIN      = CELL_L_NOM - CELL_L_TOL               # 64.90
+CELL_L_MAX      = CELL_L_NOM + CELL_L_TOL               # 65.50
 CELL_L_CLR      = 0.60      # end float
 # SPRING: a generic AA/18650-holder compression spring. Only three numbers matter and all
 # three are asserted, because the requirement is a RANGE and a spring that suits the cell on
 # the bench is precisely the kind of check docs/verification.md distrusts.
-SPRING_SOLID    = 3.50      # coil-bound height
-SPRING_FREE     = 12.00     # free length
+# The spring no longer spans a 5.80mm CELL CLASS difference -- only the 0.60mm manufacturing
+# spread of one class. So it shrinks with the bay: travel must merely exceed CELL_L_TOL*2, and
+# what actually sizes it is keeping preload at the SHORTEST cell without coil-binding on the
+# LONGEST. Both directions asserted, both with controls.
+SPRING_SOLID    = 2.50      # coil-bound height
+SPRING_FREE     = 7.00      # free length -> 4.50 of travel against 0.60 of cell spread
 SPRING_MARGIN   = 1.00      # how far off coil-bound the LONGEST cell must still leave it
-BAY_L           = CELL_L_MAX + CELL_L_CLR + SPRING_SOLID + SPRING_MARGIN     # 76.10
+BAY_L           = CELL_L_MAX + CELL_L_CLR + SPRING_SOLID + SPRING_MARGIN     # 69.60
 
 # ============================================================================
 # 4. WHERE THE COVER STOPS, AND WHY THAT IS A REACHABILITY DECISION
@@ -128,26 +147,39 @@ COVER_CLR   = 1.60          # finger room past the moat before the step starts
 COVER_Y0    = CAP_KEEPOUT + COVER_CLR                               # 18.00
 
 # ---- and everything downstream of it, in one chain so nothing can drift ----
-BAY_Y0   = COVER_Y0 + COV_WALL                          # 20.20 — where the cell's RIM bears
-# ---- REVERSE-INSERTION KEYING.  The datum moves 0.60 and the case gets SHORTER. ----
+BAY_Y0   = COVER_Y0 + COV_WALL                          # 20.20 — the cell's flat +ve face bears
+# ---- KEYING REMOVED.  There is none available, and saying so is the deliverable. ----
 #
-# A protected 18650's positive terminal is a raised button; its negative end is the flat can
-# face. Put the contact behind a small aperture and a reversed cell physically cannot touch it:
-# the flat end lands on the keying wall and the circuit is OPEN rather than reversed.
+# The previous revision recessed the +ve contact behind a d7.00 aperture so a reversed cell's
+# flat end could not reach it. That worked ONLY because a protected cell's positive is a raised
+# button. On a bare flat-top BOTH ENDS ARE GEOMETRICALLY IDENTICAL: any aperture that stops a
+# reversed cell stops a correct one too, and any opening that admits a correct one admits a
+# reversed one. It is not a case of finding a cleverer shape -- the information is not present
+# in the geometry.
 #
-# ⚠️ THE FAILURE DIRECTION IS THE WHOLE DESIGN. KEY_WALL_T must be under the SHALLOWEST button
-# anyone might fit, or a correctly-inserted cell also fails to make contact -- the keying would
-# then be indistinguishable from a flat battery. So it is set to the smallest printable wall
-# (3 layers) rather than to anything derived from the button, and check 15 asserts the margin.
-BUTTON_D_MAX = 6.00     # positive button across brands, protected wraps included
-BUTTON_H_MIN = 0.80     # shallowest protrusion assumed. ASSUMPTION, stated: common 18650 data
-                        # gives 0.8-1.5mm; JP should sanity-check against the cells he buys.
-KEY_CLR      = 0.50
-KEY_D        = BUTTON_D_MAX + 2*KEY_CLR                 # 7.00 — passes a button, stops a can
-KEY_WALL_T   = 3 * LH                                   # 0.60, and 0.60 < BUTTON_H_MIN
+# >>> SO REVERSE-INSERTION PROTECTION IS NOW MARKINGS ONLY, AND THAT IS AN ELECTRICAL GAP. <<<
+#
+# The contact plate therefore sits FLUSH with the bay again and the tip datum is BAY_Y0.
 KEY_PLATE_T  = 4 * LH                                   # 0.80, a 0.30 stamped contact plus room
-CELL_TIP_Y   = BAY_Y0 - KEY_WALL_T                      # 19.60 — the button tip's datum
-BAY_Y1   = CELL_TIP_Y + BAY_L                           # 95.70 (0.60 shorter than before)
+CELL_TIP_Y   = BAY_Y0                                   # flat face, no recess, no offset
+BAY_Y1   = CELL_TIP_Y + BAY_L                           # 89.80
+
+# ---- POLARITY MARKINGS.  The only reverse-insertion measure left. ----
+#
+# "+" on the low-Y end wall, "-" on the high-Y end wall, both facing INTO the bore so they are
+# read at the moment the cell goes in. Groove width is the repo's LABEL_W floor.
+#
+# ⚠️ min_gap IS VACUOUS ON THESE TWO GLYPHS AND MUST NOT BE USED AS THEIR PROOF. I ran it:
+# "+" returns (inf, 0 pairs) because its two strokes CROSS, so _touch() excludes the only pair
+# there is; "-" returns (inf, 0 pairs) because one stroke has no pair at all. Asserting
+# `min_gap >= LABEL_W` would pass on `inf` for any glyph of this shape, including a broken one.
+# That is this repo's own recurring defect -- an invariant insensitive to the failure it names.
+# Check 15 measures the DEBOSSED VOLUME on the finished solid instead, which can fail.
+MARK_H       = 14 * LH                                  # 2.80 stroke-to-stroke, layer-whole
+MARK_DEPTH   = 3 * LH                                   # 0.60
+MARK_PATHS_P = [[(-MARK_H/2, 0.0), (MARK_H/2, 0.0)], [(0.0, -MARK_H/2), (0.0, MARK_H/2)]]
+MARK_PATHS_N = [[(-MARK_H/2, 0.0), (MARK_H/2, 0.0)]]
+MARK_INK     = MARK_H + E.LABEL_W                       # 3.70 overall ink extent
 MOB_OY1  = BAY_Y1 + COV_WALL                            # 98.50  <- the case's new top
 BROW_Y0  = OY1                                          # 88.95, where back_shell ends
 COVER_Z0 = BACK_Z - COV_WALL - CELL_BORE_D              # -31.50, the cover's outer face
@@ -295,19 +327,33 @@ GRILLE_MIN_W  = 1.20
 # the board's BAT as load-only, or (b) a "never both at once" usage rule. Picking between them
 # is JP's call -- see the issue. This file provides the pocket, the aperture and the warning.
 TP_W, TP_L, TP_H = 26.00, 17.00, 4.00      # generic TP4056 module: X x Y x Z, lying flat
-TP_CLR        = 0.40
-TP_RIB_W      = 1.60
-TP_RIB_H      = 6 * LH                     # 1.20
-TP_KNOCKOUT   = 2 * LH                     # 0.40 -- one perimeter at a 0.40 nozzle, by design
-TP_PORT_W     = 9.00                       # USB micro/C shell plus clearance
-TP_PORT_H     = 4.00
-TP_PORT_Z0    = 1.00                       # above the module's own seating plane
-TP_CX         = (RIM_X0 + RIM_X1) / 2      # 35.80, centred in the free upper compartment
-TP_Y1         = BAY_Y1 - 0.60              # module's port end, just inside the top wall
+# ---- AND A PROTECTION STRIP, WHICH IS WHAT THE POCKET NOW HOLDS ----
+#
+# >>> RE-PRIMARYING TO BARE CELLS SHRANK THE FREE COMPARTMENT PAST WHAT A TP4056 NEEDS. <<<
+#
+# The free region above the seal rim is RIM_Y1+RIM_WALL .. BAY_Y1 = 13.40mm of Y, and a TP4056
+# is 17.00 in its short axis -- it does not fit in EITHER orientation (26.00 in the other).
+# Check 13 measures that rather than asserting it in prose. Getting it back costs the entire
+# 5.90mm the bare-cell re-primary just saved, because the rim cannot move: RIM_INNER_Y is set
+# by the driver's 41.20 tape pad. THAT IS A TRADE FOR JP, NOT A CALL FOR ME -- and with bare
+# cells the missing protection is the sharper of the two gaps, so the pocket is sized for a
+# protection strip by default and the issue states the price of the alternative.
+PROT_W, PROT_L, PROT_H = 16.00, 7.00, 2.00              # typical inline strip: X x Y x Z
+PROT_CLR      = 0.40
+PROT_RIB_W    = 1.60
+PROT_RIB_H    = 6 * LH                                  # 1.20
+PROT_CX       = (RIM_X0 + RIM_X1) / 2                   # 35.80
+PROT_Y1       = BAY_Y1 - 1.00
+
+def prot_phantom():
+    """The optional protection strip, so its fit is measured rather than asserted in words."""
+    return bx(PROT_CX - PROT_W/2, PROT_CX + PROT_W/2, PROT_Y1 - PROT_L, PROT_Y1,
+              CAV_Z0, CAV_Z0 + PROT_H)
 
 def tp4056_phantom():
-    """The optional module as a solid, so its fit is measured rather than asserted in words."""
-    return bx(TP_CX - TP_W/2, TP_CX + TP_W/2, TP_Y1 - TP_L, TP_Y1, CAV_Z0, CAV_Z0 + TP_H)
+    """The module that NO LONGER FITS. Kept so check 13 can prove that, not just claim it."""
+    return bx(PROT_CX - TP_W/2, PROT_CX + TP_W/2, BAY_Y1 - 1.00 - TP_L, BAY_Y1 - 1.00,
+              CAV_Z0, CAV_Z0 + TP_H)
 HOOK_A_Y0     = COVER_Y0 + 0.60                         # 18.60, clear of BOOT's moat by 2.20
 HOOK_B_Y0     = COVER_Y0 + 1.60                         # 19.60, in the retention strip
 def _hook_ys(y0):
@@ -703,20 +749,24 @@ def back_cover():
     p -= bx(CELL_X1 - WGROOVE_D, CELL_X1, BAY_Y0, BAY_Y1, BACK_Z - WGROOVE_Z, BACK_Z)
 
     # ---- CONTACT POCKETS ----
-    # POSITIVE, KEYED: a plate pocket, then a keying wall with an aperture only a button fits
-    # through. Stack in -Y from the bay: KEY_WALL_T (0.60) + KEY_PLATE_T (0.80) + 0.80 of
-    # outer wall = 2.20 exactly, so the keying costs NO length -- it consumes wall that was
-    # already there, and moving the tip datum to CELL_TIP_Y makes the case 0.60 SHORTER.
-    p -= bx(CELL_AXIS_X - 6.0, CELL_AXIS_X + 6.0,
+    # POSITIVE, FLUSH: a bare flat-top's +ve face is the plain can end, so the plate must be
+    # reachable by a flat surface. Pocket shrunk 12 -> 10 square, which is still ample for a
+    # stamped contact and frees 1.00 of end-wall face above it for the "+" marking.
+    _PP = 5.0
+    p -= bx(CELL_AXIS_X - _PP, CELL_AXIS_X + _PP,
             CELL_TIP_Y - KEY_PLATE_T, CELL_TIP_Y,
-            CELL_AXIS_Z - 6.0, CELL_AXIS_Z + 6.0)                       # plate pocket
-    p -= cyl_y(CELL_AXIS_X, CELL_AXIS_Z, KEY_D, CELL_TIP_Y, BAY_Y0)     # the keying aperture
-    # ...and a notch beside the aperture so the positive lead can leave the plate pocket into
-    # the bay. Deliberately OFFSET from the aperture and only 2.00 wide: a flat can pressed
-    # against the keying wall has nothing that protrudes past it, so the notch cannot become a
-    # second route to the contact. (The aperture spans x 5.55..12.55; this sits outboard of it.)
-    p -= bx(CELL_AXIS_X + 4.0, CELL_AXIS_X + 6.0, CELL_TIP_Y - KEY_PLATE_T, BAY_Y0,
-            CELL_AXIS_Z - 1.0, CELL_AXIS_Z + 1.0)
+            CELL_AXIS_Z - _PP, CELL_AXIS_Z + _PP)                       # plate pocket, flush
+
+    # ---- POLARITY MARKINGS, debossed into the two end walls, facing into the bore ----
+    # Rot(-90,0,0) sends sketch +v to world -Z; both glyphs are vertically symmetric so the
+    # flip is harmless here — noted because it is NOT harmless for lettering.
+    _mz = _mz_check()                                                   # centred in the free
+    _sk_p = E._label_sketch(MARK_PATHS_P, E.LABEL_W)                    # face above the pocket
+    _sk_n = E._label_sketch(MARK_PATHS_N, E.LABEL_W)
+    p -= Pos(CELL_AXIS_X, BAY_Y0 - MARK_DEPTH, _mz) * (
+        Rot(-90, 0, 0) * extrude(_sk_p, MARK_DEPTH))
+    p -= Pos(CELL_AXIS_X, BAY_Y1, _mz) * (
+        Rot(-90, 0, 0) * extrude(_sk_n, MARK_DEPTH))
     # NEGATIVE: spring seat, high-Y end.
     p -= cyl_y(CELL_AXIS_X, CELL_AXIS_Z, 9.00, BAY_Y1 - 5 * LH, BAY_Y1)
 
@@ -794,19 +844,16 @@ def back_cover():
     p -= cyl(SCREW_XY[0], SCREW_XY[1], COVER_Z0 - 1, BACK_Z + 1, SCREW_D)
     p -= cyl(SCREW_XY[0], SCREW_XY[1], COVER_Z0 - 1, COVER_Z0 + CBORE_DEPTH, CBORE_D)
 
-    # ---- TP4056 FAST-CHARGE POCKET: three locating ribs on floor that was already empty,
-    # plus a port aperture cut from the INSIDE only, leaving a knock-out membrane.
-    _tx0, _tx1 = TP_CX - TP_W/2 - TP_CLR, TP_CX + TP_W/2 + TP_CLR
-    _ty0, _ty1 = TP_Y1 - TP_L - 2*TP_CLR, TP_Y1
-    for _r in (bx(_tx0 - TP_RIB_W, _tx0, _ty0, _ty1, CAV_Z0, CAV_Z0 + TP_RIB_H),
-               bx(_tx1, _tx1 + TP_RIB_W, _ty0, _ty1, CAV_Z0, CAV_Z0 + TP_RIB_H),
-               bx(_tx0 - TP_RIB_W, _tx1 + TP_RIB_W, _ty0 - TP_RIB_W, _ty0,
-                  CAV_Z0, CAV_Z0 + TP_RIB_H)):
+    # ---- PROTECTION-STRIP POCKET: three locating ribs on floor that was already empty ----
+    # Same idiom as the TP4056 pocket it replaces, and for the same "costs nothing when empty"
+    # reason. See the PROT_ block for why the TP4056 no longer fits.
+    _tx0, _tx1 = PROT_CX - PROT_W/2 - PROT_CLR, PROT_CX + PROT_W/2 + PROT_CLR
+    _ty0, _ty1 = PROT_Y1 - PROT_L - 2*PROT_CLR, PROT_Y1
+    for _r in (bx(_tx0 - PROT_RIB_W, _tx0, _ty0, _ty1, CAV_Z0, CAV_Z0 + PROT_RIB_H),
+               bx(_tx1, _tx1 + PROT_RIB_W, _ty0, _ty1, CAV_Z0, CAV_Z0 + PROT_RIB_H),
+               bx(_tx0 - PROT_RIB_W, _tx1 + PROT_RIB_W, _ty0 - PROT_RIB_W, _ty0,
+                  CAV_Z0, CAV_Z0 + PROT_RIB_H)):
         p += _r
-    # the port, from the inner face of the top wall, stopping TP_KNOCKOUT short of the outside
-    p -= bx(TP_CX - TP_PORT_W/2, TP_CX + TP_PORT_W/2,
-            BAY_Y1 - 0.01, MOB_OY1 - TP_KNOCKOUT,
-            CAV_Z0 + TP_PORT_Z0, CAV_Z0 + TP_PORT_Z0 + TP_PORT_H)
 
     # ---- HOOKS: an L standing proud of the mating plane. Vertical leg drops into the entry
     # recess, barb slides +Y under the lip. Proud of BACK_Z is fine -- that is the cover's TOP
@@ -854,6 +901,12 @@ def _lerr(depth, lh):
 
 def _rrect_area(w, h, r):
     return w * h - (4 - math.pi) * r * r
+
+
+def _mz_check():
+    """Z the polarity markings are centred on. ONE derivation, shared by the geometry and the
+    check — the plate pocket's half-size is the only input and it must not be typed twice."""
+    return (CELL_AXIS_Z + 5.0 + BACK_Z) / 2
 
 
 def _dirsign(wall):
@@ -1200,39 +1253,29 @@ def _check_mobile(parts):
         f"hook has nothing to stand on and would print as a floating tab")
     print(f"  [pillar]  hook B pillar {100*_pf:.1f}% solid under the mating plane")
 
-    # ---- 13. THE FAST-CHARGE POCKET, AND THE KNOCK-OUT IN BOTH DIRECTIONS ----
-    _tp = tp4056_phantom()
-    _fit = (cov & _tp).volume
-    assert _fit < 0.5, (
-        f"the optional TP4056 fouls the cover by {_fit:.2f} mm3 -- the pocket does not actually "
-        f"hold the module it is shaped for")
-    # >>> AND THE PROPERTY THAT MATTERS MORE: UNPOPULATED, THE COVER IS SEALED HERE. <<<
-    # A pocket that costs nothing is the requirement; an unnoticed hole into the cell bay in
-    # every default build is the failure mode. Measured on the wall, not argued from the cut.
-    _memb = bx(TP_CX - TP_PORT_W/2, TP_CX + TP_PORT_W/2, MOB_OY1 - TP_KNOCKOUT, MOB_OY1,
-               CAV_Z0 + TP_PORT_Z0, CAV_Z0 + TP_PORT_Z0 + TP_PORT_H)
-    _mfrac = (cov & _memb).volume / _memb.volume
-    assert _mfrac > 0.98, (
-        f"the charge-port knock-out is only {100*_mfrac:.1f}% material -- the DEFAULT, "
-        f"unpopulated build has an open hole into the cell bay. The port must be cut from the "
-        f"inside only, leaving {TP_KNOCKOUT} of wall to be sliced out if a module is fitted")
-    # CONTROL: just inboard of the membrane the port must be OPEN, or nothing was cut at all
-    # and the "knock-out" is simply a solid wall pretending to be a feature.
-    _bore = bx(TP_CX - TP_PORT_W/2 + 0.5, TP_CX + TP_PORT_W/2 - 0.5,
-               MOB_OY1 - TP_KNOCKOUT - 1.20, MOB_OY1 - TP_KNOCKOUT - 0.20,
-               CAV_Z0 + TP_PORT_Z0 + 0.5, CAV_Z0 + TP_PORT_Z0 + TP_PORT_H - 0.5)
-    _bfrac = (cov & _bore).volume / _bore.volume
-    assert _bfrac < 0.02, (
-        f"control failed: the port bore behind the membrane is {100*_bfrac:.1f}% material, so "
-        f"nothing was actually cut and the knock-out cannot be knocked out")
-    assert _lerr(TP_KNOCKOUT, LH) < 1e-9 and TP_KNOCKOUT >= 2*LH, (
-        f"the knock-out membrane {TP_KNOCKOUT} is not a whole number of layers >= 2")
-    print(f"  [tp4056]  optional module {TP_W}x{TP_L}x{TP_H} fits ({_fit:.2f} mm3 foul); "
-          f"knock-out {100*_mfrac:.1f}% solid (default build sealed), bore behind it "
-          f"{100*_bfrac:.1f}% (must be ~0)")
+    # ---- 13. THE UPPER COMPARTMENT: what fits now, and what stopped fitting ----
+    _prot = prot_phantom()
+    _pf = (cov & _prot).volume
+    assert _pf < 0.5, (
+        f"the protection strip fouls the cover by {_pf:.2f} mm3 -- the pocket does not hold the "
+        f"part it is shaped for")
+    # >>> AND THE LOSS, MEASURED RATHER THAN CLAIMED. <<<
+    # Re-primarying to bare cells shortened the compartment past a TP4056. Saying "it no longer
+    # fits" in a comment is the kind of statement that goes stale silently; this collides the
+    # phantom and reports the number, so if the compartment ever grows back the assert stops
+    # holding and somebody has to look.
+    _tpf = (cov & tp4056_phantom()).volume
+    _free_y = BAY_Y1 - (RIM_Y1 + RIM_WALL)
+    assert _tpf > 1.0, (
+        f"a TP4056 phantom now fits the compartment ({_tpf:.2f} mm3 of interference) -- the "
+        f"design note and #44 say it does not. One of them is wrong")
+    print(f"  [pocket]  free compartment {RIM_X1-RIM_X0:.2f} x {_free_y:.2f}; protection strip "
+          f"{PROT_W}x{PROT_L}x{PROT_H} FITS ({_pf:.2f} mm3 foul)")
+    print(f"             TP4056 {TP_W}x{TP_L} DOES NOT ({_tpf:.0f} mm3 of interference) -- its "
+          f"short axis is {TP_L} against {_free_y:.2f} of Y. Restoring it costs the "
+          f"{5.90:.2f}mm the bare-cell re-primary saved. JP's trade, stated in #44.")
     print(f"             charge: onboard {CHARGE_MA:.0f} mA -> "
-          f"{CELL_CAPACITY_MAH/CHARGE_MA*CHARGE_CV_FACTOR:.1f} h  |  TP4056 ~1000 mA -> "
-          f"{CELL_CAPACITY_MAH/1000.0*CHARGE_CV_FACTOR:.1f} h   (docs/enclosure.md:165)")
+          f"{CELL_CAPACITY_MAH/CHARGE_MA*CHARGE_CV_FACTOR:.1f} h  (docs/enclosure.md:165)")
 
     # ---- 14. THE WS2812.  OCCLUDED, AND THE OCCLUSION IS PROVEN, NOT ASSUMED. ----
     #
@@ -1268,36 +1311,46 @@ def _check_mobile(parts):
           f"relief. OCCLUDED BY CONSTRUCTION (docs/enclosure.md:161 says as much for any "
           f"closed back cover). The 2.8in display is the battery indicator.")
 
-    # ---- 15. REVERSE-INSERTION KEYING.  Measured on phantoms, not argued from diameters. ----
-    assert KEY_WALL_T < BUTTON_H_MIN, (
-        f"the keying wall is {KEY_WALL_T} but the shallowest button assumed is {BUTTON_H_MIN} -- "
-        f"a correctly inserted cell would ALSO fail to reach the contact, and a keyed bay that "
-        f"rejects the right cell is worse than no keying at all")
-    assert KEY_D >= BUTTON_D_MAX + 2*0.25 and KEY_D + 4.0 < CELL_D_MAX, (
-        f"the d{KEY_D} aperture must clear a d{BUTTON_D_MAX} button and still be far under the "
-        f"d{CELL_D_MAX} can it has to stop")
-    # THE PROPERTY, BOTH WAYS. A reversed cell is a flat CELL_D_MAX face: pushed to the plate
-    # plane it must COLLIDE with the keying wall...
-    _rev = cyl_y(CELL_AXIS_X, CELL_AXIS_Z - CELL_BORE_CLR, CELL_D_MAX,
-                 CELL_TIP_Y, CELL_TIP_Y + 10.0)
-    _rv = (cov & _rev).volume
-    assert _rv > 1.0, (
-        f"a reversed cell reaches the contact plane with only {_rv:.2f} mm3 of interference -- "
-        f"the keying wall is not stopping it and the cell can be inserted backwards onto the "
-        f"contact")
-    # ...while the BUTTON, at the same plane, must pass cleanly through the aperture.
-    _btn = cyl_y(CELL_AXIS_X, CELL_AXIS_Z - CELL_BORE_CLR, BUTTON_D_MAX,
-                 CELL_TIP_Y, CELL_TIP_Y + KEY_WALL_T + 0.40)
-    _bv = (cov & _btn).volume
-    assert _bv < 0.5, (
-        f"the positive button fouls the keying aperture by {_bv:.2f} mm3 -- a correctly "
-        f"inserted cell cannot reach its contact either")
-    print(f"  [keying]  d{KEY_D} aperture: reversed d{CELL_D_MAX} can blocked ({_rv:.1f} mm3 "
-          f"interference), d{BUTTON_D_MAX} button passes ({_bv:.2f} mm3); wall {KEY_WALL_T:.2f} vs "
-          f"shallowest assumed button {BUTTON_H_MIN} (margin {BUTTON_H_MIN-KEY_WALL_T:.2f})")
-    print(f"             ⚠️ keying admits BUTTON-TOP cells only. Protected cells are button-top, "
-          f"so this enforces the protection policy mechanically; FLAT-TOP cells (always bare, "
-          f"always unprotected) cannot make contact at all. That is the intended exclusion.")
+    # ---- 15. POLARITY MARKINGS.  The only reverse-insertion measure that remains. ----
+    #
+    # ⚠️ min_gap IS NOT THE PROOF HERE AND MUST NOT BE. Measured: min_gap(MARK_PATHS_P, LABEL_W)
+    # returns (inf, 0 pairs) -- the "+" strokes cross, so _touch() drops the only pair; "-" has
+    # a single stroke and no pair at all. `min_gap >= LABEL_W` would therefore pass on `inf` for
+    # ANY glyph of this shape, sound or broken. So the debossed VOLUME is measured on the
+    # finished solid against the ink area x depth, which fails if a groove closes up, lands off
+    # the wall, or is swallowed by the pocket behind it.
+    import strokefont as _SF
+    for _nm, _pp in (("+", MARK_PATHS_P), ("-", MARK_PATHS_N)):
+        _d, _pair, _n = _SF.min_gap(_pp, E.LABEL_W)
+        assert _n == 0 and _d == float("inf"), (
+            f"min_gap now reports {_n} pairs on '{_nm}' -- it has become meaningful and should "
+            f"be asserted properly instead of documented as vacuous")
+    # two stadium strokes crossing, minus the doubly-counted square; "-" is one stadium
+    _ink_p = 2*(MARK_H*E.LABEL_W + math.pi*(E.LABEL_W/2)**2) - E.LABEL_W**2
+    _ink_n = MARK_H*E.LABEL_W + math.pi*(E.LABEL_W/2)**2
+    # ⚠️ THE PROBE IS CLAMPED TO THE FREE END-WALL FACE, and the first version was not. At
+    # +/-MARK_INK it reached DOWN into the contact pocket and UP past BACK_Z into open air,
+    # reporting 25.48 mm2 against 4.87 of ink -- 20 mm2 of it space that is not the marking.
+    # Exactly the vent-throat probe's mistake, caught this time only because this check carries
+    # an UPPER bound as well as a lower one. A one-sided assert would have sailed through.
+    _fz0, _fz1 = CELL_AXIS_Z + 5.0, BACK_Z              # the face the markings actually sit on
+    for _nm, _y0, _y1, _ink in (("+", BAY_Y0 - MARK_DEPTH, BAY_Y0, _ink_p),
+                                ("-", BAY_Y1, BAY_Y1 + MARK_DEPTH, _ink_n)):
+        _pr = bx(CELL_AXIS_X - MARK_INK/2 - 0.30, CELL_AXIS_X + MARK_INK/2 + 0.30, _y0, _y1,
+                 _fz0, _fz1)
+        _cut = (_pr - cov).volume / MARK_DEPTH
+        assert _cut >= 0.80 * _ink, (
+            f"the '{_nm}' marking removed only {_cut:.2f} mm2 of face against {_ink:.2f} of ink "
+            f"-- the deboss is missing, clipped by the end wall, or absorbed into the pocket")
+        assert _cut <= 1.60 * _ink, (
+            f"the '{_nm}' probe reads {_cut:.2f} mm2 against {_ink:.2f} of ink -- it is counting "
+            f"the bore or the contact pocket, not the marking")
+    print(f"  [marks]   '+' and '-' debossed {MARK_DEPTH:.2f} into the bay end walls, "
+          f"{MARK_H:.2f} tall, {E.LABEL_W} groove; area measured against ink both ways")
+    print(f"             min_gap is VACUOUS on these glyphs (inf, 0 pairs) and is asserted to "
+          f"STAY vacuous rather than used as a proof")
+    print(f"             ⚠️ NO MECHANICAL KEYING IS POSSIBLE FOR FLAT-TOP CELLS -- both ends are "
+          f"identical. Reverse-insertion protection is MARKINGS ONLY. Electrical, JP's call.")
 
     # ---- 16. THE FAILURE VENT: throat area, AND no line of sight. ----
     #
