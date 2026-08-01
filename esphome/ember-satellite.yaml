@@ -76,6 +76,63 @@ substitutions:
   # is a switch and why `listening` deliberately isn't one.
   chime_on_thinking: "0"
 
+  # ---- wake word mode ----
+  #   0 = off. Touch-only. The shipped behaviour.
+  #   1 = ON-DEVICE, microWakeWord "Okay Nabu" (stock model, vendored in wakewords/).
+  #   2 = SERVER-SIDE, HA openWakeWord "don-kee".
+  #
+  # DEFAULTS TO 1, and that is a change of behaviour on the next flash: Ember will
+  # start answering to "Okay Nabu" without being touched. Everything wake-word related
+  # is inert at 0, and modes 1 and 2 are mutually exclusive by construction (every
+  # guard tests for one specific mode, never "non-zero").
+  #
+  # WHY 1 AND NOT 0, given the #42 precedent shipped its wake word off: what justified
+  # off there was the privacy cost of streaming room audio to HA, and mode 1 does not
+  # have that cost. Nothing leaves the device until the word fires. The remaining risk
+  # is the I2S one below, which is a bench-observable audio bug, not a data question —
+  # and it is observed in the first ten seconds of a flash that JP is present for.
+  #
+  # ⚠️ NEVER FLASHED. The arbiter below is reasoned from the ESPHome sources and gated
+  # by a clean compile; it has not been heard. If after flashing Ember goes silent —
+  # no chimes, no replies, and the log repeats "Parent bus is busy" or "Driver failed
+  # to start; retrying in 1 second" — the arbiter is not yielding the bus. Set this
+  # back to 0 and reflash; that restores today's behaviour exactly.
+  #
+  # MODE 1 vs MODE 2, honestly:
+  #
+  #   Mode 2 streams 16 kHz room audio to Home Assistant continuously while idle.
+  #   That is a privacy and airtime cost, and it is why mode 2 has never been
+  #   switched on. Mode 1 has no such cost — detection is local and nothing leaves
+  #   the device until the wake word actually fires. Mode 1 is strictly better on
+  #   that axis, and it is the reason it exists.
+  #
+  #   The catch is the wake WORD, not the wiring: mode 1 answers to "Okay Nabu",
+  #   because the only "don-kee" artifact left is an openWakeWord model and that
+  #   format cannot run on-device (input [1,16,96] float32 — openWakeWord's
+  #   classifier head; microWakeWord is int8 and self-contained, and ESPHome
+  #   implements only the latter). They are not interconvertible; "don-kee"
+  #   on-device needs RETRAINING. See docs/wake-word.md.
+  #
+  # ⚠️⚠️ MODE 1 IS NOT FREE ON THIS BOARD, and the reason is the shared I2S bus.
+  # micro_wake_word holds the MICROPHONE open continuously, and on this device the
+  # mic and the speaker are the same `i2s_bus` behind ONE mutex. The mic takes that
+  # mutex in start_driver_() and does not give it back until stop_driver_()
+  # (i2s_audio_microphone.cpp:98,228), and the SPEAKER also acquires it with a
+  # non-blocking try_lock() that just gives up — "Parent bus is busy"
+  # (i2s_audio_speaker_standard.cpp:400) — and retries a second later, forever.
+  #
+  # So a naively-always-on micro_wake_word makes Ember MUTE: every reply, chime and
+  # announcement fails to get the bus for as long as the wake word is listening.
+  # This is the exact mirror of the `timeout: never` trap documented on the speaker
+  # below, which warns that a permanently-loaded SPEAKER starves the mic. Same
+  # mutex, other direction, and it is just as silent.
+  #
+  # What makes mode 1 safe is the arbiter in `interval:` (search "WAKE-WORD
+  # ARBITER"), which yields the microphone the instant anything wants to make
+  # noise. Do not "simplify" micro_wake_word into always-on. It will look fine on
+  # the bench until the first time Ember tries to speak.
+  wake_word_mode: "1"
+
   # How long the touch spark takes to settle, ms. Long enough to read as a flare
   # rather than a flicker; short enough that it is gone before the pipeline answers.
   spark_ms_len: "500"
@@ -314,6 +371,55 @@ interval:
   - interval: 60s
     then:
       - script.execute: mic_sync_check
+
+  # ---- THE WAKE-WORD ARBITER ----
+  #
+  # The one thing that makes on-device wake word survivable on this board. Read the
+  # ⚠️⚠️ note in the substitutions block before touching it.
+  #
+  # THE PROBLEM IN ONE LINE: micro_wake_word holds the MICROPHONE open forever, and on
+  # this device the mic and the speaker are one `i2s_bus` behind ONE mutex.
+  #
+  #   mic  takes it in start_driver_() and returns it only in stop_driver_()
+  #        (i2s_audio_microphone.cpp:98, 228) — i.e. for its whole running life
+  #   spk  asks with a NON-BLOCKING try_lock(), logs "Parent bus is busy" and gives up
+  #        (i2s_audio_speaker_standard.cpp:400), then retries a second later. Forever.
+  #
+  # So an always-listening wake word does not degrade Ember, it MUTES it: every reply,
+  # chime and announcement loses the bus for as long as the wake word is armed. This is
+  # the same trap as `timeout: never` on the speaker documented above — that one starves
+  # the mic, this one starves the speaker. One mutex, two directions, both silent.
+  #
+  # THE RULE: the wake word may hold the microphone only while nothing wants to speak
+  # and no conversation is running. This loop is the sole owner of that rule, and the
+  # sole caller of mww start/stop besides stop_after_detection.
+  #
+  # WHY is_stopped() AND NOT is_running(): is_running() is `state_ == STATE_RUNNING`,
+  # which is only reached AFTER the speaker has won the lock — which it cannot do while
+  # we hold it. Keying on it would deadlock: we would wait for a state that our own
+  # holding the mic prevents. is_stopped() is `state_ == STATE_STOPPED`, so it goes
+  # false at STATE_STARTING — the moment the speaker WANTS the bus, before it asks.
+  # That is the only edge available to us, and it is why this reads inverted.
+  #
+  # 100ms is deliberate. This is a backstop, not the fast path: the two paths that
+  # actually matter for latency yield the mic ahead of time (ui_dispatch for touch,
+  # on_announcement for pushed audio) so the speaker wins its FIRST try_lock instead of
+  # eating the 1s retry. This loop catches everything else and re-arms afterwards.
+  #
+  # FAILURE DIRECTION, chosen the same way the DAC-mute manager chose its: a missed
+  # STOP costs a mute, a missed START costs deafness until the next tick. So the stop
+  # side is also driven from the two predictive anchors, while the start side lives
+  # only here — the worst case for arming late is 100ms of not listening.
+  - interval: 100ms
+    then:
+      - lambda: |-
+          if (${wake_word_mode} != 1) return;      // compile-time constant; folds away
+          const bool want = id(spk)->is_stopped() && !id(va)->is_running();
+          if (want && !id(mww)->is_running()) {
+            id(mww)->start();
+          } else if (!want && id(mww)->is_running()) {
+            id(mww)->stop();
+          }
 
   # THE UNMUTE ANCHOR. This condition — "we believe we are muted AND the speaker is
   # actually running" — was written as a 250ms watchdog behind on_announcement /
@@ -768,6 +874,16 @@ logger:
 api:
   encryption:
     key: !secret api_key
+  # Wake word can only be armed once HA is actually on the other end: arming is
+  # `voice_assistant.start_continuous`, which sends a pipeline-start request over
+  # this connection. Arming in on_boot would race the WiFi/API handshake and lose.
+  #
+  # This fires for ANY api client (the esphome CLI and the OTA dashboard included),
+  # not just HA. That is harmless — wake_word_arm is `mode: restart` and no-ops when
+  # the assistant is already running — but it is why the arm lives in a guarded
+  # script rather than being inlined here.
+  on_client_connected:
+    - script.execute: wake_word_arm
 
 ota:
   - platform: esphome
@@ -1149,6 +1265,22 @@ media_player:
   - platform: speaker
     id: media_out
     name: Ember Speaker
+    # YIELD THE MICROPHONE FOR PUSHED AUDIO. The touch path is covered in ui_dispatch;
+    # this is the other way sound starts — an HA announcement, a finished timer — with
+    # no tap to hang the yield off.
+    #
+    # ⚠️ READ THIS BEFORE REUSING on_announcement ANYWHERE ELSE. The unmute manager
+    # below explicitly REJECTED this trigger, and that rejection is still correct:
+    # on_announcement fires when the media_player enters its announcing state, which is
+    # BEFORE the pipeline starts the speaker and before i2s_channel_enable(). Unmuting
+    # there lands ahead of the clock transient, so the pop survives.
+    #
+    # That same early timing is exactly what this needs. "Too early to unmute" is "just
+    # in time to hand over the I2S bus" — it fires before the speaker's first try_lock,
+    # so the speaker wins the bus immediately instead of failing and retrying a second
+    # later. Same trigger, opposite requirement. Do not "unify" the two.
+    on_announcement:
+      - micro_wake_word.stop:
     # Only the announcement pipeline is needed, and that is what removes the need
     # for a `mixer`: EVERY voice_assistant output path calls .set_announcement(true)
     # — conversational TTS (voice_assistant.cpp:817), streaming TTS (:886) and
@@ -1613,6 +1745,41 @@ binary_sensor:
 #                  on every push-to-talk, which is why it is a follow-up and a
 #                  judgement call rather than something shipped silently.
 script:
+  # ---- ARM THE SERVER-SIDE WAKE WORD ("don-kee") ----
+  #
+  # Inert unless ${wake_word_mode} is 2 (server-side). See the substitution block.
+  #
+  # THE ONE NON-OBVIOUS THING, and the reason this is not simply `use_wake_word: true`
+  # on the voice_assistant block: `use_wake_word` is not a mode, it is a flag stamped
+  # onto EVERY pipeline-start request. voice_assistant.cpp:336 reads
+  #
+  #     if (!this->continue_conversation_ && this->use_wake_word_)
+  #         flags |= VOICE_ASSISTANT_REQUEST_USE_WAKE_WORD;
+  #
+  # with no test for whether this particular start was continuous or touch-initiated.
+  # So leaving the flag permanently true would make a TAP start at the wake-word stage
+  # too: you would press the glass and then still have to say "don-kee" before Ember
+  # heard you. That is a silent regression of the primary interaction, and it would
+  # not show up in `esphome config` — only on the device, under a finger.
+  #
+  # Hence the flag is owned here and toggled around every conversation: true only for
+  # the idle continuous listen, false for the duration of a real conversation. The
+  # touch path clears it (see talk_begin) and on_end/on_error re-arm by calling this.
+  - id: wake_word_arm
+    mode: restart
+    then:
+      - if:
+          condition:
+            and:
+              - lambda: 'return ${wake_word_mode} == 2;'
+              # Do not stomp a conversation in flight. on_end re-arms, so a tap that
+              # lands while armed is not lost — it just re-arms a moment later.
+              - not:
+                  voice_assistant.is_running:
+          then:
+            - lambda: 'id(va).set_use_wake_word(true);'
+            - voice_assistant.start_continuous:
+
   # ---- IS THE CODEC WHERE HA THINKS IT IS? ----
   #
   # ONE READER, TWO CALLERS: the boot trigger 25s in, and a 60s interval. It exists as a
@@ -1920,6 +2087,26 @@ script:
   - id: talk_begin
     mode: single
     then:
+      # YIELD THE MICROPHONE. No-op unless the wake word is armed (mode 1), and no-op
+      # again on the wake-word entry, where stop_after_detection has already dropped it.
+      # This is really the TOUCH entry's yield: a tap arrives with the wake word holding
+      # the shared I2S bus, and the wait-for-is_stopped() below plus the reply that
+      # follows both need it back.
+      #
+      # HERE AND NOT IN ui_dispatch, which looks like the better choke point and is not:
+      # ui_dispatch is where every touch target converges INCLUDING pure navigation, so
+      # yielding there makes cursor moves and menu dismissals stop the wake word.
+      # check_navigability.py catches exactly that — clean button-only exits drop from
+      # 11 to 1. talk_begin is reached only when a conversation actually begins.
+      #
+      # ⚠️ NOT INSTANT, and do not read it as a guarantee. mww->stop() unwinds through
+      # the wake-word task, which calls microphone_source_->stop() on its own schedule
+      # (micro_wake_word.cpp:216), so the I2S lock comes back some time after this
+      # returns rather than at it. If the speaker asks before then it still eats the
+      # 1s try_lock backoff. This shortens that window; it does not close it, and
+      # whether the touch chime is audibly late is a question for the first flash.
+      - micro_wake_word.stop:
+
       # ⚠️ THE `switch.is_off: sw_hush` GATE THAT USED TO WRAP THIS ENTIRE BODY IS
       # DELETED, AND ITS DELETION IS THE POINT OF THE THREE-MODE SPEC.
       #
@@ -2050,11 +2237,58 @@ script:
             # said while the script sat there with zero callers. Reverting is not
             # available: a deadline would fight the recomputation. See the note at the
             # script's old site.
+            #
+            # ---- SERVER-SIDE WAKE-WORD HAND-OFF (no-op unless ${wake_word_mode} is 2) ----
+            #
+            # When the wake word is armed the assistant is ALREADY RUNNING — it is
+            # sitting in a continuous listen waiting for "don-kee". That breaks the
+            # tap in a way that is invisible in config and silent on device, because
+            # voice_assistant.cpp:682 guards the whole of request_start with
+            #
+            #     if (this->state_ == State::IDLE) { ... }
+            #
+            # and does nothing at all otherwise. So `voice_assistant.start` below
+            # would be DROPPED ON THE FLOOR for every tap while armed: no error, no
+            # log, just a screen that never starts listening. The stop is not
+            # politeness, it is what makes the tap work.
+            #
+            # Clearing use_wake_word first is the other half: the flag is stamped on
+            # every start request (see wake_word_arm), so leaving it true would make
+            # this tap-initiated pipeline start at the wake-word stage and demand the
+            # phrase anyway. Cleared here, restored by on_end/on_error.
+            #
+            # The wait is bounded because request_stop() walks the state machine down
+            # through STOP_MICROPHONE rather than jumping to IDLE, so IDLE arrives a
+            # few loops later. 1s is a ceiling, not a delay — the common case exits
+            # in a couple of ms. If it ever times out the start below still runs and
+            # simply no-ops, which is the same failure we have today, not a worse one.
+            #
+            # ALL OF THIS IS SKIPPED when the wake word is off: the assistant is idle,
+            # is_running() is false, and the tap path is byte-for-byte what it was.
+            - lambda: 'id(va).set_use_wake_word(false);'
+            - if:
+                condition:
+                  voice_assistant.is_running:
+                then:
+                  - voice_assistant.stop:
+                  - wait_until:
+                      condition:
+                        not:
+                          voice_assistant.is_running:
+                      timeout: 1s
             - voice_assistant.start:
 
   - id: ui_dispatch
     mode: single
     then:
+      # >>> NO micro_wake_word.stop HERE. It was tried, and check_navigability.py was
+      # right to reject it. Yielding the microphone at this point is unconditional, so
+      # it fires for PURE NAVIGATION too — moving the cursor or dismissing a menu would
+      # stop the wake word, and the harness measured the real cost: clean button-only
+      # exits fell from 11 to 1, because every path through here suddenly changed
+      # device state. Menu navigation must not make Ember deaf. The yield lives in
+      # talk_begin instead, which is only reached when a conversation actually starts.
+      #
       # HAPTIC FIRST, for every action including dismiss and bank. This is the one
       # place all touch targets converge (on_touch only hit-tests and sets
       # ui_action), so wiring it here means any future UI target gets feedback for
@@ -5137,6 +5371,56 @@ touchscreen:
     on_release:
       - script.execute: ui_dispatch
 
+####################  on-device wake word  ####################
+#
+# "Okay Nabu", running on the ESP32 itself. Active only in ${wake_word_mode} 1 —
+# nothing here ever calls start() in modes 0 or 2, and micro_wake_word does not
+# self-start. The arbiter in `interval:` is the only thing that arms it.
+#
+# THE MODEL IS VENDORED, at wakewords/okay_nabu.json + .tflite. The bare shorthand
+# `model: okay_nabu` would instead fetch
+#   github.com/esphome/micro-wake-word-models/raw/main/models/v2/okay_nabu.json
+# at build time — note `main`, an unpinned moving branch, resolved over the network.
+# That makes the firmware non-reproducible and unbuildable offline, and this repo
+# keeps the artifact with its provenance. Pinned commit, both hashes and the
+# cross-check against ESPHome's own download are recorded in wakewords/README.md.
+#
+# NO `vad:`. The optional VAD gate is a SECOND model with its own tensor arena, and
+# okay_nabu already ships a conservative probability_cutoff of 0.97. Adding it is a
+# false-accept tuning decision to make on hardware, with ears, not a default to
+# assume — and it would be a second unvendored download. Revisit if it over-triggers.
+#
+# stop_after_detection (default true) is load-bearing here, not cosmetic: it drops the
+# microphone the instant the word fires, which hands the shared I2S bus to the speaker
+# in time for the listening chime. See the arbiter for why that matters.
+micro_wake_word:
+  id: mww
+  microphone:
+    microphone: mic
+    channels: 0
+  models:
+      # `type: local` is REQUIRED, not decoration. The source is a cv.typed_schema, so
+      # without the discriminator the bare mapping falls through every branch and the
+      # error is the unhelpful "Not a valid model name, local path, http(s) url, or
+      # github shorthand". The path is resolved relative to this config directory, and
+      # the .tflite is found relative to the MANIFEST — which is why the model file
+      # itself is never named in this YAML.
+    - model:
+        type: local
+        path: wakewords/okay_nabu.json
+
+  # Reuse `talk_begin` — do NOT inline a `voice_assistant.start:` here. talk_begin is
+  # the single conversation entry point and it already carries the I2S discipline this
+  # path needs: it waits for spk->is_stopped() so the microphone never eats a blind
+  # 1-second try_lock() backoff, and it clears stale error text. A second hand-written
+  # copy of that sequence would be a rumour about it.
+  #
+  # It also needs no mode gate, which the FORWARD COMPATIBILITY note inside talk_begin
+  # called years before this existed: every operating mode converses, hush included —
+  # hush means "do not make noise", not "do not listen".
+  on_wake_word_detected:
+    - script.execute: talk_begin
+
 ########################  voice assistant  ########################
 
 voice_assistant:
@@ -5149,7 +5433,29 @@ voice_assistant:
   noise_suppression_level: 2
   auto_gain: 31dBFS
   volume_multiplier: 2.0
-  # No micro_wake_word / use_wake_word — activation is by touch for now.
+  # THE STALE LINE THAT USED TO BE HERE said "No micro_wake_word / use_wake_word —
+  # activation is by touch for now." Both now exist; touch is one of three entries.
+  #
+  # This link is CONFIGURATION ONLY — it does not make voice_assistant drive the wake
+  # word. voice_assistant touches micro_wake_word in exactly two places, both about
+  # telling Home Assistant what exists: get_configuration() enumerates the models, and
+  # on_set_configuration() enables/disables them (voice_assistant.cpp:1084-1120).
+  # Nothing in voice_assistant ever calls mww->start() or ->stop(). Lifecycle is
+  # entirely the arbiter's, and removing the arbiter would not "fall back" to
+  # something sane — the wake word would simply never arm.
+  #
+  # ⚠️ WHAT THIS TURNS ON IN HOME ASSISTANT. `select.ember_satellite_wake_word` and
+  # `..._wake_word_2` have been `unavailable` with options `['no_wake_word']` for this
+  # device's whole life, because they are the picker for ON-DEVICE models and there
+  # were none (micro_wake_word.h:79, get_wake_words(); the list fed HA's select). This
+  # line is what finally populates them — they become available and list "Okay Nabu".
+  #
+  # They are live surface from the first flash, in EVERY mode, because the enumeration
+  # is static config and knows nothing about ${wake_word_mode}. At mode 0 or 2 the
+  # select will therefore offer a wake word that is never armed, and selecting it will
+  # appear to do nothing. That is a cosmetic lie HA gives us for free and it is called
+  # out in docs/wake-word.md rather than papered over.
+  micro_wake_word: mww
 
   # on_stt_end / on_tts_start carry the actual TEXT (Trigger<std::string>,
   # voice_assistant.h:215,217). Bump scroll_gen so the display repaints the
@@ -5275,6 +5581,19 @@ voice_assistant:
         then:
           - script.execute: { id: chime, which: 0 }
 
+    # Re-arm the server-side wake word (no-op unless ${wake_word_mode} is 2). The touch path
+    # cleared use_wake_word and stopped the continuous listen to get the mic; this is
+    # where both come back. Without it the wake word works exactly ONCE per boot and
+    # then dies the first time anyone taps the glass — the sort of bug that reads as
+    # "it's flaky" for a week.
+    #
+    # Safe on the announcement path too: on_end fires for announcements BEFORE the
+    # audio plays (see the chime note above), and wake_word_arm re-arms into a
+    # continuous listen while the speaker is busy. That is fine — the assistant is
+    # IDLE at that moment by definition (on_end ran), and the mic and the DAC are
+    # separate hand-offs.
+    - script.execute: wake_word_arm
+
   on_error:
     - lambda: |-
         id(va_state) = 4;
@@ -5285,6 +5604,10 @@ voice_assistant:
         id(said_text) = code + " / " + message;
         id(scroll_gen)++;
     - script.execute: { id: chime, which: 1 }
+    # Re-arm here as well as in on_end. An errored conversation does NOT always reach
+    # on_end, so without this a single pipeline error (HA restarting, STT timing out)
+    # would leave the device deaf until the next tap or reconnect.
+    - script.execute: wake_word_arm
 
   # Wiring ANY on_timer_* sets has_timers_ -> FEATURE_TIMERS (voice_assistant.h:164),
   # which is what makes HA Assist timers work on this satellite. Only `finished` is
