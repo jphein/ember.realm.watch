@@ -254,6 +254,42 @@ GRILLE_CELL_N = None                                    # set by back_cover(), r
 # HEX_WEB's 0.90 print floor and above SLOT_W's 0.60 proven void, with margin: a hole this
 # narrow in a 2.20 baffle is a slot the nozzle has to trace, not a feature that resolves.
 GRILLE_MIN_W  = 1.20
+
+# ============================================================================
+# 5c. THE FAST-CHARGE OPTION.  A POCKET THAT COSTS NOTHING WHEN EMPTY.
+# ============================================================================
+#
+# Onboard charging (5b) is the DEFAULT and needs no extra hardware -- but at 290 mA a 3400 mAh
+# cell is ~15.8 h. A TP4056-class module (or its USB-C sibling, TP4057/IP2312) runs ~1 A, which
+# is 3400/1000 x 1.35 = ~4.6 h. That is the option; it is not a necessity, and the geometry is
+# shaped so an unpopulated build pays nothing for it:
+#
+#   * THE POCKET IS THREE RIBS ON A FLOOR THAT WAS ALREADY EMPTY. No cavity is hollowed for it,
+#     no wall is thinned, no check depends on it. Leave it unpopulated and it is decoration.
+#   * THE APERTURE IS A KNOCK-OUT, NOT A HOLE. The default cover is SOLID here: the port is cut
+#     from the INNER face only, leaving TP_KNOCKOUT of wall standing at the outer face. Populate
+#     the module and you slice that membrane out with a knife. Ship it empty and there is no
+#     opening into the cell bay at all -- asserted both ways at check 13.
+#
+# ⚠️ ELECTRICAL, AND EXPLICITLY NOT DECIDED HERE: with the board's own charger AND a TP4056 both
+# wired to one cell, plugging in both USB ports at once puts TWO CC/CV chargers on the same
+# cell, fighting each other. The safe wirings are (a) the TP4056 as the ONLY charge path with
+# the board's BAT as load-only, or (b) a "never both at once" usage rule. Picking between them
+# is JP's call -- see the issue. This file provides the pocket, the aperture and the warning.
+TP_W, TP_L, TP_H = 26.00, 17.00, 4.00      # generic TP4056 module: X x Y x Z, lying flat
+TP_CLR        = 0.40
+TP_RIB_W      = 1.60
+TP_RIB_H      = 6 * LH                     # 1.20
+TP_KNOCKOUT   = 2 * LH                     # 0.40 -- one perimeter at a 0.40 nozzle, by design
+TP_PORT_W     = 9.00                       # USB micro/C shell plus clearance
+TP_PORT_H     = 4.00
+TP_PORT_Z0    = 1.00                       # above the module's own seating plane
+TP_CX         = (RIM_X0 + RIM_X1) / 2      # 35.80, centred in the free upper compartment
+TP_Y1         = BAY_Y1 - 0.60              # module's port end, just inside the top wall
+
+def tp4056_phantom():
+    """The optional module as a solid, so its fit is measured rather than asserted in words."""
+    return bx(TP_CX - TP_W/2, TP_CX + TP_W/2, TP_Y1 - TP_L, TP_Y1, CAV_Z0, CAV_Z0 + TP_H)
 HOOK_A_Y0     = COVER_Y0 + 0.60                         # 18.60, clear of BOOT's moat by 2.20
 HOOK_B_Y0     = COVER_Y0 + 1.60                         # 19.60, in the retention strip
 def _hook_ys(y0):
@@ -314,8 +350,44 @@ assert SCREW_XY[1] + SCREW_BOSS_D/2 <= RIM_Y0 - RIM_WALL + 1e-9, (
     f"the screw boss reaches y={SCREW_XY[1] + SCREW_BOSS_D/2:.2f}, past the retention strip's "
     f"end at {RIM_Y0 - RIM_WALL:.2f} -- it would foul the seal rim's low-Y wall")
 # ---- cell lead pass into the board cavity, landing on CONN_L[0] = BAT ----
+#
+# BAT is a 1.25mm JST 2P on the SAME LONG EDGE as UART -- docs/enclosure.md:160 ("...BAT (2P),
+# UART (4P)") and :213 ("all four 1.25 mm JST positions"), which agrees with ember_case's
+# CONN_L labelling. So the bay-to-board lead is a JST 1.25 2P pigtail leaving the cell's
+# contacts, up through this pass, to CONN_L[0] on the x=0 edge. The cell lane is deliberately
+# on that side: it is the shortest possible route.
 LEAD_X0, LEAD_X1 = OX0 + COV_WALL - 0.40, 2.50
 LEAD_Y0, LEAD_Y1 = 20.00, 26.50
+
+# ============================================================================
+# 5b. CHARGING.  ONBOARD, AND THAT ANSWERS THE QUESTION THIS FILE ONCE ASKED.
+# ============================================================================
+#
+# >>> THE BOARD CHARGES THE CELL ITSELF.  NO EXTRA HARDWARE IS REQUIRED. <<<
+#
+# docs/enclosure.md:165 (a verified-vs-inferred audited section): "Battery input is 3.7 V LiPo,
+# charging at 290 mA actual / 500 mA max."  Corroborated independently, with the mechanism, by
+# an earlier investigation -- scratch/hosyond-s3/battery.md, morpheus-battery 2026-07-30:
+# "the board's TP4054 charges at a fixed 290 mA (R12 = 3.3 kOhm), there is no boost".
+# 290 mA is attested twice; the TP4054/R12 detail is single-source, so it is cited as such.
+#
+# TWO CONSEQUENCES THAT ARE NOT ABOUT GEOMETRY BUT BELONG NEXT TO THE CELL:
+#
+#   1. NO PROTECTION CIRCUIT ON THE BOARD, so a PROTECTED cell is mandatory, not preferred.
+#      That is why BAY_L is dimensioned to CELL_L_MAX and why this case is 9.55mm longer than
+#      a bare-cell design would be. Same two independent sources agree on this.
+#   2. NO BOOST. On battery, +5 becomes the raw cell, and battery.md's finding is that the
+#      device "browns out rather than shutting down". With a protected cell the protection PCB
+#      cuts hard at its own threshold instead. Either way there is no graceful low-battery
+#      shutdown, which is a firmware question and is flagged in the issue, not solved here.
+#
+# CHARGE TIME. Recomputed rather than inherited, using battery.md's own method so the two are
+# comparable: it quotes 2000 mAh -> 9.3 h, i.e. C/I x 1.35 (6.90 h of CC plus a CV tail).
+# Applying the same 1.35 to a 3400 mAh protected cell at 290 mA gives 11.72 x 1.35 = ~15.8 h.
+# Overnight, and worth stating so nobody files it as a fault later.
+CHARGE_MA        = 290.0        # docs/enclosure.md:165, "actual" (500 max)
+CHARGE_CV_FACTOR = 1.35         # battery.md's implied CC/CV factor, reused for comparability
+CELL_CAPACITY_MAH = 3400.0      # a typical protected 18650
 # ---- negative-lead groove down the divider's cell-facing face ----
 WGROOVE_D, WGROOVE_Z = 1.00, 16 * LH                    # 3.20 -- layer-aligned like everything
 
@@ -550,6 +622,20 @@ def back_cover():
     # No tube is needed: at y=SCREW_XY[1] the cover is solid wall from CAV_Z0 to BACK_Z.
     p -= cyl(SCREW_XY[0], SCREW_XY[1], COVER_Z0 - 1, BACK_Z + 1, SCREW_D)
     p -= cyl(SCREW_XY[0], SCREW_XY[1], COVER_Z0 - 1, COVER_Z0 + CBORE_DEPTH, CBORE_D)
+
+    # ---- TP4056 FAST-CHARGE POCKET: three locating ribs on floor that was already empty,
+    # plus a port aperture cut from the INSIDE only, leaving a knock-out membrane.
+    _tx0, _tx1 = TP_CX - TP_W/2 - TP_CLR, TP_CX + TP_W/2 + TP_CLR
+    _ty0, _ty1 = TP_Y1 - TP_L - 2*TP_CLR, TP_Y1
+    for _r in (bx(_tx0 - TP_RIB_W, _tx0, _ty0, _ty1, CAV_Z0, CAV_Z0 + TP_RIB_H),
+               bx(_tx1, _tx1 + TP_RIB_W, _ty0, _ty1, CAV_Z0, CAV_Z0 + TP_RIB_H),
+               bx(_tx0 - TP_RIB_W, _tx1 + TP_RIB_W, _ty0 - TP_RIB_W, _ty0,
+                  CAV_Z0, CAV_Z0 + TP_RIB_H)):
+        p += _r
+    # the port, from the inner face of the top wall, stopping TP_KNOCKOUT short of the outside
+    p -= bx(TP_CX - TP_PORT_W/2, TP_CX + TP_PORT_W/2,
+            BAY_Y1 - 0.01, MOB_OY1 - TP_KNOCKOUT,
+            CAV_Z0 + TP_PORT_Z0, CAV_Z0 + TP_PORT_Z0 + TP_PORT_H)
 
     # ---- HOOKS: an L standing proud of the mating plane. Vertical leg drops into the entry
     # recess, barb slides +Y under the lip. Proud of BACK_Z is fine -- that is the cover's TOP
@@ -937,6 +1023,74 @@ def _check_mobile(parts):
         f"hook B's pillar is only {100*_pf:.1f}% material just under the mating plane -- the "
         f"hook has nothing to stand on and would print as a floating tab")
     print(f"  [pillar]  hook B pillar {100*_pf:.1f}% solid under the mating plane")
+
+    # ---- 13. THE FAST-CHARGE POCKET, AND THE KNOCK-OUT IN BOTH DIRECTIONS ----
+    _tp = tp4056_phantom()
+    _fit = (cov & _tp).volume
+    assert _fit < 0.5, (
+        f"the optional TP4056 fouls the cover by {_fit:.2f} mm3 -- the pocket does not actually "
+        f"hold the module it is shaped for")
+    # >>> AND THE PROPERTY THAT MATTERS MORE: UNPOPULATED, THE COVER IS SEALED HERE. <<<
+    # A pocket that costs nothing is the requirement; an unnoticed hole into the cell bay in
+    # every default build is the failure mode. Measured on the wall, not argued from the cut.
+    _memb = bx(TP_CX - TP_PORT_W/2, TP_CX + TP_PORT_W/2, MOB_OY1 - TP_KNOCKOUT, MOB_OY1,
+               CAV_Z0 + TP_PORT_Z0, CAV_Z0 + TP_PORT_Z0 + TP_PORT_H)
+    _mfrac = (cov & _memb).volume / _memb.volume
+    assert _mfrac > 0.98, (
+        f"the charge-port knock-out is only {100*_mfrac:.1f}% material -- the DEFAULT, "
+        f"unpopulated build has an open hole into the cell bay. The port must be cut from the "
+        f"inside only, leaving {TP_KNOCKOUT} of wall to be sliced out if a module is fitted")
+    # CONTROL: just inboard of the membrane the port must be OPEN, or nothing was cut at all
+    # and the "knock-out" is simply a solid wall pretending to be a feature.
+    _bore = bx(TP_CX - TP_PORT_W/2 + 0.5, TP_CX + TP_PORT_W/2 - 0.5,
+               MOB_OY1 - TP_KNOCKOUT - 1.20, MOB_OY1 - TP_KNOCKOUT - 0.20,
+               CAV_Z0 + TP_PORT_Z0 + 0.5, CAV_Z0 + TP_PORT_Z0 + TP_PORT_H - 0.5)
+    _bfrac = (cov & _bore).volume / _bore.volume
+    assert _bfrac < 0.02, (
+        f"control failed: the port bore behind the membrane is {100*_bfrac:.1f}% material, so "
+        f"nothing was actually cut and the knock-out cannot be knocked out")
+    assert _lerr(TP_KNOCKOUT, LH) < 1e-9 and TP_KNOCKOUT >= 2*LH, (
+        f"the knock-out membrane {TP_KNOCKOUT} is not a whole number of layers >= 2")
+    print(f"  [tp4056]  optional module {TP_W}x{TP_L}x{TP_H} fits ({_fit:.2f} mm3 foul); "
+          f"knock-out {100*_mfrac:.1f}% solid (default build sealed), bore behind it "
+          f"{100*_bfrac:.1f}% (must be ~0)")
+    print(f"             charge: onboard {CHARGE_MA:.0f} mA -> "
+          f"{CELL_CAPACITY_MAH/CHARGE_MA*CHARGE_CV_FACTOR:.1f} h  |  TP4056 ~1000 mA -> "
+          f"{CELL_CAPACITY_MAH/1000.0*CHARGE_CV_FACTOR:.1f} h   (docs/enclosure.md:165)")
+
+    # ---- 14. THE WS2812.  OCCLUDED, AND THE OCCLUSION IS PROVEN, NOT ASSUMED. ----
+    #
+    # docs/enclosure.md:161 already states the general case: "WS2812 RGB LED (GPIO42) is on the
+    # BACK, inboard, and fires backwards. A CLOSED BACK COVER HIDES IT COMPLETELY." So this is a
+    # documented property of any back cover, not something this variant introduced. What IS
+    # this variant's to answer is whether the geometry leaves a way out, and it does not:
+    #
+    #   * the LED is inside the DRIVER's footprint, so the module's body is the first thing in
+    #     front of it -- a window in the plateau would look straight at the back of the speaker;
+    #   * and the driver CANNOT be moved off it. The sealed cavity must contain the SPK relief
+    #     (the wire's only exit, check 9), the driver is DRIVER_W long, and clearing the LED
+    #     would need the driver wholly above or wholly below it. Both overrun the cavity.
+    #
+    # That second clause is the real finding, so it is computed rather than asserted in prose:
+    # if a future change frees the LED, this stops being true and the note above becomes wrong.
+    _lx, _ly = E.LED
+    _in_drv = (DRV_CX - DRIVER_H/2 <= _lx <= DRV_CX + DRIVER_H/2
+               and DRV_CY - DRIVER_W/2 <= _ly <= DRV_CY + DRIVER_W/2)
+    _above_ok = (_ly + 0.5) + DRIVER_W <= RIM_Y1      # driver entirely beyond the LED, +Y
+    _below_ok = (_ly - 0.5) - DRIVER_W >= RIM_Y0      # ...or entirely before it, -Y
+    _relief_in = RIM_Y0 < E.SPK_RELIEF_Y[0] and E.SPK_RELIEF_Y[1] < RIM_Y1
+    assert _in_drv and not _above_ok and not _below_ok and _relief_in, (
+        f"the WS2812 occlusion derivation no longer holds: LED {E.LED} in driver footprint="
+        f"{_in_drv}, could sit above={_above_ok}, below={_below_ok}, relief inside rim="
+        f"{_relief_in}. If the LED is now clear of the driver, DO NOT delete this assert -- "
+        f"add the hex diffuser window (a thinned floor of 2-4 x {LH}, never a through-hole, so "
+        f"the cavity stays sealed) and re-point it at that")
+    print(f"  [ws2812]  LED {E.LED} lies inside the driver footprint "
+          f"x {DRV_CX-DRIVER_H/2:.2f}..{DRV_CX+DRIVER_H/2:.2f} "
+          f"y {DRV_CY-DRIVER_W/2:.2f}..{DRV_CY+DRIVER_W/2:.2f}; a {DRIVER_W:.0f}mm driver "
+          f"cannot clear it inside a {RIM_Y1-RIM_Y0:.2f}mm cavity that must hold the SPK "
+          f"relief. OCCLUDED BY CONSTRUCTION (docs/enclosure.md:161 says as much for any "
+          f"closed back cover). The 2.8in display is the battery indicator.")
 
     # ---- 12. BED-FACE RULE: nothing proud of min Z on the cover ----
     # ember_case.py:2771 records this defect on BOTH shell parts in one session, on opposite
