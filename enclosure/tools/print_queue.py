@@ -58,7 +58,9 @@ ENC = os.path.normpath(os.path.join(HERE, ".."))
 QUEUE = os.path.join(ENC, "print")
 MANIFEST = os.path.join(QUEUE, "manifest.json")
 
-PARTS = ["ember-front-bezel", "ember-back-shell", "ember-stand", "ember-stand-base"]
+PARTS = ["ember-front-bezel", "ember-back-shell", "ember-stand", "ember-stand-base",
+         # the mobile variant (#44) — same queue, same rules
+         "ember-mobile-midframe", "ember-mobile-back"]
 
 
 def sha8(path: str) -> str:
