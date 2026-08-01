@@ -1837,6 +1837,33 @@ EGRESS_H  = 10.0        # above the desk. Sets where the tail corridor stops (se
                         # drifts FORWARD as it descends, into the chamber shaft.
 EGRESS_R  = 4.0         # rounds the channel's top corners, so the widest flat span the
                         # slicer has to bridge over the mouth is 14 - 2*4 = 6.0mm, not 14.
+# ---- THE REAR CORD TUCK (#46). NOT a second cable path — a place for the cord to lie. ----
+#
+# JP, with the r2 dock printed: "Power lead should leave toward the back of the desk."
+#
+# ⚠️ READ THE BLOCK ABOVE FIRST. The cable CANNOT be routed rearward: it leaves the port
+# heading down-and-forward, is rigid for its first 40mm, and reaches the desk plane still
+# travelling forward with 3.281mm of vertical budget — a rearward exit needs a horizontal
+# U-turn wanting ~40mm of lateral room against a 14mm channel. That analysis is unchanged and
+# this does not challenge it.
+#
+# What this is instead: the FLEXIBLE section, having left the front mouth and turned around in
+# OPEN AIR out front where it has unlimited radius, tucks under the plinth and runs out the
+# back. The stand stops being something the cord has to go around.
+#
+# RETENTION IS THE DESK, and that is why there is no lip. The obvious move is a dovetail or a
+# 0.2-0.4mm undercut at the mouth to grip the cord — it is unnecessary here and would be the
+# worse part. This groove faces DOWN. Once the stand is set on the desk the cord is captive
+# between the desk surface and the groove ceiling with nowhere to fall; a constriction would
+# only make it hard to press in. An undercut that fights the user to solve a problem gravity
+# already solved is decoration with a failure mode.
+TUCK_W = CABLE_OD + 2.5   # 7.00. Same reasoning as EGRESS_W: cable plus room to LIE in
+                          # rather than fight the wall. No boot here — the strain-relief
+                          # stays out front, so this is the bare cord and needs far less
+                          # than the 14mm the mouth does.
+TUCK_D = CABLE_OD + 0.5   # 5.00. Must EXCEED the cord, not merely admit it: a groove
+                          # shallower than the cord leaves the stand resting ON the cord,
+                          # which is a rocking dock and a crushed cable.
 EGRESS_Y1 = SLOT_CY     # rear bound. Derived: the corridor's rear face at the channel
                         # ceiling is at y=30.10, so the channel has to reach past that and
                         # nothing is bought by going further. Asserted in desk_stand().
@@ -1946,8 +1973,8 @@ NOTCH_R = SCALLOP_R  # rounds the notch's floor-to-sidewall corners, in the XZ p
 # separate un-flared cells. Rastered in the X-Z plane at 0.01mm — the bores run in Y, so
 # that plane IS the aperture. Re-run it with `tools/grille_area.py`:
 #
-#   THROAT, un-flared cells & field    640.8 mm2 in 53 openings   <- the restriction
-#   MOUTH,  flared cells & field       779.9 mm2 in 53 openings   <- the visible face
+#   THROAT, un-flared cells & field    607.8 mm2 in 37 openings   <- the restriction
+#   MOUTH,  flared cells & field       715.9 mm2 in 37 openings   <- the visible face
 #   field itself (38 x 25, r2.0)       946.6 mm2
 #
 # ⚠️ THESE FIGURES WERE STALE FOR THREE RELEASES AND SAID SOMETHING QUALITATIVELY FALSE.
@@ -1963,22 +1990,22 @@ NOTCH_R = SCALLOP_R  # rounds the notch's floor-to-sidewall corners, in the XZ p
 # stand apart. The face is now 53 discrete flared holes. Not a drifted decimal: the
 # opposite description of what the part looks like.
 #
-# THE THROAT NO LONGER CLEARS THE SOLVE, and this is the real acoustic news. 640.8 against
-# the stated 673.0 is -4.8% (it was +0.7%), and against the driver's ~700mm2 radiating area
-# it is 91.5% matched, not 97%. That is the predicted cost of the finer lattice, written
+# THE THROAT NO LONGER CLEARS THE SOLVE, and this is the real acoustic news. 607.8 against
+# the stated 673.0 is -9.7% (it was +0.7%), and against the driver's ~700mm2 radiating area
+# it is 86.8% matched, not 97%. 4.9 of those points are #47's fatter web, bought knowingly. That is the predicted cost of the finer lattice, written
 # down at GRILLE_INSET below: HEX_WEB is a print floor that does not scale with the cells,
 # so AF 6.4952 -> 4.50 drops the open fraction 0.7714 -> 0.6944, and growing the field
 # 37x24 -> 38x25 pays back only part of it. The arithmetic there predicted this; nobody
 # had re-measured to confirm it. NOT corrected by moving geometry — that is a real design
 # decision about level, and this commit only fixes the numbers that describe it.
 #
-# 59 cells produce 53 openings. `len(_cells.solids()) >= 30` counts the CUTTING TOOLS, not
+# 37 cells produce 37 openings. `len(_cells.solids()) >= 30` counts the CUTTING TOOLS, not
 # the resulting apertures — right for the question it asks (have the cells fused) and not a
 # count of holes in the part. It consumes none of these areas, so nothing asserted moved.
 #
 # ⚠️ AND THE SLIVERS ARE BACK. The old note ended "the smallest surviving opening is
-# 12.85mm2, so no clipped slivers" — true then, false now: the smallest is 0.31mm2 and four
-# openings are that size, clipped by the field's rounded corners. They are open holes, not
+# 12.85mm2, so no clipped slivers" — true then, false now: the smallest is 1.12mm2, clipped
+# by the field's rounded corners. They are open holes, not
 # unprintable webs, so this is a cosmetic and dust-ingress note rather than a build failure.
 # (The raster also finds 8 ONE-PIXEL specks where a hex edge grazes a field corner; those
 # are artifacts of the ruler, 0.0008mm2 in total, and grille_area.py discards them by an
@@ -1998,8 +2025,52 @@ GRILLE_STYLE  = "hex"
 # holds GRILLE_INSET at a comfortable 1.0 where 3.20 would need ~0.2.
 #
 # 2.5981 = 4.50/sqrt(3), so the ACROSS-FLATS is exactly 4.50. Cells go 33 -> 59.
-HEX_R         = 4.50/math.sqrt(3)   # circumradius; ACROSS-FLATS = 4.50 exactly
-HEX_WEB       = 0.90     # material between hexes; the print floor
+# ⚠️ r2 PRINTED AND THE WEBS TORE OUT. #47. AF 4.50 / web 0.90 collapsed in patches: webs
+# gone, cells merged, heavy fuzz. THE MECHANISM IS THE WEB, NOT A BRIDGE, and that is settled
+# by evidence rather than argument — the cells are pointy-up in the print frame (an STL scan
+# walked one opening and found it tapering 3.70 -> 0.92mm, a PEAK, so every cell ceiling is
+# self-supporting). What failed is the 0.90mm wall itself: at a 0.40 nozzle that is 2.25
+# extrusion lines, laid as dozens of tiny per-layer segments around a hex. A weak start tears
+# free, its neighbour loses half its anchorage, and the failure propagates — which is exactly
+# the "in patches" JP reported and not what a global span problem looks like.
+#
+# So the lattice is re-parameterised for WEB ROBUSTNESS, and the acoustics re-measured rather
+# than assumed. `tools/grille_area.py` rasters each candidate from these very constants:
+#
+#     AF    web   lines  holes   throat   % of driver ~700mm2
+#     4.50  0.90  2.25     53    640.8    91.5%   <- r2, the part that failed
+#     4.50  1.25  3.12     49    584.9    83.6%
+#     4.75  1.25  3.12     37    607.8    86.8%   <- CHOSEN
+#     5.00  1.25  3.12     33    623.2    89.0%
+#     5.25  1.25  3.12     33    634.5    90.6%
+#     5.50  1.25  3.12     33    638.0    91.1%
+#
+# EVERY ROW IS RASTERED, INCLUDING THE HOLE COUNTS. An earlier draft of this table carried
+# `cells_placed` in the holes column for the rows it had not measured and read 37 all the way
+# down. That is the cutting-tool count, not the apertures — the same conflation the 2b ledger
+# note warns about — and it made 5.00 look denser than it is. It is 33.
+#
+# THE TWO CONSTRAINTS PULL OPPOSITE WAYS. Coarser cells buy back open area, because HEX_WEB
+# is a print floor that does not scale: open fraction is (a/(a+w))^2, so a fatter web costs
+# proportionally more in a finer field. But JP rejected AF 6.4952 in #28 as "too big" (27
+# holes), and did not complain about r2's look at 53 — so the aesthetic pressure is toward
+# fine and the acoustic pressure toward coarse.
+#
+# THE RULE USED, so the choice is reproducible rather than a taste: take the FINEST lattice
+# whose throat stays within ~5% of the part that actually failed. 4.75 is -5.1% (607.8 vs
+# 640.8); 4.50 would be -8.7% and stack a second big regression on a throat this file already
+# flags as under-matched, while 5.00+ drops to 33 holes, only six more than the count JP
+# rejected. 4.75 keeps 37 holes and is 27% finer across the flats than 6.4952.
+#
+# Reversible in one constant, and JP judges the look on the print: if r3 reads too coarse,
+# 4.50 is one edit (at 83.6%); if it reads fine and sounds thin, 5.00-5.50 is one edit.
+#
+# Not fixed by going finer, and worth stating because it is the intuitive move: smaller cells
+# make this WORSE. The web is a print floor, so a finer field has more web per unit area and
+# more per-layer segments to start badly, which is the failure mode.
+HEX_R         = 4.75/math.sqrt(3)   # circumradius; ACROSS-FLATS = 4.75 exactly
+HEX_WEB       = 1.25     # material between hexes; the print floor. 3.12 lines at a 0.40
+                         # nozzle — see the #47 block above for why 0.90 (2.25) tore out.
 WYRM_ON       = False    # solid wyrm island in the grille field
 GRILLE_RAKE   = 24.0     # degrees back from vertical, from lyra's motif
 GRILLE_N      = 9
@@ -2553,7 +2624,29 @@ def desk_stand():
     # — NOT the `SLOT_CY - sin(TILT)*reach -/+ a` that check 2a uses, which offsets the axis
     # in GLOBAL y and so understates the drift by (1/cos - 1)*a. 2a is conservative and left
     # alone; this one is exact because it is the tight one.
-    _tailDepth = (SLOT_FLOOR + PLINTH_H - EGRESS_H) / math.cos(math.radians(TILT))
+    # ⚠️ THE OVERRUN IS WHY r2 PRINTED A MEMBRANE ACROSS THE BORE. #47, and JP carved it out
+    # by hand. Without it the corridor stops at exactly the channel's ceiling plane — but the
+    # corridor's end face is PERPENDICULAR TO THE TILTED AXIS, so it is a sloped face, and its
+    # high side sits (TAIL_Y/2)*sin(TILT) = 1.29mm ABOVE that plane. What is left between the
+    # sloped face and the arched roof is a lens of material lying across the open bore with
+    # nothing under it, and the slicer prints it: one partial layer, straight through the
+    # cable's path.
+    #
+    # MEASURED, not inferred. Sectioning the r2 solid inside the bore's own plan footprint
+    # every 0.4mm walks the material up to a LOCAL MAXIMUM exactly at the roof plane and back
+    # down again — 63.50mm2 at z=-6.40, 85.07 at z=-6.00, 76.66 at z=-5.60, then 30.92 steady
+    # above. A local maximum is the signature: ~21.6mm2 appears at one layer with void beneath
+    # it. Anything monotonic there is supported; a bump is a membrane.
+    #
+    # The fix is to let the bore run PAST the ceiling by exactly that overhang, so the two
+    # voids merge and no roof plane crosses the bore at all. Derived from the geometry that
+    # causes it — (TAIL_Y/2)*tan(TILT) of extra travel along the axis lowers the face's high
+    # side by (TAIL_Y/2)*sin(TILT) — so it tracks TAIL_Y and TILT automatically and cannot go
+    # stale the way a typed 1.3 would. It costs no bearing area: the extra void lives at
+    # z -7.3..-6, ten millimetres above the desk.
+    _tailOverrun = (TAIL_Y/2) * math.tan(math.radians(TILT))
+    _tailDepth = ((SLOT_FLOOR + PLINTH_H - EGRESS_H) / math.cos(math.radians(TILT))
+                  + _tailOverrun)
     p -= Pos(ST_W/2, SLOT_CY, SLOT_FLOOR) * (Rot(-TILT,0,0) *
              Box(TAIL_W, TAIL_Y, _tailDepth, align=(Align.CENTER, Align.CENTER, Align.MAX)))
     def _tail_y(a, z):
@@ -2592,6 +2685,31 @@ def desk_stand():
         f"the corridor ({TAIL_W}) must stay inside the well above it (22.0) so it removes no "
         f"new material there, and the channel ({EGRESS_W}) must stay inside the corridor so "
         f"the step at z=0 faces UP (supported) rather than down (an overhang)")
+    # REAR CORD TUCK (#46) — straight run, front channel's end to the rear face.
+    #
+    # Starts where the egress channel stops (EGRESS_Y1 + 1) so the two read as one system and
+    # no rib is left between them, and runs past ST_D so the mouth is a clean opening in the
+    # rear face rather than a blind pocket. Straight is available: the speaker chamber's access
+    # shaft ends at y=CHAM_Y1=19.3, far in front of where this starts, so nothing is in the way
+    # and no route-around is needed.
+    #
+    # THIS CUTS THE BEARING SURFACE ON PURPOSE. 7.00 x 29.00 = 203.0mm2, carried as its own
+    # line in the 2b ledger with the floor re-derived — never nudged to fit.
+    p -= bx(ST_W/2 - TUCK_W/2, ST_W/2 + TUCK_W/2,
+            EGRESS_Y1 + 1.0, ST_D + 1.0, -PLINTH_H, -PLINTH_H + TUCK_D)
+    # IT MUST NOT MEET THE SPEAKER-WIRE ROUTE, which crosses the same y-span. Proven, not
+    # assumed: that cut lives at z ST_WALL..13.0 and this one at -PLINTH_H..-PLINTH_H+TUCK_D.
+    assert -PLINTH_H + TUCK_D < ST_WALL, (
+        f"the rear cord tuck reaches z={-PLINTH_H + TUCK_D:.2f} and the speaker-wire route "
+        f"starts at z={ST_WALL:.2f} — they would merge into one opening through the plinth "
+        f"and the rear face would lose the material between them")
+    # AND IT MUST NOT UNDERCUT THE #35 CHAMFER at the rear face. The chamfer takes 0.80 off
+    # the bottom edge all the way round; the tuck's ceiling has to stay above it, or the
+    # groove mouth opens into the chamfer and the rear edge becomes a knife.
+    assert TUCK_D > CHAMFER + 1.0, (
+        f"the tuck is {TUCK_D:.2f} deep against a {CHAMFER:.2f} perimeter chamfer — under "
+        f"1mm of material between the groove ceiling and the chamfered edge")
+
     # SPEAKER-WIRE ROUTE: slot floor -> out the back.  ⚠️ THIS IS NO LONGER THE USB CABLE'S
     # ROUTE. It was cut for the power lead, the power lead never fitted through it (#29), and
     # the lead now leaves through the plinth instead. What still uses it is the driver's own
@@ -3409,8 +3527,17 @@ def _check_geometry(parts=None):
     #     part starts at 0), less its overlap with the shaft (14.0 x 15.3)   -261.8
     #   - 0.80 perimeter chamfer (#35), MEASURED not computed                -137.8
     #   - USB-C well                                                           -0.0
+    #   - rear cord tuck (#46), TUCK_W 7.00 x y 35..64 = 29.00                -203.0
+    #   - 0.80 chamfer along the tuck's TWO NEW bottom edges, MEASURED         -29.4
     #                                                                     ---------
-    #   expected                                                            2784.4
+    #   expected                                                            2552.0
+    #
+    # ⚠️ THE TUCK COSTS MORE THAN ITS OWN AREA, and the first draft of this line missed it.
+    # 7.00 x 29.00 = 203.0 predicts 2581.4; the build measured 2552. The 29.4 difference is
+    # the #35 chamfer running along the two long bottom edges the groove just created — the
+    # SAME effect the chamfer term above is measured rather than computed for. Cutting a
+    # channel into a chamfered face does not remove w*L, it removes w*L plus the chamfer that
+    # now follows two new edges. Measured, not modelled, for the same reason as the term above.
     #
     # THE WELL LINE IS ZERO ON PURPOSE, and it is listed rather than omitted because a missing
     # line and a zero line read identically in a total but not to a reader. The well used to
@@ -3434,10 +3561,10 @@ def _check_geometry(parts=None):
     print(f"  [bearing] {_foot:.0f}mm2 of {_plan:.0f}  quadrants "
           f"{'/'.join(f'{q/p*100:.0f}%' for q, p in zip(_quads, _pq))}  "
           f"behind CoM {_rear:.0f}mm2 to y={_ymax:.1f}")
-    assert _foot >= 2740.0, (
+    assert _foot >= 2507.6, (
         f"stand bearing footprint {_foot:.0f}mm2 of a {_plan:.0f}mm2 plan — the ledger above "
-        f"accounts for 2784, so something is piercing the plinth beyond the chamber shaft, "
-        f"the egress channel and the #35 chamfer")
+        f"accounts for 2552, so something is piercing the plinth beyond the chamber shaft, "
+        f"the egress channel, the #46 rear tuck and the #35 chamfer")
     # THE RING TEST. Area alone cannot see a ring; a quadrant that has lost most of its plan
     # can only be a rim, a strip or a hole. 47% is the worst quadrant here (the two front ones,
     # which carry the chamber shaft); the control below shows what a real ring scores.

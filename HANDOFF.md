@@ -204,10 +204,10 @@ pigtail. Each revision was a confident design built on an assumption the model c
 
 Because the module carries its own rear volume, **chamber volume barely matters
 acoustically**. The front path is the acoustic design — hence the deliberately small
-2.50 mm diaphragm-to-baffle gap and the 59-cell grille solved to 673 mm² nominal — measured
-(`enclosure/tools/grille_area.py`), the **throat is 640.8 mm² across 53 apertures** (−4.8 %, so
-the driver's ~700 mm² is 91.5 % matched, not 97 %) and the **mouth is 779.9 mm² across the same
-53 apertures**: at the current 0.25 mm flare the mouth web is 0.4670 mm, positive, so the face
+2.50 mm diaphragm-to-baffle gap and the 37-cell grille solved to 673 mm² nominal — measured
+(`enclosure/tools/grille_area.py`), the **throat is 607.8 mm² across 37 apertures** (−9.7 %, so
+the driver's ~700 mm² is 86.8 % matched, not 97 %) and the **mouth is 715.9 mm² across the same
+37 apertures**: at the current 0.25 mm flare the mouth web is 0.4670 mm, positive, so the face
 is discrete holes and *not* the single merged opening earlier notes described. The nominal
 figure describes the throat, which is the restriction that governs level. **Skip the
 wadding** (nothing to damp); **still seal the joints** (to stop the *front* cavity venting
@@ -340,8 +340,8 @@ Full crash-recovery audit with ranked findings:
   delivered it was 11 spines over a 50 × 15 field with 190 mm² open, sized for the round ⌀28
   driver that no longer exists, and applied as-is it would have cost 72% of the open area. The
   rake, the thick-to-thin gradient and the capsule ends survive; the length taper was moved
-  into width. The grille is now a 59-cell field solved to the same 673 mm² nominal as the plain
-  array it replaced (throat measured at 640.8 mm², −4.8 %), so the choice between it and the
+  into width. The grille is now a 37-cell field solved to the same 673 mm² nominal as the plain
+  array it replaced (throat measured at 607.8 mm², −9.7 %), so the choice between it and the
   ridge is aesthetic, not acoustic.
 - The HA long-lived access token in `configuration.yaml` is **revoked and verified dead**
   (old token → 401, `ha-llat` → 200, Ember still reachable).

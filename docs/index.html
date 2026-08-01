@@ -1954,21 +1954,21 @@ footer p{margin:.4rem 0}
       <table>
         <thead><tr><th></th><th>area</th><th>openings</th></tr></thead>
         <tbody>
-          <tr><td><b>Throat</b> — the un-flared bores, the acoustic restriction</td><td><b>640.8&nbsp;mm²</b></td><td><b>53</b></td></tr>
-          <tr><td><b>Mouth</b> — the flared face you can touch</td><td><b>779.9&nbsp;mm²</b></td><td><b>53</b></td></tr>
+          <tr><td><b>Throat</b> — the un-flared bores, the acoustic restriction</td><td><b>607.8&nbsp;mm²</b></td><td><b>37</b></td></tr>
+          <tr><td><b>Mouth</b> — the flared face you can touch</td><td><b>715.9&nbsp;mm²</b></td><td><b>37</b></td></tr>
           <tr><td>the field itself, 38 × 25 with r2 corners</td><td>946.6&nbsp;mm²</td><td>—</td></tr>
         </tbody>
       </table>
     </div>
-    <b>The throat now sits under the solve — 640.8 against the stated 673.0, −4.8&nbsp;%</b>, so
-    the driver's ~700&nbsp;mm² radiating area is 91.5&nbsp;% matched rather than 97&nbsp;%. That
+    <b>The throat now sits under the solve — 607.8 against the stated 673.0, −9.7&nbsp;%</b>, so
+    the driver's ~700&nbsp;mm² radiating area is 86.8&nbsp;% matched rather than 97&nbsp;%. That
     is the priced-in cost of the finer lattice: <code>HEX_WEB</code> is a print floor that does
     not scale with the cells, so going from 6.4952 to 4.50&nbsp;mm across-flats drops the open
     fraction from 0.7714 to 0.6944, and growing the field only pays part of it back. 673 was
     never wrong about the thing that governs level; it described the <em>throat</em>. What was
     wrong was reading it as a description of the face.
     <p style="margin:.6rem 0 0">
-      <b>And 59 cells produce 53 openings</b>, because six are clipped away by the field's
+      <b>And 37 cells produce 37 openings</b>, because six are clipped away by the field's
       rounded corners. The build asserts <code>len(_cells.solids())&nbsp;≥&nbsp;30</code>, which
       counts the <em>cutting tools</em> rather than the holes they leave — correct for the
       question it asks (<em>have the cells fused into one solid?</em>) and <strong>not an
@@ -1978,7 +1978,7 @@ footer p{margin:.4rem 0}
   </div>
 
   <div class="note">
-    <b>What you see from the outside is a honeycomb face — 53 discrete holes.</b> Each bore is
+    <b>What you see from the outside is a honeycomb face — 37 discrete holes.</b> Each bore is
     flared 0.25&nbsp;mm at the mouth to break the sharp arris, which sheds vortices and chuffs at
     level. Merging would begin at <code>web/√3 = 0.5196</code>; at 0.25 the mouth web is
     <b>0.4670&nbsp;mm</b> and positive, so the cells stand apart and the face reads as the
@@ -2008,7 +2008,7 @@ footer p{margin:.4rem 0}
     </p>
     <p style="margin:.6rem 0 0">
       <b>And the check that should have caught it counts the wrong object.</b> The assert on
-      cell count is computed on the <em>un-flared</em> field, so it reports 59 separate cells
+      cell count is computed on the <em>un-flared</em> field, so it reports 37 separate cells
       whatever the flare does to the mouth — it would have gone on passing at 0.45 while the
       printer merged them anyway. A check upstream of the feature it is about is the same
       failure as a check downstream of it; both are arithmetic pointed away from the part.

@@ -930,13 +930,21 @@ re-checking the model will settle them:
    the case.
 6. **Whether the seal actually seals.** A leaky "sealed" box costs exactly the low end the
    chamber exists to produce, and an audible A/B sealed-vs-unsealed is the only test.
-7. **Acoustics.** The throat is 640.8 mm² against the driver's ~700 mm² — 91.5 % on paper,
-   and 4.8 % under the 673 mm² the baffle was solved for. The finer lattice spends open area
+7. **The well/channel junction (fixed in r3, was a real defect in r2).** r2 printed a thin
+   membrane straight across the USB-C bore where the egress channel's roof passed it — JP had
+   to carve it out before the plug would pass. The corridor now runs `(TAIL_Y/2)*tan(TILT)`
+   past the channel ceiling so the two voids merge and no roof plane crosses the bore. Verified
+   by sectioning: material inside the bore footprint used to spike to 85.1 mm² at the roof
+   plane with void beneath it, and is now monotonic into the junction. **Leave bridging on** —
+   the channel's own 6.0 mm roof span is unchanged and still bridges.
+8. **Acoustics.** The throat is 607.8 mm² against the driver's ~700 mm² — 86.8 % on paper,
+   and 9.7 % under the 673 mm² the baffle was solved for (#47 spent 4.9 of those points on a
+   printable web, deliberately). The finer lattice spends open area
    on webs that do not scale with the cells; whether that is audible is not predictable from
    area, and it is the one number here most worth trusting your ears over.
-8. **Your USB-C cable's overmould.** The well is generous — 22 × 12 mm, 20.7 mm along the tilt —
+9. **Your USB-C cable's overmould.** The well is generous — 22 × 12 mm, 20.7 mm along the tilt —
    but plugs vary more than the spec suggests.
-9. **Cosmetics of the grille mouth.** 53 discrete flared holes across a 38 × 25 mm field.
+10. **Cosmetics of the grille mouth.** 37 discrete flared holes across a 38 × 25 mm field.
    Earlier print sheets promised *one* merged aperture with the honeycomb behind it — that was
    true at the old 0.60 mm flare, and is not true at the current 0.25 mm (mouth web 0.4670 mm,
    positive, so the cells stand apart). You are getting a honeycomb face, not a single slot.
