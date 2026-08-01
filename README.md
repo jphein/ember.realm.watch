@@ -422,12 +422,18 @@ unmodified — same STL, same four M3×12, same 5.34 mm of thread — and the bo
 > dovetail slides are in flight. **Both mobile STLs will change again**, so the figures on the
 > project page and the cover-dependent numbers below are provisional until they are regenerated.
 >
-> ⚠️ **Verified in CAD, never printed, nothing wired.** Both parts pass every check the desk
+> ⚠️ **Verified in CAD, nothing completed, nothing wired.** Both parts pass every check the desk
 > parts do — watertight, **0 boundary and 0 non-manifold edges**, **0.000 mm³** against the
 > vendor board solid, with displaced controls at 2248.8 / 184.4 / 1919.7 mm³ so the probe is
-> known to be *able* to fail. That is a geometry result. The cell is a phantom, the protection
-> strip's dimensions are an estimate, and whether the cover's top edge gaps is a question only a
-> test print answers.
+> known to be *able* to fail. That is a geometry result. The cell is a phantom, two of the
+> protection strip's three dimensions are still placeholders, and whether the cover's top edge
+> gaps is a question only a test print answers.
+>
+> One cover print has been **started and cancelled at 2 %** — the strip's length had gone in as a
+> 20.0 mm eyeball estimate carrying ±2, and at 20.0 the locating ribs sit **1.5 mm too close
+> together for a 21 mm strip to drop between them**. Re-measured at **21.50**, seat 22.30. The
+> flag on that estimate is why the cancel cost 2 % rather than a whole part; the lesson is that a
+> number carrying ±2 was allowed to set a feature whose clearance is smaller than ±2.
 
 | | |
 |---|---|

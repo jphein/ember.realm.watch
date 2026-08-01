@@ -8,19 +8,32 @@ imports every board and shell number from `ember_case.py` rather than re-typing 
 this document is a reading of that model and not a second copy of it. **Where the two disagree,
 the model is right.**
 
-> ⚠️ **Status: verified in CAD, never printed, nothing wired.**
+> ⚠️ **Status: verified in CAD, nothing completed, nothing wired.**
 > Both parts pass every check the desk parts do, including 0.000 mm³ interference against the
-> vendor board solid. That is a geometry result. No part has been on a bed, no cell has been in
-> a bay, and no joint has been soldered. The numbers marked **soft** below are the ones to
-> distrust first.
+> vendor board solid. That is a geometry result. No cell has been in a bay and no joint has been
+> soldered. The numbers marked **soft** below are the ones to distrust first.
+>
+> *A cover print was started and **cancelled at 2 %** on 2026-08-01, when JP's re-measurement of
+> the protection strip landed and the locator ribs turned out to be 1.5 mm too close together.
+> Nothing has been printed to completion, but the bed is no longer untouched — and that cancel is
+> the cheapest thing in this document.*
 >
 > ⏳ **AND THE COVER RETENTION IS MID-REDESIGN.** The undercut hooks were rejected on
 > printability and dovetail slides are in flight on `feat/dovetail-retention`, so **both mobile
 > STLs will change again.** Until that lands and this document is regenerated against it, treat
-> every cover-dependent figure and every §12 row that touches the cover as **provisional** —
-> including the two shaded renders, which still depict the hook scheme. The cell bay, the vent,
-> the acoustics, the glow window and the protection pocket are not implicated, but their *numbers*
-> come from the same build and must be re-read from it rather than assumed to have held.
+> every cover-dependent figure and every §12 row that touches the cover as **provisional**.
+>
+> Specifically, and stated rather than left to be discovered — **the figures are one geometry
+> revision behind this text:**
+> - the two shaded renders still depict the **hook** retention scheme;
+> - the strip-pocket section still carries a dimension label reading **`20.0 est ±2`**, which the
+>   caliper measurement above has replaced with 21.50.
+>
+> Nothing on the project page quotes either stale number any more, and this document does not
+> either — but a drawing showing a superseded dimension is exactly the "rumour about the part"
+> that the figure tooling exists to prevent, so **this branch is not to be merged before the
+> figures are regenerated.** Holding them is a deliberate choice to regenerate once, after the
+> dovetail lands, rather than twice.
 
 ---
 
@@ -100,7 +113,7 @@ asserted. *Do not "fix" a failure there by editing `BAFFLE_T`.*
 |---|---|---|
 | Cell | **1 × bare flat-top 18650**, ⌀18.80 max incl. wrap | **Bare only.** Protected/button-top cells are out of scope — see §5. 3400 mAh assumed for the charge figure. |
 | Spring | compression, **7.00 mm free / 2.50 mm solid**, ⌀9.00 seat | Generic AA/18650 holder spring. 4.50 mm travel against 0.60 mm of cell-length spread. |
-| Protection strip | **1S DW01-class + dual FET, pre-welded nickel tabs** | ⚠️ **Required, not optional** — see §6. Pocket sized 20.0 × 6.50 × 2.50, all three **soft**. |
+| Protection strip | **1S DW01-class + dual FET, pre-welded nickel tabs** | ⚠️ **Required, not optional** — see §6. Pocket sized **21.50** × 6.50 × 2.50 — the length is now **measured**; width and thickness are still **soft**. |
 | Pigtail | JST 1.25 mm 2P | strip `P+`/`P−` → the board's `BAT` connector. |
 | Cover screw | **1 × M3 × 0.5 × 22 ISO 4762** (cap head) | 2.5 mm hex key. 3.40 mm engaged in a 6.60 mm pilot. |
 | Bezel screws | 4 × M3 × 0.5 × 12 ISO 4762 | Unchanged from the desk build. |
@@ -236,15 +249,25 @@ the device already publishes battery voltage, so the hook for a low-voltage cuto
 | | |
 |---|---|
 | Pocket | centred x **35.70**, y **78.50 .. 85.00**, floor at `CAV_Z0` |
-| Sized for | **20.00 × 6.50 × 2.50** — see the warning |
+| Sized for | **21.50 × 6.50 × 2.50** — the length is measured; the other two are not |
 | Clearances | 0.40 around, **1.00 over the component face** (the FETs are the tall parts) |
 | Locating | three ribs, 1.60 wide × 1.20 high, **outside** the PCB footprint |
 | Tab slots | 5.40 × 0.40 — these tabs are ~5 mm × 0.15 flat conductors, so shallow slots, excess trimmed |
 
-> ⚠️ **soft — all three dimensions.** `PROT_L = 20.0` is JP's eyeball estimate ("20 mm about"),
-> carrying **±2**; `PROT_W` and `PROT_T` are **unmeasured class placeholders**. The build prints
-> `⚠️ UNMEASURED — awaiting JP's calipers` on every run. The *class* is certain from a photograph;
-> the figures are not. When calipers land, those three constants are the whole edit.
+> ✅ **`PROT_L` is now MEASURED: 21.50.** JP re-measured — *"a little over 21"* — and the seat
+> derives to **22.30 between the ribs**. It replaced a 20.0 eyeball estimate that carried ±2, and
+> the difference was not academic: at 20.0 the locator ribs printed **1.5 mm too close together
+> for a 21 mm strip to drop between them**, which was caught 2 % into a cover print. *Measured
+> beats estimated — third instance in this project in one day.*
+>
+> ⚠️ **soft — the other two.** `PROT_W = 6.50` and `PROT_T = 2.50` remain **unmeasured class
+> placeholders**. The *class* is certain from a photograph; those two figures are not, and they
+> are one edit each when a caliper reaches them.
+>
+> ⚠️ The build still prints a blanket `⚠️ UNMEASURED — awaiting JP's calipers` across all three
+> figures, which is now wrong for the length. Narrowing that message to W and T is a one-line
+> change in `ember_mobile_case.py` and is **not** made here — this document does not edit the
+> model it reads.
 
 The floor **under** the PCB is left flat — a rib under a PCB is a rock under a board — and the
 ribs sit on floor that was already empty.
@@ -444,7 +467,7 @@ transcribe these by hand.
 | Cover retention | ⏳ **pending the dovetail redesign** — the hook figures this row carried (travel 2.90 / 3.60, pocket 1.40 in a 2.60 floor) describe a scheme that was rejected on printability, so they are removed rather than left to read as current |
 | Cover screw | M3×22, head at z −28.30, **3.40 mm engaged in a 6.60 mm pilot** |
 | Counterbore | 4.60 mm to the cover edge (needs 4.20); annulus 1.60 (min 1.00); seat 100.0 % solid |
-| Strip pocket | 20.00 × 6.50 × 2.50 fits (0.00 mm³ foul); max that seats flat 29.30 |
+| Strip pocket | **21.50** × 6.50 × 2.50 fits (0.00 mm³ foul); max that seats flat 29.30; seat 22.30 between ribs |
 | TP4056 | **228 mm³ interference — does not fit** |
 | Charge | 290 mA → **15.8 h** |
 | Vent | 4 units, **16.56 mm² throat vs 9.42 assumed (1.76×)**; worst slot 36 % obstructed, drilled control 0.0 % |
@@ -490,7 +513,8 @@ mobile queue entries are only as current as the last `ember_case.py` run.
 2. **Protection is unbuilt electrically.** The pocket exists and the schematic proves the need.
    No strip has been fitted, no firmware cutoff written.
 3. **Reverse insertion is unprotected** — markings only (§5).
-4. **The strip's three dimensions** are an estimate and two placeholders (§7).
+4. **Two of the strip's three dimensions** are still placeholders — width and thickness (§7).
+   The length is measured now, and the estimate it replaced had already cost a cancelled print.
 5. **Cover retention is being redesigned as this is written.** The undercut hooks were rejected
    on printability — a 0.60 mm lip bridging its own slot — and dovetail slides are in flight on
    `feat/dovetail-retention`. Two consequences: the **top-edge gap** question is still open (the

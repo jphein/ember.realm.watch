@@ -2020,9 +2020,7 @@ footer p{margin:.4rem 0}
     <figcaption>
       The pocket for a 1S protection strip, sectioned through its locating ribs. The ribs stand
       <em>outside</em> the board's footprint and the floor under it is left flat — a rib under a
-      PCB is a rock under a board. The length label reads <b>"20.0 est ±2"</b> on purpose: that
-      figure is an eyeball estimate, not a measurement, and a drawing that renders an estimate in
-      the same voice as a derived dimension is lying about its own confidence.
+      PCB is a rock under a board.
       <br><br>
       Two things this section cannot show. <b>Solder access</b> is a property of assembly
       <em>order</em> — the compartment is open until the midframe goes on — so it is measured, not
@@ -2032,10 +2030,24 @@ footer p{margin:.4rem 0}
     </figcaption>
   </figure>
 
+  <div class="note">
+    <b>The strip's length was an eyeball estimate, and it cost a print.</b> It went in as
+    <b>20.0&nbsp;mm "about", carrying ±2</b> — flagged as an estimate everywhere it appeared,
+    which turned out not to be enough. At 20.0 the locating ribs print
+    <b>1.5&nbsp;mm too close together for a 21&nbsp;mm strip to drop between them</b>, and that
+    surfaced <b>2&nbsp;% into a cover print</b>. Cancelled. Re-measured at <b>21.50</b> — "a
+    little over 21" — and the seat now derives to <b>22.30 between the ribs</b>.
+    <p style="margin:.6rem 0 0">
+      <b>Measured beats estimated, and this was the third time in one day.</b> The honest reading
+      is not that the flag failed: the flag is why the cancel cost 2&nbsp;% instead of a whole
+      part. It is that <em>a number carrying ±2 was allowed to set a feature whose clearance is
+      smaller than ±2</em> — the tolerance was documented and then spent anyway. Width and
+      thickness are <b>still unmeasured class placeholders</b>, so the same trap is still armed
+      twice.
+    </p>
+  </div>
   <p>
-    The strip's own dimensions are the softest numbers in the design and the build says so on
-    every run — <code>⚠️ UNMEASURED — awaiting JP's calipers</code>. The <em>class</em> is
-    certain from a photograph; the figures are not. And the briefed class length,
+    The briefed class length,
     <b>31.00&nbsp;mm, does not fit</b>: the compartment seats <b>29.30</b> flat, and it fits no
     other way either — not rotated (13.40&nbsp;mm of depth available), not on edge, not diagonally
     (which needs 30.96). The compartment cannot grow, because the cell bore pins one side and the
