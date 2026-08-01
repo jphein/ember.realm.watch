@@ -355,9 +355,11 @@ TP_W, TP_L, TP_H = 26.00, 17.00, 4.00      # generic TP4056 module: X x Y x Z, l
 # equipment and not a nicety, and it is the part of the story a "it browns out first" reading
 # misses.
 #
-# ⚠️⚠️ PROT_L / PROT_W / PROT_T ARE UNMEASURED. JP is on the calipers. They are placeholders in
-# the CABLE_OD sense -- a number that is load-bearing and has not been measured yet -- and the
-# three of them are the whole edit when his figures land.
+# PROT_L is ESTIMATED, not measured: JP, 2026-08-01, "20mm about" -- an eyeball figure,
+# so it carries +/-2 and the seat leaves that much end slack. W and T remain the class
+# placeholders. If calipers ever land, the three constants are still the whole edit.
+# Same date, JP froze the length trade: the case STAYS at 94.95 -- in-case TP4056 is
+# permanently out (external bay chargers cover fast-charge for removable cells).
 #
 # THE CLASS IS CERTAIN (JP's photo): a 1S DW01 + dual-FET PCB with pre-welded nickel tabs at
 # both ends, components on one face. Briefed class figure: 31.00 x 6.50 x 2.50.
@@ -373,7 +375,7 @@ TP_W, TP_L, TP_H = 26.00, 17.00, 4.00      # generic TP4056 module: X x Y x Z, l
 PROT_L_CLASS  = 31.00                                   # briefed class figure, for the record
 PROT_CLR      = 0.40
 PROT_L_MAX    = (RIM_X1 - RIM_X0) - 2*PROT_CLR          # 29.30, the compartment's hard limit
-PROT_L        = PROT_L_MAX      # UNMEASURED placeholder, clamped to what physically fits
+PROT_L        = 20.0            # ESTIMATED +/-2 (JP eyeball); assert still clamps vs PROT_L_MAX
 PROT_W        = 6.50            # UNMEASURED
 PROT_T        = 2.50            # UNMEASURED
 PROT_COMP_CLR = 1.00            # over the component face (the FETs are the tall parts)
@@ -591,7 +593,13 @@ VENT_Z1 = BACK_Z - 1.80                                 # -11.50, below the mati
 # between channels for the nearest one that can hold the window -- so if a connector moves, the
 # window follows instead of quietly landing in a hole.
 GLOW_N        = 2
-GLOW_R        = HEX_R                                   # same cell as the grille: AF 4.50
+# ⚠️ PINNED, not shared. This WAS `HEX_R` ("same cell as the grille") until the stand's
+# grille re-parameterized 4.50 -> 4.75 AF for printable webs (#47) and this window --
+# in a DIFFERENT PART -- silently inherited the change and stopped fitting its 5.50
+# cavity band (assert below fired at 4.75 > 4.70; the export gate refused the STL).
+# A window's size is set by the band it lives in, not by another part's lattice. The
+# motif survives: same shape, same orientation, 0.25 finer than the new grille.
+GLOW_R        = 4.50 / math.sqrt(3)                     # AF exactly 4.50, this part's own
 GLOW_AF       = math.sqrt(3) * GLOW_R                   # 4.50 across flats -> the Z extent
 GLOW_AC       = 2 * GLOW_R                              # 5.196 across corners -> the Y extent
 GLOW_WEB      = HEX_WEB                                 # 0.90, the print floor
