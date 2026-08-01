@@ -28,8 +28,15 @@ set -euo pipefail
 #
 # Set both for your install; they are deliberately separate and must stay so:
 #   export HA_SSH_HOST="jp@ha.lan" HA_API="https://ha.example.com:8123"
-HA_SSH_HOST="${HA_SSH_HOST:-jp@homeassistant.local}"
-HA_API="${HA_API:-https://homeassistant.local:8123}"
+# Defaults are THIS homelab's real endpoints (fixed 2026-07-31 — the
+# homeassistant.local defaults resolved from nowhere on katana, so every run
+# needed manual overrides):
+#   SSH  -> the HAOS VM itself by IP. ha.jphe.in is the Caddy edge (see the
+#           warning above) and there is no mDNS on this LAN's VLANs.
+#   API  -> ha.jphe.in:8123, HA core's own TLS listener (valid LE cert), the
+#           same base every ~/Projects/ha tool uses.
+HA_SSH_HOST="${HA_SSH_HOST:-jp@10.0.6.108}"
+HA_API="${HA_API:-https://ha.jphe.in:8123}"
 # Overridable so the copy path can be exercised against a scratch directory without
 # touching the live config, and for instances whose config dir isn't the default.
 PKG_DIR="${PKG_DIR:-/homeassistant/packages}"
