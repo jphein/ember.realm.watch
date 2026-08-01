@@ -1,155 +1,179 @@
-# Wake word — "don-kee"
+# Wake word
 
-Status: **wired, compiled, not flashed, and off by default.**
+Status: **wired and compiled, never flashed.** Ember ships answering to **"Okay Nabu"**,
+detected on-device.
 
-Ember answers to a tap today. This document describes how it also answers to
-"don-kee", why that wake word runs in Home Assistant rather than on the ESP32, and
-what is left to do.
+There are two wake-word implementations in this repo because there are two models in two
+incompatible formats. One `wake_word_mode` substitution picks between them.
+
+| mode | wake word | runs on | idle audio leaves the device | default |
+|---|---|---|---|---|
+| `0` | — | — | no | |
+| `1` | **Okay Nabu** | the ESP32 (microWakeWord) | **no** | ✅ |
+| `2` | don-kee | Home Assistant (openWakeWord) | **yes, continuously** | |
+
+Set it in the substitutions block of `esphome/ember-satellite.yaml`.
 
 ---
 
-## The short version
+## Why the wake word is "Okay Nabu" and not "don-kee"
 
-| | |
-|---|---|
-| Model | `donk_ee.tflite`, openWakeWord format ([provenance + hash](../homeassistant/wakewords/README.md)) |
-| Runs on | Home Assistant (`openwakeword` add-on), **not** on the device |
-| Device's job | Stream microphone audio to HA whenever it is idle |
-| Enable with | `wake_word_enabled: "1"` in `esphome/ember-satellite.yaml` substitutions |
-| Default | `"0"` — off. Touch-only, exactly as before. |
-| Remaining | Flash the device; set the `familiar-ember` pipeline's wake word; restart HA |
+Because of the model format, not preference.
 
-## Why server-side, when on-device would be better
+The only surviving "don-kee" artifact is an **openWakeWord** model — verified by parsing
+it: input `[1,16,96]` float32, openWakeWord's classifier head over its shared embedding
+frontend. ESPHome's on-device `micro_wake_word` needs a **microWakeWord** model: int8,
+self-contained, its own streaming frontend. They are not interconvertible, so "don-kee"
+can only run server-side, and running it server-side means streaming room audio to HA
+continuously while idle.
 
-On-device (`micro_wake_word`) is the better architecture and it is not available to us.
+"Okay Nabu" is a stock microWakeWord model, so it runs locally and nothing leaves the
+device until the word fires. Mode 1 is therefore strictly better on privacy and latency,
+at the cost of the wake word being someone else's. Getting "don-kee" on-device requires
+**retraining** it as a microWakeWord model — a training task, not a wiring task.
 
-The only surviving "don-kee" artifact is an **openWakeWord** model. That was verified
-by parsing the model rather than by trusting where it sat on disk — input tensor
-`[1, 16, 96]` float32, which is openWakeWord's classifier head over its shared
-embedding frontend. ESPHome's `micro_wake_word` component implements a *different*
-frontend and needs an int8, self-contained microWakeWord model with a JSON manifest.
+Provenance and hashes: [`esphome/wakewords/`](../esphome/wakewords/README.md) (on-device)
+and [`homeassistant/wakewords/`](../homeassistant/wakewords/README.md) (server-side).
 
-The formats are not interconvertible. Getting "don-kee" on-device means **retraining**
-it, which is a real but separate piece of work. The full reasoning, and the trail of
-the microWakeWord "donkee" that used to exist and has been lost, is in
-[`homeassistant/wakewords/README.md`](../homeassistant/wakewords/README.md).
+---
 
-### The tradeoff you are accepting
+## ⚠️ The thing that makes mode 1 hard: one I2S bus
 
-| | On-device (not available) | Server-side (what this is) |
+**A naively always-on `micro_wake_word:` makes Ember mute.** This is the single most
+important fact about the on-device wake word on this board.
+
+`micro_wake_word` holds the **microphone** open continuously. On this device the
+microphone and the speaker are the same `i2s_bus`, behind **one mutex**:
+
+- the mic takes it in `start_driver_()` and returns it only in `stop_driver_()`
+  (`i2s_audio_microphone.cpp:98, 228`) — its entire running life;
+- the speaker asks with a **non-blocking `try_lock()`**, logs `Parent bus is busy`
+  (`i2s_audio_speaker_standard.cpp:400`) and gives up, retrying a second later, forever.
+
+So while the wake word listens, every reply, chime and announcement silently fails to
+get the bus. This is the exact mirror of the `timeout: never` trap already documented on
+the speaker in the YAML — that one starves the microphone, this one starves the speaker.
+One mutex, two directions, both silent.
+
+### What makes it safe: the arbiter
+
+A 100 ms loop in `interval:` (search **WAKE-WORD ARBITER**) owns the rule *"the wake word
+may hold the mic only while nothing wants to speak and no conversation is running"*:
+
+```
+want = (mode == 1) && spk->is_stopped() && !va->is_running()
+```
+
+It keys on `is_stopped()`, **not** `is_running()`. `is_running()` means
+`state_ == STATE_RUNNING`, which the speaker only reaches *after* winning the lock —
+which it cannot do while we hold it. Keying on it would deadlock on a state our own
+behaviour prevents. `is_stopped()` goes false at `STATE_STARTING`: the moment the
+speaker *wants* the bus, before it asks.
+
+Two predictive anchors yield the mic ahead of time, to shorten the window in which the
+speaker asks for a bus the wake word still holds:
+
+- **`talk_begin`** — the conversation entry point, for the touch path.
+- **`media_player: on_announcement:`** — for pushed audio (HA announcements, finished
+  timers) where there is no tap to hang the yield on.
+
+The touch yield is deliberately **not** in `ui_dispatch`, which looks like the better
+choke point because every touch target converges there. That is exactly the problem: it
+includes *pure navigation*, so yielding there makes cursor moves and menu dismissals stop
+the wake word. `check_navigability.py` measures the cost precisely — clean button-only
+exits drop from 11 to 1 — and it rejected that placement during this work. Menu
+navigation must not make Ember deaf.
+
+⚠️ **The yield is not instantaneous.** `mww->stop()` unwinds through the wake-word task,
+which calls `microphone_source_->stop()` on its own schedule
+(`micro_wake_word.cpp:216`), so the I2S lock returns some time after the action rather
+than at it. If the speaker asks before then it still eats the 1 s backoff. These anchors
+shorten the window; they do not close it. **Whether the touch chime is audibly late is an
+open question for the first flash** — see the symptom table at the bottom.
+
+`on_announcement` is deliberately reused here even though the DAC-unmute manager
+explicitly *rejected* it. That rejection is still correct: it fires before the speaker
+starts, so unmuting there lands ahead of the clock transient and the pop survives. The
+same early timing is precisely what a bus hand-off needs. Same trigger, opposite
+requirement — do not unify them.
+
+`stop_after_detection` (default true) covers the wake path itself: the mic is dropped
+the instant the word fires, in time for the listening chime.
+
+---
+
+## What changes for the touch path
+
+The two traps documented for **server-side** wake word in
+[#42](https://github.com/jphein/ember.realm.watch/issues/42) **do not apply to mode 1**,
+and it is worth being explicit because the fixes look transferable and are not:
+
+| | mode 2 (server) | mode 1 (on-device) |
 |---|---|---|
-| Idle network | silent | **continuous 16 kHz audio to HA** |
-| Detection latency | ~0, local | one WiFi hop + HA inference |
-| Works if HA is down | yes | no |
-| Privacy posture | audio leaves only after the word | **all room audio leaves, always** |
+| `use_wake_word` stamped on every pipeline start | **yes** — a tap would demand the phrase, so the flag is toggled around each conversation | **not used at all** |
+| `request_start()` no-ops unless IDLE | **yes** — an armed assistant is never IDLE, so a tap is dropped silently | **no** — `micro_wake_word` is a separate component; the assistant *is* IDLE while it listens, so `voice_assistant.start` works normally |
+| contention introduced | network (continuous streaming) | **I2S bus** (the arbiter above) |
 
-That last row is the reason this ships **off**. Turning it on is a decision about what
-the microphone does when nobody is talking to it, not a feature toggle.
+So mode 1 needs no arm/re-arm scripts around the assistant. It needs bus arbitration
+instead. Different failure surface entirely.
 
----
-
-## How it is wired on the device
-
-Four small pieces in `esphome/ember-satellite.yaml`, all inert while
-`wake_word_enabled` is `"0"`:
-
-1. **`wake_word_arm` script** — sets `use_wake_word` true and starts a continuous
-   listen, but only if the assistant is not already running.
-2. **`api: on_client_connected:`** — arms it once HA is actually connected. Arming in
-   `on_boot` would race the WiFi/API handshake and lose.
-3. **Touch path (`talk_begin`)** — clears `use_wake_word`, stops the continuous listen,
-   waits for IDLE, then starts the conversation.
-4. **`on_end` / `on_error`** — re-arm.
-
-### Two traps this wiring exists to avoid
-
-Both are silent — neither shows up in `esphome config`, and neither logs an error.
-
-**`use_wake_word` is a flag, not a mode.** `voice_assistant.cpp:336` stamps it onto
-*every* pipeline-start request:
-
-```cpp
-if (!this->continue_conversation_ && this->use_wake_word_)
-    flags |= VOICE_ASSISTANT_REQUEST_USE_WAKE_WORD;
-```
-
-There is no test for whether this start came from the wake word or from a finger. So
-the obvious implementation — `use_wake_word: true` on the `voice_assistant:` block —
-means **tapping the glass also starts at the wake-word stage**: you press it, and Ember
-still waits for you to say "don-kee". The flag has to be cleared for the duration of a
-touch conversation, which is why it is owned by a script instead of set in config.
-
-**`request_start` silently does nothing unless the assistant is IDLE**
-(`voice_assistant.cpp:682`). While armed, the assistant is *never* idle — it is sitting
-in a continuous listen. A tap that just called `voice_assistant.start` would be dropped
-on the floor: no error, no log, a screen that never starts listening. Hence the
-stop-and-wait before the start.
-
-Both failures look like "the touchscreen is flaky", which is the worst possible
-presentation for a bug whose cause is three files away.
+Both wake-word entries reuse **`talk_begin`**, the single conversation entry point, which
+already waits for `spk->is_stopped()` before opening the mic. Its long-standing
+FORWARD COMPATIBILITY note — that an on-device wake word needs no operating-mode gate,
+because hush means "do not make noise", not "do not listen" — is now load-bearing rather
+than hypothetical.
 
 ---
 
-## How it is wired in Home Assistant
+## The wake-word selects come alive
 
-The model is already installed and already loaded. HA's openWakeWord engine offers it:
+`select.ember_satellite_wake_word` and `..._wake_word_2` have been `unavailable` with
+options `['no_wake_word']` for this device's entire life. **This change is what populates
+them**, and they will list "Okay Nabu".
 
-```
-$ wake_word/info on wake_word.openwakeword
-  okay_nabu · hey_jarvis · hey_mycroft · alexa · hey_rhasspy · donk_ee
-```
+They were never broken. They are HA's picker for *on-device* models, fed from
+`micro_wake_word`'s model list (`micro_wake_word.h:79`, `get_wake_words()`), and the
+device had no such component — so the list was empty and the entity had nothing to be
+available for. (Ember was otherwise fully online the whole time: 23 of 25 entities live,
+with only these two dead.)
 
-What is **not** set is the wake word on Ember's pipeline. `familiar-ember` has
-`wake_word_entity: wake_word.openwakeword` but `wake_word_id: null`, so no wake word is
-selected. Compare `Gemini-vosk-piper-donkee`, which already uses `wake_word_id:
-donk_ee` and is the working reference for this configuration.
+⚠️ **They populate in every mode, including 0 and 2.** The enumeration is static
+configuration and knows nothing about `wake_word_mode`, so at mode 0 or 2 HA will offer a
+wake word that is never armed and selecting it will appear to do nothing. That is a
+cosmetic inaccuracy HA gives us for free; it is recorded rather than papered over.
 
-Setting it requires **an HA core restart** to take effect — `assist_pipeline/pipeline/update`
-writes to disk, but the in-memory pipeline runner caches the old configuration. This is
-the same trap recorded for the STT engine swap during the M5Stack latency work.
-
----
-
-## Remaining steps
-
-1. `wake_word_enabled: "1"` in the substitutions block.
-2. Compile and flash with JP present (`esphome run ember-satellite.yaml`).
-3. Set `familiar-ember`'s `wake_word_id` to `donk_ee`.
-4. Restart HA core.
-5. Say "don-kee".
-
-Tuning, once it runs: openWakeWord sensitivity lives in the add-on's `threshold`
-option, not in the model. The microWakeWord tuning note in project memory
-(`probability_cutoff` 0.73 → 0.60) belongs to the *other*, lost model and does not
-apply here.
+Selecting a wake word in HA calls `on_set_configuration`, which enables/disables models
+on the device (`voice_assistant.cpp:1084`). With one model installed, the meaningful
+choices are "Okay Nabu" and `no_wake_word`.
 
 ---
 
-## The unavailable `wake_word` selects — not a regression
+## Home Assistant side
 
-`select.ember_satellite_wake_word` and `..._wake_word_2` report `unavailable` with
-`options: ['no_wake_word']`. That is correct and expected, and **enabling the wake word
-as described here will not change it.**
+Ember's pipeline is `familiar-ember`. Its `wake_word_id` is set to `donk_ee`, which
+matters **only in mode 2** — in mode 1 detection never reaches HA's wake-word stage, so
+the setting sits unused and harmless.
 
-Those selects are HA's picker for **on-device** (`micro_wake_word`) models. They are
-populated from the device's model list, which ESPHome exposes only from the
-`micro_wake_word` component (`micro_wake_word.h:79`, `get_wake_words()`). Ember has no
-such component, so the list is empty, the options degenerate to the `no_wake_word`
-placeholder, and the entity has nothing to be available *for*.
+Snapshot: [`homeassistant/pipelines/familiar-ember.json`](../homeassistant/pipelines/familiar-ember.json).
+Note that pipeline edits need an HA core restart to take effect.
 
-The controlled comparison, both read live:
+---
 
-```
-select.ember_satellite_wake_word          state=unavailable    options=['no_wake_word']
-select.m5stack_..._wake_word              state=no_wake_word   options=['no_wake_word','Okay Nabu','donkee']
-```
+## Flashing this, and what to listen for
 
-The M5Stack has `micro_wake_word` and its selects work. Ember does not and its do not.
+Flash with the device in reach. **The arbiter has never been heard** — it is reasoned
+from the ESPHome sources and gated by a clean compile, nothing more.
 
-They are also **not stale entities from an older wake-word firmware** — the HA entity
-registry created them on 2026-07-29, during the recent flashing work, and
-`ember-satellite.yaml` has never contained a `micro_wake_word:` block in its git
-history. They are placeholders HA creates for any voice-assistant device, empty because
-this device has no on-device models.
+Good: Ember chimes on a tap with no delay, replies audibly, and answers to "Okay Nabu".
 
-They will populate only if "don-kee" is retrained as a microWakeWord model.
+Bad, and what it means:
+
+| symptom | cause |
+|---|---|
+| silent — no chimes, no replies; log repeats `Parent bus is busy` / `Driver failed to start; retrying in 1 second` | the arbiter is not yielding the bus |
+| chimes and replies arrive ~1 s late | the arbiter works but a predictive anchor is missing for that path |
+| never wakes, but audio is fine | mic never armed — check the select is not `no_wake_word` |
+| wakes at random speech | tune `probability_cutoff`, or add the VAD gate (deliberately omitted) |
+
+**Revert is one character:** `wake_word_mode: "0"` and reflash restores today's exact
+behaviour.
