@@ -1,0 +1,52 @@
+# Ember heralds a vehicle coming up the driveway.
+#
+# WHY THIS IS NOT LLM-COMPOSED (unlike ember_laundry_herald)
+#
+# A car takes seconds to reach the house; the herald's worth decays by the
+# second. conversation.process costs ~2s warm and multiples of that cold, so
+# this automation speaks immediately from a small rotation of canned lines.
+# The laundry can wait for poetry; the driveway cannot.
+#
+# SOURCE: Frigate on ubox0 publishes to the HA broker (frigate/events).
+# type=new fires once per tracked object, so each arriving vehicle heralds
+# once. The 3-minute tail delay below absorbs the same vehicle being lost
+# and re-acquired by the tracker (new event id, same physical car) without
+# suppressing a genuinely separate second arrival for long.
+#
+# QUIET HOURS: same 22:30-07:30 window as everything else that makes noise.
+# A midnight arrival stays unheralded — Frigate still records it.
+
+automation:
+  - id: ember_driveway_watch
+    alias: "Ember: herald a vehicle in the driveway"
+    description: >-
+      When Frigate begins tracking a new car/truck/motorcycle on the driveway
+      camera, announce it through the hearth immediately (no LLM in this path
+      — latency beats poetry for arrivals).
+    mode: single
+    max_exceeded: silent
+    trigger:
+      - platform: mqtt
+        topic: frigate/events
+    condition:
+      - condition: template
+        value_template: >-
+          {{ trigger.payload_json.type == 'new'
+             and trigger.payload_json.after.camera == 'driveway'
+             and trigger.payload_json.after.label in ['car', 'truck', 'motorcycle'] }}
+      - condition: time
+        after: "07:30:00"
+        before: "22:30:00"
+    variables:
+      label: "{{ trigger.payload_json.after.label }}"
+      lines:
+        - "A {{ label }} approaches up the drive."
+        - "Something rolls up the driveway — a {{ label }}, by the sound of its wheels."
+        - "Visitors. A {{ label }} is coming up the drive."
+        - "The gravel speaks: a {{ label }} draws near."
+    action:
+      - action: script.ember_announce_if_awake
+        data:
+          message: "{{ lines | random }}"
+      # Absorb tracker flap on the same physical vehicle; see header.
+      - delay: "00:03:00"

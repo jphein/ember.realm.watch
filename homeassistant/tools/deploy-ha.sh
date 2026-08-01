@@ -47,7 +47,7 @@ PKG_DIR="${PKG_DIR:-/homeassistant/packages}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_DIR="$(dirname "$SCRIPT_DIR")/packages"
 
-PACKAGES=(ember_backend_health ember_persona ember_announce ember_laundry_herald)
+PACKAGES=(ember_backend_health ember_persona ember_announce ember_laundry_herald ember_driveway_watch)
 
 # Which reload service each package needs. A package that declares several
 # domains needs each of them reloaded.
@@ -55,6 +55,8 @@ declare -A RELOADS=(
   [ember_backend_health]="rest template"
   [ember_persona]="input_text"
   [ember_announce]="script"
+  [ember_laundry_herald]="automation"
+  [ember_driveway_watch]="automation"
 )
 
 DRY=0; CHECK_ONLY=0; ONLY=""
@@ -149,7 +151,7 @@ check_config
 
 seen=""
 for p in "${changed[@]}"; do
-  for domain in ${RELOADS[$p]}; do
+  for domain in ${RELOADS[$p]:-}; do
     case " $seen " in *" $domain "*) continue ;; esac
     seen="$seen $domain"
     api POST "/api/services/$domain/reload" '{}' >/dev/null
