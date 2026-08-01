@@ -13,6 +13,14 @@ the model is right.**
 > vendor board solid. That is a geometry result. No part has been on a bed, no cell has been in
 > a bay, and no joint has been soldered. The numbers marked **soft** below are the ones to
 > distrust first.
+>
+> ⏳ **AND THE COVER RETENTION IS MID-REDESIGN.** The undercut hooks were rejected on
+> printability and dovetail slides are in flight on `feat/dovetail-retention`, so **both mobile
+> STLs will change again.** Until that lands and this document is regenerated against it, treat
+> every cover-dependent figure and every §12 row that touches the cover as **provisional** —
+> including the two shaded renders, which still depict the hook scheme. The cell bay, the vent,
+> the acoustics, the glow window and the protection pocket are not implicated, but their *numbers*
+> come from the same build and must be re-read from it rather than assumed to have held.
 
 ---
 
@@ -23,7 +31,7 @@ Three printed parts, **one of which is unchanged**.
 | Part | Source | Layer | Prints on | Volume |
 |---|---|---|---|---|
 | `ember-front-bezel` | **reused bit-identical** from the desk case | 0.16 mm | front face down | 7.33 cm³ |
-| `ember-mobile-midframe` | `ember_case.back_shell()` + 5 additive features | 0.20 mm | back face down | 21.31 cm³ |
+| `ember-mobile-midframe` | `ember_case.back_shell()` + additive features only | 0.20 mm | back face down | 21.31 cm³ |
 | `ember-mobile-back` | new | 0.20 mm | **outer** face down | 27.71 cm³ |
 
 Neither new part needs supports. The desk stand and its base are simply not used.
@@ -98,12 +106,19 @@ asserted. *Do not "fix" a failure there by editing `BAFFLE_T`.*
 | Bezel screws | 4 × M3 × 0.5 × 12 ISO 4762 | Unchanged from the desk build. |
 | Driver | 40 × 27 × 10 mm sealed-back module | Carried over. Double-sided tape on its **back**. |
 
-Retention is **two printed undercut hooks + that one screw**. Hook positions are a result rather
-than a choice — what survives after excluding the button-cap keepout, the seal footprint, the
-vent field ("a lip made of honeycomb is not a lip") and anywhere the cover has no material at the
-mating plane. Insertion kinematics are asserted separately from fit: **2.90 mm of travel needed,
-3.60 available** — a hook that fits engaged but cannot *reach* engaged is the same fault class as
-a buried button.
+Retention is **dovetail slides + that one screw**.
+
+> ⚠️ **The slide geometry is in flight and no dimensions for it are quoted anywhere in this
+> document.** It replaces an undercut-hook scheme that JP rejected on printability: the hook's
+> 0.60 mm lip had to bridge its own 0.80 mm slot, which is the same failure family as the stand
+> grille's webs (#47) — a feature whose *fit* was asserted and whose *printability* was not.
+>
+> What carries over unchanged is the **constraint set**, because it never came from the hooks:
+> the retention features can only live where the button-cap keepout, the seal footprint, the vent
+> field ("a lip made of honeycomb is not a lip") and the cover's own material at the mating plane
+> all allow — and whatever replaces the hooks still has to be asserted on **reach as well as
+> fit**, since a feature that fits engaged but cannot *reach* engaged is the same fault class as
+> a buried button. That assert is the one to check survived the redesign.
 
 ---
 
@@ -126,7 +141,7 @@ The order matters, and two steps are irreversible-ish:
 4. **Run the cell leads** down the divider's groove (1.00 deep × 5.40 — widened from 3.20 so a
    flat 5 mm nickel tab lies in it instead of a round wire) and through the lead pass to `BAT`.
 5. **Fit the board and bezel** exactly as the desk build.
-6. **Drop the cell in** — `+` toward low Y — hook the cover on and drive the single M3.
+6. **Drop the cell in** — `+` toward low Y — engage the cover's retention and drive the single M3.
 
 ## 5 · Cell bay
 
@@ -426,7 +441,7 @@ transcribe these by hand.
 | Front air | 15621.3 → **15437.8 mm³ (−1.2 %)** |
 | Cavity mode | 3176 → **3828 Hz** |
 | Grille | **31 openings, 562.7 mm² throat** over 946.6 field (59 %, ceiling 63 %); 80 % of driver area |
-| Hooks | travel need 2.90 / have 3.60; pocket 1.40 in a 2.60 floor |
+| Cover retention | ⏳ **pending the dovetail redesign** — the hook figures this row carried (travel 2.90 / 3.60, pocket 1.40 in a 2.60 floor) describe a scheme that was rejected on printability, so they are removed rather than left to read as current |
 | Cover screw | M3×22, head at z −28.30, **3.40 mm engaged in a 6.60 mm pilot** |
 | Counterbore | 4.60 mm to the cover edge (needs 4.20); annulus 1.60 (min 1.00); seat 100.0 % solid |
 | Strip pocket | 20.00 × 6.50 × 2.50 fits (0.00 mm³ foul); max that seats flat 29.30 |
@@ -476,8 +491,13 @@ mobile queue entries are only as current as the last `ember_case.py` run.
    No strip has been fitted, no firmware cutoff written.
 3. **Reverse insertion is unprotected** — markings only (§5).
 4. **The strip's three dimensions** are an estimate and two placeholders (§7).
-5. **Cover top-edge gap.** Retention is a triangle across the bottom; the top ~70 mm relies on the
-   cover's own wall stiffness and the divider. A test print decides whether it gaps.
+5. **Cover retention is being redesigned as this is written.** The undercut hooks were rejected
+   on printability — a 0.60 mm lip bridging its own slot — and dovetail slides are in flight on
+   `feat/dovetail-retention`. Two consequences: the **top-edge gap** question is still open (the
+   old scheme anchored only the bottom, so the top ~70 mm leaned on wall stiffness and the
+   divider, and only a test print settles it either way), and **every figure and every measured
+   number in §12 that touches the cover must be regenerated against the new geometry** before
+   this document is trusted.
 6. **The 1.76× vent ratio** inherits an assumption about the cell's own port area (§8).
 7. **The front-gap redistribution** is a declared belief (§9).
 8. **Glow brightness in charcoal** (§10).

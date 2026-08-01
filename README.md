@@ -417,6 +417,11 @@ There is a **battery build**, and it is a *backpack rather than a redesign*:
 unmodified — same STL, same four M3×12, same 5.34 mm of thread — and the board is held by the
 **same joint at the same plane**. Two parts are new.
 
+> ⏳ **The cover retention is mid-redesign.** The undercut hooks were rejected on printability —
+> a 0.60 mm lip bridging its own slot, the same failure family as the stand grille's webs — and
+> dovetail slides are in flight. **Both mobile STLs will change again**, so the figures on the
+> project page and the cover-dependent numbers below are provisional until they are regenerated.
+>
 > ⚠️ **Verified in CAD, never printed, nothing wired.** Both parts pass every check the desk
 > parts do — watertight, **0 boundary and 0 non-manifold edges**, **0.000 mm³** against the
 > vendor board solid, with displaced controls at 2248.8 / 184.4 / 1919.7 mm³ so the probe is
@@ -426,7 +431,7 @@ unmodified — same STL, same four M3×12, same 5.34 mm of thread — and the bo
 
 | | |
 |---|---|
-| `ember-mobile-midframe.stl` | back face down. The old back shell **plus five features and nothing removed** — brow, speaker bond plateau, driver locating groove, cell-lead pass, hook pockets |
+| `ember-mobile-midframe.stl` | back face down. The old back shell **plus features and nothing removed** — brow, speaker bond plateau, driver locating groove, cell-lead pass, and the groove side of the cover retention |
 | `ember-mobile-back.stl` | **outer** face down. The cell trough, the spring and contact pockets, the speaker grille, the failure vent, the protection pocket |
 | `ember-front-bezel.stl` | unchanged — reused bit-identical |
 
@@ -435,7 +440,7 @@ unmodified — same STL, same four M3×12, same 5.34 mm of thread — and the bo
 | Envelope | **55.90 × 94.95 × 39.00 mm** | 55.90 × 91.90 × 17.40 mm |
 | Cell | 1 × **bare flat-top 18650**, user-swappable | — |
 | Charge | onboard TP4054, 290 mA → **15.8 h** | — |
-| Access | 2 printed hooks + **1 × M3×22** | — |
+| Access | dovetail slides + **1 × M3×22** | — |
 
 **Width cannot move** (the bezel didn't) and length grew only **3.05 mm** — and that growth is
 forced link by link, not chosen: the BOOT cap and its moat end at 16.40, so the cover cannot
