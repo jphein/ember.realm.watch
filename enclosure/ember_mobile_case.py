@@ -338,17 +338,79 @@ TP_W, TP_L, TP_H = 26.00, 17.00, 4.00      # generic TP4056 module: X x Y x Z, l
 # by the driver's 41.20 tape pad. THAT IS A TRADE FOR JP, NOT A CALL FOR ME -- and with bare
 # cells the missing protection is the sharper of the two gaps, so the pocket is sized for a
 # protection strip by default and the issue states the price of the alternative.
-PROT_W, PROT_L, PROT_H = 16.00, 7.00, 2.00              # typical inline strip: X x Y x Z
+# ============================================================================
+# 5f. THE 1S PROTECTION STRIP.  REQUIRED EQUIPMENT, NOT AN OPTION.
+# ============================================================================
+#
+# >>> SETTLED BY THE PRIMARY SOURCE: docs/vendor/ES3C28P_Schematic.pdf. <<<
+#
+# I read the sheet rather than the note beside it. The battery area is exactly two blocks --
+# "Battery charge and discharge management" (TP4054 U2, PROG R12 3.3K -> ~290 mA, SL2305 P-FET
+# power path Q3, B5819W D8) and "Battery level detection" (200K/200K divider -> BAT_ADC).
+# THERE IS NO PROTECTION BLOCK. JP1 (BAT) goes straight to the cell.
+#
+# So with bare cells the over-discharge floor is only the ME6217 LDO's dropout -- the device
+# browns out around 3.4 V and THEN KEEPS DRAINING, ~9 uA through the divider alone plus
+# quiescent. A cell left flat in a drawer goes to zero. That is why the strip is required
+# equipment and not a nicety, and it is the part of the story a "it browns out first" reading
+# misses.
+#
+# ⚠️⚠️ PROT_L / PROT_W / PROT_T ARE UNMEASURED. JP is on the calipers. They are placeholders in
+# the CABLE_OD sense -- a number that is load-bearing and has not been measured yet -- and the
+# three of them are the whole edit when his figures land.
+#
+# THE CLASS IS CERTAIN (JP's photo): a 1S DW01 + dual-FET PCB with pre-welded nickel tabs at
+# both ends, components on one face. Briefed class figure: 31.00 x 6.50 x 2.50.
+#
+# ⚠️ AND THE BRIEFED 31.00 DOES NOT FIT. The free compartment is RIM_X0..RIM_X1 = 30.10 wide,
+# so the longest PCB that seats flat is 30.10 - 2*PROT_CLR = 29.30 -- short by 0.90. It does not
+# fit rotated either (the compartment is only 13.40 in Y), nor on edge (a 31 strip against 19.40
+# of depth), nor diagonally in plan (a 31 x 6.5 rectangle needs 30.96 of X at its best angle).
+# The compartment cannot grow: X is pinned by the cell bore on one side and the case wall on the
+# other, and Y by the driver's tape pad setting RIM_INNER_Y. So the placeholder is set to the
+# MAXIMUM THAT FITS and the assert enforces it -- if JP's strip measures over 29.30 the build
+# fails and says by how much, which is the right time to learn it rather than at assembly.
+PROT_L_CLASS  = 31.00                                   # briefed class figure, for the record
 PROT_CLR      = 0.40
+PROT_L_MAX    = (RIM_X1 - RIM_X0) - 2*PROT_CLR          # 29.30, the compartment's hard limit
+PROT_L        = PROT_L_MAX      # UNMEASURED placeholder, clamped to what physically fits
+PROT_W        = 6.50            # UNMEASURED
+PROT_T        = 2.50            # UNMEASURED
+PROT_COMP_CLR = 1.00            # over the component face (the FETs are the tall parts)
 PROT_RIB_W    = 1.60
 PROT_RIB_H    = 6 * LH                                  # 1.20
-PROT_CX       = (RIM_X0 + RIM_X1) / 2                   # 35.80
-PROT_Y1       = BAY_Y1 - 1.00
+PROT_CX       = (RIM_X0 + RIM_X1) / 2
+# ⚠️ HELD CLEAR OF THE INTERIOR'S CORNER FILLET, AND THE FIRST VERSION WAS NOT. At
+# PROT_Y1 = BAY_Y1 - 1.00 the strip's high-X/high-Y corner sat 5.04 from the fillet centre
+# against a 4.25 radius -- i.e. in material -- and the phantom fouled by 1.71 mm3. That is
+# EXACTLY defect #1 (the cell vs the same rbox's low-Y fillet) recurring at the opposite corner
+# of the same cut, which is the tell that the corner radius is a hazard of the construction and
+# not a one-off. Squaring the corner off is not the fix here: the outer corner is rounded at
+# OUT_R, so a square inner corner would leave 0.44mm of wall on the diagonal. Instead the strip
+# is held at or below the fillet's CENTRE line, where the void is full width by construction.
+_INT_R        = max(OUT_R - COV_WALL, 1.0)              # the interior rbox's own radius, 4.25
+PROT_Y1       = BAY_Y1 - _INT_R - 0.55
+# ---- NICKEL TAB SLOTS.  The tabs are the wiring, and they are FLAT. ----
+#
+# ⚠️ TOPOLOGY CORRECTION, because these strips are SOLD to be spot-welded to a cell under its
+# wrap and that is emphatically not what happens here. THE STRIP IS FIXED IN THE CASE AND THE
+# CELL STAYS BARE AND REMOVABLE. Nothing attaches to the cell. The chain is:
+#
+#     bay spring (-)  --tab-->  B-        P-  --.
+#     + contact plate --tab-->  B+        P+  --'--> JST 1.25 2P pigtail --> BAT (CONN_L[0])
+#
+# The tabs are ~5mm x 0.15 flat conductors, so they run in SHALLOW SLOTS rather than round-wire
+# channels, and the excess is trimmed. Solder access is the thing these pockets always forget:
+# here the whole compartment is open from +Z until the midframe goes on, so every joint is
+# reachable with an iron while the strip is seated. That is a property of the assembly order,
+# and check 13b measures that nothing overhangs the pocket to spoil it.
+TAB_W         = 5.40            # 5.00 tab plus clearance
+TAB_D         = 2 * LH          # 0.40 deep: 0.15 of tab plus solder
 
 def prot_phantom():
     """The optional protection strip, so its fit is measured rather than asserted in words."""
-    return bx(PROT_CX - PROT_W/2, PROT_CX + PROT_W/2, PROT_Y1 - PROT_L, PROT_Y1,
-              CAV_Z0, CAV_Z0 + PROT_H)
+    return bx(PROT_CX - PROT_L/2, PROT_CX + PROT_L/2, PROT_Y1 - PROT_W, PROT_Y1,
+              CAV_Z0, CAV_Z0 + PROT_T)
 
 def tp4056_phantom():
     """The module that NO LONGER FITS. Kept so check 13 can prove that, not just claim it."""
@@ -453,7 +515,8 @@ CHARGE_MA        = 290.0        # docs/enclosure.md:165, "actual" (500 max)
 CHARGE_CV_FACTOR = 1.35         # battery.md's implied CC/CV factor, reused for comparability
 CELL_CAPACITY_MAH = 3400.0      # a typical protected 18650
 # ---- negative-lead groove down the divider's cell-facing face ----
-WGROOVE_D, WGROOVE_Z = 1.00, 16 * LH                    # 3.20 -- layer-aligned like everything
+WGROOVE_D, WGROOVE_Z = 1.00, 27 * LH   # 5.40 deep in Z: widened from 3.20 so a FLAT 5mm nickel
+                                       # tab lies in it instead of a round wire
 
 # ============================================================================
 # 5d. THE CELL-BAY FAILURE VENT.  A LABYRINTH FOLDED INSIDE A 2.20 WALL.
@@ -844,16 +907,23 @@ def back_cover():
     p -= cyl(SCREW_XY[0], SCREW_XY[1], COVER_Z0 - 1, BACK_Z + 1, SCREW_D)
     p -= cyl(SCREW_XY[0], SCREW_XY[1], COVER_Z0 - 1, COVER_Z0 + CBORE_DEPTH, CBORE_D)
 
-    # ---- PROTECTION-STRIP POCKET: three locating ribs on floor that was already empty ----
-    # Same idiom as the TP4056 pocket it replaces, and for the same "costs nothing when empty"
-    # reason. See the PROT_ block for why the TP4056 no longer fits.
-    _tx0, _tx1 = PROT_CX - PROT_W/2 - PROT_CLR, PROT_CX + PROT_W/2 + PROT_CLR
-    _ty0, _ty1 = PROT_Y1 - PROT_L - 2*PROT_CLR, PROT_Y1
-    for _r in (bx(_tx0 - PROT_RIB_W, _tx0, _ty0, _ty1, CAV_Z0, CAV_Z0 + PROT_RIB_H),
-               bx(_tx1, _tx1 + PROT_RIB_W, _ty0, _ty1, CAV_Z0, CAV_Z0 + PROT_RIB_H),
-               bx(_tx0 - PROT_RIB_W, _tx1 + PROT_RIB_W, _ty0 - PROT_RIB_W, _ty0,
+    # ---- PROTECTION-STRIP POCKET ----
+    # Long axis along X (the only axis with room). Ribs sit OUTSIDE the PCB footprint and the
+    # floor under it is left FLAT — a rib under a PCB is a rock under a board, and the component
+    # face is the one that must not be loaded.
+    _px0, _px1 = PROT_CX - PROT_L/2 - PROT_CLR, PROT_CX + PROT_L/2 + PROT_CLR
+    _py0, _py1 = PROT_Y1 - PROT_W - 2*PROT_CLR, PROT_Y1
+    for _r in (bx(_px0 - PROT_RIB_W, _px0, _py0, _py1, CAV_Z0, CAV_Z0 + PROT_RIB_H),
+               bx(_px1, _px1 + PROT_RIB_W, _py0, _py1, CAV_Z0, CAV_Z0 + PROT_RIB_H),
+               bx(_px0 - PROT_RIB_W, _px1 + PROT_RIB_W, _py0 - PROT_RIB_W, _py0,
                   CAV_Z0, CAV_Z0 + PROT_RIB_H)):
         p += _r
+    # ---- TAB SLOTS: flat runs from each end of the strip toward the bay contacts ----
+    # -X end -> the divider's wire groove (which carries B+ the length of the bay to the plate,
+    # and P+/P- on to the BAT pass). +X end stays inside the pocket for B- to the spring.
+    p -= bx(CELL_X1 - WGROOVE_D, _px0, PROT_CX*0 + _py1 - TAB_W, _py1,
+            CAV_Z0, CAV_Z0 + TAB_D)
+    p -= bx(CELL_X1 - WGROOVE_D, CELL_X1, BAY_Y0, _py1, CAV_Z0, CAV_Z0 + TAB_D)
 
     # ---- HOOKS: an L standing proud of the mating plane. Vertical leg drops into the entry
     # recess, barb slides +Y under the lip. Proud of BACK_Z is fine -- that is the cover's TOP
@@ -1269,8 +1339,48 @@ def _check_mobile(parts):
     assert _tpf > 1.0, (
         f"a TP4056 phantom now fits the compartment ({_tpf:.2f} mm3 of interference) -- the "
         f"design note and #44 say it does not. One of them is wrong")
-    print(f"  [pocket]  free compartment {RIM_X1-RIM_X0:.2f} x {_free_y:.2f}; protection strip "
-          f"{PROT_W}x{PROT_L}x{PROT_H} FITS ({_pf:.2f} mm3 foul)")
+    # ---- 13b. THE PCB SITS ON A FLAT FLOOR, AND THE JOINTS ARE REACHABLE ----
+    # A rib under a PCB is a rock under a board. Measured, because "the ribs are outside the
+    # footprint" is exactly the kind of claim that survives a footprint moving.
+    _floor = bx(PROT_CX - PROT_L/2, PROT_CX + PROT_L/2, PROT_Y1 - PROT_W, PROT_Y1,
+                CAV_Z0 + 0.02, CAV_Z0 + PROT_RIB_H)
+    _fint = (cov & _floor).volume
+    assert _fint < 0.5, (
+        f"{_fint:.2f} mm3 of material stands inside the strip's own footprint -- a rib or a tab "
+        f"slot wall is under the PCB and it will not sit flat")
+    # SOLDER ACCESS: nothing may overhang the pocket from above, or an iron cannot reach the
+    # tabs with the strip seated. The compartment is open to +Z by construction; prove it.
+    # ⚠️⚠️ CLAMPED TO THE FOOTPRINT — AND THIS IS THE THIRD TIME. The vent throat probe swept
+    # air outside the part; the polarity-marking probe swept the contact pocket; this one, at
+    # +/-1.0 of margin, swept 0.60 of divider on one side and 0.60 of case wall on the other and
+    # reported 162.24 mm3 of "overhang" that is simply the compartment's own walls.
+    #
+    # >>> STANDING RULE FOR EVERY PROBE IN THIS FILE: its extent is the FEATURE's extent. <<<
+    # A margin "to be safe" is not safe — it silently annexes whatever is next door, and the
+    # error is always in the direction that makes the number look worse or better than it is.
+    # Two of the three were caught only because the check carried a bound in BOTH directions.
+    _sky = bx(PROT_CX - PROT_L/2, PROT_CX + PROT_L/2,
+              PROT_Y1 - PROT_W, PROT_Y1,
+              CAV_Z0 + PROT_T + PROT_COMP_CLR, BACK_Z)
+    _sint = (cov & _sky).volume
+    assert _sint < 0.5, (
+        f"{_sint:.2f} mm3 overhangs the strip pocket above the component face -- the joints are "
+        f"not reachable with an iron once the strip is seated")
+    assert PROT_L <= PROT_L_MAX + 1e-9, (
+        f"the protection strip is {PROT_L:.2f} long but the compartment only seats "
+        f"{PROT_L_MAX:.2f} flat -- short by {PROT_L-PROT_L_MAX:.2f}mm. It does not fit rotated "
+        f"({_free_y:.2f} of Y), on edge ({BACK_Z-CAV_Z0:.2f} of depth) or diagonally. Either the "
+        f"strip is wrong for this case or the case has to grow in X, which moves the bezel")
+    print(f"  [strip]   1S protection PCB {PROT_L:.2f} x {PROT_W:.2f} x {PROT_T:.2f} "
+          f"(⚠️ UNMEASURED — awaiting JP's calipers); max that seats flat {PROT_L_MAX:.2f}")
+    print(f"             ⚠️ the briefed class figure {PROT_L_CLASS:.2f} EXCEEDS that by "
+          f"{PROT_L_CLASS-PROT_L_MAX:.2f}mm and will not fit in any orientation")
+    print(f"             floor under the PCB {_fint:.2f} mm3 (flat, no ribs); "
+          f"clear sky above {_sint:.2f} mm3 (iron reaches the joints)")
+    print(f"             tabs: {TAB_W:.2f} x {TAB_D:.2f} slots, -X end -> divider groove -> "
+          f"+plate & BAT pass; +X end -> spring. Cell stays BARE and removable.")
+    print(f"  [pocket]  free compartment {RIM_X1-RIM_X0:.2f} x {_free_y:.2f}; strip "
+          f"{PROT_L}x{PROT_W}x{PROT_T} FITS ({_pf:.2f} mm3 foul)")
     print(f"             TP4056 {TP_W}x{TP_L} DOES NOT ({_tpf:.0f} mm3 of interference) -- its "
           f"short axis is {TP_L} against {_free_y:.2f} of Y. Restoring it costs the "
           f"{5.90:.2f}mm the bare-cell re-primary saved. JP's trade, stated in #44.")
