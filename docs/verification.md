@@ -117,7 +117,7 @@ identically at either number.
 So the replacement for a proxy was another proxy, and that is fine as long as it is *named*.
 The rule survives with a clause: **assert the property, and then say which property**, because
 the next reader will take the count for the thing it superficially describes. The same field
-also has two open areas — a **640.8 mm² throat** and a **779.9 mm² mouth**, across 53
+also has two open areas — a **607.8 mm² throat** and a **715.9 mm² mouth**, across 37
 apertures each — so "the grille's open area" was ambiguous for as long as it went unqualified,
 while every number attached to it was correct.
 
@@ -1510,9 +1510,9 @@ shows you what an edit did; only the finished artifact shows you what it no long
 Three times this month a number was right, its arithmetic was right, and the sentence built on it
 described something that does not exist in the world.
 
-**The grille.** The model places 59 hexagonal cells, and the assert counting them is correct. But
-the field's rounded corners clip six of them away, so the face is **53 apertures**, 640.8 mm² of
-a 946.6 mm² field. "59 apertures" is true of the *cell list* and false of the *face you can
+**The grille.** The model places 37 hexagonal cells, and the assert counting them is correct. But
+the field's rounded corners clip cells away, so the face is **37 apertures**, 607.8 mm² of
+a 946.6 mm² field. "37 apertures" is true of the *cell list* and false of the *face you can
 touch*.
 
 > ⚠️ **This entry was itself an example of its own thesis, for three releases.** It used to read
