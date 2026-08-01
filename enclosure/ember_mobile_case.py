@@ -456,6 +456,77 @@ def _vent_units():
 VENT_Z0 = CELL_AXIS_Z + 1.00                            # -18.50, above the cradle's tangent
 VENT_Z1 = BACK_Z - 1.80                                 # -11.50, below the mating plane
 
+# ============================================================================
+# 5e. THE WS2812 GLOW WINDOW.  LIGHT DOES NOT NEED LINE OF SIGHT.
+# ============================================================================
+#
+# Check 14 proves there is no straight path from the LED to anywhere useful: it sits inside the
+# driver's footprint and the driver cannot be moved off it. That conclusion stands and is still
+# asserted. It is also the wrong question, because a diffuse pocket does not need one.
+#
+# >>> THE POCKET THE LED FIRES INTO IS THE BOARD CAVITY, AND IT REACHES BOTH SIDE WALLS. <<<
+#
+# The proof is already in the part: side_channels() cuts its openings at z CAV_FLOOR..PCB_BOT --
+# EXACTLY the cavity's own Z band. Those holes could not exist unless the cavity touched the
+# walls there. So the light path is LED -> cavity -> a thinned patch of side wall, one bounce,
+# no pipe and no extra parts. That is the decision rule's option A, and B is not needed.
+#
+# ⚠️ A LIGHT PIPE WAS EVALUATED AND REJECTED ON BEND COUNT. The only bore that starts at the LED
+# runs -Z into the sealed speaker cavity and hits the driver's back 2.60mm later. Getting out
+# means: turn 90deg into the 2.60 floor (which a d2.0 bore leaves 0.30 of wall either side of),
+# run ~10mm to x<18.85, turn 90deg down into the cell compartment, then turn again to an exterior
+# face. THREE hard corners, and the brief's own rule is that two or more loses most of the light.
+#
+# THE SITE IS SOLVED, NOT TYPED. The LED's own Y (45.60) lands inside a cable channel on BOTH
+# walls, so "put the window at the LED" is not available. _glow_site() searches the solid spans
+# between channels for the nearest one that can hold the window -- so if a connector moves, the
+# window follows instead of quietly landing in a hole.
+GLOW_N        = 2
+GLOW_R        = HEX_R                                   # same cell as the grille: AF 4.50
+GLOW_AF       = math.sqrt(3) * GLOW_R                   # 4.50 across flats -> the Z extent
+GLOW_AC       = 2 * GLOW_R                              # 5.196 across corners -> the Y extent
+GLOW_WEB      = HEX_WEB                                 # 0.90, the print floor
+GLOW_EDGE     = 1.20                                    # material left at each end of the span
+# ⚠️ NOT A LAYER COUNT. This membrane's thickness runs along X -- it is a VERTICAL wall in the
+# print, so the criterion is extrusion width, not layer height: 0.80 is exactly two passes of a
+# 0.40 nozzle. (Compare BEZ_WEB 0.70, which the file records as 1.75 extrusions printing as one
+# wide bead -- acceptable on a decorative face but not for something that must stay closed.)
+GLOW_MEMBRANE = 2 * 0.40                                # 0.80
+GLOW_SPAN_Y   = GLOW_N * GLOW_AC + (GLOW_N - 1) * GLOW_WEB          # 11.29
+
+def _solid_spans(chans, lo=0.0, hi=E.BL):
+    """Y ranges on a side wall with NO channel cut through them."""
+    out, c = [], lo
+    for a, b in sorted(chans):
+        if a - c > 0.5:
+            out.append((c, a))
+        c = max(c, b)
+    if hi - c > 0.5:
+        out.append((c, hi))
+    return out
+
+def _glow_site():
+    """(wall, centre y, straight-line distance from the LED) — the nearest usable solid span."""
+    need = GLOW_SPAN_Y + 2 * GLOW_EDGE
+    best = None
+    for wall, chans, wx in (("hi", E._CH_HI, E.BW + E.FIT), ("lo", E._CH_LO, -E.FIT)):
+        for (a, b) in _solid_spans(chans):
+            if (b - a) < need:
+                continue
+            cy = min(max(E.LED[1], a + need/2), b - need/2)      # as near the LED as it fits
+            d = math.hypot(wx - E.LED[0], cy - E.LED[1])
+            if best is None or d < best[2]:
+                best = (wall, cy, d)
+    assert best is not None, (
+        f"no solid span on either side wall can hold a {need:.2f}mm glow window -- every gap "
+        f"between cable channels is too narrow. Reduce GLOW_N or fall back to a light pipe")
+    return best
+GLOW_WALL, GLOW_CY, GLOW_DIST = _glow_site()
+GLOW_CZ = (CAV_FLOOR + E.PCB_BOT) / 2                   # centred in the cavity band, derived
+assert GLOW_AF <= (E.PCB_BOT - CAV_FLOOR) - 0.80, (
+    f"the {GLOW_AF:.2f}mm-tall window does not fit the "
+    f"{E.PCB_BOT-CAV_FLOOR:.2f}mm cavity band with margin")
+
 
 # ============================================================================
 # 6. PARTS
@@ -563,6 +634,22 @@ def midframe():
     # ---- THE ONE SCREW: boss UP into the board cavity, pilot down through it ----
     p += cyl(SCREW_XY[0], SCREW_XY[1], CAV_FLOOR, CAV_FLOOR + SCREW_BOSS_H, SCREW_BOSS_D)
     p -= cyl(SCREW_XY[0], SCREW_XY[1], BACK_Z, BACK_Z + MOB_PILOT_DEPTH, PILOT_D)
+
+    # ---- WS2812 GLOW WINDOW: hex cells cut into the side wall's INNER face, leaving a
+    # GLOW_MEMBRANE skin at the exterior. Cutting from the inside keeps the outer face flat and
+    # unbroken -- the hexes are invisible until lit -- and puts the membrane flush with the
+    # outside rather than at the bottom of a recess that would shadow it.
+    #
+    # rotation=30 is load-bearing here for a DIFFERENT reason than in the lattice: it puts the
+    # hex's FLATS on +/-Z, so the window is GLOW_AF (4.50) tall and fits the cavity band. Flat-top
+    # would need GLOW_AC (5.196) in Z and would not fit with margin.
+    _wx = (E.BW + E.FIT) if GLOW_WALL == "hi" else -E.FIT       # inner face of the chosen wall
+    _depth = WALL - GLOW_MEMBRANE                               # 1.80 cut, 0.80 skin left
+    _x0 = _wx if GLOW_WALL == "hi" else _wx - _depth
+    for _i in range(GLOW_N):
+        _cy = GLOW_CY - GLOW_SPAN_Y/2 + GLOW_AC/2 + _i * (GLOW_AC + GLOW_WEB)
+        p -= Pos(_x0, _cy, GLOW_CZ) * (
+            Rot(0, 90, 0) * extrude(RegularPolygon(GLOW_R, 6, rotation=30), _depth))
     return p
 
 
@@ -767,6 +854,11 @@ def _lerr(depth, lh):
 
 def _rrect_area(w, h, r):
     return w * h - (4 - math.pi) * r * r
+
+
+def _dirsign(wall):
+    """+1 if the named side wall's material lies at increasing X from its inner face."""
+    return 1.0 if wall == "hi" else -1.0
 
 
 def _check_mobile(parts):
@@ -1261,6 +1353,61 @@ def _check_mobile(parts):
     print(f"             control: solid wall between units {_sopen:.2f} mm2 open (must be ~0)")
     print(f"             line of sight: worst outer slot is {100*_los_min:.0f}% obstructed; "
           f"control on a drilled wall {100*_cfr:.1f}% (must be ~0)")
+
+    # ---- 17. THE WS2812 GLOW WINDOW.  Area measured, membrane proven, sited clear. ----
+    _wx = (E.BW + E.FIT) if GLOW_WALL == "hi" else -E.FIT
+    _ox = OX1 if GLOW_WALL == "hi" else OX0
+    _depth = WALL - GLOW_MEMBRANE
+    _y0, _y1 = GLOW_CY - GLOW_SPAN_Y/2 - 1, GLOW_CY + GLOW_SPAN_Y/2 + 1
+    _z0, _z1 = GLOW_CZ - GLOW_AF/2 - 1, GLOW_CZ + GLOW_AF/2 + 1
+    # EXIT AREA: the void in a thin plane just inside the membrane. This is what JP sees lit.
+    _cutx = _wx + _dirsign(GLOW_WALL) * (_depth - 0.10)
+    _pr = bx(min(_cutx, _cutx + 0.10*_dirsign(GLOW_WALL)),
+             max(_cutx, _cutx + 0.10*_dirsign(GLOW_WALL)), _y0, _y1, _z0, _z1)
+    _exit = (_pr - mf).volume / 0.10
+    _ideal = GLOW_N * 1.5 * math.sqrt(3) * GLOW_R**2
+    assert _exit >= 0.90 * _ideal, (
+        f"the glow window's exit area measures {_exit:.2f} mm2 against {_ideal:.2f} for "
+        f"{GLOW_N} cells -- the cells are being clipped by the wall or by a channel")
+    # THE MEMBRANE IS INTACT: the window must be a WINDOW, not a hole into the board cavity.
+    _mx0 = _ox - GLOW_MEMBRANE if GLOW_WALL == "hi" else _ox
+    _mpr = bx(_mx0, _mx0 + GLOW_MEMBRANE, GLOW_CY - GLOW_SPAN_Y/2, GLOW_CY + GLOW_SPAN_Y/2,
+              GLOW_CZ - GLOW_AF/2, GLOW_CZ + GLOW_AF/2)
+    _mfrac = (mf & _mpr).volume / _mpr.volume
+    assert _mfrac > 0.98, (
+        f"the glow membrane is only {100*_mfrac:.1f}% material -- the window has become an open "
+        f"hole into the board cavity. Cut from the inner face only")
+    # CONTROL: inside the pocket the same probe must read ~empty, or it cannot tell a window
+    # from a solid wall.
+    _cx = _wx + _dirsign(GLOW_WALL) * 0.60
+    _cpr2 = bx(min(_cx, _cx + 0.40*_dirsign(GLOW_WALL)), max(_cx, _cx + 0.40*_dirsign(GLOW_WALL)),
+               GLOW_CY - GLOW_AC/2 + 0.6, GLOW_CY - GLOW_AC/2 + 1.4,
+               GLOW_CZ - 1.0, GLOW_CZ + 1.0)
+    _cfrac2 = (mf & _cpr2).volume / _cpr2.volume
+    assert _cfrac2 < 0.10, (
+        f"control failed: the wall reads {100*_cfrac2:.1f}% solid INSIDE the window pocket, so "
+        f"the membrane probe cannot distinguish a window from an unmodified wall")
+    # SITED CLEAR: not in a cable channel (that is what _glow_site solves), and clear of the
+    # bosses. The seal rim and the vent are on other faces/parts and cannot be reached from here.
+    for _a, _b in (E._CH_HI if GLOW_WALL == "hi" else E._CH_LO):
+        assert (GLOW_CY + GLOW_SPAN_Y/2) < _a or (GLOW_CY - GLOW_SPAN_Y/2) > _b, (
+            f"the glow window at y {GLOW_CY-GLOW_SPAN_Y/2:.2f}..{GLOW_CY+GLOW_SPAN_Y/2:.2f} "
+            f"overlaps the cable channel at y {_a:.2f}..{_b:.2f} -- it would open into a hole")
+    for _hx, _hy in E.HOLES:
+        assert math.hypot(_hx - _wx, _hy - GLOW_CY) > E.BOSS_FLARE_D/2 + GLOW_AC/2, (
+            f"the glow window is inside the boss flare at {(_hx, _hy)}")
+    print(f"  [glow]    WS2812 window: {GLOW_N} hex cells, {GLOW_WALL} wall, y "
+          f"{GLOW_CY-GLOW_SPAN_Y/2:.2f}..{GLOW_CY+GLOW_SPAN_Y/2:.2f}, z "
+          f"{GLOW_CZ-GLOW_AF/2:.2f}..{GLOW_CZ+GLOW_AF/2:.2f}")
+    print(f"             EXIT AREA {_exit:.2f} mm2 (about {GLOW_SPAN_Y:.1f} x {GLOW_AF:.1f} mm of "
+          f"glow, not a pinhole); {GLOW_DIST:.1f} mm from the LED across the cavity")
+    print(f"             membrane {GLOW_MEMBRANE:.2f} = 2 extrusions, {100*_mfrac:.1f}% intact "
+          f"(control inside the pocket {100*_cfrac2:.1f}%). SEALED — not a hole.")
+    print(f"             ⚠️ BRIGHTNESS IS FILAMENT-DEPENDENT: PRINT-SHEET records that white/"
+          f"natural PLA is translucent enough for the WS2812 to light the shell. In charcoal "
+          f"this will be dim. GLOW_MEMBRANE = 0 makes them true through-holes, which adds no "
+          f"ingress class this wall does not already have (3 open cable channels).")
+    print(f"             ⚠️ THIS FEATURE IS ON THE MIDFRAME, NOT THE COVER.")
 
     # ---- 12. BED-FACE RULE: nothing proud of min Z on the cover ----
     # ember_case.py:2771 records this defect on BOTH shell parts in one session, on opposite
