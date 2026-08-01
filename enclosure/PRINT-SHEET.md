@@ -136,6 +136,17 @@ the counterbore and the living-hinge thickness are whole multiples of *their own
 asserted, with a control. **So changing a number in this table changes the geometry**, and the
 build will refuse rather than silently put a floor mid-layer.
 
+⚠️ **AND SET THE FIRST-LAYER HEIGHT TO THE SAME VALUE — the alignment math assumes a UNIFORM
+stack.** Every "exactly N layers" claim above is `N x LAYER_H` measured from z = 0; a different
+first layer shifts every boundary up the part by the difference, and then no floor lands on one.
+Measured, not hypothetical: the first r2 bezel (PrusaSlicer 2.9.6, 2026-07-31) went out with the
+profile's default **0.20 first layer + 0.16 rest**, which put the 0.80 deboss floor mid-layer.
+PrusaSlicer slices at layer mid-planes, so it rounded the recess UP to five voids ending at
+z = 0.84 — deboss printed 0.84 instead of 0.80, glass floor 2.16 instead of 2.20. Harmless
+**that time**, because both errors pointed the direction JP wanted — a floor that rounded the
+other way would have SHALLOWED a feature that was resized precisely to stop reading faint, and
+nothing in the slicer would have said so. For the bezel: first layer **0.16**, not the default.
+
 > Until issue #26 there was a single `LAYER_H = 0.16` labelled "the shell parts". It was the
 > **bezel's** value wearing the shell's name, and it was load-bearing in both directions at once —
 > correct where the bezel consumed it, wrong where the shell did. Three further depths
