@@ -1757,18 +1757,21 @@ footer p{margin:.4rem 0}
       <table>
         <thead><tr><th></th><th>area</th><th>openings</th></tr></thead>
         <tbody>
-          <tr><td><b>Throat</b> — the un-flared bores, the acoustic restriction</td><td><b>678.0&nbsp;mm²</b></td><td><b>27</b></td></tr>
-          <tr><td><b>Mouth</b> — the flared face you can touch</td><td><b>886.1&nbsp;mm²</b></td><td><b>1</b></td></tr>
-          <tr><td>the field itself, 37 × 24 with r1.5 corners</td><td>886.1&nbsp;mm²</td><td>—</td></tr>
+          <tr><td><b>Throat</b> — the un-flared bores, the acoustic restriction</td><td><b>640.8&nbsp;mm²</b></td><td><b>53</b></td></tr>
+          <tr><td><b>Mouth</b> — the flared face you can touch</td><td><b>779.9&nbsp;mm²</b></td><td><b>53</b></td></tr>
+          <tr><td>the field itself, 38 × 25 with r2 corners</td><td>946.6&nbsp;mm²</td><td>—</td></tr>
         </tbody>
       </table>
     </div>
-    <b>The acoustic solve survives — 678.0 against the stated 673.0, +0.7&nbsp;%</b>, so the
-    driver's ~700&nbsp;mm² radiating area is 97&nbsp;% matched. 673 was never wrong about the
-    thing that governs level; it described the <em>throat</em>. What was wrong was reading it as
-    a description of the face.
+    <b>The throat now sits under the solve — 640.8 against the stated 673.0, −4.8&nbsp;%</b>, so
+    the driver's ~700&nbsp;mm² radiating area is 91.5&nbsp;% matched rather than 97&nbsp;%. That
+    is the priced-in cost of the finer lattice: <code>HEX_WEB</code> is a print floor that does
+    not scale with the cells, so going from 6.4952 to 4.50&nbsp;mm across-flats drops the open
+    fraction from 0.7714 to 0.6944, and growing the field only pays part of it back. 673 was
+    never wrong about the thing that governs level; it described the <em>throat</em>. What was
+    wrong was reading it as a description of the face.
     <p style="margin:.6rem 0 0">
-      <b>And 33 cells produce 27 openings</b>, because six are clipped away by the field's
+      <b>And 59 cells produce 53 openings</b>, because six are clipped away by the field's
       rounded corners. The build asserts <code>len(_cells.solids())&nbsp;≥&nbsp;30</code>, which
       counts the <em>cutting tools</em> rather than the holes they leave — correct for the
       question it asks (<em>have the cells fused into one solid?</em>) and <strong>not an
@@ -1778,26 +1781,37 @@ footer p{margin:.4rem 0}
   </div>
 
   <div class="note">
-    <b>What you actually see from the outside is one opening, not thirty-three — and that is
-    chosen.</b> Each bore is flared 0.60&nbsp;mm at the mouth to break the sharp arris, which
-    sheds vortices and chuffs at level. But the flare grows a cell faster than the pitch allows:
-    merging begins at <code>web/√3 = 0.5196</code>, and at 0.60 the flared cells interpenetrate
-    by 0.14&nbsp;mm. So <strong>the outer 0.40&nbsp;mm of the baffle is a single aperture with
-    the honeycomb set back behind it.</strong> Measured, the mouth is <b>886.1 of the field's
-    886.1&nbsp;mm²</b> — the flared cells cover the rounded rectangle completely, so from
-    outside this is not thirty-three chamfered holes but <b>one 37 × 24&nbsp;mm opening</b> with
-    the honeycomb 0.40&nbsp;mm behind it.
+    <b>What you see from the outside is a honeycomb face — 53 discrete holes.</b> Each bore is
+    flared 0.25&nbsp;mm at the mouth to break the sharp arris, which sheds vortices and chuffs at
+    level. Merging would begin at <code>web/√3 = 0.5196</code>; at 0.25 the mouth web is
+    <b>0.4670&nbsp;mm</b> and positive, so the cells stand apart and the face reads as the
+    lattice it is.
     <p style="margin:.6rem 0 0">
-      <b>It is a three-way choice, not a dial, and the middle option is the trap.</b> Any flare
-      at all puts the web at the mouth under the 0.90&nbsp;mm floor the rest of the part
-      declares. Zero keeps the floor and loses the relief. <b>0.45</b> — the obvious
-      compromise, and the one nearly taken — leaves <b>0.12&nbsp;mm</b> of web: a fin too thin
-      to print and too thick to be a clean merge, the one value that is neither. 0.60 commits:
-      no sliver anywhere, at the price of a recessed pattern.
+      ⚠️ <b>This paragraph said the exact opposite until the figures were re-measured.</b> It
+      described <em>one merged 37 × 24&nbsp;mm opening</em> of 886.1&nbsp;mm², which was true at
+      the old 0.60&nbsp;mm flare and survived unchanged through
+      <code>GRILLE_FLARE</code>&nbsp;0.60&nbsp;→&nbsp;0.25 alongside
+      <code>GRILLE_INSET</code>&nbsp;1.5&nbsp;→&nbsp;1.0 and <code>HEX_R</code>&nbsp;3.75&nbsp;→
+      &nbsp;4.50/√3. Not a drifted decimal — the opposite description of the part. The figures
+      are now produced by a committed tool, <code>enclosure/tools/grille_area.py</code>, which
+      re-derives them from the live constants and verifies itself against the old published
+      numbers at the old constants.
+    <p style="margin:.6rem 0 0">
+      <b>It is a three-way choice, not a dial, and the middle is the trap.</b> Any flare puts
+      the web at the mouth under the 0.90&nbsp;mm floor the rest of the part declares. A flare
+      of <b>0.45</b> leaves <b>0.12&nbsp;mm</b> of web: a fin too thin to print and too thick to
+      be a clean merge — the one value that is neither, and the build asserts against exactly
+      that band. The two honest ends are <em>merge on purpose</em> (≥&nbsp;0.5196) or
+      <em>stay printable</em> (≤&nbsp;0.2598, for a 0.45&nbsp;mm web).
+      <b>The shipped choice is the printable end: 0.25</b>, giving a 0.4670&nbsp;mm mouth web
+      with margin rather than sitting on the floor, and keeping 42&nbsp;% of the original relief.
+      An earlier version of this page argued for the merge end at 0.60 — an acoustic benefit
+      that does not print is not a benefit, and 42&nbsp;% of a feature that exists beats
+      100&nbsp;% of one that does not.
     </p>
     <p style="margin:.6rem 0 0">
       <b>And the check that should have caught it counts the wrong object.</b> The assert on
-      cell count is computed on the <em>un-flared</em> field, so it reports 33 separate cells
+      cell count is computed on the <em>un-flared</em> field, so it reports 59 separate cells
       whatever the flare does to the mouth — it would have gone on passing at 0.45 while the
       printer merged them anyway. A check upstream of the feature it is about is the same
       failure as a check downstream of it; both are arithmetic pointed away from the part.

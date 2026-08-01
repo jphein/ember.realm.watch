@@ -494,7 +494,7 @@ what the module is loading into.
 
 - The ES3C28P **speaker header is unpopulated** — you need a 1.25 mm 2P pigtail.
 - Changing driver: edit `DRIVER_W`, `DRIVER_H`, `DRIVER_R` in `ember_case.py` and re-run.
-  `GRILLE_INSET` (1.5 mm) keeps the slots inside the radiating area so the grille never
+  `GRILLE_INSET` (1.0 mm) keeps the slots inside the radiating area so the grille never
   opens onto the frame — an open slot over the flange is a dust path into the chamber and
   vents the enclosure.
 
@@ -930,13 +930,16 @@ re-checking the model will settle them:
    the case.
 6. **Whether the seal actually seals.** A leaky "sealed" box costs exactly the low end the
    chamber exists to produce, and an audible A/B sealed-vs-unsealed is the only test.
-7. **Acoustics.** The throat is 678.0 mm² against the driver's ~700 mm² — 97 % on paper.
-   Whether the merged 0.40 mm mouth chuffs at level is not predictable from area.
+7. **Acoustics.** The throat is 640.8 mm² against the driver's ~700 mm² — 91.5 % on paper,
+   and 4.8 % under the 673 mm² the baffle was solved for. The finer lattice spends open area
+   on webs that do not scale with the cells; whether that is audible is not predictable from
+   area, and it is the one number here most worth trusting your ears over.
 8. **Your USB-C cable's overmould.** The well is generous — 22 × 12 mm, 20.7 mm along the tilt —
    but plugs vary more than the spec suggests.
-9. **Cosmetics of the grille mouth.** From outside it is *one* 37 × 24 mm aperture with the
-   honeycomb 0.40 mm behind it, not 33 chamfered holes. Deliberate, and possibly not what you
-   pictured.
+9. **Cosmetics of the grille mouth.** 53 discrete flared holes across a 38 × 25 mm field.
+   Earlier print sheets promised *one* merged aperture with the honeycomb behind it — that was
+   true at the old 0.60 mm flare, and is not true at the current 0.25 mm (mouth web 0.4670 mm,
+   positive, so the cells stand apart). You are getting a honeycomb face, not a single slot.
 
 The one that has moved from this list to fact: **the bezel's 3 non-manifold edges did not
 matter** — it printed, and the dimensions are good.

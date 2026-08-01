@@ -117,10 +117,9 @@ identically at either number.
 So the replacement for a proxy was another proxy, and that is fine as long as it is *named*.
 The rule survives with a clause: **assert the property, and then say which property**, because
 the next reader will take the count for the thing it superficially describes. The same field
-also has two open areas — a **678.0 mm² throat** across those 27 apertures and an
-**886.1 mm² mouth** in a single opening, since the flare merges the face on purpose — so
-"the grille's open area" was ambiguous for as long as it went unqualified, while every number
-attached to it was correct.
+also has two open areas — a **640.8 mm² throat** and a **779.9 mm² mouth**, across 53
+apertures each — so "the grille's open area" was ambiguous for as long as it went unqualified,
+while every number attached to it was correct.
 
 **A second postscript, and this one caught the person quoting the rule.** The back shell's
 countersink is cut at **84.7°** against a standard 90° screw head. The instruction issued to fix
@@ -1511,10 +1510,19 @@ shows you what an edit did; only the finished artifact shows you what it no long
 Three times this month a number was right, its arithmetic was right, and the sentence built on it
 described something that does not exist in the world.
 
-**The grille.** The model places 33 hexagonal cells, and the assert counting them is correct. But
-each bore is flared 0.60 mm at its mouth, and the flare grows a cell faster than the pitch
-allows — so the outer 0.40 mm of the baffle is **one merged opening**, 886.1 mm² of an 886.1 mm²
-field. "33 apertures" is true of the *cell list* and false of the *face you can touch*.
+**The grille.** The model places 59 hexagonal cells, and the assert counting them is correct. But
+the field's rounded corners clip six of them away, so the face is **53 apertures**, 640.8 mm² of
+a 946.6 mm² field. "59 apertures" is true of the *cell list* and false of the *face you can
+touch*.
+
+> ⚠️ **This entry was itself an example of its own thesis, for three releases.** It used to read
+> "33 hexagonal cells … flared 0.60 mm … **one merged opening**, 886.1 mm² of an 886.1 mm²
+> field" — measured once, at constants that then all moved (`GRILLE_INSET` 1.5 → 1.0, `HEX_R`
+> 3.75 → 4.50/√3, `GRILLE_FLARE` 0.60 → 0.25). At the live flare the mouth web is 0.4670 mm and
+> **positive**, so the cells no longer merge and the face is 53 discrete holes. A paragraph
+> warning that a correct number can describe a nonexistent object, doing exactly that. The fix
+> was not a better sentence — it was committing the ruler
+> (`enclosure/tools/grille_area.py`), so the figures can be re-run instead of remembered.
 
 **The countersink.** With the mouth matched to a named head, the head sits on a **full conical
 seat** — geometrically exact. Sliced at 0.20 mm, that cone is a **staircase of 8 annular steps**,

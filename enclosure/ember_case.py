@@ -1911,7 +1911,7 @@ NOTCH_R = SCALLOP_R  # rounds the notch's floor-to-sidewall corners, in the XZ p
 # obstacle was arithmetic:
 #
 #   lyra's motif as delivered:  11 spines, 50 x 15 field, 190 mm2 open
-#   this grille needs:          37 x 24 field, ~673 mm2 open
+#   this grille needs:          38 x 25 field, ~673 mm2 open
 #
 # It was sized for the geometry that existed when she drew it — a round 28mm driver behind
 # a circular 30mm grille. The driver then turned out to be a 40 x 27 sealed-back module and
@@ -1942,25 +1942,47 @@ NOTCH_R = SCALLOP_R  # rounds the notch's floor-to-sidewall corners, in the XZ p
 # Solved numerically (not from the closed form) for 673.0 mm2: R=3.75mm circumradius,
 # 6.50mm across the flats, 7.40mm pitch, 33 hexes.
 #
-# RE-DERIVED AGAINST THE GEOMETRY THAT IS ACTUALLY THERE, because GRILLE_FLARE merges the
-# mouth on purpose and the 673 solve assumed separate cells. Rastered in the X-Z plane at
-# 0.01mm — the bores run in Y, so that plane IS the aperture:
+# RE-DERIVED AGAINST THE GEOMETRY THAT IS ACTUALLY THERE, because the 673 solve assumed
+# separate un-flared cells. Rastered in the X-Z plane at 0.01mm — the bores run in Y, so
+# that plane IS the aperture. Re-run it with `tools/grille_area.py`:
 #
-#   THROAT, un-flared cells & field    678.0 mm2 in 27 separate openings   <- the restriction
-#   MOUTH,  flared cells & field       886.1 mm2 in ONE opening            <- the visible face
-#   field itself (37 x 24, r1.5)       886.1 mm2
+#   THROAT, un-flared cells & field    640.8 mm2 in 53 openings   <- the restriction
+#   MOUTH,  flared cells & field       779.9 mm2 in 53 openings   <- the visible face
+#   field itself (38 x 25, r2.0)       946.6 mm2
 #
-# Two things fall out of that and neither was previously written down. The throat figure is
-# right — 678.0 against the stated 673.0, +0.7%, so the acoustic solve survives and the
-# driver's ~700mm2 radiating area is 97% matched. But THE MOUTH IS THE ENTIRE FIELD: 886.1 of
-# 886.1 mm2, one aperture, because the flared cells cover the rounded rect completely. From
-# outside this is not 33 chamfered holes, it is one 37 x 24 opening with the honeycomb set
-# 0.40mm behind it.
+# ⚠️ THESE FIGURES WERE STALE FOR THREE RELEASES AND SAID SOMETHING QUALITATIVELY FALSE.
+# They were measured at GRILLE_INSET 1.5, HEX_R 3.75 and GRILLE_FLARE 0.60 and then left
+# alone while all three moved (1.0, 4.50/sqrt(3), 0.25). What they used to say:
 #
-# And 33 cells produce 27 openings, not 33: six are clipped by the field's rounded corners.
-# `len(_cells.solids()) >= 30` counts the CUTTING TOOLS, not the resulting apertures — right
-# for the question it asks (have the cells fused) and not a count of holes in the part. The
-# smallest surviving opening is 12.85mm2, so no clipped slivers.
+#   throat 678.0 in 27 openings · mouth 886.1 in ONE · field (37 x 24, r1.5) 886.1
+#
+# The old mouth claim was the dangerous one. At flare 0.60 the flared cells DID cover the
+# field completely, so the face really was one 37 x 24 opening with the honeycomb behind
+# it, and that sentence was repeated in five other files. At the live flare of 0.25
+# GRILLE_MOUTH_WEB is 0.4670mm — POSITIVE, so GRILLE_MOUTH_MERGED is False and the cells
+# stand apart. The face is now 53 discrete flared holes. Not a drifted decimal: the
+# opposite description of what the part looks like.
+#
+# THE THROAT NO LONGER CLEARS THE SOLVE, and this is the real acoustic news. 640.8 against
+# the stated 673.0 is -4.8% (it was +0.7%), and against the driver's ~700mm2 radiating area
+# it is 91.5% matched, not 97%. That is the predicted cost of the finer lattice, written
+# down at GRILLE_INSET below: HEX_WEB is a print floor that does not scale with the cells,
+# so AF 6.4952 -> 4.50 drops the open fraction 0.7714 -> 0.6944, and growing the field
+# 37x24 -> 38x25 pays back only part of it. The arithmetic there predicted this; nobody
+# had re-measured to confirm it. NOT corrected by moving geometry — that is a real design
+# decision about level, and this commit only fixes the numbers that describe it.
+#
+# 59 cells produce 53 openings. `len(_cells.solids()) >= 30` counts the CUTTING TOOLS, not
+# the resulting apertures — right for the question it asks (have the cells fused) and not a
+# count of holes in the part. It consumes none of these areas, so nothing asserted moved.
+#
+# ⚠️ AND THE SLIVERS ARE BACK. The old note ended "the smallest surviving opening is
+# 12.85mm2, so no clipped slivers" — true then, false now: the smallest is 0.31mm2 and four
+# openings are that size, clipped by the field's rounded corners. They are open holes, not
+# unprintable webs, so this is a cosmetic and dust-ingress note rather than a build failure.
+# (The raster also finds 8 ONE-PIXEL specks where a hex edge grazes a field corner; those
+# are artifacts of the ruler, 0.0008mm2 in total, and grille_area.py discards them by an
+# explicit threshold and reports the count rather than quietly rounding them away.)
 GRILLE_STYLE  = "hex"
 # ⚠️ WAS 3.75 (AF 6.4952) AND THE GRILLE DROOPED. Issue #28, and the diagnosis moved twice.
 #
@@ -1999,7 +2021,7 @@ GRILLE_TAPER  = 0.78     # narrowest / widest, toward the tail
 # because none of them was referenced. Deleting them removes the hazard instead of documenting
 # it, and a hazard comment on a risk that no longer exists is worse than no comment: it points
 # somewhere harmless AND certifies that somebody looked.
-# Slots are clipped to the driver's RADIATING AREA, inset 1.5mm from its outline so
+# Slots are clipped to the driver's RADIATING AREA, inset 1.0mm from its outline so
 # the grille never opens onto the frame — an open slot over the flange is a dust path
 # into the chamber and vents the enclosure it is meant to seal.
 # 1.5 -> 1.0, AND THE REASON IS THE OPPOSITE OF THE INTUITION. A finer lattice is LESS open per
