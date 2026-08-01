@@ -40,6 +40,25 @@ PAIRS = [
     ("enclosure/PRINT-SHEET.md",  "site/build_print_sheet.py", "docs/print-sheet.html"),
 ]
 
+# ── THE FIGURES ARE BUILD INPUTS TOO, and failure #1 above was exactly this ────────────
+# `docs/assets/case-hero.png was one render behind after the case geometry changed` is the
+# first entry in this file's own list of what it exists to prevent — and the figures were
+# never actually added to PAIRS, so that specific defect was the one case still uncovered.
+# It was cosmetic once. It is not structurally cosmetic: build.py INLINES the SVGs into
+# docs/index.html, so regenerating a section drawing and staging it without rebuilding
+# leaves the published page showing the previous geometry, with the repo looking correct.
+#
+# Every figure maps to the same builder and the same page; `_compare` runs each builder
+# once and still reports per-pair, so this costs one build no matter how many are staged.
+_FIGURES = [
+    "case-exploded.svg", "case-back.svg", "case-docked-rear.svg", "case-front.svg",
+    "case-print-layout.svg", "case-hero.png",
+    "mobile-exploded.svg", "mobile-cross.svg", "mobile-vent.svg",
+    "mobile-glow-window.svg", "mobile-strip-pocket.svg",
+    "mobile-hero.png", "mobile-cover.png",
+]
+PAIRS += [(f"site/renders/{f}", "site/build.py", "docs/index.html") for f in _FIGURES]
+
 def staged():
     out = subprocess.run(["git", "-C", REPO, "diff", "--cached", "--name-only"],
                          capture_output=True, text=True).stdout
@@ -79,12 +98,21 @@ def _compare(work, pairs, get_output):
     proves nothing about the path that runs in anger.
     """
     bad = []
+    # Each builder runs ONCE, however many pairs name it. The comparison still happens per
+    # pair, so a caller staging six figures gets six independent verdicts off one build --
+    # which is what keeps the self-test's `len(stale) == len(PAIRS)` contract exact while
+    # adding thirteen figure pairs did not make the guard thirteen times slower.
+    built = {}
     for src, builder, out in pairs:
-        try:
-            subprocess.run([sys.executable, os.path.join(work, builder)],
-                           cwd=os.path.join(work, "site"), capture_output=True, check=True)
-        except subprocess.CalledProcessError as e:
-            bad.append((src, out, f"builder failed: {e.stderr.decode()[:200]}"))
+        if builder not in built:
+            try:
+                subprocess.run([sys.executable, os.path.join(work, builder)],
+                               cwd=os.path.join(work, "site"), capture_output=True, check=True)
+                built[builder] = None
+            except subprocess.CalledProcessError as e:
+                built[builder] = f"builder failed: {e.stderr.decode()[:200]}"
+        if built[builder] is not None:
+            bad.append((src, out, built[builder]))
             continue
         fresh = open(os.path.join(work, out), "rb").read()
         have = get_output(out)

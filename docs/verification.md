@@ -1085,7 +1085,7 @@ printf '%s\n' '#!/usr/bin/env bash' \
   '  python3 "$root/esphome/tools/check_art_sync.py"        || exit 1' \
   '  python3 "$root/esphome/tools/check_paint_sync.py"      || exit 1' \
   'fi' \
-  'if staged | grep -qE "^(site/index[.]src[.]html|enclosure/PRINT-SHEET[.]md)$"; then' \
+  'if staged | grep -qE "^(site/index[.]src[.]html|enclosure/PRINT-SHEET[.]md|site/renders/)"; then' \
   '  python3 "$root/site/check_generated_current.py" || exit 1' \
   'fi' > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 ```
@@ -1094,6 +1094,17 @@ Each guard fires **only when its own source is staged**, and that is deliberate 
 lazy: **a hook that runs on every commit gets disabled, and a disabled hook protects nothing.**
 The obvious improvement — make it run always — is the change that ends with someone typing
 `--no-verify` by reflex.
+
+⚠️ **`site/renders/` is in that pattern, and leaving it out would have made the `PAIRS` entries
+dead code.** The figures were added to `PAIRS` in `check_generated_current.py` when the mobile
+variant landed — closing the gap named in that file's own first example, a render one build behind
+the geometry. But `PAIRS` only decides *what gets compared once the check runs*; **this regex
+decides whether it runs at all.** Staging a regenerated figure alone — which is exactly what
+happens after `make_mobile_renders.py` — matched neither of the two original alternatives, so the
+check would have been skipped and the published page would have kept the previous drawing.
+*A guard extended at one end and not the other is not half-protected; it is unprotected on the
+path nobody tested.* Note the trailing alternative is a **prefix** (no `$`), so it covers every
+figure without listing them twice.
 
 ### `check_served_current.py` is not a hook, and must not become one
 
