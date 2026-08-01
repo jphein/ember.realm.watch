@@ -33,7 +33,8 @@ automation:
         value_template: >-
           {{ trigger.payload_json.type == 'new'
              and trigger.payload_json.after.camera == 'driveway'
-             and trigger.payload_json.after.label in ['car', 'truck', 'motorcycle', 'person'] }}
+             and trigger.payload_json.after.label in ['car', 'truck', 'motorcycle', 'person',
+                                                       'dog', 'cat', 'bear', 'horse', 'sheep', 'cow'] }}
       - condition: time
         after: "07:30:00"
         before: "22:30:00"
@@ -48,9 +49,20 @@ automation:
         - "Someone approaches on foot, up the drive."
         - "A walker on the driveway — two legs, no wheels."
         - "Footsteps on the gravel. Someone comes."
+      animal_lines:
+        - "A {{ label }} wanders up the drive."
+        - "Four legs on the gravel — a {{ label }}, if my eyes serve."
+        - "A {{ label }} has found the driveway. It does not appear to have an appointment."
+      bear_lines:
+        - "A bear is on the driveway. I am a dragon, so I am not worried. You might be."
+        - "Bear on the drive. I suggest admiring it from indoors."
     action:
       - action: script.ember_announce_if_awake
         data:
-          message: "{{ (person_lines if label == 'person' else vehicle_lines) | random }}"
+          message: >-
+            {{ (bear_lines if label == 'bear'
+                else animal_lines if label in ['dog', 'cat', 'horse', 'sheep', 'cow']
+                else person_lines if label == 'person'
+                else vehicle_lines) | random }}
       # Absorb tracker flap on the same physical vehicle; see header.
       - delay: "00:03:00"
