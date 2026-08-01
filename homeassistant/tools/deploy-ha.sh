@@ -40,7 +40,7 @@ PKG_DIR="${PKG_DIR:-/homeassistant/packages}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_DIR="$(dirname "$SCRIPT_DIR")/packages"
 
-PACKAGES=(ember_backend_health ember_persona ember_announce)
+PACKAGES=(ember_backend_health ember_persona ember_announce ember_laundry_herald)
 
 # Which reload service each package needs. A package that declares several
 # domains needs each of them reloaded.

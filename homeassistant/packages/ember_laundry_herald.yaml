@@ -1,0 +1,86 @@
+# Ember heralds the finished laundry — in her own words.
+#
+# WHY THIS SHAPE
+#
+# The whole point of routing this through Ember (and not tts.speak on a Google
+# speaker) is that Ember has a *voice* in the authorial sense: the line is
+# composed fresh by the local model per completion, in persona, so the house
+# never hears the same sentence twice. conversation.process against the Ember
+# agent (extended_openai -> LiteLLM `ember` alias -> Qwen on familiar) writes
+# the line; script.ember_announce_if_awake speaks it through the hearth with
+# the on-device chime as herald (see ember_announce.yaml for why preannounce
+# stays off).
+#
+# If the model is down or slow we do NOT go silent: a canned line (still
+# dragon-flavoured, chosen at random) goes out via the same script. The skip
+# case (satellite itself unreachable) is ember_announce_if_awake's job.
+#
+# TRIGGERS: LG ThinQ status sensors dwell in 'end' when a cycle completes —
+# that transition is deterministic and fires exactly once per cycle, so it is
+# the only trigger. The event.*_notification entities also announce
+# completions, but they'd double-fire alongside the status transition and LG
+# also routes unrelated notices through them; deliberately not used.
+#
+# QUIET HOURS: matches power_outage_quiet's window (no noise 22:30-07:30).
+# A cycle that ends overnight goes unheralded by design — the clothes will
+# still be there in the morning, and so will the dragon.
+
+automation:
+  - id: ember_laundry_herald
+    alias: "Ember: herald the finished laundry"
+    description: >-
+      When the washer or dryer reaches 'end', have the Ember persona compose a
+      one-line announcement and speak it through the hearth. Falls back to a
+      canned line when the model can't answer; skips entirely when the
+      satellite is offline or during quiet hours.
+    mode: queued   # washer + dryer can finish together; herald both, in order
+    max: 4
+    trigger:
+      - platform: state
+        entity_id: sensor.washer_current_status
+        to: "end"
+        id: washer
+      - platform: state
+        entity_id: sensor.dryer_current_status
+        to: "end"
+        id: dryer
+    condition:
+      - condition: time
+        after: "07:30:00"
+        before: "22:30:00"
+    variables:
+      appliance: "{{ trigger.id }}"
+      fallback_lines:
+        washer:
+          - "The washer has finished its churning. The wet things await their tumbling."
+          - "Hear ye — the washing is done. Come claim it before it sulks."
+          - "The washer rests. Its burden is clean and ready."
+        dryer:
+          - "The dryer has finished. Warm clothes, fresh from my cousin the small hot wind."
+          - "The drying is done — fetch them while they still hold the heat."
+          - "The dryer rests. Nothing left but the folding, which is your quest, not mine."
+    action:
+      # Ask the dragon for a line. continue_on_error so a dead/slow model
+      # falls through to the canned lines instead of killing the announcement.
+      - action: conversation.process
+        continue_on_error: true
+        data:
+          agent_id: conversation.extended_openai_conversation_2
+          text: >-
+            The {{ appliance }} has just finished its cycle. Announce this to the
+            household in one short sentence — in character, warm, a little
+            wry. Reply with only the announcement itself — no preamble,
+            no quotes.
+        response_variable: ember_reply
+      - variables:
+          composed: >-
+            {{ (ember_reply.response.speech.plain.speech
+                if ember_reply is defined
+                and ember_reply.response.speech.plain.speech is defined
+                else '') | trim }}
+          line: >-
+            {{ composed if composed not in ['', 'unknown', 'unavailable']
+               else fallback_lines[appliance] | random }}
+      - action: script.ember_announce_if_awake
+        data:
+          message: "{{ line }}"
