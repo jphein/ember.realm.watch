@@ -38,3 +38,6 @@ wyrm_*.ppm
 # by print_queue.py on every successful build. The MANIFEST is tracked — it is
 # the record of which revision was physically printed.
 enclosure/print/*.stl
+
+# Sliced gcode staging (uploaded to OctoPrint by hand/session; regenerable from print/*.stl)
+enclosure/print/gcode/
