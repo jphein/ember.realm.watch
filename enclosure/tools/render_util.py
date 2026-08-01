@@ -35,9 +35,20 @@ def tris(shape, tol=0.02):
     return T
 
 
-def render(T, path, tilt=22.0, yaw=14.0, ppm=26.0, light=(-0.55, 0.45, 0.70)):
+def render(T, path, tilt=22.0, yaw=14.0, ppm=26.0, light=(-0.55, 0.45, 0.70),
+           cols=None, bg=(18, 16, 15)):
     """Z-buffered lambert. Tilted ON PURPOSE: in a straight-on orthographic view a vertical
-    recess wall projects to zero width and the whole deboss is invisible."""
+    recess wall projects to zero width and the whole deboss is invisible.
+
+    `cols` optionally gives a per-triangle base colour, (N,3) in 0..1, so several parts can
+    be rendered into ONE image and still be told apart. Passing it is also the only correct
+    way to render an assembly here: this is a true z-buffer, so parts occlude each other
+    properly, whereas stacking per-part collections through matplotlib's 3D painter sorts
+    within a collection and not between them -- which on this project drew a stand over the
+    slab it was behind and looked exactly like a modelling error.
+
+    `cols=None` keeps the original single-material behaviour byte-for-byte.
+    """
     tx, ty = math.radians(tilt), math.radians(yaw)
     Rx = np.array([[1, 0, 0], [0, math.cos(tx), -math.sin(tx)], [0, math.sin(tx), math.cos(tx)]])
     Ry = np.array([[math.cos(ty), 0, math.sin(ty)], [0, 1, 0], [-math.sin(ty), 0, math.cos(ty)]])
@@ -48,7 +59,7 @@ def render(T, path, tilt=22.0, yaw=14.0, ppm=26.0, light=(-0.55, 0.45, 0.70)):
     W = int((mx[0] - mn[0]) * ppm) + 8
     H = int((mx[1] - mn[1]) * ppm) + 8
     zbuf = np.full((H, W), -1e9)
-    img = np.zeros((H, W), np.float32)
+    img = np.zeros((H, W, 3) if cols is not None else (H, W), np.float32)
     L = np.array(light, float)
     L /= np.linalg.norm(L)
     sx = (P[:, :, 0] - mn[0]) * ppm + 4
@@ -82,12 +93,16 @@ def render(T, path, tilt=22.0, yaw=14.0, ppm=26.0, light=(-0.55, 0.45, 0.70)):
         sel = m & (z > zbuf[y0:y1, x0:x1])
         if sel.any():
             zb = zbuf[y0:y1, x0:x1]; ib = img[y0:y1, x0:x1]
-            zb[sel] = z[sel]; ib[sel] = shade[i]
+            zb[sel] = z[sel]
+            ib[sel] = shade[i] * cols[i] if cols is not None else shade[i]
             zbuf[y0:y1, x0:x1] = zb; img[y0:y1, x0:x1] = ib
-    bg = zbuf <= -1e8
-    v = np.clip(img * 255, 0, 255).astype(np.uint8)
-    rgb = np.dstack([v, (v * 0.995).astype(np.uint8), (v * 0.975).astype(np.uint8)])
-    rgb[bg] = (18, 16, 15)
+    empty = zbuf <= -1e8
+    if cols is not None:
+        rgb = np.clip(img * 255, 0, 255).astype(np.uint8)
+    else:
+        v = np.clip(img * 255, 0, 255).astype(np.uint8)
+        rgb = np.dstack([v, (v * 0.995).astype(np.uint8), (v * 0.975).astype(np.uint8)])
+    rgb[empty] = bg
     Image.fromarray(rgb).save(path)
     return W, H
 

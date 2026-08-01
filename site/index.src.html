@@ -1864,6 +1864,353 @@ footer p{margin:.4rem 0}
 </section>
 
 <section class="wrap">
+  <p class="kicker">The mobile variant</p>
+  <h2>Take it off the desk and the front never changes</h2>
+  <p class="lede">
+    There is a battery version, and it is a <b>backpack rather than a redesign</b>. The bezel is
+    the desk case's part, unmodified — same STL, same four M3×12, same 5.34&nbsp;mm of thread —
+    and the board is held by the same joint at the same plane. Two parts are new: a
+    <b>midframe</b> that is the old back shell plus features, and a <b>cover</b> that carries one
+    bare 18650, its spring, and the speaker that used to live in the stand.
+  </p>
+
+  <figure class="fig">
+    <img src="{{ASSET:mobile_hero}}" width="1524" height="2050" loading="lazy"
+         alt="Shaded three-quarter render of the assembled mobile Ember from the front: the
+              familiar hex-grille bezel with its debossed wyrm, and behind it a thick
+              rectangular body about twice the depth of the desk slab. The chin below the
+              screen steps forward where the cover stops short of it.">
+    <figcaption>
+      The whole cost of carrying a battery, in one picture: <b>39.00&nbsp;mm</b> deep against the
+      desk case's 17.40. Width is <em>identical</em> at 55.90 and cannot move, because the bezel
+      did not — and length grew only <b>3.05&nbsp;mm</b>, to 94.95. The step near the bottom is
+      not a styling flourish. The cover deliberately <b>stops at y&nbsp;=&nbsp;18.00</b> so it
+      cannot bury the buttons: the BOOT cap and its moat end at 16.40, and a battery door over
+      the only usable input would repeat a defect this project has already filed once.
+    </figcaption>
+  </figure>
+
+  <figure class="fig">
+    <div class="linework linework-tall">{{SVG:mobile_exploded}}</div>
+    <figcaption>
+      Bezel, board, midframe, cover — fanned along the true assembly axis. <b>The top two
+      objects are the argument.</b> They are not redrawn for this figure; the bezel is imported
+      from the desk model and the board is the vendor's own solid, so the drawing cannot depict a
+      reuse the variant does not actually have. The midframe below them is the desk back shell
+      with five things added and <em>nothing removed</em> — which is why its hex field looks
+      thinner than the desk one: a bond plateau fills most of it flush, to give the speaker a
+      continuous flat plane to tape to.
+      <br><br>
+      The cell is <em>not</em> in this figure, and that is a fix rather than an omission. Each
+      part here is hidden-line-removed on its own, so a part whose silhouette overlaps another
+      draws straight through it — a 65&nbsp;mm cylinder put two long diagonals across four
+      correct parts. The gaps between these four are set wide for the same reason.
+    </figcaption>
+  </figure>
+
+  <h3 style="margin-top:2rem">Four things the cell decided, not the designer</h3>
+  <ul class="spec">
+    <li><span class="k">Layout</span><span class="v">The cell lies beside the speaker, not behind it<small>Five arrangements were costed; this one is the smallest at ~207&nbsp;cm³. The interior closes exactly: <b>51.50 = 19.40 bore + 2.00 divider + 30.10 rim</b>, and that divider is a <em>single shared wall</em> doing both jobs, because two walls do not fit.</small></span></li>
+    <li><span class="k">Length</span><span class="v">94.95&nbsp;mm is forced, link by link<small>BOOT's cap ends at 16.40 → the cover cannot start before 18.00 → its wall puts the bay at 20.20 → the bay is 69.60 for the longest cell → 89.80 → plus one wall = <b>92.00</b>. No lane avoids it: the widest gap between the two buttons is 8.70&nbsp;mm against a 19.40 bore.</small></span></li>
+    <li><span class="k">Access</span><span class="v">One hex key, one screw, and the board never moves<small>Two undercut hooks plus a single <b>M3×22</b>, with <b>3.40&nbsp;mm engaged in a 6.60&nbsp;mm pilot</b> — it clamps and cannot bottom out, both asserted. The cover carries no board load, so opening it does not disturb the clamp.</small></span></li>
+    <li><span class="k">Speaker</span><span class="v">The sealed cavity survived the move, within 1.2&nbsp;%<small>Front air goes <b>15621.3 → 15437.8&nbsp;mm³</b> — measured by boolean on the finished solid, not arithmetic — and the governing cavity mode rises <b>3176 → 3828&nbsp;Hz</b>, further out of the speech band. The cover's own 2.20&nbsp;mm wall <em>is</em> the grille baffle, so the port length matches the stand's by construction.</small></span></li>
+  </ul>
+
+  <div class="warn">
+    <p><b>⚠️ Nothing here has been printed, and no wire has been soldered.</b></p>
+    <p>
+      Both parts pass every check the desk parts do — watertight, <b>0 boundary and 0
+      non-manifold edges</b>, <b>0.000&nbsp;mm³</b> of interference against the vendor board
+      solid, with displaced controls reading 2248.8, 184.4 and 1919.7&nbsp;mm³ so the probe is
+      known to be able to fail. That is a CAD result. <b>The cell is a phantom, the protection
+      strip's dimensions are an estimate, and the top edge of the cover has no fastener</b> —
+      whether it gaps is a question a test print answers and nothing else does.
+    </p>
+  </div>
+
+  <figure class="fig">
+    <img src="{{ASSET:mobile_cover}}" width="1390" height="1520" loading="lazy"
+         alt="Shaded render of the new rear cover turned over, interior facing the viewer. A
+              pale cylindrical 18650 cell lies in a concave cradle down one side. Beside it,
+              across a single dividing wall, a rectangular bay holds a field of hexagonal
+              speaker openings. Short slots are cut in the side wall next to the cell, a
+              shallow pocket sits above the grille, and a round counterbore and two hook
+              features sit along the near edge.">
+    <figcaption>
+      The new part, turned over, with the cell in its cradle. Everything the variant adds is in
+      this one frame: the concave <b>cradle</b> that lets the cell self-centre and still print
+      without an overhang, the <b>shared divider</b>, the <b>31 hexagonal grille openings</b>
+      that give <b>562.7&nbsp;mm² of throat</b> — 80&nbsp;% of the driver's radiating area — the
+      <b>vent slots</b> in the side wall, the <b>protection pocket</b> above the grille, and the
+      single counterbore. This replaced an attempt at a "cell coming out" view, which could not
+      be made to work: the cell lifts out along the axis the cover sits on, so every camera that
+      showed the cradle put the cover in front of the cell.
+    </figcaption>
+  </figure>
+
+  <figure class="fig">
+    <div class="linework">{{SVG:mobile_cross}}</div>
+    <figcaption>
+      Cut across the case at mid-bay. This is the packaging argument in one section: cell in its
+      bore on one side, the sealed speaker cavity on the other, <b>one wall between them</b>, and
+      the driver's outline inside the cavity. Dimensions are measured off the geometry they sit
+      under rather than typed beside it, so a constant that moves takes its label with it.
+    </figcaption>
+  </figure>
+
+  <h3 style="margin-top:2rem">A flat-top cell cannot tell you which way round it goes</h3>
+  <p>
+    The previous revision had proper <b>mechanical</b> reverse-insertion protection: a ⌀7.00&nbsp;mm
+    aperture that a raised positive button passes and a flat negative can-face does not. It
+    blocked a reversed cell by 144.6&nbsp;mm³ and passed a correct one at zero. It has been
+    <b>deleted</b>, and the reason is worth stating plainly because it is not a design failure.
+  </p>
+  <div class="note">
+    <b>The information is not in the geometry.</b> JP uses bare cells — "no protected tops" — and
+    on a bare flat-top 18650 <em>both ends are the same shape</em>. Any aperture that stops a
+    reversed cell stops a correct one too. It is not a matter of finding a cleverer profile: there
+    is nothing there to key against. Left in, that feature would have <b>rejected the only cells
+    its owner has.</b>
+    <p style="margin:.6rem 0 0">
+      It was removed rather than struck through, so nobody reinstates it from a comment. What
+      replaces it is <b>markings</b>: <code>+</code> and <code>−</code> debossed 0.60&nbsp;mm deep
+      and 2.80&nbsp;mm tall into the two end walls, <em>facing into the bore</em> so they are read
+      as the cell goes in. <b>That is honestly weaker, and the page is not going to call it
+      protection.</b> Reverse-insertion safety here is electrical, and it is unbuilt.
+    </p>
+  </div>
+  <p>
+    The check on those two glyphs is itself instructive. The repo's stroke-gap probe returns
+    <code>inf</code> for both — <code>+</code> because its strokes cross, <code>−</code> because
+    it is a single stroke with nothing to pair — so a <code>gap ≥ width</code> assert would
+    <b>pass on any glyph of that shape, sound or broken</b>. It is asserted to stay vacuous, and
+    the real test measures the debossed volume against the ink area with <em>both</em> an upper
+    and a lower bound. The first version of that probe read 25.48&nbsp;mm² against 4.87 of ink,
+    because it reached past the wall into open air — caught only by the upper bound.
+  </p>
+
+  <h3 style="margin-top:2rem">The board has no protection at all, and now that is not a guess</h3>
+  <p>
+    The one genuinely alarming question about a battery variant was whether the board protects
+    the cell from over-discharge. It was searched for, not assumed — <code>DW01</code>,
+    <code>FS312</code>, <code>8205</code>, BMS, over-discharge, low-voltage, across the docs, the
+    model and the firmware — and nothing turned up. Then the
+    <a href="https://github.com/jphein/ember.realm.watch/blob/main/docs/vendor/ES3C28P_Schematic.pdf"
+       target="_blank" rel="noopener">vendor schematic</a> settled it.
+  </p>
+  <div class="warn">
+    <p><b>⛔ There is no protection IC. The battery connector goes straight to the cell.</b></p>
+    <p>
+      The battery area of the sheet is exactly two blocks: charge management (a <b>TP4054</b> with
+      a 3.3&nbsp;kΩ PROG resistor, plus a P-FET and a Schottky forming the power path) and level
+      detection (a <b>200&nbsp;kΩ/200&nbsp;kΩ divider</b> to an ADC). That is all.
+    </p>
+    <p>
+      <b>"It browns out first" is the wrong reading, and the divider is why.</b> With a bare cell
+      the only floor is the regulator's dropout — the device stops working around 3.4&nbsp;V and
+      then <em>keeps drawing</em>, roughly <b>9&nbsp;µA</b> through that divider alone before
+      quiescent draw. A cell left flat in a drawer goes to zero, and a Li-ion cell taken to zero
+      does not come back. This makes the protection strip <b>required equipment rather than a
+      nicety.</b>
+    </p>
+  </div>
+
+  <figure class="fig">
+    <div class="linework">{{SVG:mobile_strip}}</div>
+    <figcaption>
+      The pocket for a 1S protection strip, sectioned through its locating ribs. The ribs stand
+      <em>outside</em> the board's footprint and the floor under it is left flat — a rib under a
+      PCB is a rock under a board. The length label reads <b>"20.0 est ±2"</b> on purpose: that
+      figure is an eyeball estimate, not a measurement, and a drawing that renders an estimate in
+      the same voice as a derived dimension is lying about its own confidence.
+      <br><br>
+      Two things this section cannot show. <b>Solder access</b> is a property of assembly
+      <em>order</em> — the compartment is open until the midframe goes on — so it is measured, not
+      drawn. And the tabs do not go where the strip's packaging suggests: these are sold to be
+      spot-welded to a cell under its wrap, and here <b>the strip is fixed in the case and the
+      cell stays bare and removable. Nothing attaches to the cell.</b>
+    </figcaption>
+  </figure>
+
+  <p>
+    The strip's own dimensions are the softest numbers in the design and the build says so on
+    every run — <code>⚠️ UNMEASURED — awaiting JP's calipers</code>. The <em>class</em> is
+    certain from a photograph; the figures are not. And the briefed class length,
+    <b>31.00&nbsp;mm, does not fit</b>: the compartment seats <b>29.30</b> flat, and it fits no
+    other way either — not rotated (13.40&nbsp;mm of depth available), not on edge, not diagonally
+    (which needs 30.96). The compartment cannot grow, because the cell bore pins one side and the
+    case wall the other.
+  </p>
+
+  <h3 style="margin-top:2rem">A vent with no straight line through it</h3>
+  <p>
+    A lithium cell in a sealed plastic box is the one thing in this design that can hurt someone,
+    and "the compartment isn't sealed to the board cavity" was too weak an answer. The cell bay
+    now vents through <b>four labyrinth units</b> in its side wall.
+  </p>
+
+  <figure class="fig">
+    <div class="linework">{{SVG:mobile_vent}}</div>
+    <figcaption>
+      The labyrinth in plan, mid-height. <b>This is the only view in which "no straight path" is
+      something you can see rather than something you are told.</b> Each unit is a slot cut from
+      the inner face and a second slot cut from the outer face, offset by a 1.20&nbsp;mm rib that
+      forces the turn, joined by a 0.60&nbsp;mm band — so the surviving wall is one continuous
+      zigzag ribbon, and 0.80&nbsp;mm of skin stands at each face. Gas turns twice; a straight
+      line finds material. Model +Y runs along the page here, which is <em>not</em> the
+      orientation of the other sections — so nothing in this caption says left or right.
+      <br><br>
+      The measurements are separate from the picture on purpose. The throat is
+      <b>16.56&nbsp;mm²</b> against an assumed 9.42&nbsp;mm² of vent port on the cell's own cap
+      (<b>1.76×</b> — the requirement is only that the enclosure is never the restriction), and
+      the worst outer slot is <b>36&nbsp;% obstructed</b>, with a control on a deliberately
+      drilled wall reading 0.0&nbsp;%. A picture cannot tell you 36&nbsp;%, and a percentage
+      cannot tell you the band is open rather than welded shut.
+    </figcaption>
+  </figure>
+
+  <div class="note">
+    <b>That check was wrong first, and it was wrong in the most dangerous possible way.</b> The
+    throat probe originally swept half a millimetre of open air outside the part and half a
+    millimetre of bay interior, and read <b>52.80&nbsp;mm²</b> — three times the analytic figure.
+    Worse: <b>with the connecting band deleted entirely it would still have read 36.00 and
+    passed.</b> An assert that cannot fail, in the check written to retire the design's single
+    biggest risk. It surfaced only because the measured number beat the calculated one by 3×,
+    which is a defect signal and not a win.
+    <p style="margin:.6rem 0 0">
+      The vent is also why the cuts run the way they do. Every slot's long axis is the
+      <em>print</em> Z with the cover on its bed face — vertical slots, self-supporting, no bridge
+      anywhere. <b>That is why the vent is in a side wall and not the floor.</b> And it costs the
+      acoustics nothing: the seal rim still reads <b>100.00&nbsp;% solid on all four legs</b>,
+      with a control over the open vent field at 93.11&nbsp;% to prove the probe can see a gap.
+    </p>
+  </div>
+
+  <h3 style="margin-top:2rem">The status light needed a window, and the window inherited a bug</h3>
+  <p>
+    Any closed back hides the WS2812, which fires backwards — the docs said as much before this
+    variant existed. The occlusion is worse than incidental and it is proved rather than argued:
+    the LED sits <em>inside the speaker driver's footprint</em>, and the driver cannot be moved
+    off it, because a 40&nbsp;mm driver cannot clear it inside a 44.80&nbsp;mm cavity that also
+    has to contain the wire's only exit.
+  </p>
+  <p>
+    A light pipe was costed and rejected on bend count: the only bore starting at the LED runs
+    into the sealed speaker cavity and hits the driver 2.60&nbsp;mm later, and getting out takes
+    <b>three hard corners</b> against a rule of two. The answer was that
+    <b>light does not need line of sight</b> — only a lit pocket with a wall in it. The board
+    cavity already reaches both side walls, so the path is LED → cavity → a thinned patch of
+    side wall. One bounce, no pipe, no extra parts.
+  </p>
+
+  <figure class="fig">
+    <div class="linework">{{SVG:mobile_glow}}</div>
+    <figcaption>
+      The window: two hexagonal cells, <b>4.50&nbsp;mm across the flats</b>, cut from the wall's
+      <em>inner</em> face so a <b>0.80&nbsp;mm membrane</b> — exactly two passes of a 0.40 nozzle —
+      is left standing at the outside. It measures <b>100.0&nbsp;% intact</b>, with a control
+      inside the pocket at 0.0&nbsp;%: the outside stays flat and unbroken, so the hexes are
+      invisible until they are lit, and the cavity stays sealed.
+      <br><br>
+      <b>The opening further along the wall is in this figure deliberately.</b> It is a cable
+      channel, and the LED's own position lands inside one on <em>both</em> walls — so "put the
+      window at the LED" was never available. The site is <em>solved</em>: the code searches the
+      solid spans between channels for the nearest one that can hold the window, so if a
+      connector ever moves the window follows instead of quietly opening into a hole.
+    </figcaption>
+  </figure>
+
+  <div class="note">
+    <b>This window's size was pinned this week, by a regression that crossed parts.</b> Its cell
+    was written as "the same cell as the grille" and shared the constant. Then the
+    <em>desk stand's</em> grille was re-parameterised from 4.50 to 4.75&nbsp;mm across the flats
+    for printable webs — and this window, <b>in a different part</b>, silently inherited the
+    change and stopped fitting its 5.50&nbsp;mm cavity band. The assert fired at 4.75 against a
+    4.70 limit and the export gate refused to write the STL.
+    <p style="margin:.6rem 0 0">
+      <b>A window's size is set by the band it lives in, not by another part's lattice.</b> It is
+      pinned at 4.50 now and the motif survives — same shape, same orientation, a quarter of a
+      millimetre finer than the grille it used to match. A gate catching a 0.05&nbsp;mm cross-part
+      regression in the same week the part was built is the system working.
+    </p>
+    <p style="margin:.6rem 0 0">
+      ⚠️ <b>How bright this actually is depends on filament, and the honest answer is "dim".</b>
+      The print sheet records that white or natural PLA is translucent enough for the WS2812 to
+      light the shell itself; in the specified charcoal, 0.80&nbsp;mm will not be. Three fixes
+      exist and each is one constant: print the midframe in natural PLA, halve the membrane to a
+      single extrusion, or take it to a true through-hole — which adds no ingress class this wall
+      does not already have, since it already carries three open cable channels.
+    </p>
+  </div>
+
+  <h3 style="margin-top:2rem">Fifteen hours to charge, and that is a decision</h3>
+  <p>
+    The board charges the cell itself, so the default build needs <b>no charging hardware at
+    all</b> — but the TP4054's PROG resistor fixes the current at <b>290&nbsp;mA</b>, and a
+    3400&nbsp;mAh cell at 290&nbsp;mA is <b>15.8 hours</b>. Overnight. That is stated up front so
+    nobody files it as a fault later. The power path is real, at least: plugged in, the system
+    runs from USB and the full charge current still goes to the cell.
+  </p>
+  <p>
+    A TP4056 module at ~1&nbsp;A would make it 4.6 hours, and it
+    <b>does not fit — which the model proves rather than asserts.</b> The free compartment is
+    30.10 × 13.40&nbsp;mm; the module's short axis is 17.00, so it fits in neither orientation,
+    and its phantom is kept in the file so the boolean reports <b>228&nbsp;mm³ of
+    interference</b> every run instead of a comment claiming as much. Restoring the pocket costs
+    the <b>5.90&nbsp;mm</b> that switching to bare cells saved — the same 5.90&nbsp;mm the
+    protection strip now occupies.
+  </p>
+  <div class="note">
+    <b>The trade was frozen deliberately, and it reversed an earlier call.</b> The case stays at
+    94.95: in-case fast charging is out, because <b>with bare cells the missing protection is the
+    sharper gap</b>, and removable cells can be fast-charged in an external bay charger — which
+    an in-case TP4056 could not do for a spare anyway. Worth recording that the earlier decision
+    went the other way; it was overturned in the open rather than quietly absorbed.
+    <p style="margin:.6rem 0 0">
+      There is also a hazard the CAD deliberately does not decide. Two chargers wired to one
+      cell — the board's and a TP4056 — means plugging in both ports puts <b>two CC/CV
+      controllers on the same cell, fighting each other.</b> Moot as built, since there is one
+      charger, and it returns the moment anyone buys the pocket back.
+    </p>
+  </div>
+
+  <h3 style="margin-top:2rem">What is still open</h3>
+  <p>
+    Being accurate about what is unresolved is part of why any of the rest is worth reading, so:
+  </p>
+  <ul class="spec">
+    <li><span class="k">Thermal</span><span class="v">The largest unresolved risk, and it is not mechanical<small>The rear vent field loses most of its area to the speaker bond plateau, and what survives vents into a <em>closed</em> compartment rather than to open air — compartment → remaining hexes → board cavity → side channels → outside. The desk case vents straight to the room. This is flagged rather than "fixed" with invented vent geometry.</small></span></li>
+    <li><span class="k">Strip</span><span class="v">Three numbers are placeholders<small>Length is an eyeball ±2; width and thickness are class figures. All three are one edit when calipers land, and the assert that clamps them already exists.</small></span></li>
+    <li><span class="k">Cell port</span><span class="v">The 1.76× ratio rests on an assumption<small>An 18650's cap carries 3–4 vent ports; 3 × ⌀2.0&nbsp;mm was taken. That is general cell construction, not a datasheet anyone here holds. If real numbers turn up, the unit count is the knob.</small></span></li>
+    <li><span class="k">Front gap</span><span class="v">A declared departure, not a measurement<small>The gap in front of the diaphragm goes 2.50 → 9.40&nbsp;mm because the cell bore sets the cover's depth. Total front air went <em>down</em> 1.2&nbsp;% and the governing mode went <em>up</em> 21&nbsp;%, so moving air from lateral to axial is believed neutral-to-better — but it is a belief, and it is flagged rather than buried.</small></span></li>
+    <li><span class="k">Fit</span><span class="v">A cell rattles ~0.30&nbsp;mm, and nobody has heard it<small>A ⌀18.80 cell in a ⌀19.40 cradle, held endwise by the spring rather than radially. A foam shim or a printed rib removes it; neither is built, because there is no cell in hand to measure the rattle against.</small></span></li>
+    <li><span class="k">Shutdown</span><span class="v">There is no boost, so it browns out rather than shutting down<small>On battery the 5&nbsp;V rail is the raw cell. Single-sourced, and firmware's problem rather than the case's — though the device already publishes its battery voltage, so the hook for a low-voltage cutoff exists.</small></span></li>
+  </ul>
+
+  <p>
+    Both parts print without supports, at 0.20&nbsp;mm, each on the face that wants to be on the
+    bed — the midframe on its back face as the desk shell does, the cover on its
+    <em>outer</em> face, which is what makes the cell trough a concave cradle opening upward and
+    the grille cells vertical prisms instead of horizontal bores. Bed contact is measured on both
+    (3779.9 and 3340.9&nbsp;mm²) because balancing a part on a proud feature is a defect this
+    project has already had on both shell parts in one session.
+  </p>
+
+  <p>
+    <a href="https://github.com/jphein/ember.realm.watch/raw/main/enclosure/ember-mobile-midframe.stl" download>ember-mobile-midframe.stl</a> ·
+    <a href="https://github.com/jphein/ember.realm.watch/raw/main/enclosure/ember-mobile-back.stl" download>ember-mobile-back.stl</a> ·
+    <a href="https://github.com/jphein/ember.realm.watch/blob/main/enclosure/ember_mobile_case.py"
+       target="_blank" rel="noopener"><code>ember_mobile_case.py</code></a> —
+    the parametric source, which imports every board and shell number from the desk model rather
+    than re-typing any of them ·
+    <a href="https://github.com/jphein/ember.realm.watch/blob/main/docs/enclosure-mobile.md"
+       target="_blank" rel="noopener">the mobile design notes</a> ·
+    <a href="https://github.com/jphein/ember.realm.watch/issues/44"
+       target="_blank" rel="noopener">issue #44</a>
+  </p>
+</section>
+
+<section class="wrap">
   <p class="kicker">The board</p>
   <h2>What to buy, and what not to</h2>
   <p class="lede">
