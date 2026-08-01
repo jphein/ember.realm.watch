@@ -2513,10 +2513,22 @@ def desk_stand():
     # _check_geometry caught it, which is the whole point of having it. 12.0 lands at 22.6.
     _wellY = 12.0
     # DEPTH IS DERIVED, not 30.0. At 30 the well ran 30mm down the tilted axis and its far
-    # end reached z = -4.98 — straight THROUGH the 4mm floor, leaving a 1099mm2 hole in the
+    # end reached z = -4.98 — straight THROUGH the 4mm floor, leaving a 273mm2 hole in the
     # underside and a bearing footprint of only 2911 of 4010mm2. The stand was standing on a
     # ring. Nothing detected it: the boolean check compares parts to the BOARD, and a hole in
     # the floor intersects nothing at all.
+    #
+    # ⚠️ THIS SAID "1099mm2 HOLE", WHICH IS THE WRONG NUMBER FOR THE RIGHT FAULT. 1099 is
+    # 4010 - 2911, the TOTAL open plan — the chamber shaft, the egress channel and the chamfer
+    # included. The WELL's own opening was 273mm2. Attributing all of it to the well overstates
+    # this feature by 4x and would misprice any future decision to deepen it. Both figures come
+    # from the 2026-07-30 battery study (scratch/hosyond-s3/battery.md), and both were
+    # re-measured here: the old 30.0 box cuts 273.3mm2 at z~0, the derived depth cuts 0.0.
+    #
+    # CLOSED, and measurably so: at 20.71 the well's lowest corner sits at z = +2.447 — the end
+    # face centres on the inner floor at z = ST_WALL = 4.0 and the tilt drops one corner 1.55
+    # below that, still 2.4mm of material above the outside. That is why the 2b ledger carries
+    # no well term: there is no opening left to account for.
     #
     # The plug never needed it. Measured clearance was "past 20.7mm" for every plug size, and
     # 20.7 IS the floor — (SLOT_FLOOR - ST_WALL)/cos(TILT). So ending the well exactly at the
@@ -3396,8 +3408,22 @@ def _check_geometry(parts=None):
     #   - egress channel, 14.0 wide, y 0..34 (it is CUT from y=-1, but the
     #     part starts at 0), less its overlap with the shaft (14.0 x 15.3)   -261.8
     #   - 0.80 perimeter chamfer (#35), MEASURED not computed                -137.8
+    #   - USB-C well                                                           -0.0
     #                                                                     ---------
     #   expected                                                            2784.4
+    #
+    # THE WELL LINE IS ZERO ON PURPOSE, and it is listed rather than omitted because a missing
+    # line and a zero line read identically in a total but not to a reader. The well used to
+    # take 273mm2 of this plan (measured in the 2026-07-30 battery study,
+    # scratch/hosyond-s3/battery.md; re-measured at 273.3mm2 building the old 30.0 box against
+    # the z~0 plane). Deriving its depth closed it: the lowest corner now sits at z = +2.447,
+    # so it cuts 0.0mm2 of the underside and the ledger has nothing to deduct.
+    #
+    # ⚠️ DO NOT ADD 273 BACK AS A LINE ITEM. The ledger balances at 2784.4 against a measured
+    # 2784, i.e. to 0.4mm2; a 273 deduction for an opening that no longer exists would put the
+    # expectation at 2511 and the assert 273mm2 below the truth — a floor low enough to sleep
+    # through the exact regression it guards. If the well is ever deepened again this line
+    # stops being zero, which is the reason it is written down.
     #
     # ⚠️ THE CHAMFER TERM IS MEASURED BECAUSE THE OBVIOUS ARITHMETIC OVERSTATES IT BY 37%.
     # Perimeter x CHAMFER predicts 189.1mm2; the real cost is 137.8, because part of that
@@ -3460,6 +3486,74 @@ def _check_geometry(parts=None):
     assert _bi_self > 1.0, (
         f"[self-test] the base plate shifted 0.5mm deeper reads {_bi_self:.3f}mm3 — the "
         f"interference detector is broken, not the parts")
+
+    # 2f. THE DOCKED SLAB MUST NOT INTERSECT THE STAND — the fit check this file never had.
+    #
+    # Every clearance check above compares a part to the BOARD, and check 3 measures how DEEPLY
+    # the slot engages the slab. Neither can see the failure that matters here: material grown
+    # into the slot so the slab cannot seat at all. Engagement is a length, not an overlap — a
+    # slot half as wide as it should be scores exactly the same engagement as a correct one.
+    #
+    # Ported from the 2026-07-30 battery study (scratch/hosyond-s3/ember-case/bat_final.py),
+    # which swept the slab against the stand and found it CLEAR at nominal with the detector
+    # proven in five directions. That code lived in a scratch directory and so protected
+    # nothing; this is the same boolean where the build can run it.
+    #
+    # >>> THE PLACEMENT MUST NOT USE SLAB_T, AND THAT IS THE WHOLE POINT. <<<
+    # The slot is cut as SLAB_T + 2*SLOT_CLR. If the slab were positioned from SLAB_T too, both
+    # sides of the comparison would move together and the check could never fail — the classic
+    # shape of a green light over an unmeasured quantity (§6). It is placed from FRONT_Z and
+    # BACK_Z, the actual extents of the two bodies, so SLAB_T drifting out of sync with
+    # FRONT_Z - BACK_Z is exactly what this catches. Those are equal today (17.4); nothing
+    # asserts that they stay equal, which is why this check earns its runtime.
+    #
+    # The three offsets are DERIVED, not the literals the study used: Rot(90) lays the slab
+    # back so its thickness runs along Y, leaving x centred by -BW/2, the body centred on the
+    # slot centreline by (FRONT_Z + BACK_Z)/2, and the board origin lifted to the slot floor by
+    # -OY0. Transcribing -25 / -1 / 2.95 would have re-created the same drift this check exists
+    # to detect, one indirection further away.
+    #
+    # ⚠️ MODEL FRAME. _bezel and _shell come from `parts`, which still holds model-frame solids
+    # at the call site — the same property check 5 depends on, documented there. Reading them
+    # after _print_oriented() had written back would silently dock a rotated slab and measure
+    # nothing. Pos/Rot return NEW objects, so `parts` is not mutated and the exported STLs are
+    # untouched by this check.
+    def _dock(_part):
+        """A model-frame part in its docked pose, in stand coordinates."""
+        _loc = Pos(-BW/2, (FRONT_Z + BACK_Z)/2, -OY0) * (Rot(90, 0, 0) * _part)
+        return Pos(ST_W/2, SLOT_CY, SLOT_FLOOR) * (Rot(-TILT, 0, 0) * _loc)
+
+    def _slab_hit(_dz=0.0):
+        _tot, _sbb = 0.0, _stand.bounding_box()
+        for _p in (_bezel, _shell):
+            for _sd in (Pos(0, 0, _dz) * _dock(_p)).solids():
+                _b = _sd.bounding_box()
+                if (_b.min.X > _sbb.max.X or _b.max.X < _sbb.min.X or
+                        _b.min.Y > _sbb.max.Y or _b.max.Y < _sbb.min.Y or
+                        _b.min.Z > _sbb.max.Z or _b.max.Z < _sbb.min.Z):
+                    continue
+                try:
+                    _v = (_stand & _sd).volume
+                except Exception:
+                    _v = 0.0
+                if _v > 0.01:
+                    _tot += _v
+        return _tot
+
+    _slab_i = _slab_hit()
+    assert _slab_i < 0.01, (
+        f"the docked slab intersects the stand by {_slab_i:.3f}mm3 — it cannot seat. The slot "
+        f"is cut as SLAB_T({SLAB_T}) + 2*SLOT_CLR({SLOT_CLR}) while the body actually spans "
+        f"{FRONT_Z - BACK_Z:.2f} (FRONT_Z {FRONT_Z} - BACK_Z {BACK_Z}); if those disagree, fix "
+        f"the derivation rather than widening the slot")
+    # CONTROL. 0.000 is precisely the answer a blind detector gives, so it has to be shown
+    # firing (§6 / verification.md 13). Sinking the slab 2mm drives it into the slot floor.
+    _slab_self = _slab_hit(-2.0)
+    assert _slab_self > 1.0, (
+        f"[self-test] the slab sunk 2mm into the cradle reads {_slab_self:.3f}mm3 — the "
+        f"intersection detector is blind, so the 0.000 above is silence, not evidence")
+    print(f"  [slab] docked slab vs stand {_slab_i:.3f}mm3 CLEAR   "
+          f"[self-test] sunk 2mm -> {_slab_self:.1f}mm3 detector WORKS")
 
     # 3. the slot must still hold it
     assert engagement >= 12.0, f"slot engagement {engagement:.1f}mm is too shallow to retain the slab"
