@@ -409,6 +409,119 @@ python3 -m venv cadenv && ./cadenv/bin/pip install -r tools/requirements.txt
 
 ---
 
+## The mobile variant — one 18650, and the front never changes
+
+There is a **battery build**, and it is a *backpack rather than a redesign*:
+[`enclosure/ember_mobile_case.py`](enclosure/ember_mobile_case.py), issue
+[#44](https://github.com/jphein/ember.realm.watch/issues/44). The bezel is the desk case's part,
+unmodified — same STL, same four M3×12, same 5.34 mm of thread — and the board is held by the
+**same joint at the same plane**. Two parts are new.
+
+> ⚠️ **Verified in CAD, never printed, nothing wired.** Both parts pass every check the desk
+> parts do — watertight, **0 boundary and 0 non-manifold edges**, **0.000 mm³** against the
+> vendor board solid, with displaced controls at 2248.8 / 184.4 / 1919.7 mm³ so the probe is
+> known to be *able* to fail. That is a geometry result. The cell is a phantom, the protection
+> strip's dimensions are an estimate, and whether the cover's top edge gaps is a question only a
+> test print answers.
+
+| | |
+|---|---|
+| `ember-mobile-midframe.stl` | back face down. The old back shell **plus five features and nothing removed** — brow, speaker bond plateau, driver locating groove, cell-lead pass, hook pockets |
+| `ember-mobile-back.stl` | **outer** face down. The cell trough, the spring and contact pockets, the speaker grille, the failure vent, the protection pocket |
+| `ember-front-bezel.stl` | unchanged — reused bit-identical |
+
+| | Mobile | Desk |
+|---|---|---|
+| Envelope | **55.90 × 94.95 × 39.00 mm** | 55.90 × 91.90 × 17.40 mm |
+| Cell | 1 × **bare flat-top 18650**, user-swappable | — |
+| Charge | onboard TP4054, 290 mA → **15.8 h** | — |
+| Access | 2 printed hooks + **1 × M3×22** | — |
+
+**Width cannot move** (the bezel didn't) and length grew only **3.05 mm** — and that growth is
+forced link by link, not chosen: the BOOT cap and its moat end at 16.40, so the cover cannot
+start before 18.00, which puts the bay at 20.20, which plus a 69.60 bay and one wall is 92.00.
+The cover **deliberately stops short of the chin** so a battery door cannot bury the only usable
+button or the USB-C socket — a *reachability* constraint, which is the class of fault no
+clearance check sees and which this project has already filed once.
+
+The interior closes exactly: **51.50 = 19.40 bore + 2.00 divider + 30.10 rim**, where that
+divider is a **single shared wall** serving both the cell trough and the speaker's seal rim,
+because two walls do not fit. The sealed cavity survived the move to within **−1.2 %** of the
+desk stand's front air (15621.3 → 15437.8 mm³, measured by boolean on the finished solid), and
+its governing mode *rises* 3176 → **3828 Hz**, further out of the speech band.
+
+### Three findings worth reading even if you never print it
+
+**⛔ The board has no protection IC at all, and now that is not a guess.** It was searched for —
+`DW01`, `FS312`, `8205`, BMS, over-discharge — and then settled against the
+[vendor schematic](docs/vendor/ES3C28P_Schematic.pdf): the battery area is exactly two blocks,
+charge management and a level divider. `BAT` goes **straight to the cell**. And *"it browns out
+first"* is the wrong reading — with a bare cell the only floor is the regulator's dropout, so the
+device stops working around 3.4 V and **keeps draining ~9 µA through that divider**. A cell left
+flat goes to zero and does not come back. Hence the 1S protection-strip pocket, which is
+**required equipment rather than a nicety**.
+
+**⚠️ A flat-top cell carries no polarity information, so the keying had to be deleted.** The
+previous revision had real mechanical reverse-insertion protection — a ⌀7.00 aperture that a
+protected cell's *raised* button passes and a flat can-face does not, blocking a reversed cell by
+144.6 mm³. But JP uses bare cells only, and on a bare flat-top **both ends are the same shape**:
+any aperture that stops a reversed cell stops a correct one. It is not a matter of a cleverer
+profile — *the information is not present in the geometry*, and left in, the feature would have
+rejected the only cells its owner has. It was removed rather than commented out. What replaces it
+is `+`/`−` debossed into the bay end walls, facing into the bore. **That is weaker, and it is not
+going to be called protection.**
+
+**A vent with no straight line through it.** A lithium cell in a sealed plastic box is the one
+thing here that can hurt someone. The bay vents through **four labyrinth units** in a side wall —
+each an inner slot and an outer slot offset by a 1.20 mm rib, joined by a 0.60 mm band, leaving
+0.80 mm of skin standing at each face. Throat **16.56 mm²** against an assumed 9.42 mm² of vent
+port on the cell's own cap; worst outer slot **36 % obstructed**, with a control on a
+deliberately drilled wall at 0.0 %. Every cut runs its long axis along the *print* Z, which is
+why the vent is in a side wall and not the floor.
+
+> **And that check was wrong first, in the most dangerous possible way.** The throat probe swept
+> half a millimetre of open air outside the part and half a millimetre of bay interior, and read
+> **52.80 mm²** — 3× the analytic figure. Worse: **with the connecting band deleted entirely it
+> would still have read 36.00 and passed.** An assert that cannot fail, inside the check written
+> to retire the design's biggest risk. It surfaced only because the measured number beat the
+> calculated one by 3×, which is a defect signal and not a win. Standing rule that came out of
+> it: *a probe's extent is the feature's extent — a margin "to be safe" is not safe.*
+
+There is also a **WS2812 glow window** (two hex cells behind a 0.80 mm membrane, cut from the
+wall's inner face so the outside stays flat and the hexes are invisible until lit), whose size
+was pinned this week by a **cross-part regression**: it was written as "the same cell as the
+grille", and when the *desk stand's* grille was re-parameterised 4.50 → 4.75 mm for printable
+webs, this window **in a different part** silently inherited the change and stopped fitting its
+cavity band. The export gate refused to write the STL. *A window's size is set by the band it
+lives in, not by another part's lattice.*
+
+```bash
+cd enclosure
+./cadenv/bin/python ember_mobile_case.py           # both STLs + 17 checks; writes nothing on failure
+./cadenv/bin/python tools/make_mobile_renders.py   # the site figures -> site/renders/
+```
+
+- **[`docs/enclosure-mobile.md`](docs/enclosure-mobile.md)** — the build reference: BOM, assembly
+  order, wiring, print notes, the full measured table, and every soft number flagged as soft.
+- **[`docs/vendor/README.md`](docs/vendor/README.md)** — the archived schematic and what it settles.
+
+**The deliberate trade, for the record.** An in-case TP4056 would charge in 4.6 h instead of
+15.8, and it **does not fit** — the free compartment is 30.10 × 13.40 against the module's
+17.00 mm short axis, and its phantom is kept in the file so the boolean reports **228 mm³ of
+interference** every run rather than a comment claiming as much. Restoring it costs the 5.90 mm
+that switching to bare cells saved, which is the same length the protection strip now occupies.
+The case stays at 94.95: with bare cells the missing protection is the sharper gap, and removable
+cells can be fast-charged in an external bay charger. That **reversed** an earlier decision, and
+it is recorded rather than quietly absorbed.
+
+> **The largest unresolved risk is thermal, not mechanical.** Most of the rear vent field is
+> refilled by the speaker's bond plateau, and what survives vents into a **closed** compartment
+> rather than to open air — compartment → remaining hexes → board cavity → side channels →
+> outside. The desk case vents straight to the room. It is flagged rather than "fixed" with
+> invented vent geometry.
+
+---
+
 ## Repository layout
 
 ```
@@ -430,10 +543,14 @@ homeassistant/
     deploy-ha.sh                 push packages to the HA VM + reload
 enclosure/
   ember_case.py                THE ARTIFACT — build123d; the STLs are its output
-  ember-*.stl                  four printable parts, regenerated not hand-edited
+  ember_mobile_case.py         the battery variant; imports every number from above
+  ember-*.stl                  six printable parts, regenerated not hand-edited
   PRINT-SHEET.md               orientations, slicer settings, assembly order
+                               (desk parts only — see docs/enclosure-mobile.md §11)
   README.md                    building from a fresh clone; what the checks do
-  tools/make_renders.py        the site figures -> site/renders/
+  tools/make_renders.py        the desk figures -> site/renders/
+  tools/make_mobile_renders.py the mobile figures -> site/renders/
+  tools/svg_util.py            sections, projection, self-measuring dimensions
   cadenv/                      the whole CAD toolchain, gitignored AND stignored
 site/                        SOURCES for the project site
   index.src.html               hand-edit this
@@ -449,6 +566,8 @@ docs/                        the GitHub Pages root
   home-assistant.md            the full HA-side guide
   audio-pop.md                 the pop analysis + how it was resolved
   enclosure.md                 board geometry, and the case survey that found none
+  enclosure-mobile.md          the battery variant: BOM, assembly, measured table
+  vendor/                      the archived ES3C28P schematic + what it settles
   verification.md              the running log of claims that outran their evidence
   version.json                 realm-sigil stamp
 ```

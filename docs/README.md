@@ -10,6 +10,8 @@ directory *is* the site. `.nojekyll` keeps the tree served untouched by Jekyll.
 | `home-assistant.md` | The full Home Assistant guide: prerequisites, deploy, verify, pipeline internals, troubleshooting. |
 | `audio-pop.md` | The ES8311/FM8002E pop analysis, verbatim from the original repo, plus a coda on how it was resolved. |
 | `enclosure.md` | Verified board geometry, the vendor STEP model, and the case survey. |
+| `enclosure-mobile.md` | The battery variant (#44): BOM, assembly order, wiring, print notes, the full measured table, and every soft number flagged. |
+| `vendor/` | The archived ES3C28P schematic, plus a README of what it settles — the charger, the power path, and the *absence* of any protection IC. |
 | `print-sheet.html` | **Generated** by `../site/build_print_sheet.py` (which `build.py` calls) from `../enclosure/PRINT-SHEET.md`. Never hand-edit. See the exception below. |
 | `verification.md` | The running log of claims that outran their evidence. Read it before trusting a green check. |
 | `version.json` | realm-sigil stamp, written by `../build-sigil.sh`. |
