@@ -3651,3 +3651,13 @@ if __name__ == "__main__":
             os.replace(_tmp, os.path.join(out, n + ".stl"))   # atomic within a filesystem
     _committed = True
     print(f"  [export] committed {len(parts)} STLs — all checks passed first")
+
+    # ── PRINT QUEUE. Refresh the versioned, slicer-facing copies in enclosure/print/.
+    # Called HERE, by the build, because a queue a human must remember to refresh is a
+    # stale copy waiting to happen — the 2026-07-31 bezel near-miss was two files with
+    # IDENTICAL names whose only difference was a sha256 no slicer shows. Loud on
+    # failure: a silently-stale queue is the same defect, one directory over.
+    import subprocess as _sp
+    _pq = _sp.run([sys.executable, os.path.join(out, "tools", "print_queue.py"), "refresh"])
+    if _pq.returncode != 0:
+        raise RuntimeError("print_queue refresh FAILED — enclosure/print/ may be stale")

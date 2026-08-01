@@ -1,0 +1,30 @@
+{
+  "ember-back-shell": {
+    "printed_at": "2026-07-31",
+    "printed_rev": 1,
+    "rev": 2,
+    "sha8": "13c154f4",
+    "updated": "2026-07-31T17:58"
+  },
+  "ember-front-bezel": {
+    "printed_at": "2026-07-31",
+    "printed_rev": 1,
+    "rev": 2,
+    "sha8": "5f3fc539",
+    "updated": "2026-07-31T17:58"
+  },
+  "ember-stand": {
+    "printed_at": "2026-07-31",
+    "printed_rev": 1,
+    "rev": 2,
+    "sha8": "d870fbd1",
+    "updated": "2026-07-31T17:58"
+  },
+  "ember-stand-base": {
+    "printed_at": "2026-07-31",
+    "printed_rev": 1,
+    "rev": 2,
+    "sha8": "b61b8a26",
+    "updated": "2026-07-31T17:58"
+  }
+}

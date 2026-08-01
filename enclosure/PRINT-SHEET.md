@@ -1,5 +1,21 @@
 # Ember satellite case — print sheet
 
+## ⚠️ WHICH FILE DO I PRINT — `enclosure/print/`, always
+
+One file per part, the revision and content-sha in the filename, e.g.
+`ember-front-bezel_r2_5f3fc539.stl`. The build refreshes this directory on every
+successful run (it is the last step of `ember_case.py`'s gated commit), so it cannot go
+stale by someone forgetting a step. Higher `r` = newer, readable straight from a slicer's
+file picker — which is the interface where `enclosure/ember-front-bezel.stl` and a frozen
+copy of the same name are indistinguishable, and on 2026-07-31 nearly got the superseded
+bezel printed twice.
+
+- `python3 tools/print_queue.py status` — what needs printing (⛔ REPRINT / 🖨 / ✅)
+- `python3 tools/print_queue.py printed <part>` — record a finished, validated print
+- History: git + `printed/<date>-…/` archives. The queue never holds old revisions.
+- Prints run via OctoPrint on `serialhub` (USB-serial to the Ender 3).
+
+
 > # ✅ CLEARED — `ember-stand-base.stl` seats. Fixed in `89001ea`. **REPRINT IT.**
 >
 > ⚠️ **If you printed the base plate before this, it is the wrong part — reprint it.** It was
