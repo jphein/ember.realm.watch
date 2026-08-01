@@ -2445,6 +2445,19 @@ globals:
   #
   # RAW, deliberately — post-clamp values cannot show a range violation, because the
   # clamp is the thing under suspicion.
+  #
+  # ⚠️ MEASURED 2026-07-31, JP's finger on the mounted unit (#13 closed on this datum):
+  #
+  #     LEFT-edge tap   raw x = 50
+  #     RIGHT-edge tap  raw x = 195
+  #
+  # Left < right, so +X runs with the finger: NOT mirrored — `tx / 4` keeps its sign.
+  # Both values inside 0..239, so this rotation reports a 240-wide axis and the
+  # `tx > 239` clamp is guarding the right ceiling; the 0..319 worry is dead. The ~50 px
+  # of unreachable margin at each end is the bezel window, not the controller — a finger
+  # cannot reach the panel's true edge on a mounted unit, so these are the practical
+  # extremes, and a flare at col 12 vs col 49 for these taps is exactly what shipped.
+  # A future rotation/transform change re-opens BOTH questions: re-measure, don't infer.
   - id: touch_raw_x
     type: int16_t
     restore_value: false
