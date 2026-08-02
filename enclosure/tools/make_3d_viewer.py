@@ -56,6 +56,7 @@ import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {STLLoader} from 'three/addons/loaders/STLLoader.js';
 const PARTS=[__BLOBS__];
+const ASSEMBLED=__ASSEMBLED__;
 const scene=new THREE.Scene();
 const cam=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,1,3000);
 const ren=new THREE.WebGLRenderer({antialias:true,alpha:true});
@@ -70,8 +71,8 @@ PARTS.forEach((p,i)=>{
   const buf=Uint8Array.from(atob(p.b64),c=>c.charCodeAt(0)).buffer;
   const g=loader.parse(buf);g.computeVertexNormals();g.computeBoundingBox();
   const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:colors[i%4],metalness:.05,roughness:.65}));
-  const w=g.boundingBox.max.x-g.boundingBox.min.x;
-  m.position.x=off-g.boundingBox.min.x; off+=w+14;
+  if(!ASSEMBLED){const w=g.boundingBox.max.x-g.boundingBox.min.x;
+  m.position.x=off-g.boundingBox.min.x; off+=w+14;}
   group.add(m);
   const l=document.createElement('label');
   const cb=document.createElement('input');cb.type='checkbox';cb.checked=true;
@@ -96,6 +97,11 @@ addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProje
 
 
 def pick_files(argv: list[str]) -> list[str]:
+    if "--assembly" in argv:
+        stls = sorted(glob.glob(os.path.join(QUEUE, "assembly", "*.stl")))
+        if not stls:
+            sys.exit("no assembly STLs — run tools/make_assembly_view.py first")
+        return stls
     stls = sorted(glob.glob(os.path.join(QUEUE, "*.stl")))
     if "--all" in argv:
         return stls
@@ -115,10 +121,11 @@ def main() -> int:
     for f in files:
         base = os.path.basename(f)[:-4]
         part = base.split("_r")[0]
-        tag = base[len(part) + 1:]                       # e.g. r4_44f36abb
+        tag = base[len(part) + 1:] if "_r" in base else "assembled@main"
         b64 = base64.b64encode(open(f, "rb").read()).decode()
         blobs.append(f'{{name:"{part}", tag:"{tag}", b64:"{b64}"}}')
-    html = TEMPLATE.replace("__BLOBS__", ",\n".join(blobs))
+    html = TEMPLATE.replace("__BLOBS__", ",\n".join(blobs)).replace(
+        "__ASSEMBLED__", "true" if "--assembly" in sys.argv else "false")
     with open(OUT, "w") as fh:
         fh.write(html)
     print(f"preview: {OUT}  ({os.path.getsize(OUT)//1024} KB, {len(files)} part(s))")
