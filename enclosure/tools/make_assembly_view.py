@@ -24,30 +24,46 @@ ENC = os.path.normpath(os.path.join(HERE, ".."))
 OUT = os.path.join(ENC, "print", "assembly")
 sys.path.insert(0, ENC)
 
-from build123d import Pos, export_stl                      # noqa: E402
+from build123d import Pos, Rot, export_stl                      # noqa: E402
 
 import ember_case as E                                     # noqa: E402
 import ember_mobile_case as M                              # noqa: E402
 
 
+def dock(part):
+    """A model-frame device part in its docked pose, in stand coordinates.
+    VERBATIM the transform from _check_geometry's _dock() — the asserted pose,
+    not an approximation. Applies to mobile parts too: they share board coords,
+    and the docking band (y<18 slab) is profile-identical by design (check 8i)."""
+    loc = Pos(-E.BW / 2, (E.FRONT_Z + E.BACK_Z) / 2, -E.OY0) * (Rot(90, 0, 0) * part)
+    return Pos(E.ST_W / 2, E.SLOT_CY, E.SLOT_FLOOR) * (Rot(-E.TILT, 0, 0) * loc)
+
+
 def main() -> int:
     os.makedirs(OUT, exist_ok=True)
-    # X offsets chosen so clusters clear each other with daylight between.
-    clusters = [
-        ("desk",   0.0,    [("desk-bezel",  lambda: E.front_bezel()),
-                            ("desk-shell",  lambda: E.back_shell("desk"))]),
-        ("mobile", 90.0,   [("mobile-bezel",    lambda: E.front_bezel()),
-                            ("mobile-midframe", lambda: M.midframe()),
-                            ("mobile-cover",    lambda: M.back_cover())]),
-        ("stand",  190.0,  [("stand",      lambda: E.desk_stand()),
-                            ("stand-base", lambda: E.stand_base())]),
+    print("[assembly] building parts (each once) ...", flush=True)
+    bezel = E.front_bezel()
+    shell = E.back_shell("desk")
+    stand = E.desk_stand()
+    base = E.stand_base()
+    midframe = M.midframe()
+    cover = M.back_cover()
+    print("[assembly] placing docked scenes ...", flush=True)
+    DX = 110.0   # second tableau offset
+    scene = [
+        ("desk-stand",      stand),
+        ("desk-base",       base),
+        ("desk-bezel",      dock(bezel)),
+        ("desk-shell",      dock(shell)),
+        ("mobile-stand",    Pos(DX, 0, 0) * stand),
+        ("mobile-base",     Pos(DX, 0, 0) * base),
+        ("mobile-bezel",    Pos(DX, 0, 0) * dock(bezel)),
+        ("mobile-midframe", Pos(DX, 0, 0) * dock(midframe)),
+        ("mobile-cover",    Pos(DX, 0, 0) * dock(cover)),
     ]
-    for cname, dx, parts in clusters:
-        for pname, build in parts:
-            print(f"[assembly] building {pname} ...", flush=True)
-            solid = Pos(dx, 0, 0) * build()
-            export_stl(solid, os.path.join(OUT, pname + ".stl"))
-            print(f"[assembly]   exported {pname}.stl", flush=True)
+    for name, solid in scene:
+        export_stl(solid, os.path.join(OUT, name + ".stl"))
+        print(f"[assembly]   exported {name}.stl", flush=True)
     print(f"[assembly] done -> {OUT}")
     return 0
 
