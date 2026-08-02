@@ -1817,10 +1817,26 @@ ST_WALL  = 4.0
 # not the round 28mm driver this was first cut for. Rectangular drivers are the norm
 # in this size class (phone/tablet speakers), so this is the likely case rather than
 # the exception, and both the seat and the grille field derive from these numbers.
+#
+# ⚠️ 27.0 WAS A CLASS FIGURE.  27.5 IS THE OBJECT ON THE BENCH.  JP, 2026-08-02, calipers on
+# the actual driver: "more like 27.5". A measurement of the part that goes in the case beats a
+# nominal for the size class every time, and this file has been bitten by the reverse (PROT_L's
+# briefed 31.00 against a measured 21.50). It is only 0.50, and it is 0.50 in the DIRECTION THAT
+# COSTS: DRIVER_H is the driver's X extent in the mobile, so the driver's -X face moves 0.25
+# toward the cell bay and the locating groove follows it, which is the lane the separator wall
+# has to fit in (§5f). Recorded here rather than in the mobile because the constant is SHARED --
+# the desk baffle, its grille field and its locating groove all move with it too.
 DRIVER_W = 40.0                    # across the front wall (X)
-DRIVER_H = 27.0                    # up the front wall (Z)
+DRIVER_H = 27.5                    # up the front wall (Z) -- JP-MEASURED 2026-08-02
 DRIVER_R = 3.0                     # corner radius of the driver body
-DRIVER_CLR = 0.60                  # locating clearance per side, print tolerance
+# ⚠️ 0.60 -> 0.40, AND THIS IS NO LONGER A GUESS.  JP put the r10 cover's real groove on the
+# real driver and reported "a little play (~half a mm)" -- i.e. the 1.20 of diametral slack that
+# 0.60 a side produces reads as HALF A MILLIMETRE of rattle in the hand. 0.40 a side gives 0.80
+# diametral, which is the same class as every other drop-in fit in this family (SLOT_CLR,
+# PROT_PKT_CLR are both 0.40). This is a BENCH-CORROBORATED fit dimension, not a tightening
+# chosen to make an interior feature fit -- though it does also pay for the separator wall, and
+# r11 deliberately refused to change it while the bench test was still in flight.
+DRIVER_CLR = 0.40                  # locating clearance per side -- JP bench-checked 2026-08-02
 # MOUNTING: JP's speaker is held on with ADHESIVE TAPE, not a flange in a pocket.
 # That inverts the requirement. A 2.2mm recessed seat was right for a flanged driver
 # and is wrong here for two reasons: tape needs a FLAT, continuous surface to bond to,
