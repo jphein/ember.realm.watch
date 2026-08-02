@@ -1335,6 +1335,16 @@ for _t in ("UART", "I2C", "IO"):
         f"extrusions (0.80) that are this project's only PROVEN web on a vertical wall (the back "
         f"grill). Worst pair: {_who}")
 
+# SD at the mobile flank's EXPERIMENTAL stroke (JP: "try on the sude anyway"). Its own entry,
+# its own floor check against its own stroke -- deliberately NOT in _LBL_SIDE, so the three
+# proven labels cannot inherit its risk by sharing a dict.
+_LBL_SIDE_SD = _SF.text_paths("SD", 3.90, 0.50, 1.50)
+_d_sd, _who_sd, _ = _SF.min_gap(_LBL_SIDE_SD, 0.50)
+assert _d_sd >= 2 * 0.40, (
+    f"experimental SD pinches to {_d_sd:.3f}mm of MATERIAL, under two extrusions. The stroke is "
+    f"the authorised experiment; the web is not -- if the web fails too there is nothing to "
+    f"learn from the print. Worst pair: {_who_sd}")
+
 for _k in _LBL:
     _label_ok(_LBL[_k], _k)
 
