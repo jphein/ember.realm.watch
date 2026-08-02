@@ -800,6 +800,43 @@ PROT_RIB_H    = 15 * LH                                 # 3.00 = PROT_T + PROT_D
 PROT_CX       = RIM_X1 - PROT_CLR - PROT_L/2            # right-justified: the +X wall IS its rib
 PROT_Y1       = BAY_Y0 + PROT_CLR + PROT_W              # 27.10, lying against the bay's -Y wall
 PROT_BOSS_CLR = 0.50            # plan clearance, strip corner to the chin screw's boss
+# ============================================================================
+# 5f-b. THE STRIP IS CASE-RESIDENT AND ITS HOME IS UNRESOLVED.  READ BEFORE MOVING IT.
+# ============================================================================
+#
+# >>> JP, 2026-08-02: "the bms strip hugs teh battery" / "no the nickel struip stays in <<<
+# >>> the case with the excess strip as little leaf springs" / "entire strip with nickel <<<
+# >>> strips included is 90mm" / "soldered to the battery wires"                         <<<
+#
+# The architecture he describes is: the strip lives in the case permanently, lying flat in the
+# CELL BAY against the cell's side; the surplus nickel folds into leaf springs at BOTH ends;
+# its output is soldered to the pigtail. That is coherent and the length budget closes -- see
+# the arithmetic in check 13d, which is printed every build.
+#
+# ⚠️ AND IT DOES NOT FIT, FOR A REASON THAT IS ARITHMETIC AND NOT PREFERENCE. The cell bore is
+# INSCRIBED EXACTLY in the bay -- tangent on three sides, measured, not estimated:
+#
+#     -X extreme  -0.75 vs CELL_X0  -0.75    gap 0.00
+#     +X extreme  18.65 vs CELL_X1  18.65    gap 0.00
+#     bottom     -29.10 vs CAV_Z0  -29.10    gap 0.00
+#     seated cell top -10.30 vs BACK_Z -9.70 -> 0.60 of headroom
+#
+# That is the X budget closing (check 3: bore + divider + driver pad = 51.50 of 51.50), not
+# slack anyone forgot to use. A PROT_T strip needs PROT_T of clearance somewhere and there is
+# 0.00 on three sides. The spendable X slack is (rim - driver pad - 0.50) = 1.40, still short,
+# and spending it moves the divider, the rim, DRV_CX, the grille field and the bond plateau.
+#
+# So the case-resident strip needs the CASE to grow -- COVER_Z0 down ~2.5, or the X budget
+# re-cut -- and PROT_W/PROT_T are still ⚠️ UNMEASURED placeholders. JP calipered the LENGTH
+# (21.50) and the FLAT ASSEMBLY (90.0); he has never measured the section. Growing the backpack
+# 2.5mm on a guessed thickness is not a change this file should make on its own.
+#
+# UNTIL THEN THE STRIP IS MODELLED WHERE IT WAS: the chin band pocket below. That is a
+# STATEMENT OF AN UNRESOLVED ITEM, not a claim that the chin band is right -- if it stays
+# there, the leaf-spring-at-both-ends chain and the "hugs the battery" geometry are both
+# unbuilt, and the chamber wall's deletion loses the premise it was granted on (that the band
+# would be empty).
+BMS_PACK_FLAT_L = 90.00         # JP-MEASURED: strip body + both nickel tabs, laid flat
 _INT_R        = max(OUT_R - COV_WALL, 1.0)              # the interior rbox's own radius, 4.25
 assert PROT_Y1 <= RIM_Y0 - RIM_WALL - 1.00, (
     f"the strip's high-Y edge is at {PROT_Y1:.2f} and the seal rim's low-Y wall starts at "
@@ -3129,6 +3166,33 @@ def _check_mobile(parts):
           f"{5.90:.2f}mm the bare-cell re-primary saved. JP's trade, stated in #44.")
     print(f"             charge: onboard {CHARGE_MA:.0f} mA -> "
           f"{CELL_CAPACITY_MAH/CHARGE_MA*CHARGE_CV_FACTOR:.1f} h  (docs/enclosure.md:165)")
+
+    # ---- 13d. THE 90mm BUDGET.  It closes, which is why the architecture is worth solving. ----
+    #
+    # JP's flat assembly is BMS_PACK_FLAT_L end to end. Lay the body somewhere along the bay,
+    # run a tab to each contact face, and whatever is left over is what folds into the two leaf
+    # springs. The question is whether "whatever is left over" is enough fold to be a spring.
+    _bay_run = (CELL_TIP_Y - BAY_Y0) - PROT_L       # tab run to BOTH ends with the body centred
+    _fold_total = BMS_PACK_FLAT_L - PROT_L - _bay_run
+    _fold_each = _fold_total / 2
+    assert _fold_total > 0.0, (
+        f"a {BMS_PACK_FLAT_L:.1f}mm flat assembly with a {PROT_L:.2f} body has only "
+        f"{BMS_PACK_FLAT_L-PROT_L:.2f} of tab, and the runs to the two contact faces need "
+        f"{_bay_run:.2f} -- the tabs do not REACH, never mind fold")
+    assert _fold_each >= LEAF_FREE * 2.5, (
+        f"each end has {_fold_each:.2f}mm of surplus nickel to fold against a {LEAF_FREE} free "
+        f"height -- under about 2.5 limbs, which is not a Z-fold, it is a bend")
+    print(f"  [90mm]    JP-MEASURED flat assembly {BMS_PACK_FLAT_L:.1f} = body {PROT_L:.2f} + "
+          f"tabs {BMS_PACK_FLAT_L-PROT_L:.2f}; runs to both contact faces {_bay_run:.2f}; "
+          f"SURPLUS FOR FOLDS {_fold_total:.2f} = {_fold_each:.2f} per end")
+    print(f"             at LEAF_FREE {LEAF_FREE:.2f} that is {_fold_each/LEAF_FREE:.1f} limbs "
+          f"per end -- the length budget CLOSES, so the leaf-at-both-ends chain is sound")
+    print(f"             ⚠️ BUT ITS HOUSING IS NOT. The bore is tangent to CELL_X0, CELL_X1 and "
+          f"CAV_Z0 (gaps 0.00/0.00/0.00) with {BACK_Z-(CELL_AXIS_Z-CELL_BORE_CLR+CELL_D_MAX/2):.2f} "
+          f"of headroom, so there is nowhere to recess a {PROT_T:.2f} strip. See §5f-b. The "
+          f"strip is still modelled in the CHIN BAND, which is an open item, not a decision.")
+    print(f"             ⚠️ AND PROT_W/PROT_T ARE STILL UNMEASURED -- JP calipered the length "
+          f"and the 90.0 flat, never the section. That is the one measurement that unblocks it.")
 
     # ---- 13c. THE TABS REACH.  An ASSUMPTION, printed as a length JP can check in seconds. ----
     
