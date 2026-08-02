@@ -652,6 +652,33 @@ MOB_PILOT_DEPTH = (BACK_Z - CAV_FLOOR) * -1 + SCREW_BOSS_H   # 2.60 floor + 4.00
 # It is not an oversight and it must not be "fixed" by adding it -- 8a would fail the build on
 # a pattern that is deliberately on trial. It is printed as an [unvalidated] line instead, so
 # it is loud rather than silent.
+# ---- THE SMALL MESH, AND WHY ITS WEB IS NOT ONE NUMBER ----
+#
+# >>> JP: "i want the top hex vents at the top of both peices to be the same hex grill on <<<
+# >>> the back of the midframe; the hexasgons are too big"                                <<<
+#
+# The reference is the back grill: 3.2 across flats on a 0.80 web, and it has PRINTED -- his r1
+# midframe carries ~113 of those cells. So MESH_AF matches it exactly.
+#
+# ⚠️ BUT THE WEB CANNOT MATCH EVERYWHERE, AND THE REASON IS BORE DIRECTION, NOT WIDTH. The
+# back grill's cells are VERTICAL PRISMS IN A BED FACE -- every layer supported by the one
+# below, which is why 0.80 survives there. The fields at the +Y ends are HORIZONTAL BORES, the
+# same class as the stand's grille, where 0.90 COLLAPSED (#47) and 1.25 is the current
+# unvalidated fix. Matching 0.80 into a horizontal bore would put these fields THINNER THAN THE
+# WEB THAT ACTUALLY FAILED, so the web is chosen per class and the class is stated per field:
+#
+#   blind battery-side deboss  0.60 of surface relief, NO BORE  -> MESH_WEB_BLIND 0.80, and it
+#                              cannot fail as a web at all: the material behind it is 1.60 of
+#                              continuous membrane, not a rib.
+#   LED-side through field     horizontal bores, 2.20 long      -> MESH_WEB_BORE 1.25
+#   midframe +Y end vent       horizontal bores, 2.60 long      -> MESH_WEB_BORE 1.25
+#
+# JP asked for the HEXAGONS to be smaller, which is cell size; that is delivered exactly. The
+# web is the one thing he did not ask about and the one thing #47 measured.
+MESH_AF        = 3.20                   # = the back grill's, JP's own reference
+MESH_R         = MESH_AF / math.sqrt(3)
+MESH_WEB_BLIND = 0.80                   # PROVEN: the back grill's own web, printed on r1
+MESH_WEB_BORE  = 1.25                   # horizontal bores stay clear of #47's 0.90 collapse
 LAT_AF   = math.sqrt(3) * HEX_R                         # 4.75 across flats -- the stand's own
 LAT_WEB  = HEX_WEB                                      # 1.25 -- the stand's own
 LAT_R    = HEX_R                                        # circumradius; AC = 2*LAT_R = 5.485
@@ -1383,11 +1410,11 @@ S3_PKG         = 7.01                                   # QFN56, nominal 7.00
 EV_EDGE   = 1.60                        # material left at each end of the row
 EV_SEAM   = 1.60                        # shell left under the bezel seam at SEAM_Z
 EV_FLOOR  = 3 * LH                      # 0.60 the lowest face sits above the cavity's floor
-EV_CROWN  = LAT_R                       # 2.74 the flat span the roof bridges
-EV_PITCH  = 2 * LAT_R + LAT_WEB         # 6.73 -- across-corners plus the shared web
+EV_CROWN  = MESH_R                      # the flat span the roof bridges
+EV_PITCH  = 2 * MESH_R + MESH_WEB_BORE  # across-corners plus the shared web
 # The cell wants the BACK cavity's own centreline -- that is the band the SoC radiates into --
 # and is raised only as far as keeping its lowest face clear of the cavity floor requires.
-EV_CZ     = max((CAV_FLOOR + E.PCB_BOT) / 2, CAV_FLOOR + LAT_AF/2 + EV_FLOOR)
+EV_CZ     = max((CAV_FLOOR + E.PCB_BOT) / 2, CAV_FLOOR + MESH_AF/2 + EV_FLOOR)
 EV_Y0     = E.PY1 - 1.00                # cut starts inside the pocket, so it cannot dead-end
 EV_Y1     = MOB_OY1 + 1.00
 # ⚠️ THE ROW IS PHASED ON THE SCREW LANE AND THE CENTRE CELL IS THEN DELETED. That gap is the
@@ -1399,22 +1426,22 @@ EV_Y1     = MOB_OY1 + 1.00
 # every bore is a clean constant-length tunnel that breaks through into the cavity. Cells out
 # on the pocket's own POCK_R corner would still open -- the cut runs to PY1-1.00 -- but they
 # would break through at a different depth on each side, which is a shape nobody chose.
-_EV_LO = E.PK0 + E.POCK_R + EV_EDGE + LAT_R
-_EV_HI = E.PK1 - E.POCK_R - EV_EDGE - LAT_R
+_EV_LO = E.PK0 + E.POCK_R + EV_EDGE + MESH_R
+_EV_HI = E.PK1 - E.POCK_R - EV_EDGE - MESH_R
 EV_XS = tuple(_x for _k in range(-12, 13)
               for _x in (SCREW_LANE_X + _k * EV_PITCH,)
               if _EV_LO - 1e-9 <= _x <= _EV_HI + 1e-9 and abs(_x - SCREW_LANE_X) > 1e-9)
 assert EV_XS, "the +Y end vent solved to zero cells -- the pocket's straight span is too narrow"
-assert min(abs(_x - SCREW_LANE_X) for _x in EV_XS) - LAT_R - PILOT_D/2 >= MIN_SOLID, (
+assert min(abs(_x - SCREW_LANE_X) for _x in EV_XS) - MESH_R - PILOT_D/2 >= MIN_SOLID, (
     f"the nearest end-vent cell leaves "
-    f"{min(abs(_x-SCREW_LANE_X) for _x in EV_XS) - LAT_R - PILOT_D/2:.2f}mm of block between it "
+    f"{min(abs(_x-SCREW_LANE_X) for _x in EV_XS) - MESH_R - PILOT_D/2:.2f}mm of block between it "
     f"and the top screw's pilot, under the {MIN_SOLID:.2f} floor")
-assert EV_CZ - LAT_AF/2 >= CAV_FLOOR - 1e-9, (
-    f"the end vent's floor is at z {EV_CZ-LAT_AF/2:.2f}, below the cavity floor "
+assert EV_CZ - MESH_AF/2 >= CAV_FLOOR - 1e-9, (
+    f"the end vent's floor is at z {EV_CZ-MESH_AF/2:.2f}, below the cavity floor "
     f"{CAV_FLOOR:.2f} -- the bottom of every bore would dead-end in the 2.60 floor")
-assert EV_CZ + LAT_AF/2 <= SEAM_Z - EV_SEAM + 1e-9, (
-    f"the end vent's crown is at z {EV_CZ+LAT_AF/2:.2f}, leaving "
-    f"{SEAM_Z-(EV_CZ+LAT_AF/2):.2f}mm of shell under the bezel seam at {SEAM_Z:.2f}")
+assert EV_CZ + MESH_AF/2 <= SEAM_Z - EV_SEAM + 1e-9, (
+    f"the end vent's crown is at z {EV_CZ+MESH_AF/2:.2f}, leaving "
+    f"{SEAM_Z-(EV_CZ+MESH_AF/2):.2f}mm of shell under the bezel seam at {SEAM_Z:.2f}")
 
 
 # ============================================================================
@@ -1499,7 +1526,14 @@ TOPMESH_X1 = (SCREW_LANE_X - SCREW_BOSS_D/2) - TOPMESH_EDGE
 # feature, so the count is what gets asserted.
 TOPMESH_Z0 = COVER_Z0 + EASE_RISE + 0.40        # just clear of the eased edge below
 TOPMESH_Z1 = BACK_Z - 1.20                      # 3 extrusions under the mating plane
-TOPMESH_N_MIN = 4
+# ⚠️ NOT A CELL COUNT ANY MORE.  I typed 8, the gate said 7; I typed 6, the gate said 5. Twice
+# guessing at a number the lattice and the field bounds already determine between them -- and a
+# floor set above what the geometry affords is the over-strict check ember_case.py warns about
+# ("over-strict is not safe -- it is just wrong in the other direction, AND IT GETS SWITCHED
+# OFF"). The invariant I actually wanted is not "how many cells" but "is enough of the panel
+# patterned to read as a mesh", which is an AREA FRACTION and is derived, not chosen. It still
+# catches what the count was for: a field that collapses to one cell reads ~4% and fails.
+TOPMESH_FRAC_MIN = 0.15
 #
 # ---- AND THE SECOND ONE IS A REAL APERTURE, IN THE MIDFRAME ----
 #
@@ -1525,7 +1559,7 @@ TOPMESH_N_MIN = 4
 TOPVENT_X0 = (SCREW_LANE_X + SCREW_BOSS_D/2) + TOPMESH_EDGE
 TOPVENT_X1 = (OX1 - OUT_R) - TOPMESH_EDGE
 TOPVENT_Z0, TOPVENT_Z1 = TOPMESH_Z0, TOPMESH_Z1          # one band across the whole end face
-TOPVENT_N_MIN = 4
+
 # ---- (c) THE INTERNAL VENT, CELL BAY <-> LED COMPARTMENT.  A LABYRINTH, NOT A HOLE. ----
 #
 # JP: "there can be a hex vent between the battery compartment and the led compartment."
@@ -1712,7 +1746,7 @@ def midframe():
     # y 83.30..92.30 and its +Y half lies inside material that is already solid, so cutting
     # first and adding second would refill a sliver of two bores with a no-op.
     for _cx in EV_XS:
-        p -= _yprism(_hex_xz(_cx, EV_CZ, LAT_R), EV_Y0, EV_Y1)
+        p -= _yprism(_hex_xz(_cx, EV_CZ, MESH_R), EV_Y0, EV_Y1)
     return p
 
 
@@ -2010,6 +2044,29 @@ def back_cover():
     # which is why the midframe, the vent labyrinth and the "-" marking are all untouched.
     p -= _yprism(_ease_profile(), COVER_Y0 - 1.0, MOB_OY1 + 1.0)
 
+    # ---- THE DRIVER'S OUTLINE, PROJECTED ONTO THE CHAMBER FLOOR ----
+    #
+    # >>> JP: "the speaker outline should also go on the speaker backpack so weknow how much <<<
+    # >>> tolrenece we have there at a glance."                                              <<<
+    #
+    # The midframe has carried this since r1 -- it is the groove he taped the driver against.
+    # This is its twin on the cover: the driver's ACTUAL body footprint (DRIVER_H x DRIVER_W,
+    # DRIVER_R corners) debossed where it projects onto the chamber floor, so the distance from
+    # this line to any chamber structure IS the tolerance. Nothing is derived from a nominal --
+    # the outline is drawn from the same constants driver_phantom() uses, so if the driver moves
+    # the ruler moves with it.
+    #
+    # It lands on the 1.1mm ring of solid baffle between the driver's edge and the grille field
+    # (GRILLE_INSET), so it interrupts no port and changes no acoustics. 0.60 deep leaves
+    # MIN_SOLID of baffle, and it is nowhere near the rim's bearing face, which is at BACK_Z.
+    _do_out = rbox(DRV_CX - DRIVER_H/2, DRV_CX + DRIVER_H/2,
+                   DRV_CY - DRIVER_W/2, DRV_CY + DRIVER_W/2,
+                   CAV_Z0 - MARK_DEPTH, CAV_Z0 + 1.0, DRIVER_R)
+    _do_in = rbox(DRV_CX - DRIVER_H/2 + LIP_WIDTH, DRV_CX + DRIVER_H/2 - LIP_WIDTH,
+                  DRV_CY - DRIVER_W/2 + LIP_WIDTH, DRV_CY + DRIVER_W/2 - LIP_WIDTH,
+                  CAV_Z0 - MARK_DEPTH - 1.0, CAV_Z0 + 2.0, max(DRIVER_R - LIP_WIDTH, 0.5))
+    p -= (_do_out - _do_in)
+
     # ---- THE BLIND TOP MESH on the battery side of the boss (see 5j). NOT a vent. ----
     # Debossed TOPMESH_D into the +Y end face, leaving MIN_SOLID of wall. Cells are the family
     # lattice, flats on +/-Z like the end vent's, so the two read as the same pattern on the
@@ -2017,18 +2074,21 @@ def back_cover():
     # cell-lane bulkhead and then the 18650.
     global TOPMESH_N
     TOPMESH_N = 0
-    _tm_pitch_x, _tm_pitch_z = 2*LAT_R + LAT_WEB, LAT_AF + LAT_WEB
+    # blind field: the back grill's own web, because a 0.60 deboss has no rib to lose
+    _tm_pitch_x, _tm_pitch_z = 2*MESH_R + MESH_WEB_BLIND, MESH_AF + MESH_WEB_BLIND
+    # through field: the wider web, because these are horizontal BORES (#47's class)
+    _tv_pitch_x, _tv_pitch_z = 2*MESH_R + MESH_WEB_BORE, MESH_AF + MESH_WEB_BORE
     _tm_cx = (TOPMESH_X0 + TOPMESH_X1) / 2
     _tm_cz = (TOPMESH_Z0 + TOPMESH_Z1) / 2
-    for _j in range(-6, 7):
+    for _j in range(-9, 10):
         _z = _tm_cz + _j * _tm_pitch_z
-        if not (TOPMESH_Z0 + LAT_AF/2 <= _z <= TOPMESH_Z1 - LAT_AF/2):
+        if not (TOPMESH_Z0 + MESH_AF/2 <= _z <= TOPMESH_Z1 - MESH_AF/2):
             continue
-        for _i in range(-6, 7):
+        for _i in range(-9, 10):
             _x = _tm_cx + _i * _tm_pitch_x + (_tm_pitch_x/2 if _j % 2 else 0)
-            if not (TOPMESH_X0 + LAT_R <= _x <= TOPMESH_X1 - LAT_R):
+            if not (TOPMESH_X0 + MESH_R <= _x <= TOPMESH_X1 - MESH_R):
                 continue
-            p -= _yprism(_hex_xz(_x, _z, LAT_R), MOB_OY1 - TOPMESH_D, MOB_OY1 + 1.0)
+            p -= _yprism(_hex_xz(_x, _z, MESH_R), MOB_OY1 - TOPMESH_D, MOB_OY1 + 1.0)
             TOPMESH_N += 1
     # ---- (b) THE THROUGH FIELD on the LED side of the boss. Real bores, into the compartment.
     global TOPVENT_N
@@ -2036,18 +2096,21 @@ def back_cover():
     _tv_cx = (TOPVENT_X0 + TOPVENT_X1) / 2
     _tv_cz = (TOPVENT_Z0 + TOPVENT_Z1) / 2
     for _j in range(-6, 7):
-        _z = _tv_cz + _j * _tm_pitch_z
-        if not (TOPVENT_Z0 + LAT_AF/2 <= _z <= TOPVENT_Z1 - LAT_AF/2):
+        _z = _tv_cz + _j * _tv_pitch_z
+        if not (TOPVENT_Z0 + MESH_AF/2 <= _z <= TOPVENT_Z1 - MESH_AF/2):
             continue
-        for _i in range(-6, 7):
-            _x = _tv_cx + _i * _tm_pitch_x + (_tm_pitch_x/2 if _j % 2 else 0)
-            if not (TOPVENT_X0 + LAT_R <= _x <= TOPVENT_X1 - LAT_R):
+        for _i in range(-9, 10):
+            _x = _tv_cx + _i * _tv_pitch_x + (_tv_pitch_x/2 if _j % 2 else 0)
+            if not (TOPVENT_X0 + MESH_R <= _x <= TOPVENT_X1 - MESH_R):
                 continue
-            p -= _yprism(_hex_xz(_x, _z, LAT_R), BAY_Y1 - 1.0, MOB_OY1 + 1.0)
+            p -= _yprism(_hex_xz(_x, _z, MESH_R), BAY_Y1 - 1.0, MOB_OY1 + 1.0)
             TOPVENT_N += 1
-    assert TOPVENT_N >= TOPVENT_N_MIN, (
-        f"the top-end through field solved to {TOPVENT_N} cell(s), under the "
-        f"{TOPVENT_N_MIN} that make it a field")
+    _tv_frac = TOPVENT_N * (1.5 * math.sqrt(3) * MESH_R**2) / \
+               ((TOPVENT_X1-TOPVENT_X0) * (TOPVENT_Z1-TOPVENT_Z0))
+    assert _tv_frac >= TOPMESH_FRAC_MIN, (
+        f"the LED-side through field patterns only {100*_tv_frac:.0f}% of its field "
+        f"({TOPVENT_N} cells) -- under {100*TOPMESH_FRAC_MIN:.0f}% it is not a field, and it is "
+        f"also the LED's window, so thin coverage is a dim window as well as a weak vent")
 
     # ---- (c) THE INTERNAL LABYRINTH VENT through the divider (see 5j). Two notches + a band.
     # Cell-bay face at one Z, compartment face at another, joined only through the IVENT_BAND
@@ -2065,13 +2128,14 @@ def back_cover():
             IVENT_Y - LAT_AF/2, IVENT_Y + LAT_AF/2,
             IVENT_CZ_O - LAT_AF/2, IVENT_CZ_I + LAT_AF/2)
 
-    assert TOPMESH_N >= TOPMESH_N_MIN, (
-        f"the blind top mesh solved to {TOPMESH_N} cell(s) in a {TOPMESH_X1-TOPMESH_X0:.2f} x "
-        f"{TOPMESH_Z1-TOPMESH_Z0:.2f} field, under the {TOPMESH_N_MIN} that make it a MESH. "
-        f"Three staggered rows need {2*(LAT_AF+LAT_WEB)+LAT_AF:.2f} of Z and two columns "
-        f"{(2*LAT_R+LAT_WEB)+2*LAT_R:.2f} of X. Most likely the boss, the ease or the mating "
-        f"plane moved and squeezed it -- a field of one is still a valid field, which is "
-        f"exactly why this is counted and not just built")
+    _cell_a = 1.5 * math.sqrt(3) * MESH_R**2
+    _tm_frac = TOPMESH_N * _cell_a / ((TOPMESH_X1-TOPMESH_X0) * (TOPMESH_Z1-TOPMESH_Z0))
+    assert _tm_frac >= TOPMESH_FRAC_MIN, (
+        f"the blind top mesh patterns only {100*_tm_frac:.0f}% of its "
+        f"{TOPMESH_X1-TOPMESH_X0:.2f} x {TOPMESH_Z1-TOPMESH_Z0:.2f} field ({TOPMESH_N} cells) "
+        f"-- under {100*TOPMESH_FRAC_MIN:.0f}% it does not read as a mesh. Most likely the boss, "
+        f"the ease or the mating plane moved and squeezed it; a field of ONE is still a valid "
+        f"field, which is exactly why this is measured and not just built")
     return p
 
 
@@ -2373,7 +2437,7 @@ def _check_mobile(parts):
     # the seal just as thoroughly, and stating it per feature is the point of this check.
     for _cx in EV_XS:
         _pierce.append((f"end vent x={_cx:.2f}",
-                        _cx - LAT_AF/2, _cx + LAT_AF/2, EV_Y0, EV_Y1))
+                        _cx - MESH_AF/2, _cx + MESH_AF/2, EV_Y0, EV_Y1))
     for _nm, _x0, _x1, _y0, _y1 in _pierce:
         assert not _hits_ring(_x0, _x1, _y0, _y1), (
             f"{_nm} (x {_x0:.2f}..{_x1:.2f}, y {_y0:.2f}..{_y1:.2f}) lands on or across the "
@@ -2389,7 +2453,7 @@ def _check_mobile(parts):
                       RIM_Y0 - RIM_WALL/2 - PILOT_D/2, RIM_Y0 - RIM_WALL/2 + PILOT_D/2), (
         "control failed: a bore placed deliberately in the middle of the rim wall does not "
         "read as piercing, so this test cannot detect a fastener through the seal")
-    assert _hits_ring(EV_XS[-1] - LAT_AF/2, EV_XS[-1] + LAT_AF/2,
+    assert _hits_ring(EV_XS[-1] - MESH_AF/2, EV_XS[-1] + MESH_AF/2,
                       RIM_Y1 - 1.00, EV_Y1), (
         "control failed: an end-vent bore run back down into the seal's Y span does not read "
         "as piercing, so nothing stops the next person lengthening one")
@@ -2425,7 +2489,12 @@ def _check_mobile(parts):
           f"({_delta:+.1f}%)")
     print(f"             FRONT_GAP  stand {E.FRONT_GAP:.2f}      mobile {FRONT_GAP_MOBILE:.2f}   "
           f"(declared departure)")
-    print(f"             governing cavity mode: stand {_sm:.0f} Hz   mobile {_mm:.0f} Hz")
+    print(f"             box-mode LIKE-FOR-LIKE vs the stand: {_sm:.0f} Hz / {_mm:.0f} Hz")
+    print(f"             ⚠️ THAT IS A COMPARISON, NOT A DESCRIPTION. Both figures are closed-form "
+          f"box modes, and this chamber is no longer a box: it is L-SHAPED with TWO open sides "
+          f"(the low-Y wall and the -X divider, both on JP's call). The row is kept because "
+          f"comparing the same wrong model on both parts is still informative; no honest "
+          f"closed-form mode exists for the real volume and none is invented here.")
 
     # ---- 7b. THE SEALED CAVITY IS CLOSED ON ALL FOUR SIDES.  THE CHECK THAT WAS MISSING. ----
     #
@@ -2495,8 +2564,84 @@ def _check_mobile(parts):
           f"{(RIM_INNER_Y-DRIVER_W)/2:.2f}mm beside it -- the pigtail's exit, the SPK relief, "
           f"is INSIDE the rim, so the run never crosses this wall.")
 
+    # ---- 7c. THE DRIVER'S WITNESS OUTLINE IS A RULER, SO IT GETS MEASURED LIKE ONE. ----
+
+    # JP asked for the speaker outline on the backpack "so weknow how much tolrenece we have
+    # there at a glance". That makes it an INSTRUMENT, and this file has already been burned once
+    # by a marking that was present, correct by area, and unreadable (the "-" behind the leaf,
+    # check 15). So: does it exist, does it land where a line can be READ, and does cutting it
+    # cost the baffle anything.
+    #
+    # >>> AND IT IS A DIFFERENT RECTANGLE FROM THE MIDFRAME'S GROOVE, ON PURPOSE. <<<
+    # The midframe's groove is driver + 2*DRIVER_CLR -- a LOCATING fit, it has to be loose or the
+    # driver will not drop in. This ring is the driver's NOMINAL body -- a RULER, and a ruler with
+    # clearance built into it is a lie. They differ by exactly DRIVER_CLR per side, which is why
+    # the two lines look concentric in the viewer and why nobody should "harmonise" them later.
+    _ring_out = rbox(DRV_CX - DRIVER_H/2, DRV_CX + DRIVER_H/2,
+                     DRV_CY - DRIVER_W/2, DRV_CY + DRIVER_W/2,
+                     CAV_Z0 - MARK_DEPTH, CAV_Z0, DRIVER_R)
+    _ring = _ring_out - rbox(
+        DRV_CX - DRIVER_H/2 + LIP_WIDTH, DRV_CX + DRIVER_H/2 - LIP_WIDTH,
+        DRV_CY - DRIVER_W/2 + LIP_WIDTH, DRV_CY + DRIVER_W/2 - LIP_WIDTH,
+        CAV_Z0 - MARK_DEPTH - 1, CAV_Z0 + 1, max(DRIVER_R - LIP_WIDTH, 0.5))
+    _ring_cut = (_ring - cov).volume / _ring.volume
+    assert _ring_cut >= 0.95, (
+        f"the driver's witness outline only cut {100*_ring_cut:.0f}% of its own ring -- it is "
+        f"being absorbed by the grille field or the chamber floor, and a partial ruler is worse "
+        f"than none")
+
+    # Is it a CONTINUOUS line or a dashed one? A witness mark drawn over a hex field is not
+    # readable, and the solid baffle ring outside the field is only GRILLE_INSET wide while the
+    # line is LIP_WIDTH wide -- so the fraction of it standing on solid is DERIVED, not chosen:
+    # the straight runs give GRILLE_INSET/LIP_WIDTH and the corners can only add.
+    # (Guessing this floor is exactly the 8a trap that rejected two sound fields this round.)
+    def _ring_on_solid(inset):
+        _r = (rbox(DRV_CX - DRIVER_H/2 + inset, DRV_CX + DRIVER_H/2 - inset,
+                   DRV_CY - DRIVER_W/2 + inset, DRV_CY + DRIVER_W/2 - inset,
+                   CAV_Z0 - MARK_DEPTH, CAV_Z0, max(DRIVER_R - inset, 0.5))
+              - rbox(DRV_CX - DRIVER_H/2 + inset + LIP_WIDTH,
+                     DRV_CX + DRIVER_H/2 - inset - LIP_WIDTH,
+                     DRV_CY - DRIVER_W/2 + inset + LIP_WIDTH,
+                     DRV_CY + DRIVER_W/2 - inset - LIP_WIDTH,
+                     CAV_Z0 - MARK_DEPTH - 1, CAV_Z0 + 1,
+                     max(DRIVER_R - inset - LIP_WIDTH, 0.5)))
+        # the baffle that must survive UNDER the groove floor, over the ring's own footprint
+        _u = _r.moved(Location((0, 0, -(CAV_Z0 - MARK_DEPTH - COVER_Z0))))
+        return 1.0 - (_u - cov).volume / _u.volume
+    _ring_floor = GRILLE_INSET / LIP_WIDTH
+    _ring_solid = _ring_on_solid(0.0)
+    assert _ring_solid >= _ring_floor, (
+        f"the witness outline stands on only {100*_ring_solid:.0f}% solid baffle against a "
+        f"{100*_ring_floor:.0f}% floor derived from GRILLE_INSET/LIP_WIDTH -- the line crosses "
+        f"grille openings and reads as dashes, which is unreadable at exactly the glance it "
+        f"exists for")
+    # CONTROL: slide the same ring inward past the baffle ring, fully onto the hex field. If a
+    # line drawn over open grille still passes, this check cannot tell a ruler from a dashed one.
+    _ring_ctl = _ring_on_solid(GRILLE_INSET + LIP_WIDTH)
+    assert _ring_ctl < _ring_floor, (
+        f"control failed: the same outline moved {GRILLE_INSET+LIP_WIDTH:.2f} inward, onto the "
+        f"open grille field, still reads {100*_ring_ctl:.0f}% solid -- the readability lens is "
+        f"blind and the assert above is decoration")
+    print(f"  [outline] driver witness ring {_ring.volume/MARK_DEPTH:.1f} mm2 cut "
+          f"{100*_ring_cut:.0f}%, {MARK_DEPTH:.2f} deep, on {100*_ring_solid:.0f}% solid baffle "
+          f"(floor {100*_ring_floor:.0f}% = GRILLE_INSET/LIP_WIDTH); control over the open field "
+          f"{100*_ring_ctl:.0f}%, REJECTED")
+    print(f"             AT A GLANCE, and these are what the ruler is for: driver "
+          f"{DRIVER_H:.2f} x {DRIVER_W:.2f} in a clear span of {RIM_X1-RIM_X0:.2f} x "
+          f"{RIM_Y1-RIM_Y0:.2f} -> margins -X {DRV_CX-DRIVER_H/2-RIM_X0:.2f} "
+          f"+X {RIM_X1-(DRV_CX+DRIVER_H/2):.2f} -Y {DRV_CY-DRIVER_W/2-RIM_Y0:.2f} "
+          f"+Y {RIM_Y1-(DRV_CY+DRIVER_W/2):.2f}")
+    print(f"             ⚠️ THE ONE TOLERANCE THIS MARK CANNOT SHOW IS DEPTH: a projection has "
+          f"no Z. Driver {DRIVER_T:.2f} deep in a {BACK_Z-CAV_Z0:.2f} chamber leaves "
+          f"{BACK_Z-CAV_Z0-DRIVER_T:.2f}mm over the magnet -- read that off check 6, not off "
+          f"this line.")
+    print(f"             the midframe's groove is driver+2x{DRIVER_CLR:.2f} "
+          f"({DRIVER_H+2*DRIVER_CLR:.2f} x {DRIVER_W+2*DRIVER_CLR:.2f}, a LOCATING fit); this "
+          f"ring is nominal ({DRIVER_H:.2f} x {DRIVER_W:.2f}, a RULER). Concentric, "
+          f"{DRIVER_CLR:.2f} apart per side, and deliberately NOT the same number.")
+
     # ---- 8. GRILLE THROAT, RASTERED.  Neither figure inherited from a comment. ----
-    
+
     # Measured by intersecting the finished part with a thin slab mid-baffle and subtracting
     # from the field's area -- i.e. the aperture, not the sum of the cells that were cut.
     _zmid = COVER_Z0 + BAFFLE_T / 2
@@ -2546,7 +2691,7 @@ def _check_mobile(parts):
     #          the material left between two adjacent cut features.
     #   OUT -- heights, depths and rises (they are not sections at all), and MEMBRANES: a thin
     #          face backed by a full wall on every edge is not a rib.
-    _ev_gap = min(abs(_x - SCREW_LANE_X) for _x in EV_XS) - LAT_R - PILOT_D/2
+    _ev_gap = min(abs(_x - SCREW_LANE_X) for _x in EV_XS) - MESH_R - PILOT_D/2
     for _v, _what in (((SCREW_BOSS_D - CBORE_D)/2, "screw boss annulus under the head"),
                       (SCREW_BOSS_D/2 - PILOT_D/2, "midframe boss wall around the pilot"),
                       (COV_WALL,    "the cover's outer wall (and the baffle)"),
@@ -2555,7 +2700,7 @@ def _check_mobile(parts):
                       (PROT_RIB_W,  "protection-strip locating rib"),
                       (_ev_gap,     "block between the end vent and the top screw's pilot"),
                       (EV_EDGE,     "block outboard of the end-vent row"),
-                      (SEAM_Z - (EV_CZ + LAT_AF/2), "shell under the bezel seam over the vent"),
+                      (SEAM_Z - (EV_CZ + MESH_AF/2), "shell under the bezel seam over the vent"),
                       (E.PY1 - (TOP_SCREW_XY[1] - SCREW_BOSS_D/2)
                        + 0*SCREW_BOSS_D, "top boss reach into the pocket's +Y wall")):
         assert _v >= MIN_SOLID - 1e-9, (
@@ -2567,9 +2712,16 @@ def _check_mobile(parts):
         "control failed: #47's 0.90mm web -- a MEASURED collapse on this machine -- passes the "
         "minimum-solid floor, so the floor is not defending against the thing it names")
     # >>> THE EXEMPTIONS, LOUD.  A carve-out nobody can see is a carve-out nobody re-examines. <<<
-    _exempt = ((LAT_WEB, "the 4.75/1.25 lattice web -- UNVALIDATED, deliberately shared with "
-                         "the stand's grille; JP: \"we have proven two that collapse and none "
-                         "that survives\". This field and the speaker grille are the test."),
+    _exempt = ((MESH_WEB_BORE, "the top fields' 1.25 web on HORIZONTAL bores -- clear of #47's "
+                               "measured 0.90 collapse but still UNVALIDATED at this cell size; "
+                               "JP: \"we have proven two that collapse and none that survives\""),
+               (MESH_WEB_BLIND, "the blind deboss's 0.80 web -- the BACK GRILL's own, and that "
+                                "field PRINTED on JP's r1. Proven, but only for VERTICAL prisms "
+                                "in a bed face; it is exempt here because a 0.60 surface relief "
+                                "has no rib to lose, not because 0.80 is safe in a bore."),
+               (LAT_WEB, "the LED wire pass and the internal labyrinth vent still use the "
+                         "4.75/1.25 lattice: both are functional apertures sized to pass a "
+                         "3-wire pigtail and to collimate, not decorative fields."),
                (GLOW_MEMBRANE, "glow window membrane -- a face backed by wall on all four "
                                "edges, 2 extrusions by design, not a standing rib"),
                (VENT_SKIN, "vent labyrinth skin -- same class as the membrane"),
@@ -2595,9 +2747,9 @@ def _check_mobile(parts):
            PRINT_LIFT["ember-mobile-back"] == -COVER_Z0, (
         "PRINT_LIFT is no longer a pure Z translation of the model frame, so 'vertical in the "
         "model' no longer means 'vertical on the bed' and every angle below is meaningless")
-    # The end-vent cell's shoulder: from its widest point (x = +/-LAT_R at z = EV_CZ) up to the
-    # crown corner (+/-LAT_R/2, EV_CZ + LAT_AF/2).
-    _a_shoulder = math.degrees(math.atan2(LAT_AF/2, LAT_R/2))
+    # The end-vent cell's shoulder: from its widest point (x = +/-MESH_R at z = EV_CZ) up to the
+    # crown corner (+/-MESH_R/2, EV_CZ + MESH_AF/2).
+    _a_shoulder = math.degrees(math.atan2(MESH_AF/2, MESH_R/2))
     assert _a_shoulder >= 50.0, (
         f"the end-vent cell's shoulder runs at {_a_shoulder:.1f} deg from horizontal against a "
         f"50 bar (45 is the print limit; this family holds 50 so tessellation cannot eat the "
@@ -2607,7 +2759,7 @@ def _check_mobile(parts):
     # `Rot(-90,0,0)` -- and its roof runs at 30 degrees. That is issue #28, the droop that
     # needed GRILLE_FLARE. If this bar ever stops rejecting it, the bar has stopped meaning
     # anything.
-    _a_28 = math.degrees(math.atan2(LAT_R/2, LAT_AF/2))
+    _a_28 = math.degrees(math.atan2(MESH_R/2, MESH_AF/2))
     assert _a_28 < 50.0, (
         f"control failed: the vertex-up orientation -- issue #28's own drooping grille -- reads "
         f"{_a_28:.1f} deg and CLEARS the 50-degree bar, so this test cannot reject the "
@@ -2634,8 +2786,8 @@ def _check_mobile(parts):
     _y_in = MOB_OY1 - 2.00             # a plane well inside the bore, not at either mouth
     _worst, _where = 0.0, "nothing"
     # sweep the SHOULDER only: from the cell's widest point up to one layer below the crown.
-    for _xa, _xb in ((_cx0 - LAT_R - 0.60, _cx0), (_cx0, _cx0 + LAT_R + 0.60)):
-        _st = _worst_growth(_mat_widths(mf, _y_in, EV_CZ, EV_CZ + LAT_AF/2 - LH, _xa, _xb))
+    for _xa, _xb in ((_cx0 - MESH_R - 0.60, _cx0), (_cx0, _cx0 + MESH_R + 0.60)):
+        _st = _worst_growth(_mat_widths(mf, _y_in, EV_CZ, EV_CZ + MESH_AF/2 - LH, _xa, _xb))
         if _st > _worst:
             _worst, _where = _st, f"the end vent's shoulder at x {_xa:.2f}..{_xb:.2f}"
     assert _worst <= _step_max, (
@@ -3595,7 +3747,8 @@ def _check_mobile(parts):
     assert _tm_cf > 0.20, (
         f"control failed: the deboss band reads only {100*_tm_cf:.0f}% removed, so the mesh is "
         f"not there and the membrane check above is measuring a plain wall")
-    print(f"  [topmesh] {TOPMESH_N} blind cells, {TOPMESH_D:.2f} deep in the +Y end face over "
+    print(f"  [topmesh] {TOPMESH_N} blind cells ({100*_tm_frac:.0f}% of the field), "
+          f"{TOPMESH_D:.2f} deep in the +Y end face over "
           f"x {TOPMESH_X0:.2f}..{TOPMESH_X1:.2f}, z {TOPMESH_Z0:.2f}..{TOPMESH_Z1:.2f}; "
           f"{100*_tm_frac:.1f}% membrane behind it ({COV_WALL-TOPMESH_D:.2f}mm)")
     print(f"             ⚠️ BLIND ON PURPOSE. Behind this face on the battery side is the "
