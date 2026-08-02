@@ -1563,12 +1563,26 @@ for _cx in BTN:
                                    "power symbol on the small cap")
 
 
-def back_shell(variant="desk"):
+def back_shell(variant="desk", top_y=None):
     """The shared back shell. `variant` selects which flank openings are cut and therefore
     which connector labels are truthful — see SIDE_BLOCK. Everything else is identical, and
     deliberately so: the mobile midframe IS this part plus additions, and the day that stops
-    being true is the day the screw-stack derivation has to be redone."""
-    p  = rbox(OX0,OX1,OY0,OY1, BACK_Z, SEAM_Z, OUT_R)
+    being true is the day the screw-stack derivation has to be redone.
+
+    `top_y` extends the OUTER PROFILE past OY1, and it exists because of a defect a render
+    found and no assert could: the mobile used to bolt a separately-rounded block on top of a
+    shell that had already rounded ITS corners at OY1, so the silhouette narrowed to a 46.50
+    nose and then jumped back out to 51.98 — a 5.48mm step PER SIDE, 3.05mm from the end.
+    JP, looking at it in the viewer: "why does the case have the additional weird bump on the
+    top?" The old block's own comment claimed it "keeps the silhouette from stepping twice"
+    while causing exactly that. Passing the real top here draws ONE profile with ONE nose
+    radius, and the bolted-on block disappears.
+    """
+    _ty = OY1 if top_y is None else top_y
+    assert _ty >= PY1 + 1.0, (
+        f"the shell's outer profile stops at {_ty:.2f}, inside the board pocket's own top at "
+        f"{PY1:.2f} — the case would be open over the board")
+    p  = rbox(OX0,OX1,OY0,_ty, BACK_Z, SEAM_Z, OUT_R)
     # board + glass pocket, and the back-component cavity, in one cut
     p -= rbox(PK0,PK1,PY0,PY1, CAV_FLOOR, SEAM_Z+1, POCK_R)
     # ---- BACK-FACE LABELS, cut EARLY and on purpose. ----
@@ -1692,8 +1706,28 @@ def back_shell(variant="desk"):
     # them gives 16.30 + 0.80 + 1.85 = 18.95. An earlier estimate of 18.5 omitted the cell's
     # half-height; an earlier one of 34 was measured against a different cap architecture
     # entirely. The field yields 8mm so the caps can be thumb-sized — JP authorised that trade.
+    #
+    # ⚠️ THE MOBILE DROPS THE BOTTOM ROW, AND IT IS A STRUCTURAL FIX, NOT A STYLE CHOICE.
+    # JP: "so the boss is stronger." The mobile's chin screw sits at (25.00, 22.60) with a
+    # d9.00 boss and a d2.50 pilot bored up through THIS FLOOR — and the bottom row's cells at
+    # x=23.00 and x=27.00, hy=22.75, are each 2.01mm from that pilot's axis. A 3.2mm cell is
+    # 1.60 across its half-flat and the pilot is 1.25 in radius, so the two OVERLAP: as built,
+    # the chin screw threads into the web between two vent holes. Dropping the row (8 cells,
+    # y 20.90..24.60) puts 3.2mm of continuous floor back around the boss on every side.
+    # ⚠️ TWO ROWS, NOT ONE, AND THE SECOND ONE IS THE INTERESTING ONE. Row 1 (hy 22.7513) had
+    # to go because its cells at x=23.00 and 27.00 physically OVERLAP the pilot. Row 2
+    # (hy 26.2154) looks innocent and is not: its cell at x=25.00 leaves 0.80mm of floor
+    # between itself and the pilot's wall -- under the 1.60 minimum-solid floor, at a
+    # THREAD-FORMING screw, which expands the material radially as it goes in. It was never
+    # measured because nothing measured it; the new pilot-collar probe in ember_mobile_case
+    # does, on the artifact, and rejects 0.80. Dropping the row takes the nearest cell to
+    # 4.00mm and costs 7 apertures that vent into the cover's retention band -- a dead-end
+    # volume with no exit of its own, so the thermal price is close to nothing.
+    # The DESK shell keeps all 113 cells: its back face has no boss and no cover, the field is
+    # the LED's diffuser there, and byte-identical desk output is the point of the gate.
     p -= _hex_panel(HEX_FIELD_X0, HEX_FIELD_X1, HEX_FIELD_Y0, HEX_FIELD_Y1,
-                BACK_Z-1, CAV_FLOOR+1, 3.2, 0.8)
+                BACK_Z-1, CAV_FLOOR+1, 3.2, 0.8,
+                drop_bottom_rows=(2 if variant == "mobile" else 0))
     return p
 
 # diffuser() deleted along with the LED window it seated into — see back_shell().
@@ -1810,6 +1844,28 @@ SLOT_CY  = 34.0                    # slot centreline Y at the floor
 # ample), the visible area is entirely clear of the stand, and 20.0mm remains below for
 # the plug. See the VA_CLEAR assert below — this must not silently regress.
 SLOT_FLOOR = 24.0
+# ---- and the rear-top relief that makes the MOBILE variant dockable. Sized by
+# ---- bisection against the real docked stack, not chosen -- see desk_stand().
+DOCK_RELIEF_Y = 13.00    # back from ST_D along the rear top edge
+DOCK_RELIEF_Z = 4.40     # down from ST_H
+
+
+def dock_pose(part):
+    """A model-frame part placed in its DOCKED pose, in stand coordinates.
+
+    ⚠️ MODULE LEVEL SINCE 2026-08-01, AND THAT MATTERS MORE THAN IT LOOKS. This used to be a
+    closure inside check 2f, which meant the MOBILE variant could not ask the same question
+    without transcribing the transform — and a transcribed transform is the drift this exact
+    check exists to catch (see 2f: "transcribing -25 / -1 / 2.95 would have re-created the same
+    drift this check exists to detect, one indirection further away"). One derivation, both
+    variants.
+
+    THE PLACEMENT MUST NOT USE SLAB_T. The slot is cut as SLAB_T + 2*SLOT_CLR; if the body were
+    positioned from SLAB_T too, both sides would move together and the check could never fail.
+    It is placed from FRONT_Z and BACK_Z, the actual extents.
+    """
+    _loc = Pos(-BW/2, (FRONT_Z + BACK_Z)/2, -OY0) * (Rot(90, 0, 0) * part)
+    return Pos(ST_W/2, SLOT_CY, SLOT_FLOOR) * (Rot(-TILT, 0, 0) * _loc)
 # ============================================================================
 # THE PLINTH — #29 / #30.  A 40mm RIGID CABLE DOES NOT FIT UNDER A 40mm STAND.
 # ============================================================================
@@ -2263,10 +2319,16 @@ assert GRILLE_MOUTH_WEB >= 0.45 or GRILLE_MOUTH_MERGED, (
     f"{HEX_WEB/math.sqrt(3):.4f} to merge on purpose. This is the SCALLOP_MIN_RIB rule: a wall "
     f"or no wall, never a fin")
 
-def _hex_panel(x0, x1, y0, y1, z0, z1, aflat, web):
+def _hex_panel(x0, x1, y0, y1, z0, z1, aflat, web, drop_bottom_rows=0):
     """Fine hex lattice filling a rectangular patch, extruded through Z.
 
     >>> rotation=30 IS LOAD-BEARING. Without it this field is a single hole. <<<
+
+    `drop_bottom_rows` removes the N lowest-Y rows AFTER the lattice is laid out, which is
+    NOT the same as raising y0 and is the whole reason it exists as a parameter. cy0 is
+    (y0+y1)/2, so moving y0 SHIFTS EVERY ROW; dropping rows leaves the surviving cells at
+    exactly the coordinates they had. Default 0 -> byte-identical output for every existing
+    caller, which is what keeps the desk shell out of this change.
 
     `RegularPolygon(R, 6)` is FLAT-top: two vertices share the maximum Y, so the cell
     measures 2R across-corners in X and R*sqrt(3) across-flats in Y. Both lattices here
@@ -2292,6 +2354,7 @@ def _hex_panel(x0, x1, y0, y1, z0, z1, aflat, web):
     out = None
     ny = int((y1 - y0) / dy) + 2
     nx = int((x1 - x0) / dx) + 2
+    keep = []
     for j in range(-ny, ny + 1):
         for i in range(-nx, nx + 1):
             hx = cx0 + i * dx + (dx / 2 if j % 2 else 0)
@@ -2299,8 +2362,17 @@ def _hex_panel(x0, x1, y0, y1, z0, z1, aflat, web):
             # keep every hex wholly inside the patch — a clipped hex leaves a sliver
             if not (x0 + R <= hx <= x1 - R and y0 + R <= hy <= y1 - R):
                 continue
-            h = Pos(hx, hy, z0) * extrude(RegularPolygon(R, 6, rotation=30), z1 - z0)
-            out = h if out is None else out + h
+            keep.append((hy, hx))
+    if drop_bottom_rows:
+        # ROWS, not cells: bucket on hy so a whole row goes at once. Rounded to 1e-6 because
+        # hy is accumulated as cy0 + j*dy and the two halves of a row are the same float only
+        # up to that; bucketing on the raw value would drop half a row and leave the rest.
+        _rows = sorted({round(hy, 6) for hy, _ in keep})
+        _cut = set(_rows[:drop_bottom_rows])
+        keep = [(hy, hx) for (hy, hx) in keep if round(hy, 6) not in _cut]
+    for hy, hx in keep:
+        h = Pos(hx, hy, z0) * extrude(RegularPolygon(R, 6, rotation=30), z1 - z0)
+        out = h if out is None else out + h
     return out
 
 
@@ -2928,6 +3000,30 @@ def desk_stand():
     # ledger is re-derived to account for it rather than having its floor quietly nudged.
     p = chamfer_outline(p, -PLINTH_H, CHAMFER, "stand base")
     p = chamfer_outline(p, ST_H, CHAMFER, "stand rim")
+    # ---- REAR-TOP RELIEF.  THIS IS WHAT LETS THE MOBILE STACK DOCK, AND IT IS THE STAND
+    # ---- THAT HAD TO GIVE, NOT THE CASE.
+    #
+    # >>> JP: "so I can still use the dock with the backpack on?"  Without this: NO. <<<
+    #
+    # The mobile's cover adds 21.60mm of body behind the 17.40 slab this slot was cut for, and
+    # laid back TILT degrees that body's chin end sweeps THROUGH the stand's rear top corner --
+    # 121.784 mm3, measured by check 8i in ember_mobile_case, which is the first thing ever to
+    # ask. In COVER coordinates the contact is y 18.00..20.06, z -26.44..-17.37, full width:
+    # mid-height on the chin end face, NOT at the bed-face corner where a bevel would have been
+    # cheap. The cover cannot give it. Its bottom wall is COV_WALL = 2.20 and the leaf's kerf
+    # is 0.35 of that, so relieving the 2.06 needed leaves 0.14mm of wall over the cell bay --
+    # and raising COVER_Y0 instead grows the whole case past where it started.
+    #
+    # So the stand yields, and it is the right part to: it was cut for a slab that existed
+    # before the backpack did. 13.00 x 4.40 on the rear top edge removes 250 mm3 of a 100+ cm3
+    # part, reads as a deliberate rear bevel, and takes the interference to ZERO -- 6.00 x 2.00
+    # only reaches 96.6, 9.00 x 3.00 reaches 28.8, 10.00 x 3.50 reaches 7.8, so the size is
+    # solved rather than chosen. Check 8i asserts the zero HARD; there is no legitimate
+    # nonzero value now and a tolerance left behind is how the next 121.784 arrives unnoticed.
+    _rt = make_face(Polyline((-(ST_H + 1.0), ST_D - DOCK_RELIEF_Y),
+                             (-(ST_H + 1.0), ST_D + 1.0),
+                             (-(ST_H - DOCK_RELIEF_Z), ST_D + 1.0), close=True))
+    p -= Pos(-1.0, 0, 0) * (Rot(0, 90, 0) * extrude(_rt, ST_W + 2.0))
     return p
 
 def stand_base():
@@ -3774,10 +3870,7 @@ def _check_geometry(parts=None):
     # after _print_oriented() had written back would silently dock a rotated slab and measure
     # nothing. Pos/Rot return NEW objects, so `parts` is not mutated and the exported STLs are
     # untouched by this check.
-    def _dock(_part):
-        """A model-frame part in its docked pose, in stand coordinates."""
-        _loc = Pos(-BW/2, (FRONT_Z + BACK_Z)/2, -OY0) * (Rot(90, 0, 0) * _part)
-        return Pos(ST_W/2, SLOT_CY, SLOT_FLOOR) * (Rot(-TILT, 0, 0) * _loc)
+    _dock = dock_pose        # ONE derivation, shared with the mobile variant
 
     def _slab_hit(_dz=0.0):
         _tot, _sbb = 0.0, _stand.bounding_box()
