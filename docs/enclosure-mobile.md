@@ -51,24 +51,55 @@ makes one-screw cell access real rather than nominal.
 
 | | Mobile | Desk |
 |---|---|---|
-| Envelope | **55.90 × 94.95 × 39.00 mm** | 55.90 × 91.90 × 17.40 mm |
+| Envelope | **55.90 × 93.63 × 39.00 mm** | 55.90 × 91.90 × 17.40 mm |
 | Thin section (y < 18.00) | 17.40 mm — unchanged | 17.40 mm |
 
-Width **cannot** move: the bezel is untouched. Length grew **3.05 mm**.
+Width **cannot** move: the bezel is untouched. Length grew **1.32 mm** — and §1 is about why that
+number is not the one it used to be.
 
 ---
 
-## 1 · Why 94.95 is forced
+## 1 · Why 93.63, and why the reason is not the one anybody expected
 
-Not chosen — derived, link by link, and no lane avoids it:
+The case is **1.32 mm longer than the desk one**, and the interesting part is what that
+millimetre and a bit is paying for — because it is not what it was paying for a week ago.
 
 ```
 BOOT cap + moat ends            16.40
   + finger clearance 1.60   ->  COVER_Y0   18.00   cover cannot start sooner
-  + COV_WALL 2.20           ->  BAY_Y0     20.20   cell's flat face bears here
-  + BAY_L 69.60             ->  BAY_Y1     89.80   dimensioned to the LONGEST cell
-  + COV_WALL 2.20           ->  MOB_OY1    92.00   (+2.95 outer wall = 94.95)
+  + COV_WALL 2.20           ->  BAY_Y0     20.20   the cell's flat face bears here
+  + BAY_L 66.75             ->  BAY_Y1     88.48   longest cell + leaf solid + margin
+  + CELL_END_SETBACK 3.73   ->  MOB_OY1    90.68   (+2.95 outer wall = 93.63)
 ```
+
+### The forcing term used to be the spring, and it isn't any more
+
+The coil spring cost **3.50 mm** — solid height plus margin plus its tunnel — and that was the
+whole of the overshoot. Replacing it with a **folded nickel leaf**, formed from the protection
+strip's own B− tab, needs **0.50**. So the obvious conclusion was that the case could go back to
+the desk profile exactly, `MOB_OY1 = OY1 = 88.95`, and the brow would simply vanish.
+
+**It was built that way, and the gate refused it.** The cell-vs-cradle boolean came back at
+**21.218 mm³**, at x −0.45..3.50, y 84.07..86.75 — the interior box's own **+Y corner fillet**.
+The case's `OUT_R` = 6.45 corner curves inward over its last 6.45 mm, while the bore is already
+only 0.10 inside the −X wall. **The bay cannot end where the case does, whatever the spring is.**
+`CELL_END_SETBACK` is **3.73**, derived from that arc against `MIN_SOLID` rather than chosen.
+
+> ⭐ **So the brow had two clients, and only one of them was ever named.** The coil (3.50) and the
+> corner fillet (3.73) — and because 3.50 ≈ 3.73, **the coil had been paying the fillet's debt by
+> accident, for the entire life of the design.** Nobody wrote the second client down because
+> nothing ever asked it to: the feature that would have revealed it was being covered by the
+> feature everyone knew about.
+>
+> Deleting the known client is what exposed the unknown one. **A feature can have a client nobody
+> has named, and removing the obvious one is how you find out** — which is the same lesson as the
+> `GLOW_WEB` half-fix in [`verification.md`](verification.md) §31, seen from the other side: there
+> a coupling was hidden behind the coupling that fired; here a dependency was hidden behind the
+> dependency everyone could see.
+
+The brow therefore **shrank by 1.32 mm rather than vanishing**, and what remains of it is holding
+the fillet off the cell, not the spring off the cell. *The brow did not outlive the coil by
+accident — it outlived it because its last structural client was never the coil at all.*
 
 The cover **deliberately stops short of the chin** so it cannot bury the two rear buttons or the
 USB-C socket. That is a *reachability* constraint — the class of fault no clearance check sees,
@@ -109,53 +140,61 @@ asserted. *Do not "fix" a failure there by editing `BAFFLE_T`.*
 | Bezel screws | 4 × M3 × 0.5 × 12 ISO 4762 | Unchanged from the desk build. |
 | Driver | 40 × 27 × 10 mm sealed-back module | Carried over. Double-sided tape on its **back**. |
 
-Retention is **a dovetail rail + that one screw**.
+Retention is **two M3 × 22 screws driven straight down, and the cover's own box section**.
 
 | | |
 |---|---|
-| Rails | **three, and asymmetric** — see below. −X: one continuous rail y 18.60..81.90 (**63.30 mm**). +X: two short ones, y 18.60..28.00 and 77.00..81.90 (**14.30 mm** between them) |
-| Teeth | **18** in total, **1.40 × 0.60** each, on a **4.00** pitch; **15.1 mm²** of measured plan-view shoulder against a 12.0 floor |
-| Fits | clearance **0.30** on both axes, grip 0.30, lift 0.40; groove depth 2.60 of the side wall's 17.40, skin 0.80 |
-| Slides | **2.00 mm** of +Y travel to seat, against a 2.40 mm rim-to-driver gap — 0.000 mm³ of fouling at the worst of 8 poses on the assembly path |
-| Locks | the M3 shank in a ⌀3.3 bore leaves **0.30 mm of Y freedom against 2.00 of travel** — *the screw is the slide's stop, not just a clamp* |
-| Gable | every crest at **53.1° from horizontal**, which is the whole reason this replaced hooks |
+| Screws | a shared lane at **x 23.55** — chin **(23.55, 22.60)**, top **(23.55, 85.98)**. ⌀9.00 boss both ends, 6.60 pilot, **3.40 mm engaged** |
+| Top screw placement | set by `SCREW_BOSS_D/2 + 0.20`, **not** by `SCREW_EDGE_MIN` — the boss is wider than the counterbore, and when it was placed by the counterbore rule it stood **0.30 proud** of the end face |
+| The rest of the edge | carried by the cover's **21.60 mm closed box section**, not by fasteners |
+| Worst unheld point | **43.19 mm, at (52.95, 54.34)** — mid-span of the **+X** long edge |
 
-**The asymmetry is forced, not stylistic.** On the +X wall the seal rim's outboard leg *is* the
-cover's own +X wall, so a groove anywhere in y 28.40..76.40 would be **a hole in the sealed
-cavity's ceiling** — the same constraint that put the retention strip where it is. The −X wall is
-free, because there the rim's inboard leg is the divider rather than the case wall. So one flank
-gets a rail down its whole length and the other gets two short ones that dodge the seal.
+**Two screws is JP's cap, and the budget above is what that buys.** The lane sits 26.50 from the
+−X edge and 29.40 from the +X, so pushing it inboard — which the protection strip forced —
+*inverted which long edge is worse*. The +X edge is now the weaker one, and it is also the only
+one that could ever take a third fastener: −X can never take one at any y, with the cell bore
+below and `SCREW_EDGE_MIN` above.
 
-**Why it is not hooks any more.** The previous scheme was two undercut hooks, and JP rejected it
-on **printability rather than fit**: the hook's 0.60 mm lip had to bridge its own 0.80 mm slot.
-That is the same failure family as the stand grille's webs (#47) — a feature whose *fit* was
-asserted and whose *printability* was not, which is a distinction this project has now paid for
-twice. Every `HOOK_*` constant is **deleted** rather than commented out, so nobody reinstates the
-scheme from a note.
+> **A third screw is now possible, and is deliberately not proposed.** It was the protection
+> strip that made a second top screw impossible, and the strip has since moved to the lower band,
+> so the upper compartment is empty. One at roughly (46, 82) would halve the +X worst case. It is
+> recorded here only so the constraint that used to forbid it is not re-derived from scratch by
+> the next person — **the cap is JP's call, not an oversight.**
 
-The dovetail earns it back by **gabling every crest at 53.1°**: an inclined roof self-supports
-where a flat undercut lip must bridge. It also converts the retention from two point anchors at the
-bottom edge into **77.60 mm of engagement spread over 18 teeth**, reaching to y 81.90 at the top on
-both flanks — **the rails hold the length of the cover rather than its corners**, which is the
-direct answer to "what stops the top lifting?" and closes that question rather than deferring it to
-a test print. The teeth also root into the cover's own wall, so unlike the hooks — one of which
-needed a pillar built under it — **no rail needs supporting geometry at all.**
+### This is the third retention scheme, and each was killed by a different kind of argument
 
-> **A defect worth keeping, because it is this project's favourite shape.** `DT_Y1` was first
-> written as `MOB_OY1 - OUT_R - 0.60` = 84.95, which is where the **cover's** brow starts curving.
-> But the groove is cut in the **midframe**, whose outline is `back_shell` and whose top corners
-> turn at 82.50 — six millimetres earlier. Over that gap the +X wall is already arcing inboard, so
-> the 0.80 of skin outboard of the groove thins toward breakout and the shoulder the tooth pulls
-> against stops being there. **Check 8f found it on the artifact, at 79.7 % of one shoulder** —
-> which is exactly why that probe measures the midframe instead of trusting the constants. *Two
-> parts, two outlines, and the rail belongs to both: the right formula taken from the wrong part.*
+| scheme | killed by |
+|---|---|
+| two undercut hooks | **printability** — a 0.60 mm lip bridging its own 0.80 mm slot |
+| a dovetail rail | superseded when the whole retention approach was reconsidered |
+| **two screws + box section** | *(built)* |
 
-The **constraint set carried over unchanged**, because it never came from the hooks: retention can
-only live where the button-cap keepout, the seal footprint, the vent field ("a lip made of
-honeycomb is not a lip") and the cover's own material at the mating plane all allow. And the
-**reach** assert survived the redesign, which was the thing to check — `DT_TRAVEL` and
-`DT_ENGAGE_MIN` exist for exactly that reason. A feature that fits engaged but cannot *reach*
-engaged is the same fault class as a buried button.
+Worth keeping the shape of those failures rather than just the outcome. The hooks' fit was
+asserted and their **printability was not** — the same distinction as the stand grille's webs
+(#47), and the second time this project has paid for it. Every `HOOK_*` and every `DT_*` constant
+is **deleted** rather than commented out, so no scheme can be reinstated from a note.
+
+### Moving a screw is what found a real defect at the screw that did not move
+
+The chin screw was investigated for relocation and **stayed at (23.55, 22.60)**. The investigation
+was still worth it, because it exposed something at the *unmoved* position: the nearest surviving
+hex cell left **0.80 mm of web** against a **1.60 mm floor** — at a **thread-forming** screw, which
+expands material radially as it goes in. Thin web plus radial expansion is a split.
+
+So the mobile now drops **two hex rows, not one**: the row whose cells at x 23.00 and 27.00 overlap
+the chin pilot outright, and the row whose cell at x 25.00 left that 0.80. The desk keeps all 113
+cells and stays byte-identical — this is a mobile-only subtraction. A new **`[collar]` probe**
+asserts a full `MIN_SOLID` collar at both screws, and its **control in the open hex field reads
+35 % and is correctly rejected**.
+
+*The useful shape: a question asked about one feature ("can this screw move?") returned an answer
+about a different one ("this screw is unsafe where it is"). Investigations are worth finishing even
+when the answer is no.*
+
+**Location lips were considered and are arithmetically impossible.** A lip needs
+1.60 + 2 × 0.35 clearance + 2 × 1.60 skin = **5.50 mm of wall**. The cover has 2.20 and the
+midframe's floor outboard of the board pocket has 2.60. **Short by 2.90** — not a tuning problem,
+and the same shape as the −X dovetail elimination before it.
 
 ---
 
@@ -178,7 +217,8 @@ The order matters, and two steps are irreversible-ish:
 4. **Run the cell leads** down the divider's groove (1.00 deep × 5.40 — widened from 3.20 so a
    flat 5 mm nickel tab lies in it instead of a round wire) and through the lead pass to `BAT`.
 5. **Fit the board and bezel** exactly as the desk build.
-6. **Drop the cell in** — `+` toward low Y — engage the cover's retention and drive the single M3.
+6. **Drop the cell in** — **`+` toward HIGH Y**, against the plate; the folded leaf takes the
+   `−` end at low Y — then seat the cover and drive **both** M3 screws.
 
 ## 5 · Cell bay
 
@@ -203,9 +243,26 @@ present in the geometry.* Left in, the feature would have rejected the only cell
 It was removed rather than commented out, so nobody reinstates it from a note.
 
 What replaces it is **markings only**: `+` and `−` debossed 0.60 mm deep, 2.80 mm tall, 0.90 mm
-groove, into the two bay end walls and **facing into the bore**, so they are read as the cell goes
-in. **That is weaker and the docs will not call it protection.** Making reverse insertion *safe*
-is electrical, and it is unbuilt.
+groove. **`+` sits at y 86.95** on the high-Y end wall; **`−` sits at y 19.10 — on the cover's
+mating face, not the bay wall.** **That is weaker and the docs will not call it protection.**
+Making reverse insertion *safe* is electrical, and it is unbuilt.
+
+### ⚠️ The "−" mark was debossed correctly, and could not be seen
+
+Both marks were cut to spec and both passed the deboss check — the one that bounds debossed volume
+against ink area from *both* sides, which is a good check. **The `−` was 34 % visible**, because
+the folded nickel leaf now sits in front of it. Nothing about the geometry was wrong: the mark was
+there, at the right depth, in the right place, and a person putting a cell in could not read it.
+
+**This is a different failure from an assertion that cannot fail.** This one *could* fail and did
+not, because it was asking about **volume** when the thing that mattered was **sightline**. Check
+15 gained a **visibility lens**, with the old geometry kept as its rejected control.
+
+The fix is an asymmetry, and **the asymmetry is the finding**: `−` moved to the cover's mating face
+at y 19.10 while `+` stayed on the end wall at y 86.95. The marks are no longer mirror images
+because **the two ends are no longer alike** — one has a nickel leaf in front of it and the other
+has a flat contact plate. *A design that kept them symmetric for tidiness would have kept one of
+them invisible.*
 
 *(The check on those glyphs is worth knowing about: the repo's stroke-gap probe returns `inf` for
 both — `+` because its strokes cross, `−` because it is a single stroke — so a `gap ≥ width`
@@ -254,7 +311,7 @@ fits in neither orientation. Its phantom is kept in the file so the boolean repo
 interference** on every run.
 
 Restoring the pocket costs the **5.90 mm** that switching to bare cells saved — the same length
-the protection strip now occupies. JP froze it on 2026-08-01: **the case stays at 94.95, in-case
+the protection strip now occupies. JP froze it on 2026-08-01: **the case stays as short as it is, in-case
 fast charging is out**, because with bare cells the missing protection is the sharper gap and
 removable cells can be fast-charged in an external bay charger. This **reversed** an earlier call
 to keep the TP4056 pocket; recorded rather than quietly absorbed.
@@ -276,7 +333,7 @@ the device already publishes battery voltage, so the hook for a low-voltage cuto
 | Pocket | centred x **35.70**, y **78.50 .. 85.00**, floor at `CAV_Z0` |
 | Sized for | **21.50 × 6.50 × 2.50** — the length is measured; the other two are not |
 | Clearances | 0.40 around, **1.00 over the component face** (the FETs are the tall parts) |
-| Locating | three ribs, 1.60 wide × **2.40 high**, **outside** the PCB footprint |
+| Locating | three ribs, 1.60 wide × **3.00 high**, **outside** the PCB footprint |
 | Tab slots | 5.40 × 0.40 — these tabs are ~5 mm × 0.15 flat conductors, so shallow slots, excess trimmed |
 
 > ✅ **`PROT_L` is now MEASURED: 21.50.** JP re-measured — *"a little over 21"* — and the seat
@@ -478,6 +535,78 @@ stale.
 
 ---
 
+## 9b · Cooling the chip, which is not the same as cooling the cell
+
+New in this round, and it starts with a measurement rather than an assumption: **the ESP32-S3 was
+located in the vendor solid, not guessed at.** It is the only 7.01 × 7.01 × 0.90 back-side solid in
+the STEP — a QFN56 at x 20.51..27.52, y 61.11..68.12, z −2.50..−1.60.
+
+The desk case vents that footprint through its hex field. **The mobile cannot**, and the reason is
+exact rather than approximate: **the speaker's bond plateau refills precisely that footprint**, and
+the sealed cavity sits behind it. Venting the back face would open the acoustic cavity. So
+back-face cooling is not a trade-off here, it is **forbidden**.
+
+That leaves one viable field — **bores through the +Y end face into the board cavity** — and it
+comes with an orientation constraint the project has already paid for once: the cells are
+**flat-top in Z** (60° shoulders, 2.74 crown), because vertex-up would put a 30° face on them,
+which is issue #28's droop exactly.
+
+A side-wall field was evaluated and **fails on 0.05 mm**: the cavity band `CAV_FLOOR..PCB_BOT` is
+5.50, and a 4.75 AF cell under this file's own 0.80-margin rule needs ≤ 4.70. Recorded because
+"we could put vents in the side wall" is the obvious next suggestion and the arithmetic has
+already answered it.
+
+> ⚠️ **This does not close the thermal item in §14, and should not be read as doing so.** It cools
+> **the processor**. The cell bay's heat path is a separate problem with a separate answer, and
+> blocking the flank openings made that one *tighter*, not looser.
+
+---
+
+## 10b · It did not dock, and the stand is what had to give
+
+The backpack is meant to sit in the desk stand when it is at a desk. **It did not fit**, and
+nothing had noticed, because **check 8i had never actually executed.** Its first real run
+returned **121.784 mm³** of interference — cover against the stand's rear top edge.
+
+Two things about that are worth more than the fix.
+
+**It was pre-existing on `main`, and worse there.** This is not a regression the retention work
+introduced; it is a collision that had been true for as long as there had been a backpack, sitting
+behind a check that reported nothing because it was not running. A check that has never fired and a
+check that passes are indistinguishable from the outside — see
+[`verification.md`](verification.md) §28, which is the same shape one step further along.
+
+**The cover could not yield, so the stand did.** The interference is **mid-height on the cover's
+chin end face and full width** — cover y 18.00..20.06, z −26.44..−17.37 — not a corner nick that a
+bevel could take off. The cover's bottom wall there is 2.20 with the leaf's 0.35 kerf behind it, so
+it can give up **0.60 and no more**. There is no cover-only fix, and no fix at all that leaves the
+stand untouched.
+
+So the stand gets a relief: **`DOCK_RELIEF` 13.00 × 4.40** on its rear top edge, **sized by
+bisection against the real docked stack** rather than guessed —
+
+| relief | interference |
+|---|---|
+| 6.00 × 2.00 | 96.6 mm³ |
+| 9.00 × 3.00 | 28.8 mm³ |
+| 10.00 × 3.50 | 7.8 mm³ |
+| **13.00 × 4.40** | **0.000 mm³** |
+
+— and check 8i is now a **hard zero** assert rather than a threshold. That is 250 mm³ removed from
+a part of over 100 cm³: **a quarter of a percent of the stand, to admit a device that did not exist
+when its slot was drawn.**
+
+> ⭐ **The part that had to give was the one whose assumption was oldest.** The stand's slot was cut
+> for a slab — the desk case, 17.40 mm thick — and it was cut before the backpack existed to be
+> docked. Every later part inherited that opening as though it were a fact about the world. It was
+> a fact about a decision, and the decision predated the requirement. When two parts cannot both be
+> right, *the one to change is not the newest one, it is the one carrying the stalest premise.*
+
+⚠️ The stand is therefore at **r5** and needs reprinting for anyone who docks a backpack. A desk-only
+build is unaffected by the geometry but will still show the rev bump.
+
+---
+
 ## 11 · Print notes
 
 Everything in `PRINT-SHEET.md`'s shell column applies: 0.20 mm layers, 3 perimeters, 15 % gyroid,
@@ -510,37 +639,34 @@ transcribe these by hand.
 
 | Check | Result |
 |---|---|
-| Envelope | 55.90 × 94.95 × 39.00 (desk 55.90 × 91.90 × 17.40) |
-| Volumes | midframe **21.54 cm³**, cover **27.24 cm³** |
-| Mesh | midframe **27 750** tris, cover **5 248** — both **0 boundary, 0 non-manifold, watertight** |
+| Envelope | **55.90 × 93.63 × 39.00** (desk 55.90 × 91.90 × 17.40) |
+| Volumes | midframe **20.99 cm³**, cover **26.98 cm³** |
+| Mesh | midframe **27 598** tris, cover **5 874** — both **0 boundary, 0 non-manifold, watertight** |
 | Board interference | midframe **0.000**, cover **0.000**, cell phantom **0.000** mm³ |
-| Interference controls | cover +22 mm → 1985.0 · midframe +2 mm → 184.4 · cell +12 mm → 1919.7 mm³ |
-| Layers | every depth a whole multiple of 0.20; **3 controls fired** |
-| X budget | interior 51.50 = 19.40 + 2.00 + 30.10; driver slack 1.90 |
-| Reachability | BOOT top 16.40 vs cover start 18.00; USB-C at z −4.85..−1.60 clear of the cover at −9.70 |
-| Cell + spring | bay 69.60; 64.9 → 4.10, 65.5 → 3.50; travel 4.50 vs 0.60 needed |
-| Spring tunnel | y 86.80..89.80 — 3.00 of a 7.00 free length inside a closed ⌀9.00 bore; gable **53.1°**, roof 4.32 from the axis against a 4.00 radius |
-| Contact | kerf **0.350** (0.25 JP-confirmed material + 0.10 play, derived); detent leaves 0.200 < 0.25 |
-| Seal rim | **100.00 % on all four legs**; control on the open vent field 90.97 % (must be < 98) |
-| Fasteners vs rim | **4 back-face pockets**, all clear of the rim footprint |
-| Bed-edge chamfer | high-X edge 50.0 % filled (45° reads ~50); control on solid material inboard 99.7 % |
+| Interference controls | cover +22 mm → **1954.7** · midframe +2 mm → **199.1** · cell +12 mm → **1884.8** mm³ — the probe is known to be *able* to fail |
+| **Dock** | **mobile stack vs the stand 0.000 mm³ CLEAR**; control sunk 2 mm → 1332.9 mm³, detector **works** |
+| Descent | straight down, 8 poses from 12.0 mm out to seated: vs the taped driver **0.000**, vs the midframe **0.000**, vs contents **0.000** mm³ |
+| Retention | 2 × M3×22, lane **x 23.55** (the case's own centreline), y **22.60** and **85.98**, **63.38 mm baseline**; both bosses on solid floor |
+| Screw | under-head at both sites; head z −28.30, **3.40 mm engaged in a 6.60 mm pilot** |
+| Counterbores | chin annulus 1.60, seat 100.0 % solid, control outside the boss 60.5 % · top annulus 1.60, seat 100.0 %, control 38.2 % |
+| **Collar** | both pilots have a full **1.60 mm collar of floor**; control in the open hex field **35 %, rejected**. Two hex rows dropped for it |
+| Leaf | folded nickel, root in a 0.35 kerf at y 20.20; free height **3.60** (⚠️ **JP-tunable**), closed 0.75, **2.85 mm travel** |
+| Contact | kerf **0.350** (0.25 JP-confirmed material + 0.10 derived play); detent leaves 0.200 < 0.25 |
+| Tab runs | B− **18.1 mm** (strip → crossing slot → leaf kerf); B+ **71.0 mm** (strip → wire groove → the `+` plate at y 86.95) |
+| Marks | `+` on the +Y bulkhead's bay face (y 86.95); `−` on the cover's **mating face** (y 19.10) |
+| Seal rim | **100.00 % solid**; control on the open vent field 37.21 % (must be < 98) |
+| Fasteners vs rim | **6 pockets** in the midframe, all clear of the rim footprint |
 | Front air | 15621.3 → **15437.8 mm³ (−1.2 %)** |
-| Cavity mode | 3176 → **3828 Hz** |
 | Grille | **31 openings, 562.7 mm² throat** over a 946.6 field (59 %, ceiling 63 %); 80 % of driver area |
-| Dovetail | as-printed frame = model frame (pure Z lift, both parts); **worst face 53.1° from horizontal** |
-| Capture | **18 teeth**, 1.40 × 0.60 each; **15.1 mm²** of measured shoulder on the midframe (floor 12.0); worst shoulder 100.0 % solid |
-| Slide | 2.00 mm of travel against a 2.40 mm rim-to-driver gap; **0.000 mm³ at the worst of 8 poses** on the assembly path |
-| Lock | M3 shank in a ⌀3.3 bore leaves **0.30 mm of Y freedom against 2.00 of travel** |
-| Rails | **3 rails**, worst tooth root 100.0 % solid on the cover's own wall — **no pillars needed, unlike the hooks** |
-| Cover screw | M3×22, head at z −28.30, **3.40 mm engaged in a 6.60 mm pilot** |
-| Counterbore | 4.60 mm to the cover edge (needs 4.20); annulus 1.60 (min 1.00); seat 100.0 % solid, control outside the boss 58.2 % |
-| Strip pocket | **21.50** × 6.50 × 2.50 fits (0.00 mm³ foul); max that seats flat 29.30 |
-| TP4056 | **299 mm³ interference — does not fit** |
+| Min feature | floor 1.60 (4 extrusions), 10 sections checked; control — #47's failed 0.90 web — **rejected** |
+| ⚠️ Exempt | **1.25 lattice web — UNVALIDATED, deliberately shared with the stand's grille** · 0.80 glow membrane and 0.80 vent skin (faces backed on all edges, not standing ribs) · 0.15 contact detent (meant to deform) |
+| Print frame | as-printed = model frame (pure Z lift, both parts); end-vent shoulder **60.0°**, control (#28's vertex-up) **30.0° rejected** |
+| Strip pocket | **21.50** (JP-measured) × 6.50 × 2.50 fits, 0.00 mm³ foul; free compartment 30.10 × 8.20; max that seats flat 29.30 |
 | Charge | 290 mA → **15.8 h** |
 | Vent | 4 units, **16.56 mm² throat vs 9.42 assumed (1.76×)**; band 0.60 × 6.90, skin 0.80 each face |
-| BAT lead pass | open (0.0000 mm³ blocked); control on solid floor blocks 23.9 mm³ |
-| Glow | 2 cells, hi wall, **`GLOW_CY` 36.99 (y 31.35..42.64)**, z −6.60..−2.10, **`GLOW_DIST` 23.02** |
-| Bed contact | cover **3340.9 mm²**, midframe **3776.6 mm²** |
+| BAT lead pass | open (0.0000 mm³ blocked); control on solid floor blocks 51.5 mm³ |
+| Glow | 2 cells, hi wall, `GLOW_CY` **36.99** (y 31.35..42.64), z −6.60..−2.10, `GLOW_DIST` **23.02** |
+| Bed contact | cover **3242.9 mm²**, midframe **4037.0 mm²** |
 
 The file carries **17 numbered checks plus 3 module-level asserts and 98 assertions**, and a large
 share of them are **controls** — probes that must *fail* on deliberately broken input. That is the
@@ -601,8 +727,11 @@ mobile queue entries are only as current as the last `ember_case.py` run.
 
 - **Cover top-edge gap.** The old hook scheme anchored only the bottom edge, so the top ~70 mm
   leaned on the cover's own wall stiffness and the divider, and nothing but a test print could
-  settle it. The dovetail replaced two point anchors with **18 teeth over 77.60 mm**, reaching
-  y 81.90 on both flanks, which removes the question rather than deferring it. *Recorded as closed rather than
+  settle it. It is closed now for a different reason than the one that first closed it: retention
+  reaches **y 85.98** at the top, and the edge between the two screws is carried by the cover's
+  **21.60 mm closed box section** rather than by fasteners. The worst unheld point moved to the
+  **+X long edge** — 43.19 mm at (52.95, 54.34) — so the question did not disappear, *it moved to
+  a different edge and got smaller.* Reopen it there, not at the top, if a print gaps. *Recorded as closed rather than
   deleted, because the reason it closed is the interesting part: it was retired by a change made
   for printability, not by anyone attacking the gap.*
 

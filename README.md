@@ -429,7 +429,7 @@ unmodified — same STL, same four M3×12, same 5.34 mm of thread — and the bo
 
 > ⚠️ **Verified in CAD, nothing completed, nothing wired.** Both parts pass every check the desk
 > parts do — watertight, **0 boundary and 0 non-manifold edges**, **0.000 mm³** against the
-> vendor board solid, with displaced controls at 1985.0 / 184.4 / 1919.7 mm³ so the probe is
+> vendor board solid, with displaced controls at 1954.7 / 199.1 / 1884.8 mm³ so the probe is
 > known to be *able* to fail. That is a geometry result. The cell is a phantom, two of the
 > protection strip's three dimensions are still placeholders, and whether the cover's top edge
 > gaps is a question only a test print answers.
@@ -442,20 +442,33 @@ unmodified — same STL, same four M3×12, same 5.34 mm of thread — and the bo
 
 | | |
 |---|---|
-| `ember-mobile-midframe.stl` | back face down. The old back shell **plus features and nothing removed** — brow, speaker bond plateau, driver locating groove, cell-lead pass, and the rail side of the dovetail |
+| `ember-mobile-midframe.stl` | back face down. The old back shell **plus features and (almost) nothing removed** — brow, speaker bond plateau, driver locating groove, cell-lead pass, two screw bosses, a +Y cooling field. It *does* drop two hex rows, at the chin screw — see below |
 | `ember-mobile-back.stl` | **outer** face down. The cell trough, the spring and contact pockets, the speaker grille, the failure vent, the protection pocket |
 | `ember-front-bezel.stl` | unchanged — reused bit-identical |
 
 | | Mobile | Desk |
 |---|---|---|
-| Envelope | **55.90 × 94.95 × 39.00 mm** | 55.90 × 91.90 × 17.40 mm |
+| Envelope | **55.90 × 93.63 × 39.00 mm** | 55.90 × 91.90 × 17.40 mm |
 | Cell | 1 × **bare flat-top 18650**, user-swappable | — |
 | Charge | onboard TP4054, 290 mA → **15.8 h** | — |
-| Access | dovetail rail + **1 × M3×22** | — |
+| Access | **2 × M3×22** on one lane + the cover's box section | — |
 
-**Width cannot move** (the bezel didn't) and length grew only **3.05 mm** — and that growth is
-forced link by link, not chosen: the BOOT cap and its moat end at 16.40, so the cover cannot
-start before 18.00, which puts the bay at 20.20, which plus a 69.60 bay and one wall is 92.00.
+**Width cannot move** (the bezel didn't) and length grew only **1.32 mm** — and what that
+millimetre pays for is the best story in the design. It used to be the coil spring: 3.50 mm of
+solid height, margin and tunnel. Replacing the coil with a **folded nickel leaf** formed from the
+protection strip's own tab costs 0.50, so the case should have gone back to the desk profile
+exactly and the brow should have vanished.
+
+**It was built that way and the gate refused it** — the cell-vs-cradle boolean returned
+**21.218 mm³** against the case's own `OUT_R` corner fillet, which curves inward over its last
+6.45 mm while the bore sits 0.10 from the wall. The bay cannot end where the case does, whatever
+the spring is. The setback is **3.73 mm**, derived from that arc.
+
+> ⭐ **So the brow had two clients and only one was ever written down.** The coil (3.50) and the
+> corner fillet (3.73) — and because those are nearly equal, **the coil had been paying the
+> fillet's debt by accident for the whole life of the design.** Deleting the known client is what
+> revealed the unknown one. *A feature can have a client nobody has named.*
+
 The cover **deliberately stops short of the chin** so a battery door cannot bury the only usable
 button or the USB-C socket — a *reachability* constraint, which is the class of fault no
 clearance check sees and which this project has already filed once.
@@ -484,7 +497,8 @@ protected cell's *raised* button passes and a flat can-face does not, blocking a
 any aperture that stops a reversed cell stops a correct one. It is not a matter of a cleverer
 profile — *the information is not present in the geometry*, and left in, the feature would have
 rejected the only cells its owner has. It was removed rather than commented out. What replaces it
-is `+`/`−` debossed into the bay end walls, facing into the bore. **That is weaker, and it is not
+is `+`/`−` debossed into the cell bay — deliberately **not** mirrored positions, because one end
+has a nickel leaf in front of it and the other does not. **That is weaker, and it is not
 going to be called protection.**
 
 **A vent with no straight line through it.** A lithium cell in a sealed plastic box is the one
@@ -511,6 +525,28 @@ webs, this window **in a different part** silently inherited the change and stop
 cavity band. The export gate refused to write the STL. *A window's size is set by the band it
 lives in, not by another part's lattice.*
 
+### ⚠️ It did not dock, and the *stand* is what had to change
+
+The backpack is meant to sit in the desk stand. **It didn't fit** — and nothing had noticed,
+because **the check for it had never actually executed.** Its first real run reported
+**121.784 mm³** of interference, cover against the stand's rear top edge, **pre-existing on `main`
+and worse there.** A check that has never fired looks exactly like a check that passes.
+
+The cover could not be the fix: the interference is **mid-height on its chin end face and full
+width**, not a corner a bevel could shave, and its 2.20 mm wall with the leaf's kerf behind can
+give up 0.60 and no more. So the stand takes a **13.00 × 4.40 relief** on its rear top edge, sized
+by **bisection against the real docked stack** (96.6 → 28.8 → 7.8 → **0.000 mm³**). The check is a
+hard zero now. That is 250 mm³ off a part of over 100 cm³.
+
+> ⭐ **The part that had to give was the one whose assumption was oldest.** The stand's slot was cut
+> for a 17.40 mm slab, before a backpack existed to be docked into it, and every later part
+> inherited that opening as if it were a fact about the world. It was a fact about a decision.
+> *When two parts cannot both be right, change the one carrying the stalest premise — not the
+> newest one.*
+
+⚠️ **The stand is at r5 and needs reprinting if you dock a backpack.** Desk-only builds are
+unaffected in geometry.
+
 ```bash
 cd enclosure
 ./cadenv/bin/python ember_mobile_case.py           # both STLs + 17 checks; writes nothing on failure
@@ -526,7 +562,7 @@ cd enclosure
 17.00 mm short axis, and its phantom is kept in the file so the boolean reports **299 mm³ of
 interference** every run rather than a comment claiming as much. Restoring it costs the 5.90 mm
 that switching to bare cells saved, which is the same length the protection strip now occupies.
-The case stays at 94.95: with bare cells the missing protection is the sharper gap, and removable
+The case stays as short as it is: with bare cells the missing protection is the sharper gap, and removable
 cells can be fast-charged in an external bay charger. That **reversed** an earlier decision, and
 it is recorded rather than quietly absorbed.
 
