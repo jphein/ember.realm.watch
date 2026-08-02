@@ -41,3 +41,4 @@ enclosure/print/*.stl
 
 # Sliced gcode staging (uploaded to OctoPrint by hand/session; regenerable from print/*.stl)
 enclosure/print/gcode/
+enclosure/print/preview.html
