@@ -13,12 +13,16 @@ had no reason to be a library. It has one now. The plumbing here is lifted from 
 verbatim where behaviour must match (`sample`, `project`, the stroke widths and the
 hidden-line dash), so a figure written through either path looks like the same drawing.
 
-⚠️ `make_renders.py` STILL CARRIES ITS OWN COPY. Migrating it is a mechanical change
-behind a byte-identity check (regenerate into a temp dir, `cmp` against `site/renders/`)
-and it was deliberately not bundled with the mobile figures, because a refactor of the
-desk figures and an addition of new ones fail in different ways and should not land in
-one commit. Whoever migrates it: delete the copies there, import these, and prove the
-five committed SVGs come back byte-for-byte.
+`make_renders.py` HAS BEEN MIGRATED and no longer carries its own copy — one projector,
+one writer, both figure sets. It was deliberately not bundled with the mobile figures,
+because a refactor of the desk figures and an addition of new ones fail in different ways
+and should not land in one commit.
+
+The contract it was verified against, recorded because the next person to touch this file
+will need the same one: **run the desk figures BEFORE the change and prove they already
+reproduce the committed bytes**, then change, then run again. Skipping the first run makes
+the second comparison vacuous — "nothing differs" is also what you get from a tool that
+never wrote anything, and that mistake was made and caught during this very migration.
 
 THE RULE THESE FIGURES OBEY, restated because it is the whole point: a figure carries no
 hand-drawn geometry. Every outline here is sliced or projected out of the model, and

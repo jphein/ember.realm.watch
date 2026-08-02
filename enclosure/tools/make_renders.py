@@ -15,6 +15,8 @@ _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)
 from build123d import *
 import ember_case as E
 import numpy as np, os, math
+_sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # tools/, for svg_util
+import svg_util as S
 # Write STRAIGHT into site/renders — the directory site/build.py actually reads.
 #
 # This used to emit into tools/renders and a human was expected to copy the files across.
@@ -80,90 +82,22 @@ def to_stand(part):
     loc = Pos(-25,-1,2.95) * (Rot(90,0,0) * part)
     return Pos(E.ST_W/2, E.SLOT_CY, E.SLOT_FLOOR) * (Rot(-E.TILT,0,0) * loc)
 
-# ---------------------------------------------------------------- SVG plumbing
-def sample(edge, n):
-    try:
-        return [(p.X, p.Y) for p in (edge @ (i/(n-1)) for i in range(n))]
-    except Exception:
-        return []
-
-def project(shape, eye, up=(0,0,1), target=(0,0,0), hidden=False):
-    vis, hid = shape.project_to_viewport(viewport_origin=eye, viewport_up=up, look_at=target)
-    edges = list(vis) + (list(hid) if hidden else [])
-    polys, kinds = [], []
-    for e in edges:
-        gt = str(e.geom_type).upper()
-        # Curves were sampled at a flat 9 points regardless of size, which made the M3
-        # countersinks read as visible OCTAGONS at figure scale — a chamfer a reader
-        # could count the facets of. Sample by ARC LENGTH instead so the chord error is
-        # what's bounded, not the segment count: ~0.55mm per segment is well under a
-        # pixel-pair at the widths these figures are displayed at. Straight lines still
-        # cost two points, which is why this stays cheap.
-        n = 2 if "LINE" in gt else max(6, min(48, int(e.length / 0.55) + 3))
-        p = sample(e, n)
-        if len(p) >= 2:
-            polys.append(p); kinds.append("hidden" if (hidden and e in hid) else "vis")
-    return polys, kinds
-
-def write_svg(path, groups, prefix, pad=6.0, target_w=1200, hidden_dash=True):
-    """groups: list of (polys, kinds) or (polys, kinds, name). One coordinate space.
-
-    A third element names the group, so the emitted path id is stable and MEANINGFUL
-    (`case-back-btn-vis`) rather than positional (`case-back-g1-vis`). The site inlines
-    these SVGs, so a named id is a CSS handle: the back view uses one to paint the two
-    button pads in the accent colour. A positional id would silently re-point at a
-    different feature the moment a group is inserted above it.
-    """
-    groups = [(g[0], g[1], g[2] if len(g) > 2 else f"g{i}")
-              for i, g in enumerate(groups)]
-    allp = [pt for g in groups for poly in g[0] for pt in poly]
-    xs = [p[0] for p in allp]; ys = [p[1] for p in allp]
-    x0,x1,y0,y1 = min(xs)-pad, max(xs)+pad, min(ys)-pad, max(ys)+pad
-    w,h = x1-x0, y1-y0
-    s = target_w/w
-    out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w*s:.1f} {h*s:.1f}" '
-           f'width="{w*s:.0f}" height="{h*s:.0f}" fill="none" stroke="currentColor" '
-           f'stroke-linecap="round" stroke-linejoin="round" role="img">']
-    def path_of(poly):
-        d = f"M{(poly[0][0]-x0)*s:.0f} {(y1-poly[0][1])*s:.0f}"
-        last = None
-        for px,py in poly[1:]:
-            q = (round((px-x0)*s), round((y1-py)*s))
-            if q != last: d += f"L{q[0]} {q[1]}"
-            last = q
-        return d
-    for polys,kinds,name in groups:
-        vis = [p for p,k in zip(polys,kinds) if k=="vis"]
-        hid = [p for p,k in zip(polys,kinds) if k=="hidden"]
-        if hid:
-            d = " ".join(path_of(p) for p in hid)
-            out.append(f'<path id="{prefix}-{name}-hidden" d="{d}" stroke-width="0.7" '
-                       f'stroke-opacity="0.35" stroke-dasharray="4 3" '
-                       f'vector-effect="non-scaling-stroke"/>')
-        if vis:
-            d = " ".join(path_of(p) for p in vis)
-            out.append(f'<path id="{prefix}-{name}-vis" d="{d}" stroke-width="1.4" '
-                       f'vector-effect="non-scaling-stroke"/>')
-    out.append("</svg>")
-    open(path,"w").write("\n".join(out))
-    kb = os.path.getsize(path)/1024
-    print(f"  {os.path.basename(path):26s} {kb:6.1f} KB   ratio {w/h:.2f}:1")
-    return kb
-
-_tmp = 0
-def tri_of(shape, tol=0.06):
-    """Tessellate via an STL round-trip. shape.tessellate() raises on some boolean
-    results (a face comes back with no triangulation); export_stl never does."""
-    global _tmp
-    _tmp += 1
-    f = os.path.join(OUT, f"_t{_tmp}.stl")
-    export_stl(shape, f, tolerance=tol, angular_tolerance=0.3)
-    n = int.from_bytes(open(f,'rb').read(84)[80:84],'little')
-    d = np.fromfile(f, dtype=np.uint8, offset=84); rec=50; n=min(n, len(d)//rec)
-    T = np.frombuffer(d[:n*rec].reshape(n,rec)[:,12:48].tobytes(),
-                      dtype='<f4').reshape(n,3,3).astype(float)
-    os.remove(f)
-    return T
+# ------------------------------------------------- SVG plumbing: see tools/svg_util.py
+# `sample`, `project`, `write_svg` and `tri_of` used to live here, and svg_util was created by
+# lifting them verbatim so a second script could draw figures that look like these ones. That
+# left two copies of one projector, which is the defect this repo names most often -- the
+# button outline typed twice, the wall thickness derived in one file and asserted in another.
+# A second copy of a drawing routine is not as dangerous as a second copy of geometry, but it
+# fails the same way: the copies are free to disagree and nothing notices, because each figure
+# looks right on its own.
+#
+# The copies are gone; these figures and the mobile ones now go through one writer. Verified the
+# only way this is worth verifying -- the five committed desk SVGs regenerate BYTE-FOR-BYTE
+# across the change, with a pre-change baseline run first to prove the tool was deterministic
+# and current before the comparison was allowed to mean anything.
+#
+# ⚠️ The one visible difference is stdout: svg_util's writer reports a dimension-label count and
+# pads the filename field two characters wider. No emitted byte of any SVG changes.
 
 # ============================== 1. EXPLODED (svg, fans horizontally) =========
 print("exploded:")
@@ -190,8 +124,8 @@ groups=[]
 for s,nm in EX:
     # up is +Z now, not +Y: the camera moved off the X axis (see above), so world-up
     # is the natural up and the parts read as plates rather than as edges.
-    p,k = project(s, eye, up=(0,0,1), target=tgt); groups.append((p,k,nm))
-write_svg(os.path.join(OUT,"case-exploded.svg"), groups, "case-exploded")
+    p,k = S.project(s, eye, up=(0,0,1), target=tgt); groups.append((p,k,nm))
+S.write_svg(os.path.join(OUT,"case-exploded.svg"), groups, "case-exploded")
 
 # ============================== 2. BACK THREE-QUARTER (svg) ==================
 # Nothing on the site showed the back EXTERIOR. The hero is a front three-quarter and
@@ -211,7 +145,7 @@ print("back 3/4:")
 # the wall rather than proud of it.
 BACK_TGT = (25.0, 43.0, E.BACK_Z)
 BACK_EYE = (BACK_TGT[0] + 240.0, BACK_TGT[1] - 300.0, E.BACK_Z - 760.0)
-groups = [(*project(shell, BACK_EYE, up=(0,1,0), target=BACK_TGT), "shell")]
+groups = [(*S.project(shell, BACK_EYE, up=(0,1,0), target=BACK_TGT), "shell")]
 # The two button pads, as their own named group so the stylesheet can paint them in the
 # accent colour. Against ~130 hexes a pad outline drawn in the same stroke as everything
 # else is just four more lines in a busy field; the whole point of this figure is that a
@@ -257,9 +191,9 @@ def _cap_rings(cx):
 
 for _name, _cx in (("btn-boot", E.BTN_BOOT_X), ("btn-reset", E.BTN_RESET_X)):
     for _i, _f in enumerate(_cap_rings(_cx)):
-        groups.append((*project(_f, BACK_EYE, up=(0,1,0), target=BACK_TGT),
+        groups.append((*S.project(_f, BACK_EYE, up=(0,1,0), target=BACK_TGT),
                        _name if _i == 0 else f"{_name}-cap"))
-write_svg(os.path.join(OUT,"case-back.svg"), groups, "case-back")
+S.write_svg(os.path.join(OUT,"case-back.svg"), groups, "case-back")
 
 # ------------------------------------------------------- docked, from behind
 # THIS FIGURE EXISTS BECAUSE A QUESTION WAS ASKED THAT NO EXISTING FIGURE COULD ANSWER.
@@ -277,13 +211,13 @@ write_svg(os.path.join(OUT,"case-back.svg"), groups, "case-back")
 print("docked rear:")
 DOCK_TGT = (E.ST_W/2, E.ST_D/2, 30.0)
 DOCK_EYE = (DOCK_TGT[0] - 300.0, DOCK_TGT[1] + 620.0, DOCK_TGT[2] + 330.0)
-groups = [(*project(stand, DOCK_EYE, up=(0,0,1), target=DOCK_TGT), "stand")]
-groups.append((*project(to_stand(shell), DOCK_EYE, up=(0,0,1), target=DOCK_TGT), "shell"))
+groups = [(*S.project(stand, DOCK_EYE, up=(0,0,1), target=DOCK_TGT), "stand")]
+groups.append((*S.project(to_stand(shell), DOCK_EYE, up=(0,0,1), target=DOCK_TGT), "shell"))
 for _name, _cx in (("btn-boot", E.BTN_BOOT_X), ("btn-reset", E.BTN_RESET_X)):
     for _i, _f in enumerate(_cap_rings(_cx)):
-        groups.append((*project(to_stand(_f), DOCK_EYE, up=(0,0,1), target=DOCK_TGT),
+        groups.append((*S.project(to_stand(_f), DOCK_EYE, up=(0,0,1), target=DOCK_TGT),
                        _name if _i == 0 else f"{_name}-cap"))
-write_svg(os.path.join(OUT,"case-docked-rear.svg"), groups, "case-dock")
+S.write_svg(os.path.join(OUT,"case-docked-rear.svg"), groups, "case-dock")
 
 # ------------------------------------------------------------ the bezel face
 # THE HERO CANNOT SHOW THIS AND IT IS NOT THE HERO'S FAULT. The bezel's honeycomb and the
@@ -310,8 +244,8 @@ _sec = bezel & (Pos(-50,-50,_fz) * Box(200,200,0.02, align=(Align.MIN,Align.MIN,
 _faces = [f for f in _sec.faces() if abs(f.center().Z - _fz) < 0.03]
 FACE_TGT = (25.0, 43.0, _fz)
 FACE_EYE = (25.0, 43.0, _fz + 3000.0)
-groups = [(*project(Compound(children=_faces), FACE_EYE, up=(0,1,0), target=FACE_TGT), "face")]
-write_svg(os.path.join(OUT,"case-front.svg"), groups, "case-front")
+groups = [(*S.project(Compound(children=_faces), FACE_EYE, up=(0,1,0), target=FACE_TGT), "face")]
+S.write_svg(os.path.join(OUT,"case-front.svg"), groups, "case-front")
 print(f"    {len(_faces)} section faces (chin cells + rail chains + wyrm + window + outline)")
 
 # ============================== 3. PRINT LAYOUT (svg) ========================
@@ -338,9 +272,9 @@ for _name, _p in _parts:
 print(f"  packed {len(LAY)} parts across {_x-GAP:.0f}mm, no overlaps")
 groups=[]
 for (_nm,_), s_ in zip(_parts, LAY):
-    p,k = project(s_, (60,-150,300), up=(0,1,0), target=((_x-GAP)/2,45,0))
+    p,k = S.project(s_, (60,-150,300), up=(0,1,0), target=((_x-GAP)/2,45,0))
     groups.append((p,k,_nm))
-write_svg(os.path.join(OUT,"case-print-layout.svg"), groups, "case-print")
+S.write_svg(os.path.join(OUT,"case-print-layout.svg"), groups, "case-print")
 
 # ============================== 4. HERO (png) ================================
 print("hero:")
@@ -369,7 +303,7 @@ key=np.array([0.45,-0.80,0.42]); key/=np.linalg.norm(key)
 fill=np.array([-0.55,-0.35,0.75]); fill/=np.linalg.norm(fill)
 allT=[]; allC=[]
 for sh,base_col in pieces:
-    T=tri_of(sh)
+    T=S.tri_of(sh, OUT)
     n=np.cross(T[:,1]-T[:,0],T[:,2]-T[:,0]); L=np.linalg.norm(n,axis=1); L[L==0]=1; n/=L[:,None]
     kd=np.clip(n@key,0,1); fd=np.clip(n@fill,0,1)
     amb=0.16
