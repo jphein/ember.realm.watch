@@ -537,30 +537,29 @@ _shift_hi = (RIM_X1 - _GRV_HALF) - (RIM_X0 + RIM_X1) / 2
 assert _shift_hi > _shift_lo, (
     f"no driver shift satisfies both the wall face and the case wall: window is "
     f"[{_shift_lo:.2f}, {_shift_hi:.2f}]. The wall cannot be {SEP_WALL_T:.2f} thick here")
-# >>> AND THE GATE KILLED IT AT 21.50 mm3. THE SHIFT IS NOT BUILT. HERE IS WHY, IN NUMBERS. <<<
+# >>> AND THE GATE KILLED THAT WALL AT 21.50 mm3. THE SHIFT IS NOT BUILT. WHY, IN NUMBERS. <<<
 #
 # The window above is real but it is not the binding one, because it never asked where the STRIP
 # actually sits. prot_phantom() places the body at PROT_PKT_X0 + PROT_PKT_CLR, so its +X face is
 # at x 21.05 -- 0.40 PAST RIM_X0, into space that used to be open chamber and is now wall. The
 # strip fouled the cover by exactly PROT_L * PROT_T * PROT_PKT_CLR = 21.50 mm3 and check 13 said
 # so. The assembly clearance the pocket was always carrying is the thing the wall wants to stand
-# in.
+# in. And the pocket cannot move -X to buy the 0.40 back: at the pocket's top Z the cell bore's
+# edge is 15.87 against PROT_PKT_X0 16.15, i.e. 0.28 available against 0.40 needed -- the 18650
+# pins it.
 #
-#   the wall cannot start before          x 21.05   (the strip's own +X face)
-#   the groove must stay off the rim  ->  DRV_CX <= 36.65
-#   so the thickest wall available is         1.50
-#   MIN_SOLID is                              1.60   -> SHORT BY 0.10
+# >>> THE WALL IS NOW BUILT, BUT NOT AS SEP_WALL_T AND NOT BY SHIFTING. SEE §4c-b. <<<
+# DRIVER_CLR came back from JP's bench at 0.40 and DRIVER_H calipered 27.5, which moves the
+# groove's -X edge to 21.55 and leaves a 0.50 lane over the strip -- so the wall is stepped
+# (0.90 above the strip pocket, 0.50 beside it) rather than 1.60 anywhere. The constants and the
+# full derivation live with the STRIP in §4c-b, because the strip is what pins them; the two
+# names below survive only as the r11 proposal the §4c-b control keeps rejecting.
 #
-# And the pocket cannot move -X to buy the 0.40 back: at the pocket's top Z the cell bore's edge
-# is 15.87 and PROT_PKT_X0 is 16.15, i.e. 0.28 available against 0.40 needed. The 18650 pins it.
-#
-# ONE CHANGE DOES CLOSE IT, and it is not mine to make: DRIVER_CLR 0.60 -> 0.40 shrinks the
-# locating groove by 0.20 a side, which lifts the ceiling to 1.90 and the wall fits at 1.60 with
-# room over. That is a FIT DIMENSION on the driver -- the groove it drops into -- and JP is
-# bench-testing the r10 cover with that driver as this is written. Changing a drop-in fit while
-# the owner is measuring the drop-in fit is how you invalidate his test and your own answer.
-#
-# So: DRV_SHIFT = 0, no full wall, the r11 partial wall stands, and the 0.10 goes to JP.
+# DRV_SHIFT STAYS 0, and now for a measured reason rather than a deferred one: the case wall
+# caps the shift at _shift_hi = 0.90, so the thickest wall any legal shift can reach is 1.40 --
+# still under MIN_SOLID. A shift would buy a thicker EXPERIMENTAL wall and move the grille
+# field, the witness outline and the acoustic centre on the part JP is printing. Asserted in
+# §4c-b so nobody re-opens it from prose.
 DRV_SHIFT = 0.0
 DRV_CX    = (RIM_X0 + RIM_X1) / 2 + DRV_SHIFT           # 36.50
 DRV_CY    = (RIM_Y0 + RIM_Y1) / 2                       # 52.40 -- the comment said 42.60 until
@@ -1096,6 +1095,95 @@ assert PROT_Y0 >= RIM_Y0 and PROT_Y1 <= RIM_Y1, (
 assert PROT_Y0 > BAY_Y0 and PROT_Y1 < CELL_TIP_Y, (
     f"the body at y {PROT_Y0:.2f}..{PROT_Y1:.2f} has run past a contact face "
     f"({BAY_Y0:.2f}/{CELL_TIP_Y:.2f}) -- the tabs fold at those faces")
+
+# ============================================================================
+# 4c-b. THE SEPARATOR WALL, BUILT AT LAST -- AND IT LIVES HERE BECAUSE THE STRIP PINS IT.
+# ============================================================================
+#
+# §5f derives DRV_CX and reasons about this wall in prose; the CONSTANTS are here, below the
+# strip, because the strip is what sets the wall's -X face. Putting them next to the driver is
+# what produced r11's wrong answer twice: a lane derived from the driver alone never asks where
+# the strip sits, and the strip is the binding party.
+#
+# >>> WHAT CHANGED SINCE r11 CALLED THIS BLOCKED: BOTH DRIVER NUMBERS ARE NOW MEASURED. <<<
+# r11 refused to touch DRIVER_CLR while JP was bench-testing that exact fit, and was right to.
+# The bench came back ("a little play, ~half a mm") and the fit is now 0.40 a side; the driver
+# itself calipered 27.5, not the 27.0 class figure. Both land in this lane, in opposite
+# directions, and the net is what it is:
+#
+#   the strip's +X face, at its full +X drift   x 21.05   (PROT_PKT_X0 + PROT_PKT_CLR + PROT_W)
+#   the locating groove's -X outer edge         x 21.55   (DRV_CX - (DRIVER_H + 2*DRIVER_CLR)/2)
+#   ---------------------------------------------------------------------------------------
+#   the whole lane                                   0.50
+#
+# >>> SO THE BRIEFED "0.90 LANE" IS NOT THERE, AND THE GATE SAYS SO IN mm3. <<<
+# A 0.90 wall standing on RIM_X0 (20.65) reaches x 21.55 and fouls the seated strip by exactly
+# PROT_L * PROT_T * PROT_PKT_CLR = 21.50 mm3 -- measured by boolean before this was written, the
+# same 21.50 check 13 threw at r11. 0.90 is the room between RIM_X0 and the groove; it is not
+# the room between the STRIP and the groove, and the strip is the thing in the way.
+#
+# >>> AND NO DRIVER SHIFT SAVES IT.  THIS IS THE ARGUMENT THAT CLOSES THE QUESTION. <<<
+# The case wall caps the shift at _shift_hi (the groove's +X edge may not pass RIM_X1), so the
+# thickest wall ANY legal shift can produce is (21.55 + _shift_hi) - 21.05 = 1.40, still under
+# MIN_SOLID. Shifting therefore buys a thicker EXPERIMENTAL wall and nothing else -- while
+# moving the grille field, the witness outline and the acoustic centre on the midframe JP is
+# printing. Not worth it: DRV_SHIFT stays 0 and the wall is stepped instead. Asserted below so
+# the next reader does not have to re-derive it.
+#
+# THE STEP.  Full thickness everywhere the strip is not, thinned only where it is:
+#
+#     z PROT_PKT_Z1 .. BACK_Z   (85% of the height)   x 20.65..21.55   0.90   full section
+#     z CAV_Z0 .. PROT_PKT_Z1,  over the strip's Y     x 21.05..21.55   0.50   thinned
+#     z CAV_Z0 .. PROT_PKT_Z1,  elsewhere in Y         x 20.65..21.55   0.90   full section
+#
+# The step is a 0.40 downward-facing ledge one extrusion wide, hanging off the 0.50 core along
+# its whole length -- the same class as every counterbore shoulder in this part, not a bridge.
+SEP2_DRV_CLR  = 0.40            # the wall's own clearance to the driver BODY
+# TWO bounds, and they are NOT the same bound even though today they give the same number.
+# The groove is 0.60 deep and cut into the very face the wall's top bears on; the body is
+# 0.40 further +X. They coincide only because SEP2_DRV_CLR == DRIVER_CLR right now, so take
+# the min rather than the coincidence -- change either constant and they diverge.
+SEP2_X1       = min(DRV_CX - (DRIVER_H + 2*DRIVER_CLR)/2,       # the locating groove's -X edge
+                    DRV_CX - DRIVER_H/2 - SEP2_DRV_CLR)         # the driver body + clearance
+SEP2_X0_THIN  = PROT_PKT_X0 + PROT_PKT_CLR + PROT_W             # 21.05, the strip at full drift
+SEP2_X0_FULL  = RIM_X0                                          # 20.65
+SEP2_T_THIN   = SEP2_X1 - SEP2_X0_THIN                          # 0.50
+SEP2_T_FULL   = SEP2_X1 - SEP2_X0_FULL                          # 0.90
+SEP2_Z_STEP   = PROT_PKT_Z1                                     # -26.20, the pocket's own top
+SEP2_Y_PAD    = PROT_PKT_CLR                                    # the thinned band's Y overrun
+#
+# ⚠️ EXPERIMENTAL, AND IT IS THE THINNEST SOLID IN THE FAMILY.  NAMED, NOT SLIPPED IN.
+# 0.50 is 1.25 extrusions at the 0.40 nozzle -- thinner than SIDE_LBL_SD_W's groove is wide, and
+# that one is already flagged. The MITIGATION is the orientation: this wall stands VERTICAL on
+# the bed, supported along its entire 44.80 bottom edge, so every layer is a straight 2-perimeter
+# run. That is a strictly easier class than the HORIZONTAL 1.25 web JP validated on the r10 bench
+# ("clean, webs crisp"), and a different class again from issue #47, whose collapsed 0.90 was an
+# unsupported web spanning a bore. Under the floor is still under the floor, so it is exempt
+# EXPLICITLY in check 8a with its own reason -- no other feature inherits the carve-out.
+# COST OF FAILURE, stated: a floppy or absent wall. Nothing structural depends on it (the cell's
+# lateral datum is the stub lane, the seal is the rim, the screws are elsewhere), and if it
+# prints badly it comes out with scissors. What it buys is the whole -X separation.
+assert SEP2_X0_FULL >= PROT_PKT_X1 - 1e-9, (
+    f"the wall's -X face at {SEP2_X0_FULL:.2f} is inside the strip's straight-down insertion "
+    f"column (x {PROT_PKT_X0:.2f}..{PROT_PKT_X1:.2f}). Everything in this bay loads from above; "
+    f"a wall in that column means the strip cannot be fitted at all")
+assert SEP2_T_THIN > 0 and SEP2_T_FULL > SEP2_T_THIN, (
+    f"the separator lane collapsed: thin {SEP2_T_THIN:.2f}, full {SEP2_T_FULL:.2f}. The strip "
+    f"({SEP2_X0_THIN:.2f}) and the groove ({SEP2_X1:.2f}) have met -- no wall fits between them")
+assert SEP2_Z_STEP >= PROT_PKT_Z0 + PROT_T - 1e-9, (
+    f"the step at z {SEP2_Z_STEP:.2f} is BELOW the seated strip's top ({PROT_PKT_Z0+PROT_T:.2f}) "
+    f"-- the full section would come down on the body")
+# CONTROL, anchored to the feature r11 actually tried: the 1.60 wall standing on RIM_X0 reached
+# x 22.25, and it must still be REJECTED by the groove bound. If it ever passes, this lane has
+# stopped being measured against the driver and the whole derivation above is decorative.
+assert SEP_WALL_X1 > SEP2_X1 + 1e-9, (
+    f"control failed: r11's {SEP_WALL_T:.2f} wall (+X face {SEP_WALL_X1:.2f}) now clears the "
+    f"groove at {SEP2_X1:.2f}, so the bound that forced the step is not binding on anything")
+# ...and the shift argument, as an assert rather than as a paragraph nobody re-runs.
+assert (SEP2_X1 + _shift_hi) - SEP2_X0_THIN < MIN_SOLID, (
+    f"a driver shift of {_shift_hi:.2f} now yields a "
+    f"{(SEP2_X1+_shift_hi)-SEP2_X0_THIN:.2f} wall, which CLEARS MIN_SOLID -- so the step is no "
+    f"longer necessary and this wall should be rebuilt full-section on a shifted driver")
 
 # ---- THE HOLD-DOWN.  JP: "secured with the ... strip-securing features", not tape or hope. ----
 #
@@ -2130,9 +2218,22 @@ def back_cover():
     # over the BMS, which is the one thing JP wanted out of the acoustic volume.
     p += bx(CELL_X1, RIM_X0, BAY_Y0, PROT_Y0 - PROT_PKT_CLR, CAV_Z0, BACK_Z)
     p += bx(CELL_X1, RIM_X0, PROT_Y1 + PROT_PKT_CLR, BAY_Y1, CAV_Z0, BACK_Z)
-    # (THE FULL WALL IS NOT BUILT -- see the DRV_SHIFT block in Sec 5f. It is short by 0.10 against
-    #  MIN_SOLID once the strip's own 0.40 pocket clearance is respected, and the only thing that
-    #  closes it is a change to the driver's locating fit while JP is bench-testing that fit.)
+    # ---- ...AND THE SECOND WALL, +X OF RIM_X0, WHICH IS THE ONE THAT ACTUALLY SEPARATES. ----
+    #
+    # The stub-lane wall above still cannot cross the strip's Y span, so on its own it leaves a
+    # window. THIS wall stands in the driver's lane instead -- clear of the strip's straight-down
+    # insertion column entirely, because that column ends at PROT_PKT_X1 = RIM_X0 -- so it CAN
+    # run the chamber's whole length, and the residual goes to zero. §4c-b owns the numbers and
+    # the EXPERIMENTAL flag; the step is the strip, and only the strip.
+    #
+    # Order matters for reading it, not for the boolean: full section for the top 85% of the
+    # height, then the bottom band split in Y so the thinning is confined to the strip.
+    p += bx(SEP2_X0_FULL, SEP2_X1, RIM_Y0, RIM_Y1, SEP2_Z_STEP, BACK_Z)
+    p += bx(SEP2_X0_FULL, SEP2_X1, RIM_Y0, PROT_Y0 - SEP2_Y_PAD, CAV_Z0, SEP2_Z_STEP)
+    p += bx(SEP2_X0_FULL, SEP2_X1, PROT_Y1 + SEP2_Y_PAD, RIM_Y1, CAV_Z0, SEP2_Z_STEP)
+    # the thinned band -- and its -X face IS the strip's +X drift stop, not a clearance to it
+    p += bx(SEP2_X0_THIN, SEP2_X1, PROT_Y0 - SEP2_Y_PAD, PROT_Y1 + SEP2_Y_PAD,
+            CAV_Z0, SEP2_Z_STEP)
     # ---- the rim's two genuinely new sides; the other two are the divider and the case wall
     p += bx(RIM_X0, RIM_X1, RIM_Y1, RIM_Y1 + RIM_WALL, CAV_Z0, BACK_Z)
     # ⚠️ THE LOW-Y WALL IS DELETED.  JP's standing call, and its premise is TRUE again.
@@ -2895,6 +2996,30 @@ def _check_mobile(parts):
         f"control failed: a raster through the middle of the CHAMBER reads only "
         f"{_div_ctl:.0f} of {_div_nominal:.0f} mm2 open, but the chamber is air -- the "
         f"_open_in_plane slab is mis-placed and these opening areas mean nothing")
+    # >>> AND THE PLANE THAT DECIDES IT IS THE NEW WALL'S OWN, NOT THE STUB LANE'S. <<<
+    # The raster above sits at x 19.65, inside the OLD divider's lane. That plane still shows the
+    # strip's window, and it is now the wrong question: §4c-b's wall stands at x 21.05..21.55, so
+    # the chamber's -X boundary has MOVED, and the stub-lane window opens into a bay-side pocket
+    # instead of into the cavity. Reporting the old plane as the chamber boundary would be the
+    # same class of error as the formula this check has already had to replace twice.
+    _sep2_open = _open_in_plane("x", (SEP2_X0_THIN + SEP2_X1) / 2,
+                                RIM_Y0, RIM_Y1, CAV_Z0, BACK_Z)
+    assert _sep2_open < 0.01 * _div_nominal, (
+        f"the separator wall's own plane reads {_sep2_open:.1f} of {_div_nominal:.0f} mm2 OPEN "
+        f"-- the wall does not span the chamber, so the -X separation it was built for is not "
+        f"there. Check its Y span and the step's z against PROT_PKT_Z1")
+    # CONTROL, anchored to the FEATURE the step exists for -- the strip -- and not to a
+    # coordinate. Immediately -X of the thinned face lies the strip's 0.40 of X play. Raster it
+    # over the strip's own Y span in the bottom band and it MUST read essentially fully OPEN. If
+    # it ever comes back closed, the wall has grown into the space the seated strip occupies and
+    # r11's 21.50 mm3 foul is back -- caught here, at the wall, rather than at check 13.
+    _drift_nominal = (PROT_Y1 - PROT_Y0) * (SEP2_Z_STEP - CAV_Z0)
+    _drift_ctl = _open_in_plane("x", (SEP2_X0_FULL + SEP2_X0_THIN) / 2,
+                                PROT_Y0, PROT_Y1, CAV_Z0, SEP2_Z_STEP)
+    assert _drift_ctl > 0.95 * _drift_nominal, (
+        f"control failed: the strip's own drift lane reads only {_drift_ctl:.0f} of "
+        f"{_drift_nominal:.0f} mm2 open, so the separator wall has moved into the space the "
+        f"seated strip needs -- the step is not doing its job")
     print(f"  [chamber] closed on 2 sides (high-Y, case wall); control inside the cavity "
           f"{100*_cav_cf:.1f}%")
     print(f"             ⚠️ TWO SIDES ARE DELIBERATELY OPEN, BOTH ON JP'S INFORMED CALL: the "
@@ -2904,20 +3029,27 @@ def _check_mobile(parts):
     print(f"             He was told the divider is the chamber's -X wall and reaffirmed the "
           f"architecture: the strip and its nickel lie beside the battery, in the space the "
           f"wall used to occupy (§5f-c). Recorded as a decision, not an oversight.")
-    print(f"             SEPARATOR WALL (r11, JP's call): the stub lane x {CELL_X1:.2f}.."
-          f"{RIM_X0:.2f} is {RIM_X0-CELL_X1:.2f} thick = {RIM_X0-CELL_X1-MIN_SOLID:+.2f} over "
-          f"MIN_SOLID, so a wall CLOSES there. Built over the whole bay except the strip's own Y "
-          f"span: closed {_div_closed:.0f} of {_div_nominal:.0f} mm2, {_div_gone:.0f} left "
-          f"({100*_div_gone/_div_nominal:.0f}%). Control (raster inside the chamber) "
-          f"{_div_ctl:.0f} mm2 open.")
-    print(f"             ⚠️ PARTIAL, AND THE RESIDUAL WINDOW IS OVER THE BMS -- i.e. over exactly "
-          f"what JP wanted out of the acoustic volume. It cannot be closed without giving up "
-          f"STRAIGHT-DOWN assembly: the strip's {PROT_W:.2f} insertion column is PINNED by the "
-          f"cell (0.28mm from the bore at the pocket's top Z), so no wall can share that lane.")
-    print(f"             >>> FOR THE MORNING: that -X opening is BIGGER THAN THE GRILLE "
-          f"({_div_gone:.0f} vs 562.7 mm2). The driver's front chamber now includes the cell "
-          f"bay, and the cell and the BMS are inside the acoustic volume. r9 (40.60 deep, "
-          f"chamber intact) is on the shelf if that sounds wrong in the hand. <<<")
+    print(f"             SEPARATOR, WALL 1 of 2 -- the stub lane x {CELL_X1:.2f}..{RIM_X0:.2f}, "
+          f"{RIM_X0-CELL_X1:.2f} thick ({RIM_X0-CELL_X1-MIN_SOLID:+.2f} on MIN_SOLID). It cannot "
+          f"cross the strip's Y span, so on its own it closes {_div_closed:.0f} of "
+          f"{_div_nominal:.0f} mm2 and leaves {_div_gone:.0f} ({100*_div_gone/_div_nominal:.0f}%)."
+          f" Control (raster inside the chamber) {_div_ctl:.0f} mm2 open.")
+    print(f"             >>> SEPARATOR, WALL 2 of 2 (§4c-b) -- x {SEP2_X0_THIN:.2f}.."
+          f"{SEP2_X1:.2f}, IN THE DRIVER'S LANE, and this is the one that closes it. Clear of "
+          f"the strip's insertion column entirely, so it runs the chamber's whole length: its "
+          f"own plane reads {_sep2_open:.1f} mm2 open of {_div_nominal:.0f}. -X RESIDUAL 0. <<<")
+    print(f"             ⚠️ AND IT IS EXPERIMENTAL -- {SEP2_T_FULL:.2f} "
+          f"({SEP2_T_FULL/0.40:.2f} extrusions) above the strip pocket, stepping to "
+          f"{SEP2_T_THIN:.2f} ({SEP2_T_THIN/0.40:.2f}) only in the bottom "
+          f"{100*(SEP2_Z_STEP-CAV_Z0)/(BACK_Z-CAV_Z0):.0f}% of its height over the strip's Y "
+          f"span. The THINNEST SOLID in this family; see check 8a's exemption for why standing "
+          f"vertical is a different class from #47, and what a failure costs (nothing).")
+    print(f"             Strip drift-lane control (must stay OPEN, it is the strip's "
+          f"{PROT_PKT_CLR:.2f} of X play): {_drift_ctl:.0f} of {_drift_nominal:.0f} mm2.")
+    print(f"             The {_div_gone:.0f} mm2 still open in the STUB lane is no longer a "
+          f"chamber boundary -- it is interior to the cell bay now, opening onto the back of "
+          f"wall 2. The cell and the BMS are OUT of the acoustic volume, which is what the "
+          f"whole exercise was for.")
     print(f"             ⚠️ THE LOW-Y SIDE IS DELIBERATELY OPEN -- JP's call, {_open_area:.0f} "
           f"mm2 against the grille's intended 562.7. It is a SECOND MOUTH, not a leak, and the "
           f"band behind it is empty now that the BMS body lives in the bay (§4c).")
@@ -3042,6 +3174,78 @@ def _check_mobile(parts):
         f"control failed: {_cnm!r} placed in the CABLE CHANNEL band reads {100*_cfrac:.1f}% "
         f"backed, but the flank is cut through there -- the backing lens cannot see a label "
         f"debossed into an opening")
+    # ---- 7d-b. CHIRALITY.  THE GEOMETRY IS CORRECT AND THIS CHECK EXISTS TO KEEP IT THAT WAY.
+    #
+    # >>> READ THIS BEFORE "FIXING" A BACKWARDS LABEL.  THE STL IS RIGHT. <<<
+    # A label on the -X flank was reported as reading backwards. It does not. It reads backwards
+    # when you look at the -X flank FROM OUTSIDE +X -- i.e. through the part, at the backfaces of
+    # a 2.60 wall -- which mirrors it, exactly as holding a printed page up to a mirror does.
+    # Every viewer must stand OUTSIDE THE FACE THEY ARE READING. `right = up x forward`: at -X
+    # that is (0,0,1)x(1,0,0) = +Y, at +X it is (0,0,1)x(-1,0,0) = -Y. Both flanks already match
+    # their own viewer, so mirroring either one would BREAK a part that is currently correct.
+    # If a viewer disagrees, debug its backface culling -- not _side_label().
+    #
+    # Asserted here permanently, because "it looked wrong to somebody" is exactly the pressure
+    # that turns a correct part into a wrong one, and prose in a docstring does not survive it.
+    # MEASURED, not reasoned: each glyph is placed SEPARATELY through the very transform the cut
+    # uses, and its world Y is read off the resulting solid. Reading order must advance toward
+    # that face's own viewer-right.
+    _CHIR = {"-X": +1.0, "+X": -1.0}        # viewer-right, in model Y, per face
+
+    def _glyph_ys(text, face, cy, h, w, gap, mirror_as=None):
+        """World Y of each glyph, one glyph at a time, through _side_label's own transform.
+
+        `mirror_as` overrides ONLY which face decides the u-mirror; the X placement it also
+        picks is irrelevant here because nothing but Y is read. That is what lets the control
+        below flip the mirror while leaving everything else identical."""
+        _tw = sum(_SFm.gw(_c) for _c in text) * h + (len(text) - 1) * gap
+        _u, _out = -_tw / 2.0, []
+        for _ch in text:
+            _uc = _u + _SFm.gw(_ch) * h / 2.0
+            _paths = [[(_uu + _uc, _vv) for _uu, _vv in _pp]
+                      for _pp in _SFm.text_paths(_ch, h, w, gap)]
+            _sol = _side_label(_paths, face if mirror_as is None else mirror_as, cy,
+                               (SIDE_LBL_Z0 + SIDE_LBL_Z1) / 2, SIDE_LBL_DEPTH, w=w)
+            _out.append(_sol.bounding_box().center().Y)
+            _u += _SFm.gw(_ch) * h + gap
+        return _out
+
+    def _reads_forward(ys, face):
+        return all((ys[_i + 1] - ys[_i]) * _CHIR[face] > 0.10 for _i in range(len(ys) - 1))
+
+    _chir_rows = []
+    for _nm, _face, _cy in list(SIDE_LBL_SITES) + [SIDE_LBL_SD]:
+        _h, _w, _g = ((SIDE_LBL_SD_H, SIDE_LBL_SD_W, SIDE_LBL_SD_GAP) if _nm == "SD"
+                      else (SIDE_LBL_H, SIDE_LBL_W, SIDE_LBL_GAP))
+        assert len(_nm) >= 2, f"{_nm!r} is one glyph -- it has no reading order to check"
+        _ys = _glyph_ys(_nm, _face, _cy, _h, _w, _g)
+        assert _reads_forward(_ys, _face), (
+            f"label {_nm!r} on the {_face} flank runs the WRONG WAY: glyph centres at "
+            f"{[round(_v, 2) for _v in _ys]}, but a viewer standing outside {_face} reads toward "
+            f"{'+Y' if _CHIR[_face] > 0 else '-Y'}. _side_label's u-mirror is inverted for this "
+            f"face -- do not 'fix' this by mirroring the other flank too")
+        # CONTROL, anchored to the FEATURE (_side_label's mirror), not to a coordinate: decide
+        # the mirror by the OPPOSITE face and the same label must FAIL. If a deliberately
+        # mirrored label still passes, this lens cannot see chirality at all and the assert
+        # above is decoration.
+        _yc = _glyph_ys(_nm, _face, _cy, _h, _w, _g,
+                        mirror_as=("+X" if _face == "-X" else "-X"))
+        assert not _reads_forward(_yc, _face), (
+            f"control failed: {_nm!r} deliberately mirrored the WRONG way still reads forward on "
+            f"{_face} ({[round(_v, 2) for _v in _yc]}) -- this check cannot detect the defect it "
+            f"is named for")
+        _chir_rows.append((_nm, _face, _ys))
+    print(f"  [chirality] ⚠️ THE FLANK LABELS ARE CORRECT AS BUILT. If they look mirrored in a "
+          f"viewer, the viewer is showing you the -X flank THROUGH the part from +X. Each glyph "
+          f"below was placed separately and its world Y measured off the solid.")
+    for _nm, _face, _ys in _chir_rows:
+        print(f"             {_nm:5s} {_face}  glyph Y "
+              f"{' '.join(f'{_c}@{_v:.1f}' for _c, _v in zip(_nm, _ys))}  -> runs "
+              f"{'+Y' if _ys[-1] > _ys[0] else '-Y'}, and {_face}'s viewer-right IS "
+              f"{'+Y' if _CHIR[_face] > 0 else '-Y'} (right = up x forward). CORRECT.")
+    print(f"             control (mirror decided by the opposite face) is REJECTED on all "
+          f"{len(_chir_rows)}.")
+
     print(f"  [sidelbl] {len(_lbl_rows)} labels on the flanks, h {SIDE_LBL_H:.2f} / stroke "
           f"{SIDE_LBL_W:.2f} / depth {SIDE_LBL_DEPTH:.2f}, band z {SIDE_LBL_Z0:.2f}.."
           f"{SIDE_LBL_Z1:.2f} ({SIDE_LBL_BAND:.2f} tall)")
@@ -3106,6 +3310,77 @@ def _check_mobile(parts):
         f"the polarity marks are {MARK_DEPTH:.2f}, no deeper than the 0.60 they were before "
         f"r11 -- JP asked for deeper everywhere, so a floor must have tightened. Say so, do "
         f"not regress quietly")
+
+    # ---- 7e. THE +Y CORNER.  WHY THE BACKPACK CANNOT GO FLUSH WITH THE BEZEL. ----
+    #
+    # JP: "get teh battery to be flush at the top with the besel and the midframe." The mobile
+    # runs MOB_OY1 = 90.68 against the desk profile's OY1 = 88.95 -- a 1.73 overshoot, and it is
+    # the only place the mobile is longer than the case it shares a bezel with.
+    #
+    # THE ASK WAS TESTED AGAINST TODAY'S GEOMETRY, NOT AGAINST §4b'S REASONING, because §4b's
+    # reasoning predates the eased edge, the flat +Y plate and the deleted divider, and the
+    # honest question was whether CELL_END_SETBACK is a live constraint or a fossil. It is live.
+    # It is MORE binding than §4b models, and that is the finding.
+    #
+    # >>> §4b MEASURES THE WALL IN X.  THE THIN SPOT AT A CONVEX CORNER IS ON THE DIAGONAL. <<<
+    # The cell lane's void ends in a convex corner at (CELL_X0, CELL_TIP_Y) -- the bore is
+    # tangent to the -X interior wall by construction (the X budget has nothing spare, check 3)
+    # and the +Y bulkhead squares the lane off there. The nearest outer skin is the plan corner
+    # arc, and the shortest line to it is RADIAL, not along X. §4b solves for the X clearance and
+    # so reports more material than the part has.
+    _oc_cx, _oc_cy = OX0 + OUT_R, MOB_OY1 - OUT_R           # the outer corner arc's centre, plan
+    _corner_wall = OUT_R - math.hypot(_oc_cx - CELL_X0, _oc_cy - CELL_TIP_Y)
+
+    def _corner_short(_r, _t=0.20):
+        """Fraction of the must-be-solid quadrant at the void's corner that is OUTSIDE the part.
+
+        A disc of radius _r at the corner, minus the void quadrant it opens into, is material
+        the part is obliged to have. Whatever of it lands outside the solid is wall that is not
+        there. Measured on the finished cover, not on the profile it was drawn from."""
+        _disc = Pos(CELL_X0, CELL_TIP_Y, CELL_AXIS_Z) * Cylinder(_r, _t)
+        _void = Pos(CELL_X0 + 30, CELL_TIP_Y - 30, CELL_AXIS_Z) * Box(60, 60, 4 * _t)
+        _must = _disc - _void
+        return (_must - cov).volume / max(_must.volume, 1e-9)
+
+    _corner_meas = _corner_short(_corner_wall - 0.02)
+    assert _corner_meas < 0.01, (
+        f"the analytic corner wall says {_corner_wall:.3f} but a disc that size at the void's "
+        f"corner is {100*_corner_meas:.1f}% outside the part -- the plan geometry above no "
+        f"longer describes what back_cover() builds, so every number on this row is fiction")
+    # CONTROL, anchored to the FEATURE (the corner) rather than to a coordinate: a disc one
+    # MIN_SOLID-step larger must POKE OUT. If the lens passes a radius the part cannot hold, it
+    # cannot fail for a shortened case either, and the flush verdict below rests on nothing.
+    _corner_ctl = _corner_short(_corner_wall + 0.20)
+    assert _corner_ctl > 0.005, (
+        f"control failed: a disc {_corner_wall+0.20:.2f} at the corner still reads fully inside "
+        f"the part ({100*_corner_ctl:.2f}% out), so this probe cannot detect a thin corner")
+    # ...and the flush position, priced with the same arithmetic the measurement just validated.
+    _flush_wall = OUT_R - math.hypot(_oc_cx - CELL_X0, (OY1 - OUT_R) - CELL_TIP_Y)
+    _dead_wall = OUT_R - math.hypot(_oc_cx - CELL_X0,
+                                    (CELL_TIP_Y + COV_WALL - OUT_R) - CELL_TIP_Y)
+    assert _flush_wall < MIN_SOLID, (
+        f"a case flush with the bezel now leaves {_flush_wall:.2f} at the cell's +Y corner, "
+        f"which CLEARS MIN_SOLID -- the blocker is genuinely dead, so pull MOB_OY1 back to OY1 "
+        f"and delete this check rather than leaving one that says it cannot be done")
+    print(f"  [+Y corner] ⚠️ FLUSH DOES NOT CLOSE, AND THE SHORTFALL IS THE CORNER, NOT THE "
+          f"SETBACK'S ARITHMETIC. Overshoot MOB_OY1 {MOB_OY1:.2f} - OY1 {OY1:.2f} = "
+          f"{MOB_OY1-OY1:.2f}.")
+    print(f"             wall at the cell void's convex +Y/-X corner, measured RADIALLY to the "
+          f"outer arc:  as built {_corner_wall:.3f}  ->  setback dead {_dead_wall:.3f}  ->  "
+          f"FLUSH WITH THE BEZEL {_flush_wall:.3f}, against a {MIN_SOLID:.2f} floor.")
+    print(f"             Confirmed on the solid: a {_corner_wall-0.02:.2f} disc at that corner "
+          f"is {100*_corner_meas:.2f}% outside the part; the +0.20 control is "
+          f"{100*_corner_ctl:.2f}% out and is REJECTED.")
+    print(f"             ⚠️ AND AS BUILT IT IS ALREADY {MIN_SOLID-_corner_wall:.2f} UNDER THE "
+          f"FLOOR -- pre-existing, not introduced here. CELL_END_SETBACK solves for the X "
+          f"clearance, but at a convex corner the shortest line to the skin is the diagonal. A "
+          f"radial MIN_SOLID would need MOB_OY1 >= "
+          f"{OUT_R + CELL_TIP_Y - math.sqrt(max((OUT_R-MIN_SOLID)**2 - (_oc_cx-CELL_X0)**2, 0.0)):.2f}"
+          f", i.e. the case getting LONGER by "
+          f"{OUT_R + CELL_TIP_Y - math.sqrt(max((OUT_R-MIN_SOLID)**2 - (_oc_cx-CELL_X0)**2, 0.0)) - MOB_OY1:.2f}"
+          f", not shorter by {MOB_OY1-OY1:.2f}. NEEDS JP -- growing the envelope is his call, "
+          f"not mine, and the alternative knobs (OUT_R, the X budget, CELL_TIP_Y) are all cell "
+          f"fit dimensions.")
 
     # ---- 8. GRILLE THROAT, RASTERED.  Neither figure inherited from a comment. ----
 
@@ -3192,7 +3467,24 @@ def _check_mobile(parts):
                (GLOW_MEMBRANE, "glow window membrane -- a face backed by wall on all four "
                                "edges, 2 extrusions by design, not a standing rib"),
                (VENT_SKIN, "vent labyrinth skin -- same class as the membrane"),
-               (CONTACT_DETENT, "contact detent bar -- it is MEANT to deform past the plate"))
+               (CONTACT_DETENT, "contact detent bar -- it is MEANT to deform past the plate"),
+               # >>> THE TWO LOUDEST CARVE-OUTS IN THE FILE, AND THEY ARE THEIR OWN. <<<
+               # Isolated deliberately: two entries, two reasons, so neither the wall's full
+               # section nor its thinned band can be cited as precedent by any other feature,
+               # and so a future reader sees which number is which risk.
+               (SEP2_T_FULL, "separator wall, FULL section (§4c-b) -- 2.25 extrusions. Under the "
+                             "floor, but a VERTICAL wall supported along its whole 44.80 bottom "
+                             "edge is a different class from #47, whose collapsed 0.90 was an "
+                             "unsupported web spanning a bore. EXPERIMENTAL."),
+               (SEP2_T_THIN, "separator wall, THINNED band beside the strip (§4c-b) -- 1.25 "
+                             "extrusions and THE THINNEST SOLID IN THIS FAMILY, thinner than "
+                             "SIDE_LBL_SD_W's already-flagged groove is wide. Its thickness is "
+                             "set by the strip, not chosen: 0.50 is the whole lane between the "
+                             "strip's +X drift and the driver's locating groove. Easier class "
+                             "than the horizontal 1.25 web JP validated on r10 ('clean, webs "
+                             "crisp'), still below it. COST OF FAILURE: a floppy or absent wall, "
+                             "trimmable with scissors -- nothing structural depends on it. "
+                             "EXPERIMENTAL, and the print is the verdict."))
     assert any(_v < MIN_SOLID for _v, _ in _exempt), (
         "control failed: nothing in the exempt list is actually under the floor, so the "
         "exemption is decorative and the scope line above is not being tested by anything")
