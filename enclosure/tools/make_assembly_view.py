@@ -50,6 +50,10 @@ def main() -> int:
     cover = M.back_cover()
     print("[assembly] placing docked scenes ...", flush=True)
     DX = 110.0   # second tableau offset
+    # Two docked tableaus (desk + mobile seated in the stand), plus the two bare slabs
+    # mated in board coordinates — JP's "see it all constructed": the case as screwed
+    # together, without the stand, lying in its own frame.
+    SLAB_DESK_X, SLAB_MOB_X = -110.0, 220.0
     scene = [
         ("desk-stand",      stand),
         ("desk-base",       base),
@@ -60,6 +64,11 @@ def main() -> int:
         ("mobile-bezel",    Pos(DX, 0, 0) * dock(bezel)),
         ("mobile-midframe", Pos(DX, 0, 0) * dock(midframe)),
         ("mobile-cover",    Pos(DX, 0, 0) * dock(cover)),
+        ("slab-desk-bezel",      Pos(SLAB_DESK_X, 0, 0) * bezel),
+        ("slab-desk-shell",      Pos(SLAB_DESK_X, 0, 0) * shell),
+        ("slab-mobile-bezel",    Pos(SLAB_MOB_X, 0, 0) * bezel),
+        ("slab-mobile-midframe", Pos(SLAB_MOB_X, 0, 0) * midframe),
+        ("slab-mobile-cover",    Pos(SLAB_MOB_X, 0, 0) * cover),
     ]
     for name, solid in scene:
         export_stl(solid, os.path.join(OUT, name + ".stl"))
