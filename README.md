@@ -429,14 +429,19 @@ unmodified — same STL, same four M3×12, same 5.34 mm of thread — and the bo
 
 > ⚠️ **Verified in CAD, nothing completed, nothing wired.** Both parts pass every check the desk
 > parts do — watertight, **0 boundary and 0 non-manifold edges**, **0.000 mm³** against the
-> vendor board solid, with displaced controls at 1954.7 / 199.1 / 1884.8 mm³ so the probe is
-> known to be *able* to fail. That is a geometry result. The cell is a phantom, two of the
-> protection strip's three dimensions are still placeholders, and whether the cover's top edge
-> gaps is a question only a test print answers.
+> vendor board solid, with displaced controls at 1261.0 / 199.1 / 1884.8 mm³ so the probe is
+> known to be *able* to fail. That is a geometry result. The cell is a phantom, and whether the
+> cover's top edge gaps is a question only a test print answers.
 >
-> One cover print has been **started and cancelled at 2 %** — the strip's length had gone in as a
-> 20.0 mm eyeball estimate carrying ±2, and at 20.0 the locating ribs sit **1.5 mm too close
-> together for a 21 mm strip to drop between them**. Re-measured at **21.50**, seat 22.30. The
+> ✅ **The protection strip is fully measured now** — 21.50 × 4.50 × 2.50 plus a 90.00 flat
+> assembly, all JP-calipered. It was the longest-standing estimate in the design and there are no
+> placeholders left.
+>
+> One cover print was **started and cancelled at 2 %** — the strip's length had gone in as a
+> 20.0 mm eyeball estimate carrying ±2, and at 20.0 the locating ribs sat **1.5 mm too close
+> together for a 21 mm strip to drop between them**. Re-measured at **21.50**. *(Those ribs no
+> longer exist — the strip has since moved out of the chin band entirely, and the pocket, its ribs
+> and its detents went with it. The print was still cancelled for the right reason.)* The
 > flag on that estimate is why the cancel cost 2 % rather than a whole part; the lesson is that a
 > number carrying ±2 was allowed to set a feature whose clearance is smaller than ±2.
 
@@ -474,10 +479,20 @@ button or the USB-C socket — a *reachability* constraint, which is the class o
 clearance check sees and which this project has already filed once.
 
 The interior closes exactly: **51.50 = 19.40 bore + 2.00 divider + 30.10 rim**, where that
-divider is a **single shared wall** serving both the cell trough and the speaker's seal rim,
-because two walls do not fit. The sealed cavity survived the move to within **−1.2 %** of the
-desk stand's front air (15621.3 → 15437.8 mm³, measured by boolean on the finished solid), and
-its governing mode *rises* 3176 → **3828 Hz**, further out of the speech band.
+divider was **one wall doing two jobs** — the cell trough's inboard wall *and* the sealed speaker
+chamber's −X wall — because two walls do not fit.
+
+> ⚠️ **And that wall is now two stubs.** Its middle is deliberately gone over y 30.00..74.80, so
+> over that span **the speaker chamber and the cell bay are one volume** — which is where the
+> protection strip lives. The opening measures **584 mm²** against the grille's 562.7, so it is a
+> second mouth of roughly the intended size rather than a leak. **JP's call, made against a
+> measured map and reaffirmed twice.** The stubs that remain are load-bearing rather than
+> decorative: a rigid 65 mm cylinder located in +X at *both ends* cannot migrate mid-span, so the
+> cell keeps its lateral datum without the wall that used to give it.
+>
+> One consequence to carry: the front-air figure below is a **box-mode** comparison and no longer
+> describes the real chamber, which is L-shaped and ≈19199 mm³. It stays because the like-for-like
+> comparison is still valid; it is labelled because the volume is not.
 
 ### Three findings worth reading even if you never print it
 

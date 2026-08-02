@@ -1937,10 +1937,11 @@ footer p{margin:.4rem 0}
     <p>
       Both parts pass every check the desk parts do — watertight, <b>0 boundary and 0
       non-manifold edges</b>, <b>0.000&nbsp;mm³</b> of interference against the vendor board
-      solid, with displaced controls reading 1954.7, 199.1 and 1884.8&nbsp;mm³ so the probe is
+      solid, with displaced controls reading 1261.0, 199.1 and 1884.8&nbsp;mm³ so the probe is
       known to be able to fail. That is a CAD result. <b>The cell is a phantom, and two of the
-      protection strip's three dimensions are still class placeholders</b> — its length is
-      measured now, and the estimate it replaced had already cost a print.
+      protection strip is <em>fully measured now</em></b> — 21.50 × 4.50 × 2.50 plus a 90.00 flat
+      assembly, all calipered. It was the longest-standing estimate in the design, and the estimate
+      it replaced had already cost a print.
     </p>
     <p style="margin:.6rem 0 0">
       Because one cover print <b>has</b> been started, and cancelled at <b>2&nbsp;%</b>. The
@@ -2042,16 +2043,21 @@ footer p{margin:.4rem 0}
   <figure class="fig">
     <div class="linework">{{SVG:mobile_strip}}</div>
     <figcaption>
-      The pocket for a 1S protection strip, sectioned through its locating ribs, which stand
-      <em>outside</em> the board's footprint so the floor beneath it stays flat — a rib under a PCB
-      is a rock under a board.
+      The protection strip in its channel, lying <b>flat on the bay floor beside the cell</b> —
+      x 16.15–20.65, mid-bay at y 42.83–64.33 — in the space the divider used to occupy. Body
+      <b>21.50 × 4.50 × 2.50</b>, every dimension calipered rather than assumed. It clears the
+      seated cell by <b>0.46&nbsp;mm</b>.
       <br><br>
-      <b>The circle is the chin screw's boss, and it is why the pocket sits where it does.</b> The
-      strip moved down into this lower band, which the screw was already occupying: a ⌀9.00 boss
-      leaves 21.25&nbsp;mm of free width against the 22.30 the strip needs. It fits because the
-      screw lane was pushed <em>toward the divider</em> until it did — so the strip's position is a
-      consequence of the fastener's, not a choice, and the two features were placed against each
-      other rather than in sequence.
+      <b>Mid-bay is not a placement, it is the reason the arithmetic closes.</b> The nickel tabs are
+      a fixed 34.25&nbsp;mm each and the case is not allowed to grow, so starting from the middle is
+      the only way both ends reach their seats with <em>no added nickel</em>: 22.62 of run plus
+      11.63 of fold per end, about 3.2 limbs of a Z-fold. Put the body at either end and one tab
+      runs out.
+      <br><br>
+      <b>The solder joints are answered by placement rather than by clearance.</b> The body's +X
+      half sits past the cell's surface entirely, so the joints live in space where their thickness
+      never becomes a dimension anyone has to know — which was the objection to putting the strip in
+      the bay at all.
       <br><br>
       Two things this section cannot show. <b>Solder access</b> is a property of assembly
       <em>order</em> — the compartment is open until the midframe goes on — so it is measured, not
@@ -2073,8 +2079,8 @@ footer p{margin:.4rem 0}
       is not that the flag failed: the flag is why the cancel cost 2&nbsp;% instead of a whole
       part. It is that <em>a number carrying ±2 was allowed to set a feature whose clearance is
       smaller than ±2</em> — the tolerance was documented and then spent anyway. Width and
-      thickness are <b>still unmeasured class placeholders</b>, so the same trap is still armed
-      twice.
+      thickness have <b>since been measured too</b> — 4.50 and 2.50 — so the trap that was armed
+      twice more is now disarmed. It took a fourth measurement session to get there.
     </p>
   </div>
   <p>
@@ -2210,7 +2216,7 @@ footer p{margin:.4rem 0}
     <div class="linework">{{SVG:mobile_bay}}</div>
     <figcaption>
       <b>This figure exists because the mechanism was invisible.</b> Reviewing the print preview, JP
-      went looking for what actually holds the cell and the contact plate and came away unable to
+      went looking for what actually holds the cell and came away unable to
       find it — correctly, because <b>a 0.35&nbsp;mm kerf is a hairline at full-part zoom.</b>
       Nothing was missing and nothing was wrong. The features were present, in the right place, at
       the right size, and invisible at the magnification anyone actually looks at the part.
@@ -2221,13 +2227,15 @@ footer p{margin:.4rem 0}
       They are 66&nbsp;mm apart in the part; there is no divider drawn between them, because a
       divider would imply they are adjacent.
       <br><br>
-      Each kerf reads as the offset between its two end notches — it is a 10&nbsp;mm-tall slot seen
-      edge-on. The <b>folded nickel leaf</b> roots in the left one and stands <b>3.60&nbsp;mm</b>
-      free, which is the one number in this design set by feel rather than derived, so it is
-      explicitly <em>tunable</em>; it gives 1.75&nbsp;mm of preload on the shortest cell in
-      tolerance and sits 0.50 off fully closed on the longest. The right one takes the contact plate
-      against a <b>0.15 × 0.40&nbsp;mm detent</b> that is <em>meant</em> to deform past it —
-      which is why the minimum-solid check lists it as exempt rather than failing on it.
+      Each kerf reads as the offset between its two end notches — a 10&nbsp;mm-tall slot seen
+      edge-on. <b>Both of them are leaf seats now.</b> The strip's own nickel tabs are folded into
+      leaf springs at <em>each</em> end, 34.25&nbsp;mm of tab giving 22.62 of run and 11.63 of fold
+      per side — so the coil spring is gone and the <code>+</code> contact plate is gone with it,
+      and the bill of materials got <em>shorter</em> as the design got harder.
+      <br><br>
+      Free height is <b>3.60&nbsp;mm</b>: 1.75 of preload on the shortest cell in tolerance, and
+      0.50 off fully closed on the longest. It is the one number here set by feel rather than
+      derived, so it stays flagged as tunable even though everything around it is now measured.
       <br><br>
       <b>This is the same lesson as the minus sign, one step further on.</b> There, a mark was
       correct and unreadable, and the fix was to move it. Here a mechanism is correct and
@@ -2321,7 +2329,7 @@ footer p{margin:.4rem 0}
   </p>
   <ul class="spec">
     <li><span class="k">Thermal</span><span class="v">The largest unresolved risk, and it is not mechanical<small>The rear vent field loses most of its area to the speaker bond plateau, and what survives vents into a <em>closed</em> compartment rather than to open air — compartment → remaining hexes → board cavity → side channels → outside. The desk case vents straight to the room. ⚠️ <b>And it just got tighter:</b> blocking the battery and speaker flank openings removes side channels from the <em>last leg</em> of exactly that path. Both blocks are right for wire routing and for ingress, and neither reason is thermal — so this item now carries a cost it did not carry when it was written. Flagged rather than "fixed" with invented vent geometry.</small></span></li>
-    <li><span class="k">Strip</span><span class="v">Three numbers are placeholders<small>Length is an eyeball ±2; width and thickness are class figures. All three are one edit when calipers land, and the assert that clamps them already exists.</small></span></li>
+    <li><span class="k">Chamber</span><span class="v">The speaker chamber and the cell bay are one volume now<small>Deliberately: the divider's middle is gone so the protection strip can lie beside the cell. The opening is <b>584&nbsp;mm²</b> against the grille's 562.7 — a second mouth, not a leak — and the front-air figure quoted earlier is a <em>box-mode comparison</em> that no longer describes the real, L-shaped chamber. Reported by the build every run rather than asserted.</small></span></li>
     <li><span class="k">Cell port</span><span class="v">The 1.76× ratio rests on an assumption<small>An 18650's cap carries 3–4 vent ports; 3 × ⌀2.0&nbsp;mm was taken. That is general cell construction, not a datasheet anyone here holds. If real numbers turn up, the unit count is the knob.</small></span></li>
     <li><span class="k">Front gap</span><span class="v">A declared departure, not a measurement<small>The gap in front of the diaphragm goes 2.50 → 9.40&nbsp;mm because the cell bore sets the cover's depth. Total front air went <em>down</em> 1.2&nbsp;% and the governing mode went <em>up</em> 21&nbsp;%, so moving air from lateral to axial is believed neutral-to-better — but it is a belief, and it is flagged rather than buried.</small></span></li>
     <li><span class="k">Fit</span><span class="v">A cell rattles ~0.30&nbsp;mm, and nobody has heard it<small>A ⌀18.80 cell in a ⌀19.40 cradle, held endwise by the spring rather than radially. A foam shim or a printed rib removes it; neither is built, because there is no cell in hand to measure the rattle against.</small></span></li>

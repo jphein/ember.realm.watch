@@ -133,10 +133,10 @@ asserted. *Do not "fix" a failure there by editing `BAFFLE_T`.*
 | Item | Spec | Notes |
 |---|---|---|
 | Cell | **1 × bare flat-top 18650**, ⌀18.80 max incl. wrap | **Bare only.** Protected/button-top cells are out of scope — see §5. 3400 mAh assumed for the charge figure. |
-| Spring | compression, **7.00 mm free / 2.50 mm solid**, ⌀9.00 seat | Generic AA/18650 holder spring. 4.50 mm travel against 0.60 mm of cell-length spread. |
-| Protection strip | **1S DW01-class + dual FET, pre-welded nickel tabs** | ⚠️ **Required, not optional** — see §6. Pocket sized **21.50** × 6.50 × 2.50 — the length is now **measured**; width and thickness are still **soft**. |
+| Cell contacts | **none to buy** — both ends are folded-excess **leaf springs** formed from the strip's own nickel tabs | Free height 3.60, closed 0.75. There is no coil spring and no `+` plate any more: the parts list got *shorter* as the design got harder. |
+| Protection strip | **1S DW01-class + dual FET, tabs pre-welded** | ⚠️ **Required, not optional** — see §6. Body **21.50 × 4.50 × 2.50**, flat assembly **90.00**, tabs 34.25 each. **All JP-measured — no placeholders left.** It lies flat beside the cell; see §7. |
 | Pigtail | JST 1.25 mm 2P | strip `P+`/`P−` → the board's `BAT` connector. |
-| Cover screw | **1 × M3 × 0.5 × 22 ISO 4762** (cap head) | 2.5 mm hex key. 3.40 mm engaged in a 6.60 mm pilot. |
+| Cover screws | **2 × M3 × 0.5 × 22 ISO 4762** (cap head) | 2.5 mm hex key, 3.40 mm engaged in a 6.60 mm pilot. ⚠️ Briefly **M3×25** while the bay was 1.60 deeper (§7b); the growth was reverted and so was the screw. **Take the length from the build's own shopping line, not from a memory of this table.** |
 | Bezel screws | 4 × M3 × 0.5 × 12 ISO 4762 | Unchanged from the desk build. |
 | Driver | 40 × 27 × 10 mm sealed-back module | Carried over. Double-sided tape on its **back**. |
 
@@ -200,25 +200,30 @@ and the same shape as the −X dovetail elimination before it.
 
 ## 4 · Assembly order
 
-The order matters, and two steps are irreversible-ish:
+The order matters, and the first two steps are the ones the geometry was arranged around:
 
-1. **Seat the protection strip** in its pocket in the cover and solder its tabs. The whole
-   compartment is open from above until the midframe goes on, so every joint is reachable with an
-   iron *now* and not later. Solder access is a property of this ordering, and it is measured
-   rather than asserted in prose.
-2. **Tape the driver** to the midframe's back face, inside the locating groove (0.60 deep, 1.20
+1. **Lay the strip body flat in its channel beside the cell lane**, fold both tabs, and seat the
+   leaf ends. The body goes in **before the cell**, and the cell **drops on top of it** — which is
+   why the bay's growth was designed to land at the *bottom* when growth was still on the table.
+   Nothing is threaded down beside a cylinder that already fills the bore.
+2. **Solder the output wires on the body's +X side**, then thread them to the chin pass. That side
+   sits past the cell's surface, so the joints live where their thickness is not a dimension anyone
+   has to know. Everything is still open from above here — solder access is a property of *this
+   ordering* and of nothing else.
+3. **Tape the driver** to the midframe's back face, inside the locating groove (0.60 deep, 1.20
    wide, outline only — the tape does the work; a pocket would leave the bond bridging a step).
-   That face is a 3678 mm² printed **bed face**, the flattest plane in the project, so unlike the
-   desk stand there is no proud pad.
-3. **Route the driver's leads** through the SPK relief. ⛔ **Then seal that relief** — silicone,
-   hot glue or putty. It opens into the sealed cavity and it is asserted to lie *wholly inside*
-   the rim rather than straddling the rim wall, because a straddled opening cannot be sealed at
-   all.
-4. **Run the cell leads** down the divider's groove (1.00 deep × 5.40 — widened from 3.20 so a
-   flat 5 mm nickel tab lies in it instead of a round wire) and through the lead pass to `BAT`.
+   That face is a printed **bed face**, the flattest plane in the project, so unlike the desk stand
+   there is no proud pad.
+4. **Route the driver's leads** through the SPK relief. ⛔ **Then seal that relief** — silicone, hot
+   glue or putty. It opens into the sealed cavity, and it is asserted to lie *wholly inside* the rim
+   rather than straddling its wall, because a straddled opening cannot be sealed at all.
+   ⚠️ **And note what §7d says about that plug: it is half the seal, and it is the half the model
+   cannot see.**
 5. **Fit the board and bezel** exactly as the desk build.
-6. **Drop the cell in** — **`+` toward HIGH Y**, against the plate; the folded leaf takes the
-   `−` end at low Y — then seat the cover and drive **both** M3 screws.
+6. **Drop the bare cell on top of the seated strip.** Both ends land on leaf springs. There is no
+   plate to orient against any more, so read the debossed marks — and see §5 for why they are not
+   mirror images of each other.
+7. **Seat the cover and drive both M3 screws.**
 
 ## 5 · Cell bay
 
@@ -258,11 +263,21 @@ there, at the right depth, in the right place, and a person putting a cell in co
 not, because it was asking about **volume** when the thing that mattered was **sightline**. Check
 15 gained a **visibility lens**, with the old geometry kept as its rejected control.
 
-The fix is an asymmetry, and **the asymmetry is the finding**: `−` moved to the cover's mating face
-at y 19.10 while `+` stayed on the end wall at y 86.95. The marks are no longer mirror images
-because **the two ends are no longer alike** — one has a nickel leaf in front of it and the other
-has a flat contact plate. *A design that kept them symmetric for tidiness would have kept one of
-them invisible.*
+The fix is an asymmetry, and **the asymmetry is the finding**: `−` sits on the cover's mating face
+at y 19.10 while `+` is on the +Y bulkhead's bay face at y 86.95. *A design that kept them
+symmetric for tidiness would have kept one of them invisible.*
+
+> ⚠️ **The original reason for that asymmetry has since expired, and the asymmetry has not.** It was
+> justified by the two ends being unlike each other — a nickel leaf in front of one, a flat contact
+> plate in front of the other. **Both ends are leaf seats now**; the `+` plate was retired when the
+> strip's own tabs took over both contacts. So the positions are still what the model builds and
+> still what the build reports, but the *stated reason* no longer distinguishes them.
+>
+> Recorded rather than papered over, because the tempting move is to invent a fresh justification
+> for a position that is already correct — and a rationale reverse-engineered to fit an existing
+> feature is indistinguishable from one that was designed. **If the low-Y mark is still the only
+> obscured one, that is a measurement someone should take rather than a sentence someone should
+> write.**
 
 *(The check on those glyphs is worth knowing about: the repo's stroke-gap probe returns `inf` for
 both — `+` because its strokes cross, `−` because it is a single stroke — so a `gap ≥ width`
@@ -326,53 +341,159 @@ the device already publishes battery voltage, so the hook for a low-voltage cuto
 
 ---
 
-## 7 · Protection strip pocket
+## 7 · Where the protection strip lives — and the four days it took to find out
+
+All three of its dimensions are **JP-measured** now: **21.50 × 4.50 × 2.50**, plus the flat
+assembled length **90.00**. *There are no placeholders left in this section*, which is worth saying
+explicitly because for most of this design's life the strip was the one part described entirely by
+estimates.
 
 | | |
 |---|---|
-| Pocket | centred x **35.70**, y **78.50 .. 85.00**, floor at `CAV_Z0` |
-| Sized for | **21.50 × 6.50 × 2.50** — the length is measured; the other two are not |
-| Clearances | 0.40 around, **1.00 over the component face** (the FETs are the tall parts) |
-| Locating | three ribs, 1.60 wide × **3.00 high**, **outside** the PCB footprint |
-| Tab slots | 5.40 × 0.40 — these tabs are ~5 mm × 0.15 flat conductors, so shallow slots, excess trimmed |
+| Home | **flat on the bay floor, beside the cell**, in the space the divider used to occupy |
+| Footprint | x **16.15 .. 20.65**, mid-bay at y **42.83 .. 64.33**, channel z −29.10 .. −26.20 |
+| Cell clearance | **0.46 mm** over the seated body |
+| Tabs | **34.25 each** → **22.62 run + 11.63 fold** per end = **3.2 limbs**; *both* ends are folded-excess leaf springs |
+| Solder joints | on the body's **+X half**, which sits past the cell's surface (18.35) entirely |
 
-> ✅ **`PROT_L` is now MEASURED: 21.50.** JP re-measured — *"a little over 21"* — and the seat
-> derives to **22.30 between the ribs**. It replaced a 20.0 eyeball estimate that carried ±2, and
-> the difference was not academic: at 20.0 the locator ribs printed **1.5 mm too close together
-> for a 21 mm strip to drop between them**, which was caught 2 % into a cover print. *Measured
-> beats estimated — third instance in this project in one day.*
->
-> ⚠️ **soft — the other two.** `PROT_W = 6.50` and `PROT_T = 2.50` remain **unmeasured class
-> placeholders**. The *class* is certain from a photograph; those two figures are not, and they
-> are one edit each when a caliper reaches them.
->
-> ⚠️ The build still prints a blanket `⚠️ UNMEASURED — awaiting JP's calipers` across all three
-> figures, which is now wrong for the length. Narrowing that message to W and T is a one-line
-> change in `ember_mobile_case.py` and is **not** made here — this document does not edit the
-> model it reads.
+**Mid-bay is not a placement, it is the reason the arithmetic closes.** The tabs are a fixed
+34.25 mm each and the case cannot grow, so the only way both ends reach their seats *with no added
+nickel* is to start from the middle. Put the body at either end and one tab runs out.
 
-The floor **under** the PCB is left flat — a rib under a PCB is a rock under a board — and the
-ribs sit on floor that was already empty.
+### The solder problem was answered by placement, not by clearance
 
-**The briefed class length, 31.00 mm, does not fit.** The compartment seats **29.30** flat, short
-by 1.70, and it fits no other way: not rotated (13.40 of Y), not on edge (against 19.40 of depth),
-not diagonally (a 31 × 6.5 rectangle needs 30.96 of X at its best angle). The compartment cannot
-grow — the cell bore pins one side, the case wall the other, and the driver's 41.20 mm tape pad
-sets the Y.
-
-### The tabs do not go where the packaging suggests
-
-These strips are *sold* to be spot-welded to a cell under its wrap, and **that is emphatically not
-what happens here.** The strip is fixed in the case; the cell stays bare and removable.
-**Nothing attaches to the cell.**
-
-```
-bay spring (−) --tab--> B−
-+ contact plate --tab--> B+
-P+ / P−  --> JST 1.25 2P pigtail --> BAT
-```
+JP's own objection to a strip inside the bay was the joints: solder has thickness, nobody has
+measured it, and a 0.15 mm tab plus a blob is exactly the kind of dimension that turns out to
+matter after assembly. The answer is that the body's **+X half is past the cell's surface
+altogether**, so the joints live where thickness never becomes a dimension anyone has to know.
+*The good version of a tolerance problem is the one you arrange not to have.*
 
 ---
+
+## 7b · Five constructions were measured dead before this one worked
+
+This is the longest single argument in the design, and it is worth keeping in full because at two
+separate points a **correct measurement pointed at the wrong conclusion**.
+
+**First it was declared impossible.** The cell bore is inscribed in the bay *exactly* — measured,
+not estimated:
+
+```
+-X extreme   -0.75  vs CELL_X0  -0.75     gap 0.00
++X extreme   18.65  vs CELL_X1  18.65     gap 0.00
+bottom      -29.10  vs CAV_Z0  -29.10     gap 0.00
+seated top  -10.30  vs BACK_Z   -9.70  -> 0.60 of headroom
+```
+
+Tangent on three sides. That is the X budget closing, not slack anyone forgot — and a strip needs
+its thickness *somewhere*. So the strip was recorded as blocked and left in the chin band.
+
+### ⭐ Then JP asked the question that broke it open
+
+> **"the lid is flat teh battery is round isn't there space?"**
+
+Yes. And the reason nobody had seen it is the most useful sentence of the round:
+
+> **A correct measurement of the wrong feature reads exactly like a correct measurement.**
+
+The extremes had been measured against the envelope and the bay called full. But **a round bore in
+a square bay leaves four corner solids** — 4.53 mm of diagonal at the top pair, 4.11 at the bottom.
+The measurement was right. The feature was wrong. Nothing about the number was suspicious, which is
+precisely why it survived: *there is no tell.*
+
+### And the corner still wasn't the answer
+
+Building it there needed **BAY_EXTRA 1.60** of growth — less than the 2.50 first priced, because the
+corner does four fifths of the work. That version was built, gated, and **rejected by JP on the one
+line he had held all night: the case stays flush at 39.00.**
+
+So the final answer went the other way — take the **divider** instead, since he had already granted
+"or modify it". Every alternative was measured before that call, and **none closes at 39.00**:
+
+| construction | why it fails |
+|---|---|
+| corner solid, axis-aligned | **−0.73 mm** — and no rotation satisfies both bounds |
+| midframe straddle | **−0.21 mm** |
+| upper compartment | fits, but puts the body **74.70 mm of tab-path** from the far seat: **52.08 mm of new nickel** against 23.25 of surplus |
+| growing the case | works, and costs the flush envelope |
+
+*Four of those are arithmetic and the fifth is a value judgement. Only the owner could make the
+fifth one, and he did.*
+
+---
+
+## 7c · The divider is two stubs now, and the chamber is open to the bay
+
+**Recorded as a decision, not an oversight**, because it is the largest deliberate compromise in
+the design.
+
+```
+KEPT   y 20.20 .. 30.00   and   74.80 .. 88.48      (9.80 and 13.68)
+GONE   y 30.00 .. 74.80                             (the chamber's span — the strip's home)
+```
+
+The divider was always **one wall doing two jobs**: the cell trough's inboard wall *and* the sealed
+speaker chamber's −X wall. Deleting its middle means that **over y 30.00 .. 74.80 the chamber and
+the cell bay are one volume.**
+
+**The stubs are not decoration.** A rigid 65 mm cylinder located in +X at *both ends* cannot migrate
+mid-span, so the cell keeps its lateral datum without the wall that used to provide it. They also
+keep the screw lane's derivation subject — its counterbore still stops at the divider's base — and
+give the internal labyrinth a root.
+
+**What it costs, measured rather than asserted:** the opening is **584 mm²** against the grille's
+**562.7 mm²** — so it is **a second mouth roughly the same size as the intended one, not a leak** —
+and the front chamber goes **15438 → 19199 mm³, +24 %**, which the acoustic check still passes with
+2.1 % to spare. Residual costs on the record: the strip's 0.15 mm tabs now sit in the driver's front
+chamber, grille-borne dust can reach them, and the chamber is L-shaped in a way the box-mode
+arithmetic does not model.
+
+> **Check 7b now REPORTS two deliberately-open sides with their areas, instead of asserting walls
+> that are deliberately gone.** That is the honest form for a check whose subject has been removed
+> by choice: an assert would have to be deleted or weakened, and either reads as an oversight later.
+> A report cannot rot into a false guarantee.
+
+### The owner was told twice, and reaffirmed twice
+
+> **"no strip and nickel lay besid ethe batteyr like i toild you"** ·
+> **"you can delete that inner wall it's fine"** · **"or modify it"**
+
+The sequence matters. The deletion was first granted on the premise that *the band would be empty*
+with the strip in the bay. A tangency measurement then briefly falsified that premise — and the cut
+was **held rather than run on a dead premise**. When the corner-solid pocket made the band genuinely
+empty, the premise was true again and the cut went in. *A standing instruction was not treated as
+standing authority while its reason was in doubt.*
+
+## 7d · ⚠️ A retraction: the wall was never the boundary
+
+Before that deletion was granted, it was argued *against* on the grounds that removing the
+chamber's low-Y wall would "open the cavity into the interior the cell bay and board cavity share."
+**JP challenged it. He was right, and the argument was wrong.**
+
+A flood fill of the **assembled** stack settles it — subtract midframe and cover, screws modelled,
+from a box past the case, and the solid modeller returns **one interior air component**: speaker
+cavity, retention band, cell bay, upper compartment, board cavity **and the outside**, all
+connected. Plug the grille and it is still one. Delete the wall and it is still one.
+
+**The topology does not change, because the SPK relief already joins the cavity to the board
+cavity** — and the design's answer to *that* has always been a hand-applied plug, applied on every
+build.
+
+> ⭐ **The mistake, stated so it is reusable: I read a wall as the boundary, when the boundary is a
+> wall PLUS a manual step.** The model contains the wall. It does not contain the silicone. Any
+> claim about sealing that is checked against geometry alone is checking half the seal — and the
+> half it checks is the half that cannot be forgotten during assembly.
+
+A second error was on its way and worth recording as well: the argument was heading toward
+*cancellation* — two mouths interfering destructively. **That is wrong too.** Both mouths carry the
+driver's **front** output, so they **sum**. Being wrong about the direction of an acoustic effect
+while being wrong about the topology it depends on is two mistakes that would have looked like one
+conclusion.
+
+**What the wall actually bought was measurable all along**, and once measured the decision became
+easy rather than contested: a 584 mm² second mouth, +24 % of front chamber volume, and three named
+residual costs. *The disagreement was never about acoustics. It was about whether anybody had
+measured the thing being argued over.*
 
 ## 8 · Cell-bay failure vent
 
@@ -421,7 +542,7 @@ there is no sealed-vs-ported decision to make and what matters is the **front**.
 
 | | Mobile | Desk stand |
 |---|---|---|
-| Net sealed front air | **15437.8 mm³** | 15621.3 mm³ |
+| Front air, **box-mode** | **15437.8 mm³** | 15621.3 mm³ |
 | Δ | **−1.2 %** | — |
 | Cavity | 30.10 × 44.80 × 19.40 | 54.00 × 15.30 × 33.00 |
 | Governing first mode | **3828 Hz** | 3176 Hz |
@@ -429,6 +550,21 @@ there is no sealed-vs-ported decision to make and what matters is the **front**.
 | Grille throat | **562.7 mm² in 31 openings** (59 % of field; lattice ceiling 63 %) | — |
 | vs driver radiating area | **80 %** of ~700 mm² | — |
 | Port length | 2.20 = the cover's own wall | 2.20, by thinning a 4.0 wall |
+
+> ⚠️ **THE FRONT-AIR FIGURE IS NOW A BOX-MODE NUMBER AND NO LONGER DESCRIBES THE REAL CHAMBER.**
+> Read it as a *comparison against the desk stand on identical arithmetic*, which is what it was
+> always for — not as the volume of air actually in front of the diaphragm.
+>
+> The chamber's −X wall is deliberately gone over y 30.00 .. 74.80 (§7c), so the build now reports
+> `[chamber] closed on 2 sides` — high-Y and the case wall. With the wall out, the real front volume
+> is **≈19199 mm³, +24 %**, and the chamber is **L-shaped**, which the `c/2L` box modes above do not
+> model at all. The check still passes with 2.1 % to spare, and passing is not the same as
+> describing.
+>
+> **This is the honest state, not a gap waiting to be filled.** A closed-form mode figure for an
+> L-shaped volume with two open sides is not something to invent; measuring it needs a different
+> instrument than arithmetic. What the numbers above *do* still support is the comparison they were
+> built for, so they stay — labelled as what they are.
 
 Front air is **measured by boolean on the finished solid**, not by the arithmetic above it. The
 mode figures use the same `c/2L` on both so the comparison is honest, and the assert requires the
@@ -562,6 +698,54 @@ already answered it.
 
 ---
 
+## 9c · Light out the top — and a vent that could not be a hole
+
+Three more openings landed with the strip work, and one of them is the most interesting geometry
+argument in the file.
+
+**The LED-side through field** — 5 real bores on the +X side of the boss, into the upper
+compartment. This is JP's alternative to the glow window's dim membrane: take the light out of the
+*top* instead. The compartment has been empty of electronics since the strip moved out of it, so the
+chain is atmosphere → compartment → board cavity via the wire pass, and **no volume with a rule is
+crossed.**
+
+**A blind field on the battery side**, cells only, no bores. Its cell count carries a trap worth
+naming: **`TOPMESH_N_MIN` exists because a field of one is a valid field.** A count assert that only
+checks for "some" cells passes on a lattice that has collapsed to a single hole, which is the same
+vacuity that has bitten this project's grille counter before.
+
+### ⭐ The internal vent could not be a hole, and the angle is why
+
+With the top field bored, the upper compartment is **open to the sky**. So a plain hex through the
+divider would put outside air **one straight line** from a lithium bay. That is not hypothetical and
+it was not argued — it was traced:
+
+> a ray from a top cell at **x 30** to a divider hole at **x 20.65** leaves the top bore at
+> **41°**, against a bore that only collimates to **65°**.
+
+The ray gets out. So the internal vent is §8's labyrinth moved into the divider — 1.30 from each
+face of the 2.00 wall, 0.60 band — and **check 19c proves the no-sightline on the artifact, with a
+drilled-through control.**
+
+⚠️ **And it is offset in Z, not Y**, which is a packaging consequence rather than a preference: the
+divider's free Y window between the seal rim and the top boss is **5.08 mm — one cell wide, not
+two.** It is **19.40 tall**. So the pair stacks vertically. *When a feature will not fit along the
+axis you reach for, check whether the other axis is 19 mm deep.*
+
+### The microphone bore is deleted — and its label went with it
+
+On the desk case the back face is the exposed one and that bore is how the microphone hears. On the
+mobile it is buried under the backpack, where it is just a **7.07 mm²** hole from the board cavity
+into the upper compartment. So it is gone on this variant only.
+
+**The label went in the same change, under one condition rather than two.** A back face reading
+`MIC` over no bore is this project's founding hazard — *the same lie told in ink* — and the two are
+now cut from one decision so they cannot drift apart.
+
+It also corrected a claim made an hour earlier: the LED wire pass was **not** the first aperture
+between those two volumes. *The mic bore had been there the whole time.* A new opening was described
+as unprecedented by someone who had not looked for precedent.
+
 ## 10b · It did not dock, and the stand is what had to give
 
 The backpack is meant to sit in the desk stand when it is at a desk. **It did not fit**, and
@@ -639,35 +823,36 @@ transcribe these by hand.
 
 | Check | Result |
 |---|---|
-| Envelope | **55.90 × 93.63 × 39.00** (desk 55.90 × 91.90 × 17.40) |
-| Volumes | midframe **20.99 cm³**, cover **26.98 cm³** |
-| Mesh | midframe **27 598** tris, cover **5 874** — both **0 boundary, 0 non-manifold, watertight** |
+| Envelope | **55.90 × 93.63 × 39.00** (desk 55.90 × 91.90 × 17.40) — **flush, and it held** |
+| Volumes | midframe **20.96 cm³**, cover **23.43 cm³** |
+| Mesh | midframe **24 510** tris, cover **6 390** — both **0 boundary, 0 non-manifold, watertight** |
 | Board interference | midframe **0.000**, cover **0.000**, cell phantom **0.000** mm³ |
-| Interference controls | cover +22 mm → **1954.7** · midframe +2 mm → **199.1** · cell +12 mm → **1884.8** mm³ — the probe is known to be *able* to fail |
-| **Dock** | **mobile stack vs the stand 0.000 mm³ CLEAR**; control sunk 2 mm → 1332.9 mm³, detector **works** |
-| Descent | straight down, 8 poses from 12.0 mm out to seated: vs the taped driver **0.000**, vs the midframe **0.000**, vs contents **0.000** mm³ |
-| Retention | 2 × M3×22, lane **x 23.55** (the case's own centreline), y **22.60** and **85.98**, **63.38 mm baseline**; both bosses on solid floor |
-| Screw | under-head at both sites; head z −28.30, **3.40 mm engaged in a 6.60 mm pilot** |
-| Counterbores | chin annulus 1.60, seat 100.0 % solid, control outside the boss 60.5 % · top annulus 1.60, seat 100.0 %, control 38.2 % |
-| **Collar** | both pilots have a full **1.60 mm collar of floor**; control in the open hex field **35 %, rejected**. Two hex rows dropped for it |
-| Leaf | folded nickel, root in a 0.35 kerf at y 20.20; free height **3.60** (⚠️ **JP-tunable**), closed 0.75, **2.85 mm travel** |
-| Contact | kerf **0.350** (0.25 JP-confirmed material + 0.10 derived play); detent leaves 0.200 < 0.25 |
-| Detail view | `site/renders/mobile-bay-ends.svg` — both kerfs at a magnification they can be seen at. **Added because the mechanism was invisible in the print preview:** 0.35 mm is a hairline at full-part zoom, so *present and correct* was not *findable* |
-| Tab runs | B− **18.1 mm** (strip → crossing slot → leaf kerf); B+ **71.0 mm** (strip → wire groove → the `+` plate at y 86.95) |
-| Marks | `+` on the +Y bulkhead's bay face (y 86.95); `−` on the cover's **mating face** (y 19.10) |
-| Seal rim | **100.00 % solid**; control on the open vent field 37.21 % (must be < 98) |
-| Fasteners vs rim | **6 pockets** in the midframe, all clear of the rim footprint |
-| Front air | 15621.3 → **15437.8 mm³ (−1.2 %)** |
+| Interference controls | cover +22 mm → 1261.0 · midframe +2 mm → 199.1 · cell +12 mm → 1884.8 mm³ |
+| Dock | mobile stack vs the stand **0.000 mm³ CLEAR**; control sunk 2 mm → 1332.9 mm³ |
+| **Strip** | 1S PCB **21.50 × 4.50 × 2.50 — all JP-measured**, plus the 90.0 flat assembly. **No placeholders left** |
+| **Tabs** | **34.25 per side.** −Y: 22.62 run + 11.63 fold · +Y: 22.62 + 11.62 — **3.2 limbs each end** |
+| Cell + leaf | bay **66.75** on a folded leaf: shortest 64.9 → fold at 1.85 (preload **1.75**), longest 65.5 → 1.25 (**0.50 off closed**). Both fit |
+| **Chamber** | **closed on 2 sides** (high-Y and the case wall) — *reported, not asserted*; control inside the cavity 0.0 % |
+| Seal rim | 100.00 % solid; control on the open vent field 37.21 % |
+| Front air (box-mode) | 15621.3 → **15437.8 mm³ (−1.2 %)** — ⚠️ see the caveat in §9; the real chamber is L-shaped and ≈19199 mm³ |
 | Grille | **31 openings, 562.7 mm² throat** over a 946.6 field (59 %, ceiling 63 %); 80 % of driver area |
-| Min feature | floor 1.60 (4 extrusions), 10 sections checked; control — #47's failed 0.90 web — **rejected** |
-| ⚠️ Exempt | **1.25 lattice web — UNVALIDATED, deliberately shared with the stand's grille** · 0.80 glow membrane and 0.80 vent skin (faces backed on all edges, not standing ribs) · 0.15 contact detent (meant to deform) |
-| Print frame | as-printed = model frame (pure Z lift, both parts); end-vent shoulder **60.0°**, control (#28's vertex-up) **30.0° rejected** |
-| Strip pocket | **21.50** (JP-measured) × 6.50 × 2.50 fits, 0.00 mm³ foul; free compartment 30.10 × 8.20; max that seats flat 29.30 |
-| Charge | 290 mA → **15.8 h** |
-| Vent | 4 units, **16.56 mm² throat vs 9.42 assumed (1.76×)**; band 0.60 × 6.90, skin 0.80 each face |
+| Retention | 2 × **M3×22**, lane x 23.55, y 22.60 and 85.98 (**63.38 baseline**); both bosses on solid floor |
+| Screw | under-head at both sites; head z −28.30, **3.40 mm engaged in a 6.60 mm pilot** |
+| Counterbores | chin annulus 1.60, seat 100.0 %, control outside the boss 48.3 % · top 1.60, 100.0 %, control 38.2 % |
+| Collar | both pilots have a full **1.60 mm collar**; control in the open hex field **35 %, rejected** |
+| **Ease** | battery edge **R 3.00** — 1.76 across the bed face, 3.00 up the side, **1.87 mm of wall at the diagonal** (floor 1.60, ceiling R 3.65) |
+| **LED wire pass** | one 4.75 hex at (32.0, 80.5) through the midframe floor, **100 % open** (control on solid floor 0 %), 0.60 edge break at the cavity mouth |
+| **Top mesh (blind)** | **5 blind cells**, 0.60 deep in the +Y end face over x 5.10..17.45, z −27.90..−10.90; **100.0 % membrane behind it** (1.60 mm) |
+| **Top vent (through)** | **5 real bores** on the LED side of the boss, x 29.65..44.90 — the LED's window as much as a vent |
+| **Internal vent** | cell bay ↔ LED compartment, 1.30 from each face of the 2.00 divider, 0.60 band; **notches at z −22.50 and −16.55, both at y 79.00** — stacked in Z, not Y |
+| Cell-bay vent | 4 units, **16.56 mm² throat vs 9.42 assumed (1.76×)**; band 0.60 × 6.90, skin 0.80 each face |
+| Min feature | floor 1.60, 10 sections; control — #47's failed 0.90 web — **rejected** |
+| ⚠️ Exempt | **1.25 lattice web — UNVALIDATED, deliberately shared with the stand's grille** · 0.80 glow membrane · 0.80 vent skin · 0.15 detent (meant to deform) |
+| Print frame | as-printed = model frame (pure Z lift); end-vent shoulder **60.0°**, control (#28's vertex-up) **30.0° rejected** |
+| Marks | `+` on the +Y bulkhead's bay face (y 86.95); `−` on the cover's **mating face** (y 19.10) |
+| Glow | 2 cells, hi wall, `GLOW_CY` 36.99 (y 31.35..42.64), `GLOW_DIST` 23.02 |
 | BAT lead pass | open (0.0000 mm³ blocked); control on solid floor blocks 51.5 mm³ |
-| Glow | 2 cells, hi wall, `GLOW_CY` **36.99** (y 31.35..42.64), z −6.60..−2.10, `GLOW_DIST` **23.02** |
-| Bed contact | cover **3242.9 mm²**, midframe **4037.0 mm²** |
+| Bed contact | cover **3178.1 mm²**, midframe **4057.6 mm²** |
 
 The file carries **17 numbered checks plus 3 module-level asserts and 98 assertions**, and a large
 share of them are **controls** — probes that must *fail* on deliberately broken input. That is the
@@ -713,8 +898,10 @@ mobile queue entries are only as current as the last `ember_case.py` run.
 2. **Protection is unbuilt electrically.** The pocket exists and the schematic proves the need.
    No strip has been fitted, no firmware cutoff written.
 3. **Reverse insertion is unprotected** — markings only (§5).
-4. **Two of the strip's three dimensions** are still placeholders — width and thickness (§7).
-   The length is measured now, and the estimate it replaced had already cost a cancelled print.
+4. ✅ **Closed: the strip is fully measured.** All three body dimensions plus the flat assembly are
+   JP-calipered (21.50 × 4.50 × 2.50, flat 90.00). This was the longest-standing soft number in the
+   design and it is gone — see §7b for the four days it took, and for the two correct measurements
+   that pointed at wrong conclusions on the way.
 5. **The 1.76× vent ratio** inherits an assumption about the cell's own port area (§8).
 6. **The front-gap redistribution** is a declared belief (§9).
 7. **Glow brightness in charcoal** (§10) — though the window's relocation shortened the light path
