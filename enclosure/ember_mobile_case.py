@@ -1290,6 +1290,67 @@ assert EV_CZ + LAT_AF/2 <= SEAM_Z - EV_SEAM + 1e-9, (
     f"{SEAM_Z-(EV_CZ+LAT_AF/2):.2f}mm of shell under the bezel seam at {SEAM_Z:.2f}")
 
 
+# ============================================================================
+# 5i. THE BATTERY SIDE IS EASED.  A ROUND WOULD NOT PRINT, AND THAT IS THE FINDING.
+# ============================================================================
+#
+# >>> JP: "i want the rounded back edge of the battery backpack so it feels better in <<<
+# >>> the hand."  The goal is ERGONOMIC -- the -X back edge should not be a corner in a <<<
+# >>> closed palm.  It is NOT literal tangency to the cell bore, and it could not be.    <<<
+#
+# ⚠️ A TRUE ROUND ON THIS EDGE IS UNPRINTABLE, AND THE REASON IS THE PRINT ORIENTATION, NOT
+# THE WALL. The cover prints OUTER-FACE-DOWN, so COVER_Z0 is the bed. Round the (-X, -Z) corner
+# with radius R and the arc meets the bed TANGENT TO HORIZONTAL: at R = 3.20 the outline moves
+# 1.11mm OUTWARD in the first 0.20 layer. That is not a knife edge, it is a 1.11mm unsupported
+# outward lean off the first layer, and no wall thickness fixes it. The deferred "constant-
+# offset wrap at r 11.90 about the cell axis" is the same thing worse: tangent 0.10 BELOW the
+# bed face, i.e. the first layer is a hairline.
+#
+# WHAT IS PRINTABLE, AND WHAT THIS IS: an arc that is tangent to VERTICAL where it leaves the
+# side wall and rolls over only as far as a 45-DEGREE TANGENT, then runs out to the bed on that
+# 45. Every facet is >= 45 by construction -- the arc is truncated at exactly the angle where
+# it would stop being printable, rather than drawn and then apologised for.
+#
+# ⚠️ AND ITS SIZE IS CAPPED BY THE 2.20 WALL, NOT CHOSEN. The corner's diagonal from the outer
+# corner to the bay's inner corner is COV_WALL*sqrt(2) = 3.111, and an arc of radius R eats
+# (sqrt(2)-1)*R of it. Holding MIN_SOLID puts the ceiling at R = 3.65. R = 3.00 leaves 1.87 --
+# against the 0.80 chamfer that was there, about four times the edge relief.
+#
+# Going further is possible and is NOT free: moving the cell lane +1.40 (the X budget's slack,
+# check 3) would take the bed-face reach from 1.76 to ~3.54, and it ripples into the divider,
+# the seal rim, DRV_CX, the grille field and the bond plateau. That is a round with its own
+# gate, and it is JP's call after he has held this one.
+EASE_R      = 3.00                      # arc radius; ceiling 3.65 at MIN_SOLID, see above
+EASE_FACETS = 8                         # segments across the 45 degrees of arc
+EASE_TAN45  = 1.0 - math.sqrt(2) / 2    # 0.2929 -- where the arc's tangent hits 45 degrees
+EASE_BED    = 2 * EASE_TAN45 * EASE_R   # 1.76 across the bed face
+EASE_RISE   = EASE_R                    # 3.00 up the battery side
+# the thinnest wall the ease leaves, on the diagonal to the bay's inner corner
+EASE_WALL   = COV_WALL * math.sqrt(2) - (math.sqrt(2) - 1) * EASE_R
+assert EASE_WALL >= MIN_SOLID, (
+    f"the eased battery edge at R={EASE_R:.2f} leaves {EASE_WALL:.2f}mm of wall on the corner's "
+    f"diagonal, under the {MIN_SOLID:.2f} floor. The ceiling is R = "
+    f"{(COV_WALL*math.sqrt(2) - MIN_SOLID)/(math.sqrt(2)-1):.2f} and the only way past it is to "
+    f"move the cell lane +X, which moves the divider, the rim, the driver and the grille")
+
+
+def _ease_profile():
+    """(x, ABSOLUTE z) polygon of the material the eased battery edge REMOVES.
+
+    Arc tangent to vertical where it leaves the -X face, truncated at a 45-degree tangent, then
+    a straight 45 run-out to the bed. Returned as the CUT, so every point outside the part is
+    pushed 1.0 clear and the polygon closes in air.
+    """
+    _cx, _cz = OX0 + EASE_R, COVER_Z0 + EASE_R
+    pts = [(OX0 - 1.0, COVER_Z0 - 1.0), (OX0 + EASE_BED, COVER_Z0 - 1.0),
+           (OX0 + EASE_BED, COVER_Z0)]
+    for _i in range(EASE_FACETS + 1):                       # 225 deg -> 180 deg
+        _a = math.radians(225.0 - 45.0 * _i / EASE_FACETS)
+        pts.append((_cx + EASE_R * math.cos(_a), _cz + EASE_R * math.sin(_a)))
+    pts.append((OX0 - 1.0, COVER_Z0 + EASE_RISE))
+    return tuple(pts)
+
+
 def _hex_xz(cx, cz, r):
     """A hexagon in the (x, ABSOLUTE z) plane with FLATS ON +/-Z. See the block above.
 
@@ -1693,6 +1754,14 @@ def back_cover():
     # a Y-slide sweep into a straight-down one.
 
     p = E.chamfer_outline(p, COVER_Z0, CHAMFER, "mobile cover bed face")
+
+    # ---- THE EASED BATTERY EDGE (see 5i).  Full length, cut LAST. ----
+    # After chamfer_outline deliberately: the ease's own 45-degree run-out IS the bed relief
+    # over its span, and asking OCC to chamfer an edge that is about to be replaced is how
+    # StdFail_NotDone arrives. It runs the cover's whole length, so there is no step in the
+    # silhouette to blend -- and it dies EASE_RISE above the bed, ~19mm below the mating plane,
+    # which is why the midframe, the vent labyrinth and the "-" marking are all untouched.
+    p -= _yprism(_ease_profile(), COVER_Y0 - 1.0, MOB_OY1 + 1.0)
     return p
 
 
@@ -2203,6 +2272,41 @@ def _check_mobile(parts):
         f"the end-vent crown bridges {EV_CROWN:.2f}mm flat, wider than the {CBORE_D}mm the four "
         f"counterbores in this part's bed face already bridge -- that is a new class of roof "
         f"and it needs its own evidence, not this comment")
+    # ---- AND THE EASED BATTERY EDGE, WHICH IS THE ONLY REASON IT IS AN EASE AND NOT A ROUND ----
+    #
+    # JP asked for the -X back edge to feel rounded in the hand (§5i). A true round is the one
+    # thing this part's print orientation forbids: outer-face-down means COVER_Z0 IS the bed,
+    # and a round meets it tangent to horizontal. The profile is therefore an arc TRUNCATED at
+    # a 45-degree tangent with a 45 run-out, and the check is that every facet of it earns that
+    # claim -- measured on the profile the geometry actually uses, not on the intent.
+    _ep = _ease_profile()[2:-1]                 # drop the two closure points, which are in air
+    _worst_ease = min(math.degrees(math.atan2(abs(_b[1] - _a[1]), abs(_b[0] - _a[0])))
+                      for _a, _b in zip(_ep, _ep[1:]) if abs(_b[0] - _a[0]) > 1e-9)
+    assert _worst_ease >= 45.0 - 1e-6, (
+        f"the eased battery edge has a facet at {_worst_ease:.1f} deg from horizontal. On a part "
+        f"that prints outer-face-down that is an OUTWARD lean off the bed, not an overhang you "
+        f"can support -- truncate the arc higher (EASE_TAN45 is where it stops being printable)")
+    # CONTROL: the untruncated round -- what JP literally asked for -- must FAIL this bar, or
+    # the truncation is decoration and the next person deletes it.
+    _full = math.degrees(math.atan2(EASE_R - math.sqrt(EASE_R**2 - (EASE_R/EASE_FACETS)**2),
+                                    EASE_R / EASE_FACETS))
+    assert _full < 45.0, (
+        f"control failed: the first facet of an UNtruncated round reads {_full:.1f} deg and "
+        f"clears the 45 bar, so this test cannot reject the shape it exists to reject")
+    # ...and it must stay out of the vent labyrinth's Z band, which is the constraint that made
+    # this cheap: they do not share a wall, they share a part.
+    assert COVER_Z0 + EASE_RISE < VENT_Z0 - 1.00, (
+        f"the ease now reaches z {COVER_Z0+EASE_RISE:.2f} and the vent labyrinth starts at "
+        f"{VENT_Z0:.2f} -- they share the -X wall and the labyrinth has placement priority, so "
+        f"its folds have to be re-derived on the curve before this can grow further")
+    print(f"  [ease]    battery edge R {EASE_R:.2f}: {EASE_BED:.2f} across the bed face, "
+          f"{EASE_RISE:.2f} up the side, {EASE_WALL:.2f}mm of wall at the diagonal (floor "
+          f"{MIN_SOLID:.2f}, ceiling R {(COV_WALL*math.sqrt(2)-MIN_SOLID)/(math.sqrt(2)-1):.2f})")
+    print(f"             shallowest facet {_worst_ease:.1f} deg; control (an untruncated round, "
+          f"which is what a literal wrap would be) reads {_full:.1f} deg and is REJECTED")
+    print(f"             dies {VENT_Z0-(COVER_Z0+EASE_RISE):.2f} below the vent labyrinth and "
+          f"{BACK_Z-(COVER_Z0+EASE_RISE):.2f} below the mating plane -- midframe UNTOUCHED")
+
     _blk = bx(OX0, OX0 + 12.0, 0.0, 12.0, BACK_Z, BACK_Z + 6.0)
     _blk -= bx(OX0 + 1.0, OX0 + 9.0, 2.0, 10.0, BACK_Z, BACK_Z + 1.40)      # the deleted hook
     _hw = _mat_widths(_blk, 6.0, BACK_Z, BACK_Z + 2.20, OX0, OX0 + 6.0)
