@@ -706,31 +706,24 @@ figure is where to look first, and it is a stiffness result rather than a fasten
 
 ### Assembly order — and two steps are effectively one-way
 
-
 1. **Seat the protection strip** in its pocket in the cover, **and solder its tabs now.** The whole
    compartment is open from above until the midframe goes on. Solder access is a property of *this
    ordering* and of nothing else — it is measured, not asserted in prose.
-
 2. **Form and fit the folded nickel leaf** at the −Y end. It is made from the strip's *own* B− tab,
    so it is not a separate part to source. Root sits in a **0.35 mm kerf at y 20.20**; free height
    **3.60**, closed height **0.75**, **2.85 mm of travel**. ⚠️ **The free height is JP-tunable** —
    it is the one number here set by feel rather than derived, and it sets the contact preload
    (1.75 mm on the shortest cell in tolerance, 0.50 off fully closed on the longest).
-
 3. **Tape the driver** to the midframe's back face inside its 0.60 mm locating groove. That face is
    a printed **bed face** — the flattest plane in the project — so unlike the desk stand there is
    **no proud pad**, and the groove is an outline only: the tape does the work, and a pocket would
    leave the bond bridging a step.
-
 4. **Route the driver leads through the SPK relief, then ⛔ SEAL THE RELIEF** — silicone, hot glue
    or putty. It opens into the sealed acoustic cavity. It is asserted to lie *wholly inside* the
    seal rim rather than straddling its wall, because a straddled opening cannot be sealed at all.
-
 5. **Run the cell leads** down the divider groove (1.00 deep × 5.40 wide — widened from 3.20 so a
    **flat 5 mm nickel tab** lies in it rather than a round wire) and out to `BAT`.
-
 6. **Fit board and bezel** exactly as the desk build. Four M3 × 12, same torque, same order.
-
 7. **Drop the cell in — `+` toward HIGH Y** — then seat the cover and drive **both** M3 × 22.
 
 ### The polarity marks, and why they do not match each other
