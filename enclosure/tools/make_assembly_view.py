@@ -70,6 +70,14 @@ def main() -> int:
         ("slab-mobile-midframe", Pos(SLAB_MOB_X, 0, 0) * midframe),
         ("slab-mobile-cover",    Pos(SLAB_MOB_X, 0, 0) * cover),
     ]
+    # The hardware phantoms — the same solids the checks measure against (JP's ask:
+    # "add the speaker to the render"). Toggle the cover off in the viewer to see
+    # driver/cell/strip seated in the docked scene; the slab scene shows them mated.
+    for name, solid in (("driver", M.driver_phantom()),
+                        ("cell",   M.cell_phantom()),
+                        ("bms-strip", M.prot_phantom())):
+        scene.append((f"mobile-{name}",      Pos(DX, 0, 0) * dock(solid)))
+        scene.append((f"slab-mobile-{name}", Pos(SLAB_MOB_X, 0, 0) * solid))
     for name, solid in scene:
         export_stl(solid, os.path.join(OUT, name + ".stl"))
         print(f"[assembly]   exported {name}.stl", flush=True)
