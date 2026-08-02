@@ -501,7 +501,68 @@ FRONT_GAP_MOBILE = (BACK_Z - TAPE_T - DRIVER_T) - CAV_Z0        # 8.60
 # rasters this part's own throat and measures the stand's the same way for comparison.
 GRILLE_FW = DRIVER_H - 2*GRILLE_INSET      # 25.00 across X -- driver is rotated 90deg here
 GRILLE_FH = DRIVER_W - 2*GRILLE_INSET      # 38.00 along Y
-DRV_CX    = (RIM_X0 + RIM_X1) / 2                       # 35.80
+# ============================================================================
+# THE FULL SEPARATOR WALL, AND THE DRIVER SHIFT THAT PAYS FOR IT  (JP, r11 final)
+# ============================================================================
+#
+# JP: "Shift it -- build the wall." Authorised with the trade in front of him.
+#
+# >>> AND THE LANE MATTERS AGAIN: THIS WALL GOES +X OF RIM_X0, NOT IN THE STUB LANE. <<<
+# The partial wall this replaces stood in the old divider's lane (x CELL_X1..RIM_X0) and could
+# not span the strip's Y range, because the strip loads STRAIGHT DOWN through a PROT_W column
+# that the cell pins to exactly that lane. A wall on the DRIVER'S side of RIM_X0 never enters
+# that column at all -- the pocket ends AT RIM_X0 -- so it can run the chamber's whole length.
+# That is the actual reason the shift works, and it is not the reason I first gave.
+# _MIN_SOLID: this block sits ABOVE §5g where the public MIN_SOLID alias is bound. That is the
+# THIRD time this round a constant defined up here reached for a name bound further down, so it
+# is worth stating as a rule rather than a bug: everything above §5g uses the private names.
+SEP_WALL_T = _MIN_SOLID                                 # 1.60, four extrusions
+SEP_WALL_X0 = RIM_X0
+SEP_WALL_X1 = RIM_X0 + SEP_WALL_T                       # 22.25, the chamber's new -X face
+#
+# THE SHIFT IS DERIVED FROM A WINDOW, NOT CHOSEN, AND JP'S 0.45 IS OUTSIDE IT.
+# At +0.45 the driver clears the wall by 0.40 as intended -- but the MIDFRAME'S LOCATING GROOVE
+# is drawn at driver + 2*DRIVER_CLR, so it is 1.20 wider per side than the driver, and at +0.45
+# its -X edge lands 0.20 INSIDE the new wall's footprint. That groove is a 0.60-deep channel cut
+# into the very face this wall bears on, so the overlap would be a leak path running the entire
+# length of the wall built to stop leaks. Two bounds, therefore:
+#
+#     groove -X edge >= the wall's chamber face   ->  shift >= 0.65
+#     groove +X edge <= RIM_X1 (the case wall)    ->  shift <= 0.95
+#
+# and the shift is the CENTRE of that window, so neither bound is sat on. 0.80.
+_GRV_HALF = (DRIVER_H + 2 * DRIVER_CLR) / 2
+_shift_lo = (SEP_WALL_X1 + _GRV_HALF) - (RIM_X0 + RIM_X1) / 2
+_shift_hi = (RIM_X1 - _GRV_HALF) - (RIM_X0 + RIM_X1) / 2
+assert _shift_hi > _shift_lo, (
+    f"no driver shift satisfies both the wall face and the case wall: window is "
+    f"[{_shift_lo:.2f}, {_shift_hi:.2f}]. The wall cannot be {SEP_WALL_T:.2f} thick here")
+# >>> AND THE GATE KILLED IT AT 21.50 mm3. THE SHIFT IS NOT BUILT. HERE IS WHY, IN NUMBERS. <<<
+#
+# The window above is real but it is not the binding one, because it never asked where the STRIP
+# actually sits. prot_phantom() places the body at PROT_PKT_X0 + PROT_PKT_CLR, so its +X face is
+# at x 21.05 -- 0.40 PAST RIM_X0, into space that used to be open chamber and is now wall. The
+# strip fouled the cover by exactly PROT_L * PROT_T * PROT_PKT_CLR = 21.50 mm3 and check 13 said
+# so. The assembly clearance the pocket was always carrying is the thing the wall wants to stand
+# in.
+#
+#   the wall cannot start before          x 21.05   (the strip's own +X face)
+#   the groove must stay off the rim  ->  DRV_CX <= 36.65
+#   so the thickest wall available is         1.50
+#   MIN_SOLID is                              1.60   -> SHORT BY 0.10
+#
+# And the pocket cannot move -X to buy the 0.40 back: at the pocket's top Z the cell bore's edge
+# is 15.87 and PROT_PKT_X0 is 16.15, i.e. 0.28 available against 0.40 needed. The 18650 pins it.
+#
+# ONE CHANGE DOES CLOSE IT, and it is not mine to make: DRIVER_CLR 0.60 -> 0.40 shrinks the
+# locating groove by 0.20 a side, which lifts the ceiling to 1.90 and the wall fits at 1.60 with
+# room over. That is a FIT DIMENSION on the driver -- the groove it drops into -- and JP is
+# bench-testing the r10 cover with that driver as this is written. Changing a drop-in fit while
+# the owner is measuring the drop-in fit is how you invalidate his test and your own answer.
+#
+# So: DRV_SHIFT = 0, no full wall, the r11 partial wall stands, and the 0.10 goes to JP.
+DRV_SHIFT = 0.0
+DRV_CX    = (RIM_X0 + RIM_X1) / 2 + DRV_SHIFT           # 36.50
 DRV_CY    = (RIM_Y0 + RIM_Y1) / 2                       # 52.40 -- the comment said 42.60 until
                                                         # 2026-08-01, and that was never right at
                                                         # any RIM_Y0: plainly wrong, not drift.
@@ -1847,6 +1908,21 @@ SIDE_LBL_H     = round(SIDE_LBL_BAND - SIDE_LBL_W, 2)           # ink height == 
 # left to shave: the 0.80 keepouts are against a THROUGH-CUT channel below and the bezel SEAM
 # above. Buying it with a narrower stroke means going under two extrusions on a vertical wall,
 # which is exactly the unproven groove this file refuses to ship blind.
+# >>> JP, ASKED DIRECTLY, ANSWERED "try on the sude anyway." SO IT IS BUILT -- EXPERIMENTAL. <<<
+# This is the owner overriding a print floor with the number in front of him, the same class of
+# call as the open chamber. It is built at the ONLY size that fits the band, and the ONE variable
+# changed is the stroke: depth stays at its three neighbours' 0.80 so that if it fails, the
+# failure is attributable to stroke width and nothing else.
+#
+#   stroke 0.50 = 1.25 extrusions at the 0.40 nozzle.  THE RISK IS NOT THE WEB -- the material
+#   BETWEEN strokes measures 0.83 here, over the 0.80 the back grill proved. The risk is the
+#   GROOVE: at 1.25 extrusions the perimeter may simply bridge across it and leave no mark at
+#   all, which is an invisible label -- the defect this file has already shipped once (the "-"
+#   behind the leaf). Nothing structural depends on it; the cost of failure is a blank patch.
+#   The physical print is the verdict.
+SIDE_LBL_SD_W  = 0.50           # ⚠️ EXPERIMENTAL, below the proven two-extrusion groove
+SIDE_LBL_SD_H  = 3.90           # ink 4.40 tall in the 4.70 band -- 0.30 of slack
+SIDE_LBL_SD_GAP = SIDE_LBL_SD_W + 1.00
 _SD_H_MIN = 4.70
 SIDE_LBL_SD_SHORTFALL = (_SD_H_MIN + SIDE_LBL_W) - SIDE_LBL_BAND        # +0.80
 assert SIDE_LBL_SD_SHORTFALL > 0, (
@@ -1854,7 +1930,7 @@ assert SIDE_LBL_SD_SHORTFALL > 0, (
     "let the gate re-measure it, rather than leaving a constant that says it cannot")
 
 
-def _side_label(paths, face, cy, cz, depth):
+def _side_label(paths, face, cy, cz, depth, w=None):
     """A label sketch laid onto a flank, authored in READING SPACE and mirrored on placement.
 
     ⚠️ THE +X FLANK READS BACKWARDS IF NOBODY WRITES THIS DOWN -- the same hazard as
@@ -1865,7 +1941,7 @@ def _side_label(paths, face, cy, cz, depth):
     Two of the three labels are on the +X flank, so getting this backwards mirrors most of them.
     """
     _p = paths if face == "-X" else [[(-u, v) for u, v in _path] for _path in paths]
-    _sk = E._label_sketch(_p, SIDE_LBL_W)
+    _sk = E._label_sketch(_p, SIDE_LBL_W if w is None else w)
     # sketch u -> world +Y, v -> world +Z (so its normal lands on +X): Rz90 after Rx90
     _sk = Rot(0, 0, 90) * (Rot(90, 0, 0) * _sk)
     _x = OX0 if face == "-X" else OX1 - depth
@@ -1960,6 +2036,10 @@ def midframe():
     for _nm, _face, _cy in SIDE_LBL_SITES:
         p -= _side_label(E._LBL_SIDE[_nm], _face, _cy,
                          (SIDE_LBL_Z0 + SIDE_LBL_Z1) / 2, SIDE_LBL_DEPTH)
+    # SD last and separately -- its own stroke, its own paths, so its risk cannot reach the
+    # other three by sharing a constant with them.
+    p -= _side_label(E._LBL_SIDE_SD, SIDE_LBL_SD[1], SIDE_LBL_SD[2],
+                     (SIDE_LBL_Z0 + SIDE_LBL_Z1) / 2, SIDE_LBL_DEPTH, w=SIDE_LBL_SD_W)
 
     return p
 
@@ -2050,6 +2130,9 @@ def back_cover():
     # over the BMS, which is the one thing JP wanted out of the acoustic volume.
     p += bx(CELL_X1, RIM_X0, BAY_Y0, PROT_Y0 - PROT_PKT_CLR, CAV_Z0, BACK_Z)
     p += bx(CELL_X1, RIM_X0, PROT_Y1 + PROT_PKT_CLR, BAY_Y1, CAV_Z0, BACK_Z)
+    # (THE FULL WALL IS NOT BUILT -- see the DRV_SHIFT block in Sec 5f. It is short by 0.10 against
+    #  MIN_SOLID once the strip's own 0.40 pocket clearance is respected, and the only thing that
+    #  closes it is a change to the driver's locating fit while JP is bench-testing that fit.)
     # ---- the rim's two genuinely new sides; the other two are the divider and the case wall
     p += bx(RIM_X0, RIM_X1, RIM_Y1, RIM_Y1 + RIM_WALL, CAV_Z0, BACK_Z)
     # ⚠️ THE LOW-Y WALL IS DELETED.  JP's standing call, and its premise is TRUE again.
