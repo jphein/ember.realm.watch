@@ -272,23 +272,43 @@ S.write_svg(_out("mobile-glow-window.svg"), [(_glow_polys, "wall")],
 # So the override is gone and dim() measures the seat it is drawn under. PROT_W and PROT_T are
 # still class placeholders, but neither is labelled here, so no glyph in this figure is
 # currently making a claim the model cannot back.
-print("strip pocket:")
-_PZ = M.CAV_Z0 + M.PROT_RIB_H / 2
-_pcrop = Pos(M.RIM_X0 - 3.0, M.PROT_Y1 - M.PROT_W - 8.0, -60.0) * Box(
-    (M.RIM_X1 + 3.0) - (M.RIM_X0 - 3.0), 20.0, 120.0,
-    align=(Align.MIN, Align.MIN, Align.MIN))
-_gs = [(S.face_polys(S.section(cover & _pcrop, "z", _PZ), "z"), "pocket")]
+print("strip channel:")
+# THE STRIP MOVED, AND SO DID THIS FIGURE'S SUBJECT.
+#
+# It used to section a pocket in the chin band. That pocket, its locating ribs, its hold-down
+# detents and its crossing lane are all DELETED -- gone with the part they housed. The strip now
+# lies FLAT ON THE BAY FLOOR BESIDE THE CELL, in the space the divider used to occupy, so the
+# figure is a plan through its channel instead: x 16.15..20.65, mid-bay y 42.83..64.33.
+#
+# `PROT_CX` is None in the model now, and the first run of this figure after the architecture
+# changed died on `None - PROT_L/2`. That is the correct outcome -- a figure whose anchor constant
+# has been retired SHOULD fail rather than draw something plausible somewhere else. A tool that
+# silently re-centres on a default is how a drawing ends up describing a part that does not exist.
+_PZ = (M.PROT_PKT_Z0 + M.PROT_PKT_Z1) / 2
+# Cropped to the strip and the NEAR edge of the bore only. The relationship this figure exists to
+# show is "the body lies beside the cell", so the cell's far side is spent page and the gap between
+# them read as dead space when the whole bore was in frame.
+_pcrop = Pos(2.0, M.PROT_Y0 - 4.0, -60.0) * Box(
+    (M.CELL_X1 + 2.4) - 2.0,
+    (M.PROT_Y1 + 4.0) - (M.PROT_Y0 - 4.0),
+    120.0, align=(Align.MIN, Align.MIN, Align.MIN))
+_gs = [(S.face_polys(S.section(cover & _pcrop, "z", _PZ), "z"), "bay")]
 try:
     _gs.append((S.face_polys(S.section(strip & _pcrop, "z", _PZ), "z"), "strip"))
 except ValueError:
     pass
+# ALL THREE STRIP DIMENSIONS ARE JP-MEASURED NOW -- 21.50 x 4.50 x 2.50, plus the 90.0 flat
+# assembly. There are no placeholders left in this figure, which is why nothing here is hedged;
+# the "est +/-2" this drawing once carried is now simply history.
 dims = [
-    S.dim((M.PROT_CX - M.PROT_L / 2, M.PROT_Y1 - M.PROT_W),
-          (M.PROT_CX + M.PROT_L / 2, M.PROT_Y1 - M.PROT_W), off=-3.0, side="v"),
-    S.dim((M.PROT_CX + M.PROT_L / 2 + 2.0, M.PROT_Y1 - M.PROT_W),
-          (M.PROT_CX + M.PROT_L / 2 + 2.0, M.PROT_Y1), off=3.0, side="h"),
+    S.dim((M.PROT_PKT_X0, M.PROT_Y0), (M.PROT_PKT_X0, M.PROT_Y1), off=-3.0, side="h"),
+    S.dim((M.PROT_PKT_X0, M.PROT_Y0 - 2.0), (M.PROT_PKT_X1, M.PROT_Y0 - 2.0),
+          off=-2.0, side="v"),
 ]
-S.write_svg(_out("mobile-strip-pocket.svg"), _gs, "mobile-strip", dims=dims)
+# TRANSPOSED: the strip is 21.50 long in Y and 4.50 wide in X, so untransposed the figure is a
+# tall sliver with the dimensions stacked in dead space. With +Y across the page it reads as the
+# part does -- a long thin body lying alongside a cylinder.
+S.write_svg(_out("mobile-strip-pocket.svg"), _gs, "mobile-strip", dims=dims, swap=True)
 
 
 # ================================================== 5b. BAY-END DETAILS (svg)
@@ -354,10 +374,10 @@ _KZ = (M.CONTACT_Z0 + M.CONTACT_Z1) / 2
 dims = [
     S.leader((M.BAY_Y0, _KZ), (_a0 - 0.6, _BOT), f"leaf kerf {M.LEAF_KERF:.2f}"),
     S.leader((M.BAY_Y1 + _off, _KZ), (_b0 + _off - 0.6, _BOT),
-             f"contact kerf {M.CONTACT_KERF:.2f}"),
+             f"leaf kerf {M.LEAF_KERF:.2f}"),
 ]
 S.write_svg(_out("mobile-bay-ends.svg"),
-            [(_left, "leaf-end"), (_right, "plate-end")], "mobile-bay",
+            [(_left, "leaf-end-lo"), (_right, "leaf-end-hi")], "mobile-bay",
             dims=dims, label_px=20.0)
 
 
