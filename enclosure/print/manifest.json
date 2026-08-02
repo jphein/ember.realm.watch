@@ -16,23 +16,23 @@
   "ember-mobile-back": {
     "printed_at": null,
     "printed_rev": 0,
-    "rev": 10,
-    "sha8": "ab51286b",
-    "updated": "2026-08-02T07:20"
+    "rev": 11,
+    "sha8": "d6efe66d",
+    "updated": "2026-08-02T09:18"
   },
   "ember-mobile-midframe": {
     "printed_at": null,
     "printed_rev": 0,
-    "rev": 6,
-    "sha8": "15590707",
-    "updated": "2026-08-02T01:04"
+    "rev": 7,
+    "sha8": "083c0a01",
+    "updated": "2026-08-02T09:18"
   },
   "ember-stand": {
     "printed_at": "2026-07-31",
     "printed_rev": 1,
-    "rev": 5,
-    "sha8": "bfe8dd47",
-    "updated": "2026-08-01T23:02"
+    "rev": 6,
+    "sha8": "debd620a",
+    "updated": "2026-08-02T09:18"
   },
   "ember-stand-base": {
     "printed_at": "2026-07-31",
