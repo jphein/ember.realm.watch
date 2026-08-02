@@ -244,16 +244,35 @@ CELL_TIP_Y   = BAY_Y0 + CELL_L_MAX + LEAF_SOLID + LEAF_MARGIN   # 86.95, the "+"
 # short, and 3.80 happens to be more than enough. Delete the coil and the debt comes due.
 #
 # Derived, not chosen: the distance back from the corner at which the outer arc still leaves
-# MIN_SOLID between itself and the bore's -X extreme.
+# MIN_SOLID between itself and the bore's -X extreme -- MEASURED IN X.
+#
+# >>> ⚠️ "MEASURED IN X" IS THE WHOLE CAVEAT, AND IT IS NOT PEDANTRY.  SEE CHECK 7d.        <<<
+# The void this defends ends in a CONVEX corner at (CELL_X0, CELL_TIP_Y), and at a convex corner
+# the shortest line to the outer arc is the DIAGONAL, not the horizontal. So the expression below
+# solves the X clearance and then reports more material than the part has: it delivers 1.41
+# radially while naming 1.60. Check 7d measures that on the finished solid, and slice_probe.py
+# measured 1.405 on the exported STL independently of any of this arithmetic -- two methods, one
+# number. The [exempt] ledger carries the acceptance and the class.
+#
+# >>> JP, 2026-08-02, told the number and the class: "it's fine as is 1.41mm is pefefctly    <<<
+# >>> thick."  ACCEPTED BY THE OWNER.  It is not left as-is because nobody noticed.          <<<
+#
+# A radially honest MIN_SOLID wants MOB_OY1 >= 91.06 -- the case getting LONGER by 0.38 -- which
+# is the decision he declined with the number in front of him. So the expression stays exactly as
+# it is; what changed is that it no longer claims to be something it is not.
 _BORE_X0     = OX0 + COV_WALL                           # -0.75 -- the bore's -X extreme IS the
                                                         # interior wall; that is the X budget
                                                         # (CELL_X0 below, same expression)
 _ARC_CX      = OX0 + OUT_R                              # 3.50, the corner arc's centre
 _MIN_SOLID   = 4 * 0.40          # 1.60; MIN_SOLID itself is named in 5g, below
 _ARC_DY      = math.sqrt(max(OUT_R**2 - (_MIN_SOLID + _ARC_CX - _BORE_X0)**2, 0.0))
-CELL_END_SETBACK = OUT_R - _ARC_DY                      # 3.53
-MOB_OY1      = CELL_TIP_Y + max(COV_WALL, CELL_END_SETBACK)     # 90.48
-BAY_Y1       = MOB_OY1 - COV_WALL                       # 88.28, the COMPARTMENT's void end
+# ⚠️ THE THREE COMMENTS BELOW WERE STALE BY 0.20 AND WERE FIXED 2026-08-02. They read 3.53 /
+# 90.48 / 88.28 against live values of 3.733 / 90.683 / 88.483 -- liars with plausible values, the
+# fourth instance of the class in this file (dead SD_PLATE, dead GRILLE_SLOT_W, the 5mm ghost).
+# A wrong number in a comment is worse than none, because the next reader budgets against it.
+CELL_END_SETBACK = OUT_R - _ARC_DY                      # 3.733
+MOB_OY1      = CELL_TIP_Y + max(COV_WALL, CELL_END_SETBACK)     # 90.683
+BAY_Y1       = MOB_OY1 - COV_WALL                       # 88.483, the COMPARTMENT's void end
 BAY_L        = CELL_TIP_Y - BAY_Y0                      # 66.75, the cell's own working length
 # ...and the cell lane is SOLID from the plate to BAY_Y1, so the fillet is filled rather than
 # dodged: back_cover() adds that bulkhead and cuts the "+" kerf into its -Y face.
@@ -3378,9 +3397,80 @@ def _check_mobile(parts):
           f"{OUT_R + CELL_TIP_Y - math.sqrt(max((OUT_R-MIN_SOLID)**2 - (_oc_cx-CELL_X0)**2, 0.0)):.2f}"
           f", i.e. the case getting LONGER by "
           f"{OUT_R + CELL_TIP_Y - math.sqrt(max((OUT_R-MIN_SOLID)**2 - (_oc_cx-CELL_X0)**2, 0.0)) - MOB_OY1:.2f}"
-          f", not shorter by {MOB_OY1-OY1:.2f}. NEEDS JP -- growing the envelope is his call, "
-          f"not mine, and the alternative knobs (OUT_R, the X budget, CELL_TIP_Y) are all cell "
-          f"fit dimensions.")
+          f", not shorter by {MOB_OY1-OY1:.2f}.")
+    print(f"             ANSWERED. JP, 2026-08-02, given the number and the class: \"it's fine "
+          f"as is 1.41mm is pefefctly thick.\" The case does NOT grow; the corner is carried in "
+          f"the [exempt] ledger as an owner acceptance, with his r10 print as the evidence.")
+
+    # ========================================================================
+    # 7e. THE LIP, EXPLORED.  "come up with a creative way to fix this little lip pls." (JP)
+    # ========================================================================
+    #
+    # He rejected both accepting the 1.73 and the two bad trades, so this block records the
+    # search rather than a verdict. NOTHING HERE IS BUILT -- it is priced for his pick, and it is
+    # written down so the next round does not re-derive it from scratch (this file has paid that
+    # cost three times: the dead dovetail, the side-wall cooling field, the third screw).
+    #
+    # >>> FIRST, THE BOUND THAT KILLS EVERY PLAN-VIEW ANSWER AT ONCE. <<<
+    # The entire constraint is ONE CIRCLE: no outer skin may come within MIN_SOLID of the void's
+    # plan corner P. At flush, with the box corner at B = (OX0, OY1), the deepest any corner
+    # treatment can cut is |B - P| - MIN_SOLID. The bezel's own arc cuts OUT_R*(sqrt2 - 1). The
+    # difference is how far proud the cover must stand, AND IT IS SHAPE-INDEPENDENT -- chamfer,
+    # arc, ellipse or freeform all sit on the same circle. So "a cleverer corner" is not a
+    # direction; the bound is the answer for all of them.
+    _lipB = math.hypot(CELL_X0 - OX0, OY1 - CELL_TIP_Y)     # box corner to the void's corner
+    _lip_cut_max = _lipB - MIN_SOLID                        # deepest possible cut at flush
+    _lip_bezel = OUT_R * (math.sqrt(2) - 1)                 # what the shared profile cuts
+    assert _lip_cut_max < _lip_bezel, (
+        f"the corner can be cut {_lip_cut_max:.3f} at flush against the bezel's {_lip_bezel:.3f} "
+        f"-- the plan-view family CLOSES, so the whole Z-banded argument below is unnecessary "
+        f"and the flush verdict in 7d is wrong")
+    #
+    # >>> AND THE DIRECTION THAT DOES CLOSE, BECAUSE IT SPENDS THE AXIS NOBODY IS USING. <<<
+    # THE BATTERY IS A CYLINDER AND THE CASE IS A BOX, so the corner conflict exists only at the
+    # cylinder's EQUATOR. At the mating plane the bore has literally zero width -- it is tangent
+    # to BACK_Z by construction (CELL_AXIS_Z = BACK_Z - CELL_BORE_D/2) -- and at the bed face it
+    # is CELL_BORE_D/2 + BAY_EXTRA below the axis. The 1.73 is currently paid across the part's
+    # WHOLE HEIGHT to buy a clearance that is only needed in a band. Let the top edge vary with z
+    # and the band closes on its own: the midframe returns to OY1 (flush with the bezel, and its
+    # outer profile becomes the desk profile again), the cover's mating rim at BACK_Z returns to
+    # OY1 (so there is NO STEP AT THE SEAM -- that is the brow defect class, and this has none of
+    # it), the bed face is in the flush band (contact area and the ease untouched), and the peak
+    # carries a RADIAL MIN_SOLID, which retires the ledger exemption above instead of needing it.
+    def _lip_ytop(_dz):
+        """Top edge the +Y end must reach at height _dz off the cell axis, radially honest."""
+        _e = CELL_AXIS_X - math.sqrt(max((CELL_BORE_D/2)**2 - _dz**2, 0.0))   # bore -X extreme
+        _v = (OUT_R - MIN_SOLID)**2 - (_e - (OX0 + OUT_R))**2
+        return None if _v <= 0 else CELL_TIP_Y + OUT_R - math.sqrt(_v)
+    _lip_lo, _lip_hi = 0.0, CELL_BORE_D/2
+    for _ in range(60):                                     # where the profile first goes flush
+        _m = (_lip_lo + _lip_hi) / 2
+        _y = _lip_ytop(_m)
+        if _y is None or _y <= OY1: _lip_hi = _m
+        else:                       _lip_lo = _m
+    _lip_peak = _lip_ytop(0.0)
+    assert _lip_hi < BACK_Z - CELL_AXIS_Z, (
+        f"the flush band starts {_lip_hi:.2f} off the cell axis but the mating plane is only "
+        f"{BACK_Z-CELL_AXIS_Z:.2f} up -- the tail would reach BACK_Z, the midframe could NOT "
+        f"return to OY1, and this option buys nothing over the plan-view family")
+    print(f"  [lip]     JP: \"come up with a creative way to fix this little lip pls.\" "
+          f"EXPLORED, NOT BUILT -- options priced for his pick.")
+    print(f"             PLAN-VIEW IS BOUNDED AND THE BOUND IS SHAPE-INDEPENDENT: at flush the "
+          f"corner can be cut at most {_lip_cut_max:.3f} (|B-P| {_lipB:.3f} - MIN_SOLID) against "
+          f"the bezel's {_lip_bezel:.3f}, so ANY plan treatment -- 45deg chamfer, smaller arc, "
+          f"ellipse, freeform -- stands >= {_lip_bezel-_lip_cut_max:.3f} proud at that corner.")
+    print(f"             Z-BANDED TAIL closes it instead: top edge {_lip_peak:.3f} at the cell "
+          f"axis, FLUSH with OY1 from {_lip_hi:.2f}mm off the axis (z {CELL_AXIS_Z+_lip_hi:.2f} "
+          f"and up), i.e. a {2*_lip_hi:.1f}mm band blended at "
+          f"{math.degrees(math.atan2(_lip_peak-OY1, _lip_hi)):.1f} deg from vertical -- the "
+          f"printable direction both ways. Mating plane, seam and bed all land FLUSH, and the "
+          f"peak carries a radial {MIN_SOLID:.2f}, retiring the [exempt] corner entry.")
+    print(f"             ⚠️ ITS ONE REAL COST: the top screw is placed off MOB_OY1, and its "
+          f"MIDFRAME boss reaches y {TOP_SCREW_XY[1]+SCREW_BOSS_D/2:.2f} -- it does not fit "
+          f"under a midframe ending at {OY1:.2f} and must move "
+          f"{TOP_SCREW_XY[1]+SCREW_BOSS_D/2-OY1:.2f}mm -Y. The cover's own counterbore is fine "
+          f"({TOP_SCREW_XY[1]+CBORE_D/2:.2f}). Retention span at +Y shortens; re-measure the "
+          f"worst unheld point before anyone cuts this.")
 
     # ---- 8. GRILLE THROAT, RASTERED.  Neither figure inherited from a comment. ----
 
@@ -3484,7 +3574,26 @@ def _check_mobile(parts):
                              "than the horizontal 1.25 web JP validated on r10 ('clean, webs "
                              "crisp'), still below it. COST OF FAILURE: a floppy or absent wall, "
                              "trimmable with scissors -- nothing structural depends on it. "
-                             "EXPERIMENTAL, and the print is the verdict."))
+                             "EXPERIMENTAL, and the print is the verdict."),
+               # >>> AND ONE THAT IS NOT AN EXPERIMENT: A PRE-EXISTING CONDITION THE OWNER      <<<
+               # >>> LOOKED AT AND ACCEPTED.  It is in this ledger so it is re-examined every   <<<
+               # >>> build instead of living in one check's print and being forgotten.          <<<
+               (_corner_wall, "the cell bore's +Y/-X corner against the OUT_R arc (§4b, check "
+                              "7d). NOT a free-standing rib: a continuous shell dimple, backed "
+                              "by COV_WALL above, below and both ways in Y, recovering past the "
+                              "floor within ~2mm of Z either side because the bore is a CYLINDER "
+                              "and only its equator is close to the arc. #47's 0.90 -- this "
+                              "project's only calibration point -- was an unsupported web, a "
+                              "different animal. NOT introduced by any recent round; §4b has "
+                              "always measured this wall in X and the diagonal is shorter. "
+                              "JP, 2026-08-02, given the number and the class: \"it's fine as is "
+                              "1.41mm is pefefctly thick.\" His r10 print is the physical "
+                              "evidence. ACCEPTED BY THE OWNER, not missed by the checks. "
+                              "⚠️ RETIRE THIS ENTRY if the +Y end is ever re-cut to carry a "
+                              "radial MIN_SOLID (MOB_OY1 >= 91.06, or the Z-banded tail in check "
+                              "7d's block) -- the exemption and that fix are the same constraint "
+                              "from two sides, and leaving both would exempt a wall that is no "
+                              "longer thin."))
     assert any(_v < MIN_SOLID for _v, _ in _exempt), (
         "control failed: nothing in the exempt list is actually under the floor, so the "
         "exemption is decorative and the scope line above is not being tested by anything")
