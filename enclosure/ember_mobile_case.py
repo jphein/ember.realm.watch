@@ -1837,7 +1837,6 @@ IVENT_BAND = 2*IVENT_D - DIVIDER_W                      # 0.60 -- SLOT_W, the pr
 # (76.40) and the top screw's boss (81.48) is 5.08mm -- one cell wide, not two. The divider is
 # 19.40 TALL, so the pair goes one above the other and the air turns in Z instead. Same
 # construction, different axis, because the obstruction is different.
-IVENT_Y    = 79.00                                      # both notches, in the one free window
 IVENT_CZ_O = -22.50                                     # compartment-side notch (lower)
 IVENT_CZ_I = IVENT_CZ_O + LAT_AF + 1.20                 # cell-bay-side notch (upper), -16.55
 assert IVENT_CZ_I + LAT_AF/2 < BACK_Z - 1.20 and IVENT_CZ_O - LAT_AF/2 > CAV_Z0 + 1.20, (
@@ -1849,11 +1848,71 @@ assert IVENT_CZ_I - LAT_AF/2 >= CELL_AXIS_Z, (
     f"the cell-bay-side notch reaches z {IVENT_CZ_I-LAT_AF/2:.2f}, below the cell's axis "
     f"{CELL_AXIS_Z:.2f} -- there the divider's face is backed by the CRADLE, so the notch opens "
     f"into solid and the vent is two blind pockets")
-assert IVENT_Y + LAT_AF/2 <= TOP_SCREW_XY[1] - SCREW_BOSS_D/2 and \
-       IVENT_Y - LAT_AF/2 >= RIM_Y1 + RIM_WALL, (
-    f"the internal vent at y {IVENT_Y-LAT_AF/2:.2f}..{IVENT_Y+LAT_AF/2:.2f} does not fit the "
-    f"divider's free window, {RIM_Y1+RIM_WALL:.2f}..{TOP_SCREW_XY[1]-SCREW_BOSS_D/2:.2f} -- "
-    f"the seal rim is below it and the top screw's boss above")
+#
+# ---- THE Y WINDOW, AND TWO THINGS THE OLD ASSERT GOT WRONG IN OPPOSITE DIRECTIONS ----
+#
+# The window is bounded below by the seal rim's +Y wall and above by the top screw's boss, and
+# the previous form of this check modelled BOTH ends with the wrong number. They very nearly
+# cancelled, which is why it read as passing while the part was out of spec.
+#
+# >>> (1) THE HEX SPANS 2*LAT_R IN Y, NOT LAT_AF.  The cell is drawn FLATS-ON-Z (deliberately
+# >>> -- it is a horizontal bore and a vertex-up roof is issue #28), so the flats are the Z
+# >>> extent and the VERTICES are the Y extent: 2*LAT_R = 5.485, not LAT_AF = 4.75. The old
+# >>> assert bounded it at 4.75 and so believed the notch stopped 0.37 short of where it does.
+# >>> AT IVENT_Y = 79.00 THE BUILT NOTCH REACHED y 76.258 AGAINST A RIM LINE OF 76.40 -- it
+# >>> broke 0.142 into the sealed chamber's +Y rim wall, thinning a 1.60 seal wall to 1.458.
+# >>> Nothing saw it, because the assert was measuring across the flats of a shape presenting
+# >>> its corners. This file's own recurring defect: an invariant insensitive to its own failure.
+IVENT_HALF_Y = LAT_R                                    # 2.742 -- vertices lead in Y. See above.
+#
+# >>> (2) THE BOSS IS A CYLINDER, AND THE OLD ASSERT BOUNDED IT BY ITS BOUNDING BOX.  The top
+# >>> screw's cover column is d SCREW_BOSS_D on the lane at SCREW_LANE_X; the divider is nowhere
+# >>> near the lane, so what the divider actually sees is a CHORD, not the full diameter. Using
+# >>> cy - D/2 understates the window by ~1.06mm at the compartment face and by more further -X.
+# >>> That error is conservative -- it rejects sound geometry -- which is the failure mode that
+# >>> sends the next reader off to shrink a FUNCTIONAL aperture that never needed shrinking.
+def _ivent_boss_floor(_x0, _x1, _cy=None, _d=None):
+    """Lowest y the top screw's column reaches anywhere in x [_x0,_x1]. BAY_Y1 if it misses."""
+    _cy = TOP_SCREW_XY[1] if _cy is None else _cy
+    _d  = SCREW_BOSS_D    if _d  is None else _d
+    _near = min(max(SCREW_LANE_X, _x0), _x1)            # the x in the span closest to the lane
+    _dx = abs(_near - SCREW_LANE_X)
+    return BAY_Y1 if _dx >= _d/2 else _cy - math.sqrt((_d/2)**2 - _dx**2)
+# Each notch owns its own x span, so each gets its own window; the vent must fit the WORSE one.
+IVENT_WIN_Y0 = RIM_Y1 + RIM_WALL
+IVENT_WIN_Y1 = min(_ivent_boss_floor(CELL_X1, CELL_X1 + IVENT_D),        # cell-bay-side notch
+                   _ivent_boss_floor(RIM_X0 - IVENT_D, RIM_X0))          # compartment-side notch
+# DERIVED, NOT TYPED: centre it in the window it actually has. Typing 79.00 is what let (1) hide.
+IVENT_Y    = (IVENT_WIN_Y0 + IVENT_WIN_Y1) / 2
+assert IVENT_WIN_Y1 - IVENT_WIN_Y0 >= 2*IVENT_HALF_Y, (
+    f"the internal vent needs {2*IVENT_HALF_Y:.3f} of Y (2*LAT_R -- the hex leads with its "
+    f"VERTICES in Y) and the divider's free window is only "
+    f"{IVENT_WIN_Y0:.2f}..{IVENT_WIN_Y1:.2f} = {IVENT_WIN_Y1-IVENT_WIN_Y0:.3f}. The seal rim is "
+    f"below it and the top screw's column above. Do NOT shrink LAT_* to fit -- it is a FUNCTIONAL "
+    f"aperture (see the LAT_* block) and the cheaper lever is the column: SCREW_BOSS_D is the "
+    f"head's annulus and the annulus only exists over the counterbore, so a column that steps to "
+    f"SCREW_D + 2*MIN_SOLID = {SCREW_D + 2*MIN_SOLID:.2f} above z "
+    f"{COVER_Z0+CBORE_DEPTH:.2f} gives the window back "
+    f"({_ivent_boss_floor(RIM_X0 - IVENT_D, RIM_X0, None, SCREW_D + 2*MIN_SOLID)-IVENT_WIN_Y0:.3f}"
+    f" of it) without touching the vent or the seat")
+# CONTROL: the window model must REJECT the geometry it was wrong about. Bound the column by its
+# bounding box (the old error) and the answer must change; if the chord and the box agree, the
+# probe is not measuring a cylinder and this whole derivation is decorative.
+assert _ivent_boss_floor(RIM_X0 - IVENT_D, RIM_X0) - (TOP_SCREW_XY[1] - SCREW_BOSS_D/2) > 0.5, (
+    "control failed: the chord model of the screw column returns the same floor as its bounding "
+    "box, so it is not modelling a cylinder and the window above is not the window")
+# CONTROL: and the Y extent must REJECT the across-flats placement that shipped the 0.142 breach.
+# Not "is 2*LAT_R bigger than LAT_AF" -- that is arithmetic. Put the notch exactly where the OLD
+# assert would have allowed its lowest, and require the NEW bound to throw it out.
+_IVENT_OLD_LOWEST = IVENT_WIN_Y0 + LAT_AF/2             # 78.775 -- what the flats-measure permitted
+assert _IVENT_OLD_LOWEST - IVENT_HALF_Y < IVENT_WIN_Y0, (
+    f"control failed: a notch centred at {_IVENT_OLD_LOWEST:.3f} -- the lowest the across-flats "
+    f"assert allowed -- still clears the rim line on the across-vertices measure, so the two "
+    f"measures cannot disagree and defect (1) above is unfalsifiable")
+assert IVENT_Y - IVENT_HALF_Y >= IVENT_WIN_Y0 - 1e-9 and \
+       IVENT_Y + IVENT_HALF_Y <= IVENT_WIN_Y1 + 1e-9, (
+    f"the internal vent at y {IVENT_Y-IVENT_HALF_Y:.3f}..{IVENT_Y+IVENT_HALF_Y:.3f} does not fit "
+    f"its own derived window {IVENT_WIN_Y0:.2f}..{IVENT_WIN_Y1:.2f}")
 assert IVENT_BAND > 0.0, (
     f"the internal vent's two notches are {IVENT_D:.2f} deep in a {DIVIDER_W:.2f} divider and "
     f"do not meet -- {2*IVENT_D:.2f} of cut in {DIVIDER_W:.2f} of wall leaves no band, so it "
@@ -2901,8 +2960,11 @@ def _check_mobile(parts):
         "would reject the speaker relief and every legitimate feature in the cavity")
     print(f"  [seal 6b] {len(_pierce)} pockets in the midframe, all clear of the rim footprint; "
           f"retention strip y {BAY_Y0:.2f}..{RIM_Y0-RIM_WALL:.2f} makes room for the chin screw "
-          f"and y>{RIM_Y1+RIM_WALL:.2f} for the top one ({TOP_SCREW_XY[1]-SCREW_BOSS_D/2:.2f} at "
-          f"its boss's nearest reach)")
+          f"and y>{RIM_Y1+RIM_WALL:.2f} for the top one "
+          f"({TOP_SCREW_XY[1]-SCREW_BOSS_D/2:.2f} on the LANE, where the boss is at full "
+          f"diameter; off the lane it is a chord and reaches only "
+          f"{_ivent_boss_floor(RIM_X0 - IVENT_D, RIM_X0):.2f} at the divider -- see the IVENT "
+          f"window block, which had this wrong in the conservative direction)")
 
     # ---- 7. FRONT CAVITY, MEASURED BY BOOLEAN, against the stand computed the same way ----
     cov = parts["ember-mobile-back"]
@@ -3350,16 +3412,52 @@ def _check_mobile(parts):
     _oc_cx, _oc_cy = OX0 + OUT_R, MOB_OY1 - OUT_R           # the outer corner arc's centre, plan
     _corner_wall = OUT_R - math.hypot(_oc_cx - CELL_X0, _oc_cy - CELL_TIP_Y)
 
-    def _corner_short(_r, _t=0.20):
+    def _corner_short(_r, _t=0.20, _z=None):
         """Fraction of the must-be-solid quadrant at the void's corner that is OUTSIDE the part.
 
         A disc of radius _r at the corner, minus the void quadrant it opens into, is material
         the part is obliged to have. Whatever of it lands outside the solid is wall that is not
         there. Measured on the finished cover, not on the profile it was drawn from."""
-        _disc = Pos(CELL_X0, CELL_TIP_Y, CELL_AXIS_Z) * Cylinder(_r, _t)
-        _void = Pos(CELL_X0 + 30, CELL_TIP_Y - 30, CELL_AXIS_Z) * Box(60, 60, 4 * _t)
+        _z = CELL_AXIS_Z if _z is None else _z
+        _disc = Pos(CELL_X0, CELL_TIP_Y, _z) * Cylinder(_r, _t)
+        _void = Pos(CELL_X0 + 30, CELL_TIP_Y - 30, _z) * Box(60, 60, 4 * _t)
         _must = _disc - _void
         return (_must - cov).volume / max(_must.volume, 1e-9)
+
+    # >>> ⚠️ AND IT IS SWEPT IN Z NOW, BECAUSE ONE PLANE WAS A LIE OF OMISSION. <<<
+    # Every number in this block used to be taken at CELL_AXIS_Z and then described in prose as
+    # "recovering within ~2mm of Z either side, because the bore is a cylinder". HALF OF THAT IS
+    # FALSE, and a second plane would have said so. The bore is a CRADLE, not a tube: the 18650
+    # is loaded STRAIGHT DOWN, so the lane must stay full bore width from the axis all the way to
+    # BACK_Z. Below the axis the void's -X extreme does retreat with the bore and the wall opens
+    # up; above it the void's -X extreme is a VERTICAL LINE at CELL_X0 and the wall does not move.
+    # Measured independently on the exported STL by slice_probe.py before it was ever asserted
+    # here (z_model -25.70/-23.30/-21.30/-19.40/-11.00/-10.30 -> 3.121/2.074/1.563/1.405/1.404/
+    # 1.404), which is why this is a sweep and not a second hand-picked plane.
+    _cz_lo, _cz_hi = CAV_Z0 + 0.60, BACK_Z - 0.60
+    _corner_sweep = []
+    for _k in range(9):
+        _cz = _cz_lo + (_cz_hi - _cz_lo) * _k / 8
+        _e = CELL_AXIS_X - math.sqrt(max((CELL_BORE_D/2)**2 - (_cz - CELL_AXIS_Z)**2, 0.0)) \
+             if _cz < CELL_AXIS_Z else CELL_X0          # <- the asymmetry, stated as geometry
+        _corner_sweep.append((_cz, OUT_R - math.hypot(_oc_cx - _e, _oc_cy - CELL_TIP_Y)))
+    _worst_z, _worst_w = min(_corner_sweep, key=lambda _p: _p[1])
+    # The analytic sweep is only worth having if the SOLID agrees with it at its worst plane.
+    _worst_meas = _corner_short(_worst_w - 0.02, 0.20, _worst_z)
+    assert _worst_meas < 0.01, (
+        f"the swept model says the corner's worst wall is {_worst_w:.3f} at z {_worst_z:.2f}, but "
+        f"a disc that size there is {100*_worst_meas:.1f}% outside the part -- the Z model above "
+        f"does not describe what back_cover() builds")
+    # CONTROL: the sweep must be able to SEE the asymmetry it exists to report. If the wall at the
+    # top of the cover reads no worse than 0.20 under the wall well below the axis, then either
+    # the lane does taper upward after all -- in which case the tail is alive and this block is
+    # wrong -- or the probe is blind in Z and the single-plane version was never improved on.
+    _w_above = _corner_sweep[-1][1]
+    _w_below = _corner_sweep[0][1]
+    assert _w_below - _w_above > 0.20, (
+        f"control failed: the corner reads {_w_below:.3f} at z {_corner_sweep[0][0]:.2f} and "
+        f"{_w_above:.3f} at z {_corner_sweep[-1][0]:.2f} -- the sweep cannot distinguish the "
+        f"cradle's open bottom from its full-width top, so it adds nothing to one plane")
 
     _corner_meas = _corner_short(_corner_wall - 0.02)
     assert _corner_meas < 0.01, (
@@ -3426,51 +3524,85 @@ def _check_mobile(parts):
         f"-- the plan-view family CLOSES, so the whole Z-banded argument below is unnecessary "
         f"and the flush verdict in 7d is wrong")
     #
-    # >>> AND THE DIRECTION THAT DOES CLOSE, BECAUSE IT SPENDS THE AXIS NOBODY IS USING. <<<
-    # THE BATTERY IS A CYLINDER AND THE CASE IS A BOX, so the corner conflict exists only at the
-    # cylinder's EQUATOR. At the mating plane the bore has literally zero width -- it is tangent
-    # to BACK_Z by construction (CELL_AXIS_Z = BACK_Z - CELL_BORE_D/2) -- and at the bed face it
-    # is CELL_BORE_D/2 + BAY_EXTRA below the axis. The 1.73 is currently paid across the part's
-    # WHOLE HEIGHT to buy a clearance that is only needed in a band. Let the top edge vary with z
-    # and the band closes on its own: the midframe returns to OY1 (flush with the bezel, and its
-    # outer profile becomes the desk profile again), the cover's mating rim at BACK_Z returns to
-    # OY1 (so there is NO STEP AT THE SEAM -- that is the brow defect class, and this has none of
-    # it), the bed face is in the flush band (contact area and the ease untouched), and the peak
-    # carries a RADIAL MIN_SOLID, which retires the ledger exemption above instead of needing it.
+    # >>> ⚠️ THE Z-BANDED TAIL WAS THE ANSWER THIS BLOCK USED TO RECOMMEND.  IT IS DEAD, AND   <<<
+    # >>> THE RETRACTION LIVES HERE RATHER THAN IN A HANDOFF, BECAUSE A HANDOFF IS NOT READ.   <<<
+    #
+    # The argument was: the battery is a cylinder and the case is a box, so the corner conflict
+    # exists only at the cylinder's EQUATOR -- let the top edge vary with z and the midframe, the
+    # seam and the bed all return to OY1 while a lens-shaped tail carries the clearance in a band
+    # around the axis. It priced out at a 12.6mm tail peaking 2.113 proud, blended at 18.6 deg.
+    #
+    # IT RESTS ON `_e = the BORE's -X extreme at this height`, SYMMETRIC IN dz, AND THAT IS ONLY
+    # TRUE BELOW THE AXIS. The bore is a CRADLE, not a tube. An 18650 is loaded STRAIGHT DOWN into
+    # it, so the lane has to stay full bore width from the axis up to BACK_Z -- the void's -X
+    # extreme above the equator is a vertical line at CELL_X0, not a retreating arc. Check 7d's
+    # Z sweep is the instrument, and the exported STL said it first: the corner reads 1.404 at
+    # z -11.00 and again at z -10.30, 0.60 under the mating plane, exactly as at the axis.
+    #
+    # What the tail would therefore have BUILT, had it been cut: the profile returning to OY1
+    # above the flush threshold while that corner stays at CELL_X0 leaves _flush_wall (printed
+    # below) -- a 0.30mm shell over a lithium cell. Nothing in this file would have caught it:
+    # the only assert that stopped the attempt was the internal vent's, which is module-level and
+    # fires before any solid exists. THE VENT ASSERT SAVED THE PART BY ACCIDENT.
+    #
+    # And a tail that holds its peak from the axis to BACK_Z is not a smaller lip -- it is a
+    # LARGER one, plus a step at the cover/midframe seam, which is the brow defect it existed to
+    # remove. There is no version of this that wins.
     def _lip_ytop(_dz):
-        """Top edge the +Y end must reach at height _dz off the cell axis, radially honest."""
-        _e = CELL_AXIS_X - math.sqrt(max((CELL_BORE_D/2)**2 - _dz**2, 0.0))   # bore -X extreme
+        """Top edge the +Y end must reach at height _dz off the cell axis, radially honest.
+
+        _dz is SIGNED and the asymmetry is the whole point: below the axis the void follows the
+        bore, above it the void is the cell's straight-down insertion column at CELL_X0."""
+        _e = (CELL_AXIS_X - math.sqrt(max((CELL_BORE_D/2)**2 - _dz**2, 0.0))
+              if _dz < 0 else CELL_X0)
         _v = (OUT_R - MIN_SOLID)**2 - (_e - (OX0 + OUT_R))**2
         return None if _v <= 0 else CELL_TIP_Y + OUT_R - math.sqrt(_v)
-    _lip_lo, _lip_hi = 0.0, CELL_BORE_D/2
+    _lip_lo, _lip_hi = -CELL_BORE_D/2, 0.0                  # search DOWNWARD -- the only free side
     for _ in range(60):                                     # where the profile first goes flush
         _m = (_lip_lo + _lip_hi) / 2
         _y = _lip_ytop(_m)
-        if _y is None or _y <= OY1: _lip_hi = _m
-        else:                       _lip_lo = _m
+        if _y is None or _y <= OY1: _lip_lo = _m
+        else:                       _lip_hi = _m
     _lip_peak = _lip_ytop(0.0)
-    assert _lip_hi < BACK_Z - CELL_AXIS_Z, (
-        f"the flush band starts {_lip_hi:.2f} off the cell axis but the mating plane is only "
-        f"{BACK_Z-CELL_AXIS_Z:.2f} up -- the tail would reach BACK_Z, the midframe could NOT "
-        f"return to OY1, and this option buys nothing over the plan-view family")
+    _lip_band_up = BACK_Z - CELL_AXIS_Z                     # how far the peak must run upward
+    # THE VERDICT, AS AN ASSERT SO IT CANNOT ROT INTO PROSE: above the axis the requirement must
+    # NOT decay. If it ever does -- someone gives the cell an axial insertion, or the lane gets a
+    # roof -- the tail comes back to life and this whole block has to be rewritten, not patched.
+    assert _lip_ytop(_lip_band_up) > OY1 + 1e-9, (
+        f"the +Y requirement at the mating plane has fallen to {_lip_ytop(_lip_band_up):.3f}, at "
+        f"or under OY1 {OY1:.2f} -- the lane now DOES taper above the cell axis, so the Z-banded "
+        f"tail is alive again and the retraction above is stale. Re-derive it, do not delete this")
+    # CONTROL: the same model must still find the relief that genuinely exists BELOW the axis, or
+    # it is not a model of a cradle, it is just a constant and it proves nothing about direction.
+    assert _lip_lo > -CELL_BORE_D/2 + 1e-6 and _lip_ytop(_lip_lo - 0.5) <= OY1 + 1e-9, (
+        f"control failed: the requirement never reaches OY1 going DOWN either "
+        f"({_lip_lo:.3f} off the axis), so this function cannot tell an open bottom from a "
+        f"full-width top and the asymmetry it reports is not evidence")
     print(f"  [lip]     JP: \"come up with a creative way to fix this little lip pls.\" "
           f"EXPLORED, NOT BUILT -- options priced for his pick.")
     print(f"             PLAN-VIEW IS BOUNDED AND THE BOUND IS SHAPE-INDEPENDENT: at flush the "
           f"corner can be cut at most {_lip_cut_max:.3f} (|B-P| {_lipB:.3f} - MIN_SOLID) against "
           f"the bezel's {_lip_bezel:.3f}, so ANY plan treatment -- 45deg chamfer, smaller arc, "
           f"ellipse, freeform -- stands >= {_lip_bezel-_lip_cut_max:.3f} proud at that corner.")
-    print(f"             Z-BANDED TAIL closes it instead: top edge {_lip_peak:.3f} at the cell "
-          f"axis, FLUSH with OY1 from {_lip_hi:.2f}mm off the axis (z {CELL_AXIS_Z+_lip_hi:.2f} "
-          f"and up), i.e. a {2*_lip_hi:.1f}mm band blended at "
-          f"{math.degrees(math.atan2(_lip_peak-OY1, _lip_hi)):.1f} deg from vertical -- the "
-          f"printable direction both ways. Mating plane, seam and bed all land FLUSH, and the "
-          f"peak carries a radial {MIN_SOLID:.2f}, retiring the [exempt] corner entry.")
-    print(f"             ⚠️ ITS ONE REAL COST: the top screw is placed off MOB_OY1, and its "
-          f"MIDFRAME boss reaches y {TOP_SCREW_XY[1]+SCREW_BOSS_D/2:.2f} -- it does not fit "
-          f"under a midframe ending at {OY1:.2f} and must move "
-          f"{TOP_SCREW_XY[1]+SCREW_BOSS_D/2-OY1:.2f}mm -Y. The cover's own counterbore is fine "
-          f"({TOP_SCREW_XY[1]+CBORE_D/2:.2f}). Retention span at +Y shortens; re-measure the "
-          f"worst unheld point before anyone cuts this.")
+    print(f"             ⚠️ Z-BANDED TAIL: RETRACTED, AND THE RETRACTION IS THE FINDING. It was "
+          f"ranked first here and it is DEAD. Its model took the void's -X extreme as the BORE's "
+          f"at every height -- symmetric in dz -- and the bore is a CRADLE, not a tube: the cell "
+          f"loads straight down, so above the axis the void stays at CELL_X0 {CELL_X0:.2f} for "
+          f"the whole {_lip_band_up:.2f}mm up to the mating plane.")
+    print(f"             Requirement at the axis {_lip_peak:.3f}; at the mating plane STILL "
+          f"{_lip_ytop(_lip_band_up):.3f}, i.e. it never goes flush going UP. It goes flush only "
+          f"DOWNWARD, {-_lip_lo:.2f}mm below the axis (z {CELL_AXIS_Z+_lip_lo:.2f}) -- one-sided "
+          f"relief, in the half that was never the problem.")
+    print(f"             HAD IT BEEN CUT: the profile back at OY1 over a corner still at "
+          f"{CELL_X0:.2f} leaves {_flush_wall:.3f}mm of shell over a lithium cell. The only thing "
+          f"that stopped the attempt was the internal vent's MODULE-LEVEL assert, which fires "
+          f"before any solid exists -- so no check in this file was ever going to see it. Check "
+          f"7d is swept in Z now; that is the lens that was missing.")
+    print(f"             AND A TAIL THAT HOLDS ITS PEAK TO BACK_Z IS A BIGGER LIP, not a smaller "
+          f"one, PLUS a cover/midframe seam step -- the brow defect it existed to remove. "
+          f"WHAT SURVIVES, both JP's and both already priced above: a smaller OUT_R at that "
+          f"corner (flush, ~0.95 proud at one corner) or crowning the standing "
+          f"{MOB_OY1-OY1:.2f} so it reads as designed.")
 
     # ---- 8. GRILLE THROAT, RASTERED.  Neither figure inherited from a comment. ----
 
@@ -3579,21 +3711,28 @@ def _check_mobile(parts):
                # >>> LOOKED AT AND ACCEPTED.  It is in this ledger so it is re-examined every   <<<
                # >>> build instead of living in one check's print and being forgotten.          <<<
                (_corner_wall, "the cell bore's +Y/-X corner against the OUT_R arc (§4b, check "
-                              "7d). NOT a free-standing rib: a continuous shell dimple, backed "
-                              "by COV_WALL above, below and both ways in Y, recovering past the "
-                              "floor within ~2mm of Z either side because the bore is a CYLINDER "
-                              "and only its equator is close to the arc. #47's 0.90 -- this "
-                              "project's only calibration point -- was an unsupported web, a "
-                              "different animal. NOT introduced by any recent round; §4b has "
+                              "7d). NOT a free-standing rib: a continuous shell, backed by "
+                              "COV_WALL both ways in Y and by the cradle below. #47's 0.90 -- "
+                              "this project's only calibration point -- was an unsupported web, "
+                              "a different animal. NOT introduced by any recent round; §4b has "
                               "always measured this wall in X and the diagonal is shorter. "
                               "JP, 2026-08-02, given the number and the class: \"it's fine as is "
                               "1.41mm is pefefctly thick.\" His r10 print is the physical "
                               "evidence. ACCEPTED BY THE OWNER, not missed by the checks. "
+                              "⚠️ ITS EXTENT WAS MISSTATED TO HIM AND THE CORRECTION IS PART OF "
+                              "THE ENTRY. This ledger used to say it 'recovers past the floor "
+                              "within ~2mm of Z either side because the bore is a CYLINDER'. "
+                              "HALF FALSE, and check 7d's new Z sweep is why: the bore is a "
+                              "CRADLE, so it recovers DOWNWARD only (1.56 at -1.9mm, 2.07 at "
+                              "-3.9mm) and holds flat going UP -- 1.404 measured on the STL at "
+                              "z -11.00 and at z -10.30, right under the mating plane. It is a "
+                              "STRIPE the full height from the cell axis to BACK_Z, ~9.7mm tall, "
+                              "not a dimple. The class stands (continuous shell, not a rib) and "
+                              "so does the acceptance; the SIZE of what was accepted is bigger "
+                              "than the sentence he was given, and he is owed that on the record. "
                               "⚠️ RETIRE THIS ENTRY if the +Y end is ever re-cut to carry a "
-                              "radial MIN_SOLID (MOB_OY1 >= 91.06, or the Z-banded tail in check "
-                              "7d's block) -- the exemption and that fix are the same constraint "
-                              "from two sides, and leaving both would exempt a wall that is no "
-                              "longer thin."))
+                              "radial MIN_SOLID (MOB_OY1 >= 91.06). The Z-banded tail is NO "
+                              "LONGER a route to that -- see the retraction in 7e."))
     assert any(_v < MIN_SOLID for _v, _ in _exempt), (
         "control failed: nothing in the exempt list is actually under the floor, so the "
         "exemption is decorative and the scope line above is not being tested by anything")
