@@ -7,15 +7,19 @@ dimension is a named constant with the reasoning next to it.
 
 ## The loop
 
-1. `code ~/Projects/ember.realm.watch/enclosure` (VS Code, OCP CAD Viewer
-   extension installed)
-2. `Ctrl+Shift+P` → **OCP CAD Viewer: Open viewer** (3D panel opens)
-3. Edit constants/features in the model file
-4. ```bash
+1. Start the viewer once per session (browser-based, no extension needed):
+   ```bash
+   ./cadenv/bin/python -m ocp_vscode &     # serves http://127.0.0.1:3939/viewer
+   ```
+   and open that URL in Brave. (The VS Code "OCP CAD Viewer" extension is the
+   same thing embedded in the editor — its marketplace install was flaky here,
+   so the browser viewer is the supported path; both listen on :3939.)
+2. Edit constants/features in the model file — any editor: VS Code, nano, whatever.
+3. ```bash
    ./cadenv/bin/python tools/dev_view.py cover     # or midframe/bezel/shell/stand/base
    ```
-   → the part appears in the viewer (one part, no gates, seconds-to-minutes)
-5. Repeat 3–4 until right.
+   → the part appears in the viewer tab (one part, no gates, seconds-to-minutes)
+4. Repeat 2–3 until right.
 
 ## Where things are
 
