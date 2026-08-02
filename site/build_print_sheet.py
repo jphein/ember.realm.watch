@@ -39,6 +39,48 @@ def inline(s: str) -> str:
     return s
 
 
+def quoted_block(qlines: list[str]) -> str:
+    """A blockquote that was nested INSIDE a list item, rendered as a note.
+
+    `qlines` have already had their `>` markers stripped, so an empty string is a blank
+    quote line and acts as a paragraph break. Bullets inside the quote become a real
+    nested list, because the worst instance of this in the sheet is the ROCK TEST's
+    stop/proceed decision tree -- and a decision tree is the one shape that must not
+    arrive as prose.
+    """
+    parts: list[str] = []
+    bullets: list[str] = []
+    para: list[str] = []
+
+    def flush_bullets() -> None:
+        nonlocal bullets
+        if bullets:
+            parts.append("<ul>" + "".join(f"<li>{inline(b)}</li>" for b in bullets) + "</ul>")
+            bullets = []
+
+    def flush_para() -> None:
+        nonlocal para
+        if para:
+            parts.append(f"<p>{inline(' '.join(para))}</p>")
+            para = []
+
+    for t in qlines:
+        mb = re.match(r"^[-*]\s+(.*)$", t)
+        if mb:
+            flush_para()
+            bullets.append(mb.group(1).strip())
+        elif not t:
+            flush_bullets()
+            flush_para()
+        elif bullets:
+            bullets[-1] += " " + t      # wrapped continuation of the last bullet
+        else:
+            para.append(t)
+    flush_bullets()
+    flush_para()
+    return '<div class="note">' + "".join(parts) + "</div>"
+
+
 def convert(md: str) -> tuple[str, str]:
     out: list[str] = []
     title = "Print sheet"
@@ -125,23 +167,68 @@ def convert(md: str) -> tuple[str, str]:
                 out.append(f"<{want}>")
                 list_tag = want
             item = [m.group(1).strip()]
+            quote: list[str] = []
             i += 1
             # Continuation lines are indented and are not themselves a marker of EITHER kind --
             # the ordered alternative had to be added here too, or step 2 would be swallowed as
             # a continuation of step 1 whenever it happened to be indented.
-            while (i < len(lines) and lines[i].strip()
-                   and lines[i].startswith(("   ", "\t"))
-                   and not re.match(r"^\s*(?:[-*]|\d+\.)\s", lines[i])):
-                item.append(lines[i].strip())
-                i += 1
-            out.append(f"<li>{inline(' '.join(item))}</li>")
+            # CONTINUATION, as one loop with two ways to keep going.
+            #
+            # (a) an indented line that is not itself a marker -- item text, or a `>` quote;
+            # (b) a BLANK line whose next line is an indented quote. Markdown calls that a loose
+            #     list, and this sheet writes it constantly: an item, a blank, then an indented
+            #     `> ...` warning about that item.
+            #
+            # (b) has to be checked AFTER (a) is exhausted, not before -- the blank arrives at the
+            # END of the item's prose. Getting that order wrong is a no-op that looks like a fix,
+            # and it measured as one: 30 strays before, 30 after.
+            #
+            # (b) is deliberately narrow -- the following line must be a QUOTE, not just indented
+            # -- so two genuinely separate prose paragraphs can never be glued into one item.
+            def _is_cont(k: int) -> bool:
+                return (k < len(lines) and lines[k].strip()
+                        and lines[k].startswith(("   ", "\t"))
+                        and not re.match(r"^\s*(?:[-*]|\d+\.)\s", lines[k]))
+
+            while True:
+                while _is_cont(i):
+                    t = lines[i].strip()
+                    # A NESTED BLOCKQUOTE, which the `>` branch below can never see: it requires
+                    # the marker at column 0, and inside a list item the marker is always
+                    # indented. Every such line used to be swallowed as continuation text WITH
+                    # ITS MARKUP INTACT, so the page showed `> - It rocks on the rim` to an
+                    # operator mid-assembly.
+                    if t.startswith(">"):
+                        quote.append(re.sub(r"^(?:\s*>)+\s*", "", lines[i]).rstrip())
+                    elif quote:
+                        quote.append(t)            # wrapped line belonging to the quote
+                    else:
+                        item.append(t)
+                    i += 1
+                if (i + 1 < len(lines) and not lines[i].strip()
+                        and _is_cont(i + 1) and lines[i + 1].lstrip().startswith(">")):
+                    if quote:
+                        quote.append("")           # paragraph break inside the quote
+                    i += 1
+                    continue
+                break
+
+            body = inline(" ".join(item))
+            if quote:
+                body += quoted_block(quote)
+            out.append(f"<li>{body}</li>")
             continue
 
         if ln.startswith(">"):
             close_list()
             q = []
             while i < len(lines) and lines[i].startswith(">"):
-                q.append(lines[i].lstrip(">").strip())
+                # STRIP EVERY LEVEL, not just the first run. `lstrip(">")` stops at the space in
+                # `> > text`, so a quote nested inside a quote kept one marker and the page showed
+                # a literal `>` mid-sentence. There are 20-odd of those in this sheet, all in the
+                # places where a warning was quoted inside another warning -- i.e. the passages
+                # someone was most deliberate about.
+                q.append(re.sub(r"^(?:\s*>)+\s*", "", lines[i]).rstrip())
                 i += 1
             out.append(f'<div class="note">{inline(" ".join(q))}</div>')
             continue
