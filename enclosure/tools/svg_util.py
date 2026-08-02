@@ -141,6 +141,25 @@ def face_polys(faces, axis):
                 if poly[0] != poly[-1]:
                     poly.append(poly[0])
                 out.append(poly)
+    # SORTED, AND THIS IS A CORRECTNESS FIX RATHER THAN TIDINESS.
+    #
+    # OCCT does not promise a stable order for `faces()` or for a face's wires, so two runs over
+    # UNCHANGED geometry emitted the same outlines as a different permutation of sub-paths. The
+    # files differed byte-for-byte while the drawing was identical -- which means `git status`
+    # reported a modified figure after a no-op regeneration, and **a figure that changes when
+    # nothing changed is indistinguishable from a figure that changed because something did.**
+    # That is the whole signal the render pipeline is supposed to carry.
+    #
+    # It also quietly devalued the byte-identity check these tools are verified with: identity is
+    # only evidence if a matching pair is achievable at all. The desk figures were unaffected
+    # because `project()` walks edges from the HLR result in a stable order; only the SECTION
+    # figures permuted.
+    #
+    # Canonicalising on the geometry itself -- each polyline's own extreme point, then its length
+    # -- is independent of whatever order OCCT hands things back in.
+    out.sort(key=lambda poly: (round(min(p[0] for p in poly), 4),
+                               round(min(p[1] for p in poly), 4),
+                               len(poly)))
     return out
 
 
