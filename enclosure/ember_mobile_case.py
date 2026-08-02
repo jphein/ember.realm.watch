@@ -664,6 +664,7 @@ def _yprism(pts, y0, y1):
 
 GRILLE_CELL_N = None                                    # set by back_cover(), read by the checks
 TOPMESH_N     = None                                    # ditto, the blind end-face mesh
+TOPVENT_N     = None                                    # ditto, the LED-side through field
 # Narrowest a clipped grille opening may be before it is dropped from the cutting set. Above
 # HEX_WEB's 0.90 print floor and above SLOT_W's 0.60 proven void, with margin: a hole this
 # narrow in a 2.20 baffle is a slot the nozzle has to trace, not a feature that resolves.
@@ -1389,6 +1390,60 @@ TOPMESH_N_MIN = 4
 # BACK_Z..SEAM_Z, so a hex placed there would be a blind hole that looks identical from the
 # back face. Sited below PY1, above the bond plateau, and clear of the mic bore, the +X boss
 # and the top screw's pilot collar -- all measured in check 19, not eyeballed here.
+# ---- (b) THE THROUGH FIELD, +X OF THE BOSS.  JP took the alternative: light out the top. ----
+#
+# The blind field above is blind because the cell bay is behind it. On the OTHER side of the
+# boss the top wall backs onto the UPPER COMPARTMENT -- dry, above the seal rim, and about to
+# hold an RGB LED. So this one is a real bore, and it is a light window as much as a vent.
+# Same cells, same lattice, same flats-on-Z orientation as the +Y end vent, for the same
+# printability reason: these are horizontal bores and a vertex-up cell is issue #28.
+TOPVENT_X0 = (SCREW_LANE_X + SCREW_BOSS_D/2) + TOPMESH_EDGE
+TOPVENT_X1 = (OX1 - OUT_R) - TOPMESH_EDGE
+TOPVENT_Z0, TOPVENT_Z1 = TOPMESH_Z0, TOPMESH_Z1          # one band across the whole end face
+TOPVENT_N_MIN = 4
+# ---- (c) THE INTERNAL VENT, CELL BAY <-> LED COMPARTMENT.  A LABYRINTH, NOT A HOLE. ----
+#
+# JP: "there can be a hex vent between the battery compartment and the led compartment."
+#
+# ⚠️ IT CANNOT BE A STRAIGHT BORE, AND THE THROUGH FIELD ABOVE IS WHY. With (b) cut, the
+# compartment is open to the sky; a plain hex through the divider would then be a straight
+# path from outside air into a Li-ion bay, which is the exact thing §5d's labyrinth was built
+# to refuse. Geometry, not opinion: a ray from a top cell at x 30 to a divider hole at x 20.65
+# leaves the bore at 41 degrees to its axis and the bore only collimates to 65, so it passes.
+#
+# So this is §5d's own construction moved into the divider: notch IVENT_D from the cell-bay
+# face at one Y, IVENT_D from the compartment face at ANOTHER Y, and connect the two through
+# the band where their depths overlap. Air turns twice; a straight line finds material. The
+# divider is DIVIDER_W thick against the outer wall's COV_WALL, so the numbers differ from
+# §5d's and are re-derived rather than copied.
+IVENT_D    = 1.30                                       # from each face of the 2.00 divider
+IVENT_BAND = 2*IVENT_D - DIVIDER_W                      # 0.60 -- SLOT_W, the proven void
+# ⚠️ THE OFFSET IS IN Z, NOT Y, AND THE BOSS IS WHY. §5d offsets its two slots along the wall's
+# length; here that length is Y, and the only Y window the divider has between the seal rim
+# (76.40) and the top screw's boss (81.48) is 5.08mm -- one cell wide, not two. The divider is
+# 19.40 TALL, so the pair goes one above the other and the air turns in Z instead. Same
+# construction, different axis, because the obstruction is different.
+IVENT_Y    = 79.00                                      # both notches, in the one free window
+IVENT_CZ_O = -22.50                                     # compartment-side notch (lower)
+IVENT_CZ_I = IVENT_CZ_O + LAT_AF + 1.20                 # cell-bay-side notch (upper), -16.55
+assert IVENT_CZ_I + LAT_AF/2 < BACK_Z - 1.20 and IVENT_CZ_O - LAT_AF/2 > CAV_Z0 + 1.20, (
+    f"the internal vent's notches span z {IVENT_CZ_O-LAT_AF/2:.2f}..{IVENT_CZ_I+LAT_AF/2:.2f} "
+    f"and have run off the divider ({CAV_Z0:.2f}..{BACK_Z:.2f})")
+# the cell-bay-side notch must open into OPEN BAY, not into the cradle: below CELL_AXIS_Z the
+# divider's cell face is backed by cradle material everywhere outside the bore.
+assert IVENT_CZ_I - LAT_AF/2 >= CELL_AXIS_Z, (
+    f"the cell-bay-side notch reaches z {IVENT_CZ_I-LAT_AF/2:.2f}, below the cell's axis "
+    f"{CELL_AXIS_Z:.2f} -- there the divider's face is backed by the CRADLE, so the notch opens "
+    f"into solid and the vent is two blind pockets")
+assert IVENT_Y + LAT_AF/2 <= TOP_SCREW_XY[1] - SCREW_BOSS_D/2 and \
+       IVENT_Y - LAT_AF/2 >= RIM_Y1 + RIM_WALL, (
+    f"the internal vent at y {IVENT_Y-LAT_AF/2:.2f}..{IVENT_Y+LAT_AF/2:.2f} does not fit the "
+    f"divider's free window, {RIM_Y1+RIM_WALL:.2f}..{TOP_SCREW_XY[1]-SCREW_BOSS_D/2:.2f} -- "
+    f"the seal rim is below it and the top screw's boss above")
+assert IVENT_BAND > 0.0, (
+    f"the internal vent's two notches are {IVENT_D:.2f} deep in a {DIVIDER_W:.2f} divider and "
+    f"do not meet -- {2*IVENT_D:.2f} of cut in {DIVIDER_W:.2f} of wall leaves no band, so it "
+    f"is two blind pockets and not a vent")
 LED_PASS_XY    = (32.00, 80.50)
 LED_PASS_BREAK = 3 * LH                 # 0.60 edge break at the CAVITY-side mouth, where the
                                         # wire turns from running flat to going through. That
@@ -1856,6 +1911,41 @@ def back_cover():
                 continue
             p -= _yprism(_hex_xz(_x, _z, LAT_R), MOB_OY1 - TOPMESH_D, MOB_OY1 + 1.0)
             TOPMESH_N += 1
+    # ---- (b) THE THROUGH FIELD on the LED side of the boss. Real bores, into the compartment.
+    global TOPVENT_N
+    TOPVENT_N = 0
+    _tv_cx = (TOPVENT_X0 + TOPVENT_X1) / 2
+    _tv_cz = (TOPVENT_Z0 + TOPVENT_Z1) / 2
+    for _j in range(-6, 7):
+        _z = _tv_cz + _j * _tm_pitch_z
+        if not (TOPVENT_Z0 + LAT_AF/2 <= _z <= TOPVENT_Z1 - LAT_AF/2):
+            continue
+        for _i in range(-6, 7):
+            _x = _tv_cx + _i * _tm_pitch_x + (_tm_pitch_x/2 if _j % 2 else 0)
+            if not (TOPVENT_X0 + LAT_R <= _x <= TOPVENT_X1 - LAT_R):
+                continue
+            p -= _yprism(_hex_xz(_x, _z, LAT_R), BAY_Y1 - 1.0, MOB_OY1 + 1.0)
+            TOPVENT_N += 1
+    assert TOPVENT_N >= TOPVENT_N_MIN, (
+        f"the top-end through field solved to {TOPVENT_N} cell(s), under the "
+        f"{TOPVENT_N_MIN} that make it a field")
+
+    # ---- (c) THE INTERNAL LABYRINTH VENT through the divider (see 5j). Two notches + a band.
+    # Cell-bay face at one Z, compartment face at another, joined only through the IVENT_BAND
+    # of depth where the two cuts overlap. Gas turns twice; a straight line finds material.
+    # Hex cells, so the field reads as the family's -- but what makes it safe is the offset.
+    p -= Pos(CELL_X1, 0, 0) * (Rot(0, 90, 0) * extrude(make_face(Polyline(
+             *[(-(IVENT_CZ_I + LAT_R*math.sin(math.radians(60*_k))),
+                IVENT_Y + LAT_R*math.cos(math.radians(60*_k))) for _k in range(6)],
+             close=True)), IVENT_D))
+    p -= Pos(RIM_X0 - IVENT_D, 0, 0) * (Rot(0, 90, 0) * extrude(make_face(Polyline(
+             *[(-(IVENT_CZ_O + LAT_R*math.sin(math.radians(60*_k))),
+                IVENT_Y + LAT_R*math.cos(math.radians(60*_k))) for _k in range(6)],
+             close=True)), IVENT_D))
+    p -= bx(RIM_X0 - IVENT_D, RIM_X0 - IVENT_D + IVENT_BAND,
+            IVENT_Y - LAT_AF/2, IVENT_Y + LAT_AF/2,
+            IVENT_CZ_O - LAT_AF/2, IVENT_CZ_I + LAT_AF/2)
+
     assert TOPMESH_N >= TOPMESH_N_MIN, (
         f"the blind top mesh solved to {TOPMESH_N} cell(s) in a {TOPMESH_X1-TOPMESH_X0:.2f} x "
         f"{TOPMESH_Z1-TOPMESH_Z0:.2f} field, under the {TOPMESH_N_MIN} that make it a MESH. "
@@ -3408,6 +3498,60 @@ def _check_mobile(parts):
     print(f"             ⚠️ BLIND ON PURPOSE. Behind this face on the battery side is the "
           f"cell-lane bulkhead and then the 18650. A through-vent here is a straight light and "
           f"dust path into a Li-ion bay; the +X side of the boss is where one could go.")
+
+    # ---- 19c. THE LED-SIDE THROUGH FIELD, AND THE INTERNAL VENT'S NO-SIGHTLINE RULE. ----
+    #
+    # >>> JP took the alternative: "both, and there can be a hex vent between the battery <<<
+    # >>> compartment and the led compartment."  Which makes the second one dangerous.      <<<
+    #
+    # With the +X field bored through, the upper compartment is OPEN TO THE SKY. A plain hex
+    # through the divider would then put outside air one straight line from a Li-ion bay -- the
+    # exact thing §5d's labyrinth refuses. It is not a hypothetical: a ray from a top cell at
+    # x 30 to a divider hole at x 20.65 leaves the top bore at 41 degrees to its axis, and a
+    # 2.20-long 4.75-wide bore only collimates to 65, so it goes straight through.
+    #
+    # So the internal vent is §5d's construction on a different axis, and this is where that
+    # gets PROVEN rather than described: at the compartment-side notch's own Z, a straight
+    # line across the divider must still find material.
+    _iv_los = bx(CELL_X1, RIM_X0, IVENT_Y - 0.01, IVENT_Y + 0.01,
+                 IVENT_CZ_O - LAT_AF/2 + 0.30, IVENT_CZ_O + LAT_AF/2 - 0.30)
+    _iv_solid = (cov & _iv_los).volume / _iv_los.volume
+    assert _iv_solid > 0.25, (
+        f"a straight line across the divider at the compartment-side notch finds only "
+        f"{100*_iv_solid:.0f}% material -- the internal vent has become a HOLE, and with the "
+        f"+X field open above it that is a straight path from outside air into the 18650 bay")
+    # CONTROL: drill the divider through at that Y and prove the probe can see it.
+    _iv_drill = cov - bx(CELL_X1 - 1, RIM_X0 + 1, IVENT_Y - LAT_AF/2, IVENT_Y + LAT_AF/2,
+                         IVENT_CZ_O - LAT_AF/2, IVENT_CZ_O + LAT_AF/2)
+    _iv_cf = (_iv_drill & _iv_los).volume / _iv_los.volume
+    assert _iv_cf < 0.05, (
+        f"control failed: a divider deliberately drilled through still reads {100*_iv_cf:.0f}% "
+        f"material, so this probe cannot detect the straight hole it exists to reject")
+    # ...and the vent must actually PASS AIR: the band has to join the two notches.
+    _iv_band = bx(RIM_X0 - IVENT_D + 0.05, RIM_X0 - IVENT_D + IVENT_BAND - 0.05,
+                  IVENT_Y - 1.0, IVENT_Y + 1.0,
+                  IVENT_CZ_O + LAT_AF/2 + 0.10, IVENT_CZ_I - LAT_AF/2 - 0.10)
+    _iv_open = (_iv_band - cov).volume / _iv_band.volume
+    assert _iv_open > 0.90, (
+        f"the internal vent's connecting band is only {100*_iv_open:.0f}% open -- the two "
+        f"notches do not meet and it is two blind pockets, which is what a vent looks like "
+        f"when it has been drawn but not joined")
+    print(f"  [ivent]   cell bay <-> LED compartment, {IVENT_D:.2f} from each face of a "
+          f"{DIVIDER_W:.2f} divider, {IVENT_BAND:.2f} band; notches at z {IVENT_CZ_O:.2f} and "
+          f"{IVENT_CZ_I:.2f}, both at y {IVENT_Y:.2f}")
+    print(f"             NO SIGHTLINE: across the divider at the outer notch's Z it is still "
+          f"{100*_iv_solid:.0f}% solid; control (drilled through) {100*_iv_cf:.0f}%. Band "
+          f"{100*_iv_open:.0f}% open, so it is a vent and not two pockets.")
+    print(f"             ⚠️ OFFSET IN Z, NOT Y: the divider's free Y window between the seal "
+          f"rim and the top boss is {TOP_SCREW_XY[1]-SCREW_BOSS_D/2-(RIM_Y1+RIM_WALL):.2f}mm -- "
+          f"one cell wide, not two. It is {BACK_Z-CAV_Z0:.2f} tall, so the pair stacks.")
+    print(f"  [topvent] {TOPVENT_N} THROUGH cells on the LED side of the boss, x "
+          f"{TOPVENT_X0:.2f}..{TOPVENT_X1:.2f} -- these are real bores into the upper "
+          f"compartment, i.e. the LED's window as much as a vent")
+    print(f"             INGRESS, STATED: atmosphere -> upper compartment (new, upward-facing) "
+          f"-> board cavity via the LED wire pass. The compartment is EMPTY of electronics "
+          f"since the 1S strip moved to the lower band; the cell bay is reached only through "
+          f"the offset internal vent, which is why that one is a labyrinth.")
 
     # ---- 12. BED-FACE RULE: nothing proud of min Z on the cover ----
     # ember_case.py:2771 records this defect on BOTH shell parts in one session, on opposite

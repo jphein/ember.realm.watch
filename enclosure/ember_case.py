@@ -1602,8 +1602,12 @@ def back_shell(variant="desk", top_y=None):
     # SD reads bottom-to-top, beside the slit it names; MIC sits beside the mic bore.
     p -= _back_label(_LBL["SD"],  LBL_SD_X,  LBL_SD_Y,
                      BACK_Z - 1.0, BACK_Z + LABEL_DEBOSS, rot90=True)
-    p -= _back_label(_LBL["MIC"], LBL_MIC_X, LBL_MIC_Y,
-                     BACK_Z - 1.0, BACK_Z + LABEL_DEBOSS)
+    # ⚠️ AND THE LABEL GOES WITH IT. A back face that says MIC over no bore is the founding
+    # hazard of this file, stated at the SIDE_BLOCK gate twelve lines down: "a label is the
+    # same lie told in ink." One condition, both features.
+    if variant != "mobile":
+        p -= _back_label(_LBL["MIC"], LBL_MIC_X, LBL_MIC_Y,
+                         BACK_Z - 1.0, BACK_Z + LABEL_DEBOSS)
     # CONNECTOR LABELS (#27). All rotated, like SD: they live in the 9mm margin strips beside
     # the side channels they name, so the ink's HEIGHT is what has to fit the strip's width.
     # Placement and the port mapping are derived and asserted at _conn_place — see the block
@@ -1649,7 +1653,14 @@ def back_shell(variant="desk", top_y=None):
         f"the relief stops at x={PK1:.2f} but the speaker connector reaches {CONN_R_X[1]:.2f} — "
         f"the lead would still be trapped under the connector with nowhere to rise")
     # ---- mic BACK relief: works whichever way the port faces ----
-    p -= cyl(MIC[0],MIC[1], BACK_Z-1, CAV_FLOOR+0.01, MIC_HOLE_D)
+    #
+    # ⚠️ DESK ONLY SINCE 2026-08-02.  JP: "no mic bore needed on the back that was old mistake."
+    # On the desk case the back face is the exposed one and the relief is how the mic hears
+    # through it. On the MOBILE that face is buried under the backpack, so the bore cannot do
+    # its job -- it is a hole from the board cavity into the cover's upper compartment and
+    # nothing else. Deleting it closes 7.07 mm2 of a path this file has just finished mapping.
+    if variant != "mobile":
+        p -= cyl(MIC[0],MIC[1], BACK_Z-1, CAV_FLOOR+0.01, MIC_HOLE_D)
     # ---- #35: exterior chamfer on the back face, the one you hold ----
     # Applied LAST so it runs on the finished silhouette. The selector takes only edges that
     # reach the part's own bounding box, so the nine labels, 113 hex apertures, four
