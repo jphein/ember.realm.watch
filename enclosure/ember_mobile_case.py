@@ -2026,8 +2026,30 @@ def back_cover():
     # migrate mid-span, so the cell keeps its lateral datum without the wall that used to give
     # it; and they keep the screw lane's derivation subject (its counterbore still stops at the
     # divider's base) and a root for the internal labyrinth vent's region.
-    p += bx(CELL_X1, RIM_X0, BAY_Y0, RIM_Y0, CAV_Z0, BACK_Z)
-    p += bx(CELL_X1, RIM_X0, RIM_Y1, BAY_Y1, CAV_Z0, BACK_Z)
+    # ---- THE SEPARATOR WALL: the stubs grown into two long walls (JP, r11) ----
+    #
+    # JP: "i think there is roomn for a sepeartor wall there between the batter and teh speaker."
+    # HE WAS RIGHT AND MY FIRST ANSWER WAS WRONG, so the correction is recorded here rather than
+    # buried: I derived the thickness from the DRIVER-PAD SLACK (+X of RIM_X0, 1.55 against a 1.60
+    # floor -> "short 0.05") and reported that it does not close. That is the wrong lane. The
+    # stubs -- the features JP was pointing at -- live in the OLD DIVIDER'S lane, x CELL_X1..
+    # RIM_X0, which is DIVIDER_W = 2.00 wide, i.e. 0.40 OVER MIN_SOLID. A wall there closes
+    # comfortably, needs no clearance from the driver at all (it is behind RIM_X0), and does not
+    # touch the bore: CELL_X1 IS the bore's +X tangent.
+    #
+    # >>> WHAT ACTUALLY BOUNDS IT IS ASSEMBLY, NOT THICKNESS, AND IT IS PINNED BY THE CELL. <<<
+    # The strip lies flat in a pocket x PROT_PKT_X0..PROT_PKT_X1, and it is loaded STRAIGHT DOWN
+    # like everything else in this bay -- so the full PROT_W of that column has to stay clear to
+    # the top. The pocket cannot be shifted -X to free the wall's lane either: at the pocket's own
+    # top Z the cell bore's +X edge is 15.87 and PROT_PKT_X0 is 16.15, i.e. 0.28mm away. The
+    # column is pinned by the 18650.
+    #
+    # So the wall runs the WHOLE bay except the strip's own Y span, which leaves ONE window
+    # instead of the two-stub gap -- and check 7b measures what that window costs. It is a
+    # PARTIAL separation and the report says so in those words: the residual window sits directly
+    # over the BMS, which is the one thing JP wanted out of the acoustic volume.
+    p += bx(CELL_X1, RIM_X0, BAY_Y0, PROT_Y0 - PROT_PKT_CLR, CAV_Z0, BACK_Z)
+    p += bx(CELL_X1, RIM_X0, PROT_Y1 + PROT_PKT_CLR, BAY_Y1, CAV_Z0, BACK_Z)
     # ---- the rim's two genuinely new sides; the other two are the divider and the case wall
     p += bx(RIM_X0, RIM_X1, RIM_Y1, RIM_Y1 + RIM_WALL, CAV_Z0, BACK_Z)
     # ⚠️ THE LOW-Y WALL IS DELETED.  JP's standing call, and its premise is TRUE again.
@@ -2748,14 +2770,48 @@ def _check_mobile(parts):
     assert _cav_cf < 0.10, (
         f"control failed: the cavity-closure probe reads {100*_cav_cf:.1f}% solid INSIDE the "
         f"cavity, so it cannot distinguish a wall from the air it encloses")
-    _open_area = (RIM_X1 - RIM_X0) * (BACK_Z - CAV_Z0)
+    # >>> BOTH OPENINGS ARE RASTERED OFF THE SOLID NOW, AND THAT IS THE SECOND FIX TO THE SAME <<<
+    # >>> NUMBER. be95ed1 corrected this report for being wrong by 22x -- it printed the         <<<
+    # >>> divider's CROSS-SECTION instead of the face it vacated. It was still a FORMULA over    <<<
+    # >>> constants afterwards, so when r11 built the separator wall the check could not see it  <<<
+    # >>> and cheerfully reported 869mm2 of opening into a part that has 417. A number computed  <<<
+    # >>> from the constants a feature WOULD have had cannot notice the feature arriving. Both   <<<
+    # >>> are measured with a thin slab through the plane in question, minus the built cover.    <<<
+    def _open_in_plane(axis, at, a0, a1, b0, b1):
+        """Open area in a thin slab through `axis` at `at`, over the (a,b) window. Measured."""
+        _t = 0.10
+        if axis == "x":
+            _sl = bx(at - _t/2, at + _t/2, a0, a1, b0, b1)
+        elif axis == "y":
+            _sl = bx(a0, a1, at - _t/2, at + _t/2, b0, b1)
+        else:
+            _sl = bx(a0, a1, b0, b1, at - _t/2, at + _t/2)
+        return (_sl - cov).volume / _t
+
+    _open_area = _open_in_plane("y", (RIM_Y0 - RIM_WALL + RIM_Y0) / 2,
+                                RIM_X0, RIM_X1, CAV_Z0, BACK_Z)
     # ⚠️ THE OPENING IS THE FACE THE WALL VACATED, NOT THE WALL'S CROSS-SECTION. The first
     # version of this line multiplied the divider's THICKNESS by its height -- 2.00 x 19.40 =
     # 39 mm2 -- and printed that as the opening. It is off by more than twentyfold: what is now
     # open between the chamber and the bay is the deleted wall's FACE, its Y span by its height.
     # A wrong area in a report is worse than no area, because it will be trusted; and this is
     # the number JP judges the acoustic trade by.
-    _div_gone = (RIM_Y1 - RIM_Y0) * (BACK_Z - CAV_Z0)
+    _div_gone = _open_in_plane("x", (CELL_X1 + RIM_X0) / 2,
+                               RIM_Y0, RIM_Y1, CAV_Z0, BACK_Z)
+    _div_nominal = (RIM_Y1 - RIM_Y0) * (BACK_Z - CAV_Z0)        # what it was with NO wall at all
+    _div_closed = _div_nominal - _div_gone
+    assert _div_gone <= _div_nominal + 1e-6, (
+        f"the measured -X opening {_div_gone:.0f} exceeds the {_div_nominal:.0f} the plane can "
+        f"even hold -- the slab is sampling outside the chamber")
+    # CONTROL: the same raster one wall-thickness further +X lands INSIDE the chamber, which is
+    # all air, so it must read essentially fully open. If that came back partly solid the slab is
+    # in the wrong place and every area on this row is fiction.
+    _div_ctl = _open_in_plane("x", RIM_X0 + (RIM_X1 - RIM_X0) / 2,
+                              RIM_Y0, RIM_Y1, CAV_Z0, BACK_Z)
+    assert _div_ctl > 0.95 * _div_nominal, (
+        f"control failed: a raster through the middle of the CHAMBER reads only "
+        f"{_div_ctl:.0f} of {_div_nominal:.0f} mm2 open, but the chamber is air -- the "
+        f"_open_in_plane slab is mis-placed and these opening areas mean nothing")
     print(f"  [chamber] closed on 2 sides (high-Y, case wall); control inside the cavity "
           f"{100*_cav_cf:.1f}%")
     print(f"             ⚠️ TWO SIDES ARE DELIBERATELY OPEN, BOTH ON JP'S INFORMED CALL: the "
@@ -2765,6 +2821,16 @@ def _check_mobile(parts):
     print(f"             He was told the divider is the chamber's -X wall and reaffirmed the "
           f"architecture: the strip and its nickel lie beside the battery, in the space the "
           f"wall used to occupy (§5f-c). Recorded as a decision, not an oversight.")
+    print(f"             SEPARATOR WALL (r11, JP's call): the stub lane x {CELL_X1:.2f}.."
+          f"{RIM_X0:.2f} is {RIM_X0-CELL_X1:.2f} thick = {RIM_X0-CELL_X1-MIN_SOLID:+.2f} over "
+          f"MIN_SOLID, so a wall CLOSES there. Built over the whole bay except the strip's own Y "
+          f"span: closed {_div_closed:.0f} of {_div_nominal:.0f} mm2, {_div_gone:.0f} left "
+          f"({100*_div_gone/_div_nominal:.0f}%). Control (raster inside the chamber) "
+          f"{_div_ctl:.0f} mm2 open.")
+    print(f"             ⚠️ PARTIAL, AND THE RESIDUAL WINDOW IS OVER THE BMS -- i.e. over exactly "
+          f"what JP wanted out of the acoustic volume. It cannot be closed without giving up "
+          f"STRAIGHT-DOWN assembly: the strip's {PROT_W:.2f} insertion column is PINNED by the "
+          f"cell (0.28mm from the bore at the pocket's top Z), so no wall can share that lane.")
     print(f"             >>> FOR THE MORNING: that -X opening is BIGGER THAN THE GRILLE "
           f"({_div_gone:.0f} vs 562.7 mm2). The driver's front chamber now includes the cell "
           f"bay, and the cell and the BMS are inside the acoustic volume. r9 (40.60 deep, "
