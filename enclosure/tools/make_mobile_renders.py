@@ -38,8 +38,9 @@ the same frame. So each figure below names the question it answers:
   hero          the assembled device, shaded. The one figure whose job is the DEPTH the
                 variant costs, read against the bezel it shares with the flat desk case.
   cover         the new part turned over with the cell in its cradle. Every internal
-                feature in one frame, and the only figure that shows the cell at all in
-                three dimensions. Cannot show how it meets the midframe.
+                feature in one frame -- cradle, vent slots, grille, strip pocket, dovetail
+                teeth and counterbore -- and the only figure that shows the cell at all
+                in three dimensions. Cannot show how it meets the midframe.
 
 ⚠️ ONE KNOWN COSMETIC LIMITATION, recorded so the next reader does not re-investigate it.
 `project_to_viewport` does not occlude between the CHILDREN of a compound, so the vendor
@@ -253,11 +254,19 @@ S.write_svg(_out("mobile-glow-window.svg"), [(_glow_polys, "wall")],
 # ====================================================== 5. STRIP POCKET (svg)
 # The 1S protection pocket, in plan through the locating ribs.
 #
-# ⚠️ THE LENGTH LABEL ON THIS FIGURE IS AN ESTIMATE AND SAYS SO. PROT_L is JP's eyeball
-# figure ("20mm about"), carrying +/-2, and PROT_W / PROT_T are class placeholders awaiting
-# calipers. A figure that renders an estimate in the same voice as a derived dimension is
-# lying about its own confidence -- which is exactly the failure this project keeps
-# catching in prose, so it is not going to be introduced in a drawing.
+# THE LENGTH LABEL MEASURES ITSELF AGAIN, and the history is the point.
+#
+# It used to read "20.0 est +/-2", overridden deliberately, because PROT_L was JP's eyeball
+# figure and a drawing that renders an estimate in the same voice as a derived dimension is
+# lying about its own confidence. That was right. Then JP calipered it at 21.50 -- after the
+# 20.0 printed locator ribs 1.5mm too close for a 21mm strip to drop between, caught 2% into
+# a cover print -- and the hedge became the lie instead. **A caveat left standing after its
+# question is answered is as wrong as a claim made before it**, and it is worse in a figure
+# than in prose, because nobody reads a drawing looking for stale qualifiers.
+#
+# So the override is gone and dim() measures the seat it is drawn under. PROT_W and PROT_T are
+# still class placeholders, but neither is labelled here, so no glyph in this figure is
+# currently making a claim the model cannot back.
 print("strip pocket:")
 _PZ = M.CAV_Z0 + M.PROT_RIB_H / 2
 _pcrop = Pos(M.RIM_X0 - 3.0, M.PROT_Y1 - M.PROT_W - 8.0, -60.0) * Box(
@@ -270,8 +279,7 @@ except ValueError:
     pass
 dims = [
     S.dim((M.PROT_CX - M.PROT_L / 2, M.PROT_Y1 - M.PROT_W),
-          (M.PROT_CX + M.PROT_L / 2, M.PROT_Y1 - M.PROT_W), off=-3.0, side="v",
-          text=f"{M.PROT_L:.1f} est ±2"),
+          (M.PROT_CX + M.PROT_L / 2, M.PROT_Y1 - M.PROT_W), off=-3.0, side="v"),
     S.dim((M.PROT_CX + M.PROT_L / 2 + 2.0, M.PROT_Y1 - M.PROT_W),
           (M.PROT_CX + M.PROT_L / 2 + 2.0, M.PROT_Y1), off=3.0, side="h"),
 ]

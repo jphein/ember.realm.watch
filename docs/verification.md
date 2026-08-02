@@ -2264,3 +2264,52 @@ Worth knowing because it generalises. Any positive control whose expected value 
 *content* of an input is also an identity check on that input, at no extra cost — and it is
 strictly better than a path assertion, which only proves lookup. Prefer controls that quote a
 precise measured constant over ones that assert a boolean; the constant is doing two jobs.
+
+### 31. Fixing the instance that fired is not the same as fixing the coupling
+
+`GLOW_R` — the mobile glow window's hex radius — was written as `HEX_R`, "the same cell as the
+grille". When the **desk stand's** grille was re-parameterised 4.50 → 4.75 mm across the flats for
+printable webs (#47), the window inherited it, exceeded its 5.50 mm cavity band, and the export
+gate refused to write the STL. That was caught, correctly diagnosed as a cross-part coupling, and
+pinned: `GLOW_R` became this part's own number, with a comment explaining why a window's size is
+set by the band it lives in and not by another part's lattice.
+
+**One line below it, `GLOW_WEB = HEX_WEB` was left alone.**
+
+The same upstream edit had moved the web 0.90 → 1.25 at the same moment, taking `GLOW_SPAN_Y` from
+11.29 to 11.64 and quietly widening the span the site search has to fit. Nothing fired, for a
+reason worth stating plainly: **the assert that caught the first half was about the cavity band,
+and the web is not what the cavity band constrains.** The gate was never going to see it. It was
+found weeks later by someone reading the constants against their own comments and noticing that
+`# 0.90, the print floor` sat beside a value of 1.25.
+
+#### Why the first fix felt complete
+
+The diagnosis was right, the mechanism was named, a comment was written, and the symptom went
+away. Every signal available at the time said *done*. What was missing is that the diagnosis
+identified a **class** — "this part shares a constant with another part" — and the fix was applied
+to the **instance** that happened to be load-bearing for the assert that happened to fire.
+
+The generalisation, and it is the same shape as the `.partial`/`os.replace` split in §30: when a
+defect is understood as a class, the repair has to be scoped to the class. Ask *what else does this
+edit reach*, not *what else is broken now*. In this file that means one question after any coupling
+fix: **grep the shared symbol, not the failing line.** `grep -n 'HEX_WEB\|HEX_R' ember_mobile_case.py`
+would have shown both in one screen, and did, the moment anyone ran it.
+
+#### The related failure with the sign reversed
+
+Same feature, same week. `_glow_site()` **derives** the window's position by searching the solid
+spans between cable channels for the nearest one that can hold it. A later change blocked two flank
+openings for wire-routing reasons; removing a channel merged it into the span above, and the search
+relocated the window **12.30 mm**, from 30.00 mm to 23.02 mm from the LED.
+
+That outcome is *good* — a 23 % shorter light path, free, from a change made for an unrelated
+reason, and the search doing exactly the job it exists for. **It is still a silent change.** The
+only assert on that path fires when *no* span fits; a span that fits *differently* passes without
+comment. So the position moved between two builds with nothing in either output to say so.
+
+The lesson is not "pin it" — pinning a derived position would throw away the property that makes
+it correct. It is that **a derived value needs its result printed.** A number that can move on its
+own must announce where it landed, or the next person to move an opening will move the window too
+and not know. Cheap fix, and the inverse of §30's: there the artifact existed before it was
+checked; here the value is checked but never *reported*.

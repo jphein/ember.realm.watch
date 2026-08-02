@@ -1396,11 +1396,27 @@ footer p{margin:.4rem 0}
   <h3 style="margin-top:2rem">The labels are drawn, not set</h3>
 
   <p>
-    The back face carries four: <b>SD</b> beside the card slot, <b>MIC</b> beside the relief,
-    <b>VOL</b> on the large button cap, and an <b>IEC&nbsp;5009 power symbol</b> on the small one.
-    Debossed, like everything else on a face that prints against the bed, at the same
-    <b>three layers</b> as the bezel motif — one named layer count shared by both faces.
+    The back face carries <b>SD</b> beside the card slot, <b>MIC</b> beside the relief,
+    <b>VOL</b> on the large button cap, an <b>IEC&nbsp;5009 power symbol</b> on the small one, and
+    a <b>connector strip down each flank</b> naming the ports behind it. Debossed, like everything
+    else on a face that prints against the bed, at the same <b>three layers</b> as the bezel
+    motif — one named layer count shared by both faces.
   </p>
+
+  <div class="note">
+    <b>One of those labels has since been deleted, and deleted rather than reworded.</b> The
+    flank openings for the battery connector are now blocked — on both variants — and the rule
+    the source enforces is that <b>a suppressed opening suppresses its label</b>: the labels are
+    cut from the same set that cuts the holes, so the face cannot name a port that is not there.
+    <p style="margin:.6rem 0 0">
+      <b>The asymmetry is the reason it is a deletion and not a re-caption.</b> An opening with
+      nothing behind it is invisible until somebody goes looking; a label beside solid plastic
+      <em>actively sends</em> them looking. Moulded-in text is wayfinding, and wrong wayfinding
+      costs more than none. It is the same standard the figures on this page are held to — a
+      drawing may not describe a part the model does not have — applied to text that is
+      <em>part of the part.</em>
+    </p>
+  </div>
 
   <div class="note">
     <b>They are a stroke font, not a typeface, and that is the argument rather than the
@@ -1912,7 +1928,7 @@ footer p{margin:.4rem 0}
   <ul class="spec">
     <li><span class="k">Layout</span><span class="v">The cell lies beside the speaker, not behind it<small>Five arrangements were costed; this one is the smallest at ~207&nbsp;cm³. The interior closes exactly: <b>51.50 = 19.40 bore + 2.00 divider + 30.10 rim</b>, and that divider is a <em>single shared wall</em> doing both jobs, because two walls do not fit.</small></span></li>
     <li><span class="k">Length</span><span class="v">94.95&nbsp;mm is forced, link by link<small>BOOT's cap ends at 16.40 → the cover cannot start before 18.00 → its wall puts the bay at 20.20 → the bay is 69.60 for the longest cell → 89.80 → plus one wall = <b>92.00</b>. No lane avoids it: the widest gap between the two buttons is 8.70&nbsp;mm against a 19.40 bore.</small></span></li>
-    <li><span class="k">Access</span><span class="v">One hex key, one screw, and the board never moves<small><b>Dovetail slides plus a single M3×22.</b> The screw clamps and cannot bottom out — both asserted — and the cover carries no board load, so opening it does not disturb the clamp. ⚠️ The slides <em>replace</em> an undercut-hook scheme rejected on printability: its 0.60&nbsp;mm lip had to bridge its own slot, which is the same failure family as the stand grille's webs. That geometry is in flight, so no slide dimensions are quoted here yet.</small></span></li>
+    <li><span class="k">Access</span><span class="v">One hex key, one screw, and the board never moves<small><b>Dovetail rails plus a single M3×22</b> — <b>18 teeth over 77.60&nbsp;mm</b>, seated by 2.00&nbsp;mm of travel. <b>The rails hold the length of the cover rather than its corners</b>, which is what stops the top lifting. Three rails, not two, and asymmetric: the +X flank carries the seal, so a groove down its middle would be a hole in the sealed cavity's ceiling — it gets two short rails that dodge it while the other flank runs the whole length. The M3 leaves 0.30&nbsp;mm of freedom against 2.00 of travel, so <em>the screw is the slide's stop, not just a clamp.</em></small></span></li>
     <li><span class="k">Speaker</span><span class="v">The sealed cavity survived the move, within 1.2&nbsp;%<small>Front air goes <b>15621.3 → 15437.8&nbsp;mm³</b> — measured by boolean on the finished solid, not arithmetic — and the governing cavity mode rises <b>3176 → 3828&nbsp;Hz</b>, further out of the speech band. The cover's own 2.20&nbsp;mm wall <em>is</em> the grille baffle, so the port length matches the stand's by construction.</small></span></li>
   </ul>
 
@@ -1921,10 +1937,17 @@ footer p{margin:.4rem 0}
     <p>
       Both parts pass every check the desk parts do — watertight, <b>0 boundary and 0
       non-manifold edges</b>, <b>0.000&nbsp;mm³</b> of interference against the vendor board
-      solid, with displaced controls reading 2248.8, 184.4 and 1919.7&nbsp;mm³ so the probe is
-      known to be able to fail. That is a CAD result. <b>The cell is a phantom, the protection
-      strip's dimensions are an estimate, and the top edge of the cover has no fastener</b> —
-      whether it gaps is a question a test print answers and nothing else does.
+      solid, with displaced controls reading 1985.0, 184.4 and 1919.7&nbsp;mm³ so the probe is
+      known to be able to fail. That is a CAD result. <b>The cell is a phantom, and two of the
+      protection strip's three dimensions are still class placeholders</b> — its length is
+      measured now, and the estimate it replaced had already cost a print.
+    </p>
+    <p style="margin:.6rem 0 0">
+      Because one cover print <b>has</b> been started, and cancelled at <b>2&nbsp;%</b>. The
+      strip's length went in as a 20.0&nbsp;mm eyeball figure carrying ±2, and at 20.0 the
+      locating ribs sit <b>1.5&nbsp;mm too close together for a 21&nbsp;mm strip to drop between
+      them</b>. Re-measured at <b>21.50</b>. Nothing has been printed to completion, but the bed
+      is no longer untouched — and that cancel is the cheapest thing on this page.
     </p>
   </div>
 
@@ -1934,15 +1957,16 @@ footer p{margin:.4rem 0}
               pale cylindrical 18650 cell lies in a concave cradle down one side. Beside it,
               across a single dividing wall, a rectangular bay holds a field of hexagonal
               speaker openings. Short slots are cut in the side wall next to the cell, a
-              shallow pocket sits above the grille, and a round counterbore sits along the
-              near edge.">
+              shallow pocket sits above the grille, rows of small angled teeth run along the
+              rim edges, and a round counterbore sits along the near edge.">
     <figcaption>
       The new part, turned over, with the cell in its cradle. Everything the variant adds is in
       this one frame: the concave <b>cradle</b> that lets the cell self-centre and still print
       without an overhang, the <b>shared divider</b>, the <b>31 hexagonal grille openings</b>
       that give <b>562.7&nbsp;mm² of throat</b> — 80&nbsp;% of the driver's radiating area — the
-      <b>vent slots</b> in the side wall, the <b>protection pocket</b> above the grille, and the
-      single counterbore. This replaced an attempt at a "cell coming out" view, which could not
+      <b>vent slots</b> in the side wall, the <b>protection pocket</b> above the grille, the
+      <b>dovetail teeth</b> running the rim, and the single counterbore that stops them sliding
+      back out. This replaced an attempt at a "cell coming out" view, which could not
       be made to work: the cell lifts out along the axis the cover sits on, so every camera that
       showed the cradle put the cover in front of the cell.
     </figcaption>
@@ -2127,8 +2151,17 @@ footer p{margin:.4rem 0}
       <b>The opening further along the wall is in this figure deliberately.</b> It is a cable
       channel, and the LED's own position lands inside one on <em>both</em> walls — so "put the
       window at the LED" was never available. The site is <em>solved</em>: the code searches the
-      solid spans between channels for the nearest one that can hold the window, so if a
-      connector ever moves the window follows instead of quietly opening into a hole.
+      solid spans between channels for the nearest one that can hold the window.
+      <br><br>
+      <b>Which is not a hypothetical, because the window has since moved on its own.</b> A later
+      change blocked two flank openings — the battery one on both variants, and on this one the
+      speaker opening too, since its speaker is now internal and that hole had nothing left to
+      serve. Removing a channel merges it into the solid span above, the span grows, and the
+      search relocates the window <b>12.30&nbsp;mm</b> to sit <b>23.02&nbsp;mm</b> from the LED
+      instead of 30.00 — a <b>23&nbsp;% shorter light path as a side effect of wire routing.</b>
+      Nobody designed that; the search found it. The honest rider is that nothing announced it
+      either: the only assert on that path fires when <em>no</em> span fits, so a span that fits
+      <em>differently</em> passes in silence.
     </figcaption>
   </figure>
 
@@ -2146,12 +2179,21 @@ footer p{margin:.4rem 0}
       regression in the same week the part was built is the system working.
     </p>
     <p style="margin:.6rem 0 0">
+      <b>And that first fix was half a fix, which is the more useful half of the story.</b> The
+      cell size was pinned; the <em>web between the cells</em> was left sharing the same constant,
+      one line below, with the coupling pointing the same way. So the web had quietly ridden the
+      same change from 0.90 to 1.25&nbsp;mm, widening the span the site search has to fit — and no
+      assert covered it, because the web is not what the cavity band constrains. Both are pinned
+      now. <em>When a constant is shared across parts, fixing the instance that fired is not the
+      same as fixing the coupling.</em>
+    </p>
+    <p style="margin:.6rem 0 0">
       ⚠️ <b>How bright this actually is depends on filament, and the honest answer is "dim".</b>
       The print sheet records that white or natural PLA is translucent enough for the WS2812 to
       light the shell itself; in the specified charcoal, 0.80&nbsp;mm will not be. Three fixes
       exist and each is one constant: print the midframe in natural PLA, halve the membrane to a
       single extrusion, or take it to a true through-hole — which adds no ingress class this wall
-      does not already have, since it already carries three open cable channels.
+      does not already have, since it still carries two open cable channels.
     </p>
   </div>
 
@@ -2167,7 +2209,7 @@ footer p{margin:.4rem 0}
     A TP4056 module at ~1&nbsp;A would make it 4.6 hours, and it
     <b>does not fit — which the model proves rather than asserts.</b> The free compartment is
     30.10 × 13.40&nbsp;mm; the module's short axis is 17.00, so it fits in neither orientation,
-    and its phantom is kept in the file so the boolean reports <b>228&nbsp;mm³ of
+    and its phantom is kept in the file so the boolean reports <b>299&nbsp;mm³ of
     interference</b> every run instead of a comment claiming as much. Restoring the pocket costs
     the <b>5.90&nbsp;mm</b> that switching to bare cells saved — the same 5.90&nbsp;mm the
     protection strip now occupies.
@@ -2191,7 +2233,7 @@ footer p{margin:.4rem 0}
     Being accurate about what is unresolved is part of why any of the rest is worth reading, so:
   </p>
   <ul class="spec">
-    <li><span class="k">Thermal</span><span class="v">The largest unresolved risk, and it is not mechanical<small>The rear vent field loses most of its area to the speaker bond plateau, and what survives vents into a <em>closed</em> compartment rather than to open air — compartment → remaining hexes → board cavity → side channels → outside. The desk case vents straight to the room. This is flagged rather than "fixed" with invented vent geometry.</small></span></li>
+    <li><span class="k">Thermal</span><span class="v">The largest unresolved risk, and it is not mechanical<small>The rear vent field loses most of its area to the speaker bond plateau, and what survives vents into a <em>closed</em> compartment rather than to open air — compartment → remaining hexes → board cavity → side channels → outside. The desk case vents straight to the room. ⚠️ <b>And it just got tighter:</b> blocking the battery and speaker flank openings removes side channels from the <em>last leg</em> of exactly that path. Both blocks are right for wire routing and for ingress, and neither reason is thermal — so this item now carries a cost it did not carry when it was written. Flagged rather than "fixed" with invented vent geometry.</small></span></li>
     <li><span class="k">Strip</span><span class="v">Three numbers are placeholders<small>Length is an eyeball ±2; width and thickness are class figures. All three are one edit when calipers land, and the assert that clamps them already exists.</small></span></li>
     <li><span class="k">Cell port</span><span class="v">The 1.76× ratio rests on an assumption<small>An 18650's cap carries 3–4 vent ports; 3 × ⌀2.0&nbsp;mm was taken. That is general cell construction, not a datasheet anyone here holds. If real numbers turn up, the unit count is the knob.</small></span></li>
     <li><span class="k">Front gap</span><span class="v">A declared departure, not a measurement<small>The gap in front of the diaphragm goes 2.50 → 9.40&nbsp;mm because the cell bore sets the cover's depth. Total front air went <em>down</em> 1.2&nbsp;% and the governing mode went <em>up</em> 21&nbsp;%, so moving air from lateral to axial is believed neutral-to-better — but it is a belief, and it is flagged rather than buried.</small></span></li>

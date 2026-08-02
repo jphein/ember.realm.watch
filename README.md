@@ -338,10 +338,20 @@ So there is one now. **Four parts, none needing supports**, in [`enclosure/`](en
 
 ### The back face has labels now, and they are drawn rather than set
 
-Four of them, debossed into the back like everything else on a bed face: **`SD`** beside the
-card slot, **`MIC`** beside the relief, **`VOL`** on the large button cap and an **IEC 5009
-power symbol** on the small one. Same depth as the bezel motif — **three layers**, one named
-layer count shared by both faces.
+Debossed into the back like everything else on a bed face: **`SD`** beside the card slot,
+**`MIC`** beside the relief, **`VOL`** on the large button cap, an **IEC 5009 power symbol** on
+the small one, and a **connector strip down each flank** naming the ports behind it. Same depth
+as the bezel motif — **three layers**, one named layer count shared by both faces.
+
+> ⚠️ **The set is variant-dependent now, and one label was deleted rather than reworded.** The
+> desk shell blocks the `BAT` flank opening; the mobile blocks `BAT` and `SPK`. **A suppressed
+> opening suppresses its label** — the rule in the source is *"no label may name an opening that
+> is not there"*, and it is enforced by cutting the labels from the same set that cuts the holes,
+> so the face cannot name a port that does not exist. Dropped, not re-captioned, because a
+> moulded-in name is wayfinding: **an opening with nothing behind it is invisible until someone
+> looks, but a label beside solid plastic actively sends a person hunting for a port.** The
+> surviving labels keep the positions they were packed into against the *nominal* spans, so
+> nothing shifts between variants.
 
 **They are a stroke font, not a typeface, and that is the whole point.** Each glyph is a
 centreline path swept at a fixed **0.90 mm** groove width — the same nozzle floor the wyrm mark
@@ -417,14 +427,9 @@ There is a **battery build**, and it is a *backpack rather than a redesign*:
 unmodified — same STL, same four M3×12, same 5.34 mm of thread — and the board is held by the
 **same joint at the same plane**. Two parts are new.
 
-> ⏳ **The cover retention is mid-redesign.** The undercut hooks were rejected on printability —
-> a 0.60 mm lip bridging its own slot, the same failure family as the stand grille's webs — and
-> dovetail slides are in flight. **Both mobile STLs will change again**, so the figures on the
-> project page and the cover-dependent numbers below are provisional until they are regenerated.
->
 > ⚠️ **Verified in CAD, nothing completed, nothing wired.** Both parts pass every check the desk
 > parts do — watertight, **0 boundary and 0 non-manifold edges**, **0.000 mm³** against the
-> vendor board solid, with displaced controls at 2248.8 / 184.4 / 1919.7 mm³ so the probe is
+> vendor board solid, with displaced controls at 1985.0 / 184.4 / 1919.7 mm³ so the probe is
 > known to be *able* to fail. That is a geometry result. The cell is a phantom, two of the
 > protection strip's three dimensions are still placeholders, and whether the cover's top edge
 > gaps is a question only a test print answers.
@@ -437,7 +442,7 @@ unmodified — same STL, same four M3×12, same 5.34 mm of thread — and the bo
 
 | | |
 |---|---|
-| `ember-mobile-midframe.stl` | back face down. The old back shell **plus features and nothing removed** — brow, speaker bond plateau, driver locating groove, cell-lead pass, and the groove side of the cover retention |
+| `ember-mobile-midframe.stl` | back face down. The old back shell **plus features and nothing removed** — brow, speaker bond plateau, driver locating groove, cell-lead pass, and the rail side of the dovetail |
 | `ember-mobile-back.stl` | **outer** face down. The cell trough, the spring and contact pockets, the speaker grille, the failure vent, the protection pocket |
 | `ember-front-bezel.stl` | unchanged — reused bit-identical |
 
@@ -446,7 +451,7 @@ unmodified — same STL, same four M3×12, same 5.34 mm of thread — and the bo
 | Envelope | **55.90 × 94.95 × 39.00 mm** | 55.90 × 91.90 × 17.40 mm |
 | Cell | 1 × **bare flat-top 18650**, user-swappable | — |
 | Charge | onboard TP4054, 290 mA → **15.8 h** | — |
-| Access | dovetail slides + **1 × M3×22** | — |
+| Access | dovetail rail + **1 × M3×22** | — |
 
 **Width cannot move** (the bezel didn't) and length grew only **3.05 mm** — and that growth is
 forced link by link, not chosen: the BOOT cap and its moat end at 16.40, so the cover cannot
@@ -518,7 +523,7 @@ cd enclosure
 
 **The deliberate trade, for the record.** An in-case TP4056 would charge in 4.6 h instead of
 15.8, and it **does not fit** — the free compartment is 30.10 × 13.40 against the module's
-17.00 mm short axis, and its phantom is kept in the file so the boolean reports **228 mm³ of
+17.00 mm short axis, and its phantom is kept in the file so the boolean reports **299 mm³ of
 interference** every run rather than a comment claiming as much. Restoring it costs the 5.90 mm
 that switching to bare cells saved, which is the same length the protection strip now occupies.
 The case stays at 94.95: with bare cells the missing protection is the sharper gap, and removable
