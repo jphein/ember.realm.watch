@@ -1316,6 +1316,25 @@ _LBL["SD"]  = _SF.text_paths("SD",  LABEL_H_FLAT, LABEL_W, LABEL_GAP)
 _LBL["MIC"] = _SF.text_paths("MIC", LABEL_H_FLAT, LABEL_W, LABEL_GAP)
 for _t in ("UART", "I2C", "SPK", "BAT", "IO"):          # the connector set, issue #27
     _LBL[_t] = _SF.text_paths(_t, LABEL_H_FLAT, LABEL_W, LABEL_GAP)
+# ---- THE SAME NAMES AT THE MOBILE'S SIDE-FLANK SIZE (a different print class entirely) ----
+# Smaller glyphs on a narrower stroke, for a VERTICAL WALL rather than the bed face. Built here
+# beside their full-size twins so the two sets cannot drift apart in content, and floor-checked
+# against the stroke they are actually drawn with rather than against LABEL_W.
+# SD is deliberately absent: its S does not fit the flank band at a printable stroke, and the
+# mobile file carries the shortfall number. A set that silently dropped it would read as an
+# oversight; a set that never had it, with the arithmetic beside it, reads as a decision.
+LBL_SIDE_H = 3.90
+LBL_SIDE_W = 0.80
+LBL_SIDE_GAP = LBL_SIDE_W + 1.00
+_LBL_SIDE = {}
+for _t in ("UART", "I2C", "IO"):
+    _LBL_SIDE[_t] = _SF.text_paths(_t, LBL_SIDE_H, LBL_SIDE_W, LBL_SIDE_GAP)
+    _d, _who, _ = _SF.min_gap(_LBL_SIDE[_t], LBL_SIDE_W)
+    assert _d >= 2 * 0.40, (
+        f"side label {_t!r} pinches to {_d:.3f}mm of material at h={LBL_SIDE_H}, under the two "
+        f"extrusions (0.80) that are this project's only PROVEN web on a vertical wall (the back "
+        f"grill). Worst pair: {_who}")
+
 for _k in _LBL:
     _label_ok(_LBL[_k], _k)
 
@@ -2212,6 +2231,31 @@ GRILLE_STYLE  = "hex"
 # Not fixed by going finer, and worth stating because it is the intuitive move: smaller cells
 # make this WORSE. The web is a print floor, so a finer field has more web per unit area and
 # more per-layer segments to start badly, which is the failure mode.
+# ---- THE DOCK GRILLE'S OWN CELL, SPLIT OFF FROM THE SHARED ONE (JP, r11) ----
+#
+# JP wanted the dock grille smaller, and it could not simply be re-tuned: HEX_R/HEX_WEB were
+# read by BOTH this grille and the MOBILE's speaker grille, so shrinking the number here would
+# have silently re-tuned the mobile's acoustics on a part that is printing. Two names now.
+#
+#   DOCK_*  the desk stand's flared grille, and NOTHING else -- _hex_field() is called only
+#           from desk_stand(), which is what makes the split safe rather than hopeful.
+#   HEX_*   unchanged, and still what the mobile's grille and its open-area ceiling read.
+#
+# OPEN AREA, because that is what a smaller cell costs and it is not free. The infinite-field
+# law is (a/(a+w))^2 and the WEB DOES NOT SCALE WITH THE CELL -- it is a print floor:
+#
+#     4.75 / 1.25  ->  (4.75/6.00)^2 = 62.7%      the cell this grille had
+#     4.00 / 1.25  ->  (4.00/5.25)^2 = 58.1%      what JP chose:  -7.4% relative
+#     3.20 / 1.25  ->  (3.20/4.45)^2 = 51.7%      the back grill's cell: -17.5%, rejected
+#
+# Recovering the loss would need the web down at 0.90, and 0.90 on a HORIZONTAL bore is the
+# measured collapse of issue #47. So the -7.4% is bought deliberately and is not recoverable
+# at this web. JP picked 4.00 with these numbers in front of him.
+DOCK_HEX_AF   = 4.00                # across-flats. JP's choice, r11.
+DOCK_HEX_R    = DOCK_HEX_AF/math.sqrt(3)
+DOCK_HEX_WEB  = 1.25                # UNCHANGED -- the print floor does not scale with the cell
+DOCK_OPEN_FRAC = (DOCK_HEX_AF / (DOCK_HEX_AF + DOCK_HEX_WEB))**2
+
 HEX_R         = 4.75/math.sqrt(3)   # circumradius; ACROSS-FLATS = 4.75 exactly
 HEX_WEB       = 1.25     # material between hexes; the print floor. 3.12 lines at a 0.40
                          # nozzle — see the #47 block above for why 0.90 (2.25) tore out.
@@ -2321,12 +2365,15 @@ GRILLE_SLOT_W2 = 2.60
 # the shipped geometry had no apertures at all, so it had no relief either. 42% of a feature that
 # exists beats 100% of one that does not.
 GRILLE_FLARE  = 0.25
-GRILLE_MOUTH_WEB = HEX_WEB - math.sqrt(3) * GRILLE_FLARE       # 0.4670 at 0.25
+GRILLE_MOUTH_WEB = DOCK_HEX_WEB - math.sqrt(3) * GRILLE_FLARE  # 0.8170 at 0.25
+# ⚠️ DOCK_HEX_WEB, not HEX_WEB: this is the DOCK grille's flared mouth and nothing
+# else's. The web is unchanged by r11's cell shrink, so this number did not move --
+# which is the point of checking rather than assuming when constants split.
 GRILLE_MOUTH_MERGED = GRILLE_MOUTH_WEB <= 0.0
 assert GRILLE_MOUTH_WEB >= 0.45 or GRILLE_MOUTH_MERGED, (
     f"the grille's flared mouth web is {GRILLE_MOUTH_WEB:.4f}mm — a fin: too thin to print and "
     f"too thick to be a deliberate merge. Either GRILLE_FLARE <= "
-    f"{(HEX_WEB-0.45)/math.sqrt(3):.4f} for a printable 0.45mm mouth web, or >= "
+    f"{(DOCK_HEX_WEB-0.45)/math.sqrt(3):.4f} for a printable 0.45mm mouth web, or >= "
     f"{HEX_WEB/math.sqrt(3):.4f} to merge on purpose. This is the SCALLOP_MIN_RIB rule: a wall "
     f"or no wall, never a fin")
 
@@ -2389,10 +2436,12 @@ def _hex_panel(x0, x1, y0, y1, z0, z1, aflat, web, drop_bottom_rows=0):
 
 def _hex_field(dz, flare=0.0, depth=None):
     """Pointy-top hex lattice covering the grille field, extruded through the wall."""
-    R = HEX_R + flare
-    aflat = math.sqrt(3) * HEX_R
-    dx = aflat + HEX_WEB
-    dy = 1.5 * HEX_R + HEX_WEB * math.sqrt(3) / 2
+    # DOCK_* throughout: this builder serves desk_stand() alone (grep -- two call sites, both
+    # inside it), which is exactly why r11 could shrink this cell without touching the mobile.
+    R = DOCK_HEX_R + flare
+    aflat = DOCK_HEX_AF
+    dx = aflat + DOCK_HEX_WEB
+    dy = 1.5 * DOCK_HEX_R + DOCK_HEX_WEB * math.sqrt(3) / 2
     fw, fh = DRIVER_W - 2*GRILLE_INSET, DRIVER_H - 2*GRILLE_INSET
     d = depth if depth is not None else ST_WALL + 4.0
     out = None
@@ -2400,7 +2449,7 @@ def _hex_field(dz, flare=0.0, depth=None):
         for i in range(-int(fw/dx)-3, int(fw/dx)+4):
             cx = i*dx + (dx/2 if j % 2 else 0)
             cy = j*dy
-            if abs(cx) > fw/2 + aflat or abs(cy) > fh/2 + HEX_R:
+            if abs(cx) > fw/2 + aflat or abs(cy) > fh/2 + DOCK_HEX_R:
                 continue
             h = Pos(ST_W/2 + cx, -2.0, dz + cy) * (Rot(-90,0,0) *
                     extrude(RegularPolygon(R, 6, rotation=30), d))

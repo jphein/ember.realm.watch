@@ -296,7 +296,74 @@ assert MOB_OY1 < MOB_OY1_WAS, (
 # That is this repo's own recurring defect -- an invariant insensitive to the failure it names.
 # Check 15 measures the DEBOSSED VOLUME on the finished solid instead, which can fail.
 MARK_H       = 14 * LH                                  # 2.80 stroke-to-stroke, layer-whole
-MARK_DEPTH   = 3 * LH                                   # 0.60
+# ---- DEBOSS DEPTHS: "as deep as we can", DERIVED PER WALL (JP, r11) ----
+#
+# JP: "all debosses should be even deeper as deep as we can." So no deboss depth in this file is
+# a chosen number any more -- each is (local wall - that feature's own floor), and the floors are
+# the ones already proven here. What "as deep as we can" MEANS depends on the face's print class,
+# and the two classes quantize on DIFFERENT axes:
+#
+#   BED / CAVITY FACE (horizontal)  depth runs in Z  -> quantize to LAYER_H. Layer boundaries.
+#   SIDE WALL        (vertical)     depth runs in X/Y -> layer height does NOT govern it
+#                                   (ember_case.py:291 says so for the label grooves already).
+#                                   Quantize to EXTRUSION WIDTH instead.
+#
+# ⚠️ AND A DEPTH THAT LANDS EXACTLY ON ITS FLOOR IS NOT "AS DEEP AS WE CAN", IT IS ON A
+# CONSTRAINT BOUNDARY. LABEL_DEBOSS's own block settled this: 3 layers left the cap wall at
+# exactly 1.20 against a 1.20 floor, so it took 2 and kept 0.20 of slack. Same rule here --
+# every depth below leaves at least one quantum over its floor.
+_EXTRUSION = 0.40                       # one bead at the 0.40 nozzle; MIN_SOLID is 4 of these
+#
+# >>> AND "AS DEEP AS WE CAN" HAS A SECOND BOUND THAT IS NOT THE WALL. <<<
+# A groove deeper than it is WIDE stops being a marking: the nozzle cannot reach the bottom
+# cleanly, the floor prints ragged, and the slot becomes a dirt trap that fills and reads as a
+# solid line. So every glyph-class deboss is capped at its own stroke width -- aspect <= 1:1 --
+# and the wall budget only binds when it is the SMALLER of the two. Both bounds are printed in
+# the [deboss] table so it is visible which one is doing the work for each feature.
+_ASPECT_MAX = 1.0
+
+def _max_deboss(wall, floor=None, quantum=None, on_floor_ok=False):
+    """Deepest deboss a `wall` can carry while keeping `floor` of material, quantized DOWN.
+
+    Quantized down and then checked for slack, so the answer is never sitting on the floor it
+    was derived from. Returns 0.0 rather than a negative number if the wall cannot carry one.
+    """
+    # _MIN_SOLID, not MIN_SOLID: this helper is defined ABOVE the public alias (§5g binds it).
+    # Same ordering trap that put check 6d before `cov` existed -- a dependency read before it
+    # is bound fails only when the line actually runs, which for a default arg is every call.
+    floor = _MIN_SOLID if floor is None else floor
+    quantum = LH if quantum is None else quantum
+    # ⚠️ THE TOLERANCE IS LOAD-BEARING AND ITS ABSENCE WAS ALREADY CHANGING ANSWERS.
+    # Two features sit behind a 2.20 wall -- the driver outline and the blind top mesh -- and the
+    # bare `>=` sent them different ways purely on float dust (2.20 arrives as 2.2000000000000028
+    # from one derivation chain and 2.2 from another, so `3*quantum >= wall-floor` was True for
+    # one and False for the other). A print-floor rule decided by the last bit of a mantissa is
+    # not a rule. Rounded to a tenth of a quantum, both now answer the same way.
+    _n = int((wall - floor) / quantum + 1e-9)
+    _lands_on_floor = round(_n * quantum, 6) >= round(wall - floor, 6) - 1e-9
+    if _lands_on_floor and _n > 0 and not on_floor_ok:
+        _n -= 1                          # never land ON the floor -- LABEL_DEBOSS's precedent
+    return max(_n, 0) * quantum
+
+
+# ---- the two polarity marks, each derived against ITS OWN face ----
+# "+" cuts +Y into the bay's +Y end wall: solid behind it runs CELL_TIP_Y -> MOB_OY1.
+# "-" cuts -Z into the cover's mating face in the chin band, where the cover is solid for
+# tens of millimetres -- so there the ASPECT cap is what binds, not the wall, and that is
+# exactly the case the cap was written for.
+MARK_DEPTH_WALL = min(_max_deboss(MOB_OY1 - CELL_TIP_Y, quantum=_EXTRUSION),
+                      int(_ASPECT_MAX * E.LABEL_W / _EXTRUSION) * _EXTRUSION)
+# The "-" mark's face is the cover's MATING FACE, and the cover is solid for tens of millimetres
+# under the chin band -- so the ASPECT cap binds and the wall never does. Stated that way rather
+# than derived from COVER_Z0 because COVER_Z0 is defined further down this file and a constant
+# that reads a not-yet-bound name is the ordering trap this round has now hit twice. The claim
+# that the wall does not bind is not left as a comment: check 8a's min-solid sweep covers this
+# face, and _deboss_ledger() below re-derives it against the real number every build.
+MARK_DEPTH_MATE = int(_ASPECT_MAX * E.LABEL_W / LH) * LH        # 0.80 = 4 layers
+MARK_DEPTH   = MARK_DEPTH_MATE      # kept as the shared name every existing caller already reads
+                                    # (was a typed 3*LH = 0.60; JP r11: as deep as we can)
+
+
 MARK_PATHS_P = [[(-MARK_H/2, 0.0), (MARK_H/2, 0.0)], [(0.0, -MARK_H/2), (0.0, MARK_H/2)]]
 MARK_PATHS_N = [[(-MARK_H/2, 0.0), (MARK_H/2, 0.0)]]
 MARK_INK     = MARK_H + E.LABEL_W                       # 3.70 overall ink extent
@@ -1101,6 +1168,26 @@ def leaf_phantom(height, dz=0.0):
               LEAF_SEAT_Y - LEAF_KERF + 0.02, LEAF_SEAT_Y + height,
               CONTACT_Z0 + dz, CONTACT_Z1 + dz)
 
+def plate_phantom():
+    """The FLAT +Y contact plate, as its own phantom.  IT HAD NONE, AND A CHECK NEEDED IT.
+
+    ⚠️ WHY THIS EXISTS: check 15 measures whether a polarity marking can be SEEN, and it ran
+    that lens against `leaf_phantom()` alone -- the -Y metalwork. The "+" marking is on the
+    OTHER end wall, 66mm away, so the lens was measuring the "+" mark against a piece of metal
+    that is nowhere near it. That is the identical defect `leaf_phantom`'s own docstring records
+    ("a phantom that omits the retained feature cannot test retention"), one end further along:
+    a phantom that omits the +Y metalwork cannot test the +Y marking.
+
+    The plate lies FLUSH IN ITS KERF -- body from CELL_TIP_Y to CELL_TIP_Y + CONTACT_KERF, i.e.
+    entirely BEHIND the wall face the mark is cut into, projecting nothing into the bore. That
+    is the whole reason the two markings are placed asymmetrically, and now it is MEASURED
+    instead of asserted in a comment.
+    """
+    return bx(CELL_AXIS_X - CONTACT_W/2, CELL_AXIS_X + CONTACT_W/2,
+              CELL_TIP_Y, CELL_TIP_Y + CONTACT_KERF,
+              CONTACT_Z0, CONTACT_Z1)
+
+
 def prot_phantom():
     """The 1S protection body, in its bay pocket, so its fit is measured and not asserted.
 
@@ -1665,6 +1752,126 @@ def _plateau_region():
             RIM_Y0 - PLATEAU_MARGIN, min(RIM_Y1 + PLATEAU_MARGIN, MOB_OY1 - WALL))
 
 
+# ============================================================================
+# 5k. SIDE LABELS ON THE MIDFRAME'S FLANKS  --  UART / I2C / IO  (JP, r11)
+# ============================================================================
+#
+# JP: "also all the lables should be smaller and onthe side of the mnidrame for the uart, sd, io,
+# and i2c."
+#
+# >>> HIS LIST OF FOUR IS NOT TYPED HERE. IT IS DERIVED, AND IT COMES OUT EXACTLY RIGHT. <<<
+# The mobile blocks two connectors outright (SIDE_BLOCK: BAT, because the cell pigtail is
+# entirely internal, and SPK, because the driver's lead leaves through the SPK relief inside the
+# sealed rim). Those two have NO OPENING ON THIS VARIANT. Everything else does, plus the microSD
+# slit -- and `served minus blocked + SD` is {I2C, IO, SD, UART}, which is JP's list character
+# for character. So the set is computed from SIDE_BLOCK and ASSERTED against his four, which
+# means the day a connector is unblocked its label appears, and the day one is blocked its label
+# DIES WITH ITS OPENING. That is the mic-label rule (a label over no bore is the founding hazard
+# of this repo, and "a label is the same lie told in ink") generalised from one feature to a set.
+SIDE_LBL_SITES = []          # (name, face, y-centre) -- filled below, derived
+for _i, _nm in enumerate(E.CONN_LBL_L):
+    if ("L", _i) not in E.SIDE_BLOCK["mobile"]:
+        SIDE_LBL_SITES.append((_nm, "-X", sum(E.CONN_L[_i]) / 2))
+for _i, _nm in enumerate(E.CONN_LBL_R):
+    if ("R", _i) not in E.SIDE_BLOCK["mobile"]:
+        SIDE_LBL_SITES.append((_nm, "+X", sum(E.CONN_R[_i]) / 2))
+SIDE_LBL_SD = ("SD", "-X" if (E.SD_SOCKET[0] + E.SD_SOCKET[1]) / 2 < E.BW / 2 else "+X",
+               (E.SD_SOCKET[2] + E.SD_SOCKET[3]) / 2)
+assert sorted([n for n, _, _ in SIDE_LBL_SITES] + ["SD"]) == ["I2C", "IO", "SD", "UART"], (
+    f"the served-connector set on the mobile is "
+    f"{sorted([n for n,_,_ in SIDE_LBL_SITES] + ['SD'])}, which is no longer JP's four. Either a "
+    f"connector changed hands or SIDE_BLOCK moved -- the LABELS follow the openings, so fix the "
+    f"opening first and let this list re-derive")
+
+# ---- THE BAND A LABEL CAN LIVE IN, and it is small ----
+# The flanks are cut through at z CAV_FLOOR..PCB_BOT for the cable channels, so a label has to
+# sit ABOVE that band, between the channel roof and the bezel seam.
+SIDE_LBL_Z0   = E.PCB_BOT + E.LABEL_MARGIN
+SIDE_LBL_Z1   = E.SEAM_Z - E.LABEL_MARGIN
+SIDE_LBL_BAND = SIDE_LBL_Z1 - SIDE_LBL_Z0                      # 4.70
+SIDE_WALL_T   = 2.60          # measured off the built solid on both flanks, not assumed
+
+# ---- STROKE AND DEPTH: A DIFFERENT PRINT CLASS FROM EVERY OTHER LABEL IN THIS PROJECT ----
+#
+# The back-face labels are grooves in a face that prints AGAINST THE BED: their width is a
+# horizontal dimension (nozzle-limited, LABEL_W 0.90) and their DEPTH runs in Z, so it is
+# quantized to LAYER_H -- that is why LABEL_DEBOSS is "2 * LAYER_H_SHELL" and not a distance.
+# A groove in a VERTICAL WALL inverts both of those:
+#
+#   depth   runs horizontally into the wall  -> layer height does NOT govern it
+#                                              (ember_case.py:291 already says exactly this
+#                                              about the 0.90 label grooves and the hex webs)
+#                                           -> quantize to EXTRUSION WIDTH
+#   strokes running along Y  are gaps in the LAYER STACK   -> layer-quantized
+#   strokes running along Z  are gaps WITHIN a layer       -> nozzle-limited
+#
+# So the stroke stays at two extrusions -- 0.80, which is the BACK GRILL's web, the one field in
+# this project that has actually PRINTED on a vertical wall. Below that is unproven territory and
+# a groove that the perimeter simply bridges over is an invisible label, which is the one failure
+# mode this file has already shipped once.
+# ---- THE DRIVER OUTLINE'S DEPTH, AND IT IS THE ONE FEATURE r11 MAKES SHALLOWER ----
+#
+# >>> FLAGGED RATHER THAN QUIETLY REGRESSED, because JP asked for DEEPER everywhere. <<<
+# The witness ring lives on the chamber floor, and that floor is the BAFFLE -- 2.20mm, the
+# thinnest wall in this part, already carrying 31 grille openings and doubling as the bed face.
+# At the 0.60 it inherited it left exactly MIN_SOLID (1.60) behind it: not a violation, but sitting
+# ON the constraint with zero slack, which this file has an explicit precedent against --
+# LABEL_DEBOSS took 2 layers instead of 3 for exactly this reason ("a value sitting on a
+# constraint boundary has no slack"). Raising MARK_DEPTH to 0.80 for the polarity marks dragged
+# the ring with it, the ledger's own wall assert caught it, and the honest answer is not to
+# exempt the ring -- it is to give it its own derivation and let it come out SHALLOWER:
+#
+#     0.40 = 2 layers, leaving 1.80 of baffle, i.e. one whole layer of slack over the floor.
+#
+# 0.40 is also exactly the depth every label on the desk case is cut at, so this is not a
+# thin mark -- it is the proven one, and the ring is 1.20 wide so it reads on width, not depth.
+OUTLINE_DEPTH = _max_deboss(CAV_Z0 - COVER_Z0, quantum=LH)      # 0.40
+assert OUTLINE_DEPTH < MARK_DEPTH, (
+    "the driver outline is no longer the shallow exception -- re-read the ledger note above, "
+    "because the reason it is shallow is the baffle and the baffle has not got thicker")
+
+SIDE_LBL_W     = 2 * _EXTRUSION                                 # 0.80, proven on a vertical wall
+SIDE_LBL_GAP   = SIDE_LBL_W + 1.00                              # 1.00 of material inside a word
+SIDE_LBL_DEPTH = min(_max_deboss(SIDE_WALL_T, quantum=_EXTRUSION),
+                     int(_ASPECT_MAX * SIDE_LBL_W / _EXTRUSION) * _EXTRUSION)   # 0.80
+# height: the tallest that fits the band, then floored by what each glyph needs at this stroke
+SIDE_LBL_H     = round(SIDE_LBL_BAND - SIDE_LBL_W, 2)           # ink height == the whole band
+
+# ---- AND THIS IS WHERE JP'S FOURTH LABEL DOES NOT FIT.  NUMBER, NOT AN OPINION. ----
+#
+# The stroke font is normalised but the STROKE IS NOT, so every counter shrinks with h while the
+# 0.80 groove does not -- ember_case.py records the same trap costing the desk set a size ("S's
+# material at h = (0.98 + 0.90)*h/5.50 - 0.90 -> S needs h >= 5.27"). SD CONTAINS AN S. At this
+# stroke the smallest S that keeps two extrusions of material between its own strokes needs
+# h 4.70, i.e. ink 5.50 tall, against a band of 4.70. Short by 0.80mm, and there is no margin
+# left to shave: the 0.80 keepouts are against a THROUGH-CUT channel below and the bezel SEAM
+# above. Buying it with a narrower stroke means going under two extrusions on a vertical wall,
+# which is exactly the unproven groove this file refuses to ship blind.
+_SD_H_MIN = 4.70
+SIDE_LBL_SD_SHORTFALL = (_SD_H_MIN + SIDE_LBL_W) - SIDE_LBL_BAND        # +0.80
+assert SIDE_LBL_SD_SHORTFALL > 0, (
+    "SD now fits the flank band -- delete this shortfall block, add SD to the built sites and "
+    "let the gate re-measure it, rather than leaving a constant that says it cannot")
+
+
+def _side_label(paths, face, cy, cz, depth):
+    """A label sketch laid onto a flank, authored in READING SPACE and mirrored on placement.
+
+    ⚠️ THE +X FLANK READS BACKWARDS IF NOBODY WRITES THIS DOWN -- the same hazard as
+    _back_label()'s X mirror, on a different pair of faces. For a viewer at -X (forward +X,
+    up +Z) their right hand is up x forward = (0,0,1)x(1,0,0) = +Y, so model +Y reads LEFT TO
+    RIGHT and no mirror is wanted. For a viewer at +X, forward is -X and their right hand is
+    (0,0,1)x(-1,0,0) = -Y, so +Y runs RIGHT TO LEFT and the glyphs MUST be mirrored in u.
+    Two of the three labels are on the +X flank, so getting this backwards mirrors most of them.
+    """
+    _p = paths if face == "-X" else [[(-u, v) for u, v in _path] for _path in paths]
+    _sk = E._label_sketch(_p, SIDE_LBL_W)
+    # sketch u -> world +Y, v -> world +Z (so its normal lands on +X): Rz90 after Rx90
+    _sk = Rot(0, 0, 90) * (Rot(90, 0, 0) * _sk)
+    _x = OX0 if face == "-X" else OX1 - depth
+    return Pos(_x, cy, cz) * extrude(_sk, depth)
+
+
 def midframe():
     """back_shell() plus the mobile additions. Composition, not a fork.
 
@@ -1747,6 +1954,13 @@ def midframe():
     # first and adding second would refill a sliver of two bores with a no-op.
     for _cx in EV_XS:
         p -= _yprism(_hex_xz(_cx, EV_CZ, MESH_R), EV_Y0, EV_Y1)
+    # ---- SIDE LABELS on the flanks (see 5k). Cut LAST, so nothing lands on top of them. ----
+    # One loop over the DERIVED site list -- if a connector's opening disappears its label is not
+    # in SIDE_LBL_SITES and is never cut, which is the whole point of deriving the set.
+    for _nm, _face, _cy in SIDE_LBL_SITES:
+        p -= _side_label(E._LBL_SIDE[_nm], _face, _cy,
+                         (SIDE_LBL_Z0 + SIDE_LBL_Z1) / 2, SIDE_LBL_DEPTH)
+
     return p
 
 
@@ -2061,10 +2275,10 @@ def back_cover():
     # MIN_SOLID of baffle, and it is nowhere near the rim's bearing face, which is at BACK_Z.
     _do_out = rbox(DRV_CX - DRIVER_H/2, DRV_CX + DRIVER_H/2,
                    DRV_CY - DRIVER_W/2, DRV_CY + DRIVER_W/2,
-                   CAV_Z0 - MARK_DEPTH, CAV_Z0 + 1.0, DRIVER_R)
+                   CAV_Z0 - OUTLINE_DEPTH, CAV_Z0 + 1.0, DRIVER_R)
     _do_in = rbox(DRV_CX - DRIVER_H/2 + LIP_WIDTH, DRV_CX + DRIVER_H/2 - LIP_WIDTH,
                   DRV_CY - DRIVER_W/2 + LIP_WIDTH, DRV_CY + DRIVER_W/2 - LIP_WIDTH,
-                  CAV_Z0 - MARK_DEPTH - 1.0, CAV_Z0 + 2.0, max(DRIVER_R - LIP_WIDTH, 0.5))
+                  CAV_Z0 - OUTLINE_DEPTH - 1.0, CAV_Z0 + 2.0, max(DRIVER_R - LIP_WIDTH, 0.5))
     p -= (_do_out - _do_in)
 
     # ---- THE BLIND TOP MESH on the battery side of the boss (see 5j). NOT a vent. ----
@@ -2579,11 +2793,11 @@ def _check_mobile(parts):
     # the two lines look concentric in the viewer and why nobody should "harmonise" them later.
     _ring_out = rbox(DRV_CX - DRIVER_H/2, DRV_CX + DRIVER_H/2,
                      DRV_CY - DRIVER_W/2, DRV_CY + DRIVER_W/2,
-                     CAV_Z0 - MARK_DEPTH, CAV_Z0, DRIVER_R)
+                     CAV_Z0 - OUTLINE_DEPTH, CAV_Z0, DRIVER_R)
     _ring = _ring_out - rbox(
         DRV_CX - DRIVER_H/2 + LIP_WIDTH, DRV_CX + DRIVER_H/2 - LIP_WIDTH,
         DRV_CY - DRIVER_W/2 + LIP_WIDTH, DRV_CY + DRIVER_W/2 - LIP_WIDTH,
-        CAV_Z0 - MARK_DEPTH - 1, CAV_Z0 + 1, max(DRIVER_R - LIP_WIDTH, 0.5))
+        CAV_Z0 - OUTLINE_DEPTH - 1, CAV_Z0 + 1, max(DRIVER_R - LIP_WIDTH, 0.5))
     _ring_cut = (_ring - cov).volume / _ring.volume
     assert _ring_cut >= 0.95, (
         f"the driver's witness outline only cut {100*_ring_cut:.0f}% of its own ring -- it is "
@@ -2598,15 +2812,15 @@ def _check_mobile(parts):
     def _ring_on_solid(inset):
         _r = (rbox(DRV_CX - DRIVER_H/2 + inset, DRV_CX + DRIVER_H/2 - inset,
                    DRV_CY - DRIVER_W/2 + inset, DRV_CY + DRIVER_W/2 - inset,
-                   CAV_Z0 - MARK_DEPTH, CAV_Z0, max(DRIVER_R - inset, 0.5))
+                   CAV_Z0 - OUTLINE_DEPTH, CAV_Z0, max(DRIVER_R - inset, 0.5))
               - rbox(DRV_CX - DRIVER_H/2 + inset + LIP_WIDTH,
                      DRV_CX + DRIVER_H/2 - inset - LIP_WIDTH,
                      DRV_CY - DRIVER_W/2 + inset + LIP_WIDTH,
                      DRV_CY + DRIVER_W/2 - inset - LIP_WIDTH,
-                     CAV_Z0 - MARK_DEPTH - 1, CAV_Z0 + 1,
+                     CAV_Z0 - OUTLINE_DEPTH - 1, CAV_Z0 + 1,
                      max(DRIVER_R - inset - LIP_WIDTH, 0.5)))
         # the baffle that must survive UNDER the groove floor, over the ring's own footprint
-        _u = _r.moved(Location((0, 0, -(CAV_Z0 - MARK_DEPTH - COVER_Z0))))
+        _u = _r.moved(Location((0, 0, -(CAV_Z0 - OUTLINE_DEPTH - COVER_Z0))))
         return 1.0 - (_u - cov).volume / _u.volume
     _ring_floor = GRILLE_INSET / LIP_WIDTH
     _ring_solid = _ring_on_solid(0.0)
@@ -2622,8 +2836,8 @@ def _check_mobile(parts):
         f"control failed: the same outline moved {GRILLE_INSET+LIP_WIDTH:.2f} inward, onto the "
         f"open grille field, still reads {100*_ring_ctl:.0f}% solid -- the readability lens is "
         f"blind and the assert above is decoration")
-    print(f"  [outline] driver witness ring {_ring.volume/MARK_DEPTH:.1f} mm2 cut "
-          f"{100*_ring_cut:.0f}%, {MARK_DEPTH:.2f} deep, on {100*_ring_solid:.0f}% solid baffle "
+    print(f"  [outline] driver witness ring {_ring.volume/OUTLINE_DEPTH:.1f} mm2 cut "
+          f"{100*_ring_cut:.0f}%, {OUTLINE_DEPTH:.2f} deep, on {100*_ring_solid:.0f}% solid baffle "
           f"(floor {100*_ring_floor:.0f}% = GRILLE_INSET/LIP_WIDTH); control over the open field "
           f"{100*_ring_ctl:.0f}%, REJECTED")
     print(f"             AT A GLANCE, and these are what the ruler is for: driver "
@@ -2639,6 +2853,110 @@ def _check_mobile(parts):
           f"({DRIVER_H+2*DRIVER_CLR:.2f} x {DRIVER_W+2*DRIVER_CLR:.2f}, a LOCATING fit); this "
           f"ring is nominal ({DRIVER_H:.2f} x {DRIVER_W:.2f}, a RULER). Concentric, "
           f"{DRIVER_CLR:.2f} apart per side, and deliberately NOT the same number.")
+
+    # ---- 7d. THE SIDE LABELS, AND THE DEBOSS DEPTH LEDGER (JP, r11) ----
+    import strokefont as _SFm
+    _lbl_rows = []
+    for _nm, _face, _cy in SIDE_LBL_SITES:
+        _iw, _ih = _SFm.ink_size(_nm, SIDE_LBL_H, SIDE_LBL_W, SIDE_LBL_GAP)
+        _cz = (SIDE_LBL_Z0 + SIDE_LBL_Z1) / 2
+        _x0 = OX0 if _face == "-X" else OX1 - SIDE_LBL_DEPTH
+        _pr = bx(_x0 - 0.02, _x0 + SIDE_LBL_DEPTH + 0.02, _cy - _iw/2 - 0.3, _cy + _iw/2 + 0.3,
+                 _cz - _ih/2 - 0.3, _cz + _ih/2 + 0.3)
+        _cut = (_pr - mf).volume / SIDE_LBL_DEPTH
+        assert _cut >= 0.40 * _iw * _ih, (
+            f"side label {_nm!r} removed only {_cut:.2f} mm2 inside a {_iw*_ih:.2f} mm2 ink box "
+            f"-- it is off its face, or the flank is not solid where it landed")
+        # the wall it must NOT eat: MIN_SOLID immediately behind the groove floor
+        _beh = (bx(_x0 + SIDE_LBL_DEPTH, _x0 + SIDE_LBL_DEPTH + MIN_SOLID,
+                   _cy - _iw/2, _cy + _iw/2, _cz - _ih/2, _cz + _ih/2) if _face == "-X"
+                else bx(_x0 - MIN_SOLID, _x0, _cy - _iw/2, _cy + _iw/2, _cz - _ih/2, _cz + _ih/2))
+        _solid = 1.0 - (_beh - mf).volume / _beh.volume
+        assert _solid > 0.999, (
+            f"side label {_nm!r} leaves only {100*_solid:.1f}% of its {MIN_SOLID:.2f}mm backing "
+            f"wall -- a {SIDE_LBL_DEPTH:.2f} groove in a {SIDE_WALL_T:.2f} flank must leave "
+            f"{SIDE_WALL_T-SIDE_LBL_DEPTH:.2f}, so something else is cut into the same wall")
+        _lbl_rows.append((_nm, _face, _cy, _iw, _cut, _solid))
+    # CONTROL, and it is the label-into-air defect: the SAME label, dropped into the cable
+    # channel band below PCB_BOT, is cut into a flank that is OPEN there -- an invisible label
+    # on a part that has already shipped one. If that reads fully backed, this lens is blind.
+    _cnm, _cface, _ccy = SIDE_LBL_SITES[0]
+    _ciw, _cih = _SFm.ink_size(_cnm, SIDE_LBL_H, SIDE_LBL_W, SIDE_LBL_GAP)
+    _ccz = (E.CAV_FLOOR + E.PCB_BOT) / 2
+    _cx0 = OX0 if _cface == "-X" else OX1 - SIDE_LBL_DEPTH
+    _cbeh = (bx(_cx0 + SIDE_LBL_DEPTH, _cx0 + SIDE_LBL_DEPTH + MIN_SOLID,
+                _ccy - _ciw/2, _ccy + _ciw/2, _ccz - _cih/2, _ccz + _cih/2) if _cface == "-X"
+             else bx(_cx0 - MIN_SOLID, _cx0, _ccy - _ciw/2, _ccy + _ciw/2,
+                     _ccz - _cih/2, _ccz + _cih/2))
+    _cfrac = 1.0 - (_cbeh - mf).volume / _cbeh.volume
+    assert _cfrac < 0.999, (
+        f"control failed: {_cnm!r} placed in the CABLE CHANNEL band reads {100*_cfrac:.1f}% "
+        f"backed, but the flank is cut through there -- the backing lens cannot see a label "
+        f"debossed into an opening")
+    print(f"  [sidelbl] {len(_lbl_rows)} labels on the flanks, h {SIDE_LBL_H:.2f} / stroke "
+          f"{SIDE_LBL_W:.2f} / depth {SIDE_LBL_DEPTH:.2f}, band z {SIDE_LBL_Z0:.2f}.."
+          f"{SIDE_LBL_Z1:.2f} ({SIDE_LBL_BAND:.2f} tall)")
+    for _nm, _face, _cy, _iw, _cut, _solid in _lbl_rows:
+        print(f"             {_nm:5s} {_face} centred y {_cy:6.2f} on its own channel, ink "
+              f"{_iw:5.2f} long, cut {_cut:6.2f} mm2, backing wall {100*_solid:.1f}% solid")
+    print(f"             control (same label in the cable-channel band, where the flank is OPEN) "
+          f"reads {100*_cfrac:.0f}% backed and is REJECTED")
+    print(f"             SET DERIVED, NOT TYPED: served connectors minus SIDE_BLOCK's "
+          f"{sorted(E.SIDE_BLOCK['mobile'])} plus the SD slit == JP's four. BAT and SPK have NO "
+          f"OPENING on this variant, so they get NO LABEL -- the mic-label rule, generalised.")
+    print(f"             ⚠️ SD IS NOT BUILT AND THAT IS THE ARITHMETIC, NOT AN OVERSIGHT: its S "
+          f"needs ink {_SD_H_MIN + SIDE_LBL_W:.2f} tall at a {SIDE_LBL_W:.2f} stroke against a "
+          f"{SIDE_LBL_BAND:.2f} band -> SHORT BY {SIDE_LBL_SD_SHORTFALL:.2f}mm. The font is "
+          f"normalised and the stroke is not, so counters shrink and the groove does not.")
+    print(f"             Buying it needs a sub-two-extrusion groove on a vertical wall (unproven, "
+          f"and an invisible label is this file's own shipped defect) or a taller band, which is "
+          f"bounded by a THROUGH-CUT channel below and the bezel SEAM above. NEEDS JP.")
+
+    # ---- THE DEBOSS DEPTH LEDGER.  "as deep as we can", with what stops each one. ----
+    # JP: "all debosses should be even deeper as deep as we can." Every depth in this file is now
+    # derived, so this table is the audit: which BOUND is doing the work for each feature. Two
+    # bounds compete -- the wall behind it, and the groove's own aspect (a groove deeper than it
+    # is wide prints ragged and fills with dirt). Where ASPECT binds, more wall would not help.
+    _ledger = (
+        ("polarity '-'", "cover mating face (Z)", MARK_DEPTH, LH,
+         BACK_Z - COVER_Z0, E.LABEL_W, "aspect"),
+        ("polarity '+'", "bay +Y end wall (Y)", MARK_DEPTH_WALL, _EXTRUSION,
+         MOB_OY1 - CELL_TIP_Y, E.LABEL_W, "aspect"),
+        ("driver outline", "cover chamber floor (Z)", OUTLINE_DEPTH, LH,
+         CAV_Z0 - COVER_Z0, LIP_WIDTH, "wall"),
+        ("side labels", "midframe flank (X)", SIDE_LBL_DEPTH, _EXTRUSION,
+         SIDE_WALL_T, SIDE_LBL_W, "aspect"),
+        # >>> THE ONE FEATURE ALLOWED TO SIT EXACTLY ON MIN_SOLID, AND IT IS A DIFFERENT CASE. <<<
+        # Behind the blind field is not incidental structure -- it is the MEMBRANE, a named
+        # feature with its own check ([topmesh] measures it at 100% and 1.60mm every build). The
+        # driver outline's 1.60 was leftover baffle that nothing was watching; this 1.60 is the
+        # design's own intended thickness. So this row passes on_floor_ok, explicitly, with the
+        # reason -- rather than arriving there because a float compared the way it happened to.
+        ("blind top mesh", "cover +Y end face (Y)", TOPMESH_D, LH,
+         MOB_OY1 - BAY_Y1, MESH_AF, "wall (membrane, on_floor_ok)"),
+    )
+    print(f"  [deboss]  every depth DERIVED (JP r11: as deep as we can). quantum = LAYER_H "
+          f"{LH:.2f} on horizontal faces, EXTRUSION {_EXTRUSION:.2f} on vertical walls -- "
+          f"ember_case.py:291, layer height does not govern a vertical wall.")
+    for _nm, _cls, _d, _q, _wall, _stroke, _binds in _ledger:
+        _wall_cap = _max_deboss(_wall, quantum=_q, on_floor_ok="membrane" in _binds)
+        _asp_cap = int(_ASPECT_MAX * _stroke / _q) * _q
+        assert _d <= _wall_cap + 1e-9, (
+            f"{_nm} is {_d:.2f} deep but its {_wall:.2f} wall only allows {_wall_cap:.2f} "
+            f"while keeping {MIN_SOLID:.2f}")
+        print(f"             {_nm:15s} {_cls:24s} {_d:.2f} deep  "
+              f"(wall {_wall:5.2f} allows {_wall_cap:.2f}, aspect allows {_asp_cap:.2f}) "
+              f"-> {_binds.upper()} binds")
+    print(f"             ⚠️ ONE FEATURE GOT SHALLOWER AND IT IS FLAGGED, NOT HIDDEN: the driver "
+          f"outline goes {OUTLINE_DEPTH:.2f} (was 0.60). At 0.60 it left EXACTLY MIN_SOLID "
+          f"{MIN_SOLID:.2f} of baffle -- on the constraint with no slack, which LABEL_DEBOSS's "
+          f"own block rejects. {OUTLINE_DEPTH:.2f} leaves {CAV_Z0-COVER_Z0-OUTLINE_DEPTH:.2f}, "
+          f"and it is the depth every desk label already prints at. The ring reads on its "
+          f"{LIP_WIDTH:.2f} WIDTH, not on depth.")
+    assert MARK_DEPTH > 3 * LH, (
+        f"the polarity marks are {MARK_DEPTH:.2f}, no deeper than the 0.60 they were before "
+        f"r11 -- JP asked for deeper everywhere, so a floor must have tightened. Say so, do "
+        f"not regress quietly")
 
     # ---- 8. GRILLE THROAT, RASTERED.  Neither figure inherited from a comment. ----
 
@@ -3482,7 +3800,12 @@ def _check_mobile(parts):
     # geometry and this probe, so a marking cannot move without its check moving with it -- and
     # the box is clamped to the ink in X and Z as well as Y, which the old whole-face version
     # was not.
+    # ⚠️ ALL the metalwork, not just the leaf. See plate_phantom(). The lens used to hold only
+    # the -Y leaf, so the "+" mark was being cleared by the absence of a part that lives at the
+    # other end of the bay. Both phantoms, both marks, and the numbers decide the placement.
     _leaf = leaf_phantom(LEAF_FREE)
+    _plate = plate_phantom()
+    _metal = _leaf + _plate
     for _nm, _ink in (("+", _ink_p), ("-", _ink_n)):
         _pl, _mx, _my, _mz = _mark_face(_nm)
         _hu, _hv = _ink_half(MARK_PATHS_P if _nm == "+" else MARK_PATHS_N)
@@ -3511,7 +3834,7 @@ def _check_mobile(parts):
         # loaded from +Z, so the test is a clear column from the mark out of the opening, and
         # it is run against the METALWORK as well as the plastic because the leaf is a phantom
         # and no part-vs-part boolean can see it.
-        _free = (_los - cov - _leaf).volume / _los.volume
+        _free = (_los - cov - _metal).volume / _los.volume
         assert _free > 0.90, (
             f"the '{_nm}' marking is only {100*_free:.0f}% visible from the bay's open side -- "
             f"something stands in front of it. It is debossed, it measures correct, and nobody "
@@ -3522,7 +3845,7 @@ def _check_mobile(parts):
     # lens is blind and the two asserts above are decoration.
     _ctl_los = bx(CELL_AXIS_X - MARK_INK/2, CELL_AXIS_X + MARK_INK/2, BAY_Y0, BAY_Y0 + 0.60,
                   (CAV_Z0 + CONTACT_Z0)/2 + MARK_INK/2, BACK_Z)
-    _ctl_free = (_ctl_los - cov - _leaf).volume / _ctl_los.volume
+    _ctl_free = (_ctl_los - cov - _metal).volume / _ctl_los.volume
     assert _ctl_free < 0.90, (
         f"control failed: the '-' mark's old position on the low-Y end wall reads "
         f"{100*_ctl_free:.0f}% visible even with the leaf standing on that very face, so this "
@@ -3530,8 +3853,24 @@ def _check_mobile(parts):
     print(f"  [marks]   '+' on the +Y bulkhead's bay face (y {_mark_face('+')[2]:.2f}), '-' on "
           f"the cover's MATING FACE at BACK_Z (y {_mark_face('-')[2]:.2f}) -- see _mark_face")
     print(f"             VISIBILITY: both >90% clear to the bay's open side, measured against "
-          f"the cover AND the leaf phantom; control (the '-' mark's old wall position, behind "
-          f"the leaf) reads {100*_ctl_free:.0f}% and is REJECTED")
+          f"the cover AND BOTH metal phantoms (leaf + plate); control (the '-' mark's old wall "
+          f"position, behind the leaf) reads {100*_ctl_free:.0f}% and is REJECTED")
+    # >>> THE ASYMMETRY, RE-EARNED BY MEASUREMENT RATHER THAN BY ITS OLD SENTENCE. <<<
+    # The placement was justified by "a leaf at one end, a plate at the other", and that reason
+    # was challenged as stale on the grounds that both ends are leaf seats now. THEY ARE NOT:
+    # §5g's construction block is explicit -- ONE KERF DESIGN used at both ends, with a FOLDED
+    # LEAF at -Y and a FLAT PLATE at +Y. What is shared is the seat, not the spring. So the old
+    # sentence was right; but a sentence being right is not evidence, so the two projections
+    # below are measured off the phantoms and printed every build. If a future round puts a
+    # fold at +Y, this number moves and the "+" mark has to move with it.
+    _proj_lo = LEAF_FREE - LEAF_KERF
+    _proj_hi = 0.0
+    print(f"             ASYMMETRY MEASURED, not argued: the -Y leaf projects "
+          f"{_proj_lo:.2f}mm INTO the bore past its wall face; the +Y plate projects "
+          f"{_proj_hi:.2f}mm (flush in a {CONTACT_KERF:.2f} kerf, body y "
+          f"{CELL_TIP_Y:.2f}..{CELL_TIP_Y+CONTACT_KERF:.2f}, entirely behind the marked face).")
+    print(f"             THAT is why '-' needs the mating face and '+' keeps its end wall. The "
+          f"two ends share a SEAT design, not a spring -- see §5g.")
     print(f"             debossed {MARK_DEPTH:.2f}, {MARK_H:.2f} tall, {E.LABEL_W} groove; "
           f"area measured against ink both ways AND a sight line measured on the solid")
     print(f"             min_gap is VACUOUS on these glyphs (inf, 0 pairs) and is asserted to "
