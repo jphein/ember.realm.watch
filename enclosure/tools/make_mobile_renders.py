@@ -35,6 +35,11 @@ the same frame. So each figure below names the question it answers:
   strip         the protection pocket: seat, locating ribs outside the footprint, flat
                 floor under it. Cannot show the solder access, which is a property of
                 assembly ORDER rather than of any one section.
+  bay-ends      the two kerfs that actually retain the cell and the contact plate, at a
+                magnification they can be seen at. Added because JP went looking for the
+                mechanism in the preview and could not find it: 0.35mm is a hairline at
+                full-part zoom. Cannot show either end in context -- that is the trade a
+                detail view makes.
   hero          the assembled device, shaded. The one figure whose job is the DEPTH the
                 variant costs, read against the bezel it shares with the flat desk case.
   cover         the new part turned over with the cell in its cradle. Every internal
@@ -284,6 +289,76 @@ dims = [
           (M.PROT_CX + M.PROT_L / 2 + 2.0, M.PROT_Y1), off=3.0, side="h"),
 ]
 S.write_svg(_out("mobile-strip-pocket.svg"), _gs, "mobile-strip", dims=dims)
+
+
+# ================================================== 5b. BAY-END DETAILS (svg)
+# THIS FIGURE EXISTS BECAUSE JP LOOKED FOR THE RETENTION MECHANISM AND COULD NOT FIND IT.
+#
+# Reviewing the print preview he went looking for what actually holds the cell and the contact
+# plate, and came away unable to see it -- correctly, because **a 0.35mm kerf is a hairline at
+# full-part zoom.** Nothing was missing and nothing was wrong; the features were present, in the
+# right place, at the right size, and invisible at the magnification anyone actually views the
+# part at.
+#
+# That is the same failure as the "-" polarity mark, which was cut to spec and 34% visible behind
+# the leaf: **present and correct is not the same as findable.** The fix for a mark was to move it.
+# The fix for a mechanism you cannot photograph is a DETAIL VIEW -- so this is one, and it is the
+# only figure in the set whose justification is the reader's eye rather than the geometry.
+#
+# ONE cut, TWO windows. Both panels are the same section plane through the cell axis, cropped to
+# the two bay ends and set side by side, so the figure cannot show the two ends at inconsistent
+# scales or from inconsistent directions -- a risk that two independently-posed detail views carry
+# for free. The gap between panels is drawn as nothing at all: no frame, no divider, because a
+# divider would imply the two crops are adjacent in the part, and they are 66mm apart.
+print("bay-end details:")
+_BX = M.CELL_AXIS_X
+# Z BAND, not the whole cover. The kerfs live around the contact plate's 10mm height
+# (CONTACT_Z0..Z1 = -24.40..-14.40); sectioning the cover's full 21.60 of depth made each panel
+# a tall sliver and pushed the features back down to hairlines, which is the problem this figure
+# exists to solve. Cropping Z is what buys the magnification.
+_ZLO, _ZHI = -27.0, -12.0
+_W = 7.0          # window width, identical for both panels -- see the one-cut note above
+_GAP = 3.0
+
+
+def _panel(y0):
+    box = Pos(_BX - 1.0, y0, _ZLO) * Box(2.0, _W, _ZHI - _ZLO,
+                                        align=(Align.MIN, Align.MIN, Align.MIN))
+    return S.face_polys(S.section(cover & box, "x", _BX), "x")
+
+
+def _shift(polys, dy):
+    return [[(p[0] + dy, p[1]) for p in poly] for poly in polys]
+
+
+_a0 = M.BAY_Y0 - 2.2                      # leaf end (-Y)
+_b0 = M.BAY_Y1 - _W + 2.2                 # plate end (+Y)
+_left = _panel(_a0)
+_off = (_a0 + _W + _GAP) - _b0            # butt the right panel past the left, same scale
+_right = _shift(_panel(_b0), _off)
+
+# CALLOUTS IN THE MARGINS, and ONLY on geometry that is actually in the drawing.
+#
+# Two earlier mistakes, both worth recording because they are easy to repeat:
+#   * the labels were anchored at the leader TIP, which put every one of them on top of the
+#     outline it pointed at -- a caption obscuring its own subject.
+#   * there was a third leader for the leaf's free height, and **it pointed at empty space.** The
+#     leaf is folded nickel: it is not in this STL and not in this section. A callout naming a part
+#     that is not in the picture is worse than no callout, because the reader hunts for it. The
+#     free height and the detent size are prose in the caption instead -- they are facts about the
+#     hardware, not features of the printed part.
+#
+# What remains points at the two kerfs, at the plate's own mid-height, which is where they are.
+_TOP, _BOT = _ZHI + 1.6, _ZLO - 1.2
+_KZ = (M.CONTACT_Z0 + M.CONTACT_Z1) / 2
+dims = [
+    S.leader((M.BAY_Y0, _KZ), (_a0 - 0.6, _BOT), f"leaf kerf {M.LEAF_KERF:.2f}"),
+    S.leader((M.BAY_Y1 + _off, _KZ), (_b0 + _off - 0.6, _BOT),
+             f"contact kerf {M.CONTACT_KERF:.2f}"),
+]
+S.write_svg(_out("mobile-bay-ends.svg"),
+            [(_left, "leaf-end"), (_right, "plate-end")], "mobile-bay",
+            dims=dims, label_px=20.0)
 
 
 # ============================================================ 6. SHADED (png)

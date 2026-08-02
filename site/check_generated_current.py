@@ -54,7 +54,7 @@ _FIGURES = [
     "case-exploded.svg", "case-back.svg", "case-docked-rear.svg", "case-front.svg",
     "case-print-layout.svg", "case-hero.png",
     "mobile-exploded.svg", "mobile-cross.svg", "mobile-vent.svg",
-    "mobile-glow-window.svg", "mobile-strip-pocket.svg",
+    "mobile-glow-window.svg", "mobile-strip-pocket.svg", "mobile-bay-ends.svg",
     "mobile-hero.png", "mobile-cover.png",
 ]
 PAIRS += [(f"site/renders/{f}", "site/build.py", "docs/index.html") for f in _FIGURES]

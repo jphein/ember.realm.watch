@@ -652,6 +652,7 @@ transcribe these by hand.
 | **Collar** | both pilots have a full **1.60 mm collar of floor**; control in the open hex field **35 %, rejected**. Two hex rows dropped for it |
 | Leaf | folded nickel, root in a 0.35 kerf at y 20.20; free height **3.60** (⚠️ **JP-tunable**), closed 0.75, **2.85 mm travel** |
 | Contact | kerf **0.350** (0.25 JP-confirmed material + 0.10 derived play); detent leaves 0.200 < 0.25 |
+| Detail view | `site/renders/mobile-bay-ends.svg` — both kerfs at a magnification they can be seen at. **Added because the mechanism was invisible in the print preview:** 0.35 mm is a hairline at full-part zoom, so *present and correct* was not *findable* |
 | Tab runs | B− **18.1 mm** (strip → crossing slot → leaf kerf); B+ **71.0 mm** (strip → wire groove → the `+` plate at y 86.95) |
 | Marks | `+` on the +Y bulkhead's bay face (y 86.95); `−` on the cover's **mating face** (y 19.10) |
 | Seal rim | **100.00 % solid**; control on the open vent field 37.21 % (must be < 98) |

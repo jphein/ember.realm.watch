@@ -137,6 +137,11 @@ INLINE_SVG = {
     "mobile_vent":        Path(__file__).resolve().parent / "renders" / "mobile-vent.svg",
     "mobile_glow":        Path(__file__).resolve().parent / "renders" / "mobile-glow-window.svg",
     "mobile_strip":       Path(__file__).resolve().parent / "renders" / "mobile-strip-pocket.svg",
+    # The detail view. It exists because JP went looking for the retention mechanism in the
+    # print preview and could not find it -- 0.35mm is a hairline at full-part zoom. Inlined for
+    # currentColor like the rest; its two panels are named groups so the stylesheet could pick
+    # one out later if either end ever needs emphasis.
+    "mobile_bay":         Path(__file__).resolve().parent / "renders" / "mobile-bay-ends.svg",
 }
 
 INLINE = {}          # nothing else earns it
