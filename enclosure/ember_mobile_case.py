@@ -53,6 +53,16 @@ CBORE_D, CBORE_DEPTH, SCREW_D, PILOT_D = E.CBORE_D, E.CBORE_DEPTH, E.SCREW_D, E.
 SCREW_HEAD_D, SCREW_HEAD_H = E.SCREW_HEAD_D, E.SCREW_HEAD_H
 bx, rbox, cyl = E.bx, E.rbox, E.cyl
 
+# ⚠️ THE MOBILE'S OWN FLANK OPENINGS, NOT THE NOMINAL SET. JP suppressed SPK and BAT on this
+# variant (SIDE_BLOCK in ember_case) — SPK because the driver lives in the cover's sealed cavity
+# and its pigtail leaves through the SPK relief, BAT because the pigtail runs internally through
+# the midframe's floor pass. Everything here that reasons about "where is the wall solid" must
+# read THIS, not E._CH_*: the glow window's site is SOLVED at runtime from the solid spans
+# between openings, so closing one silently moves a published feature. It did — see the [glow]
+# line in the build log.
+MOB_CH_HI, MOB_CH_LO = E.side_channels("mobile")
+
+
 def cyl_y(cx, cz, d, y0, y1):
     """Cylinder with its axis along +Y. Same construction trick as E.rrect_y()."""
     return Pos(cx, y0, cz) * (Rot(-90, 0, 0) * extrude(Circle(d/2), y1 - y0))
@@ -69,10 +79,12 @@ def cyl_y(cx, cz, d, y0, y1):
 #      GRILLE_RECESS into a 4.0 wall; here the wall already is the baffle and the recess
 #      disappears entirely. Setting COV_WALL = BAFFLE_T makes the port length identical to
 #      the stand's BY CONSTRUCTION rather than by coincidence -- asserted at check 2.
-#   2. THE X BUDGET DOES NOT CLOSE AT 2.60. Interior width must hold the cell bore (19.60)
-#      plus a shared divider (2.00) plus the driver's tape footprint (28.20) = 49.80.
-#      At WALL=2.60 the interior is 50.70, leaving 0.90 total; at 2.20 it is 51.50, leaving
-#      1.70. The rim needs that. Asserted at check 3 so it cannot silently go negative.
+#   2. THE X BUDGET DOES NOT CLOSE AT 2.60. Interior width must hold the cell bore (19.40)
+#      plus a shared divider (2.00) plus the driver's tape footprint (28.20) = 49.60.
+#      At WALL=2.60 the interior is 50.70, leaving 1.10 total; at 2.20 it is 51.50, leaving
+#      1.90. The rim needs that. Asserted at check 3 so it cannot silently go negative.
+#      (The bore figure was 19.60 here until 2026-08-01 -- stale since the bare-cell
+#      re-primary. Check 3 measures the live constants, so only the prose had drifted.)
 #
 # 11 * 0.20 exactly, so the wall is a whole number of layers like everything else here.
 COV_WALL = 11 * LH                                      # 2.20
@@ -160,7 +172,9 @@ BAY_Y0   = COVER_Y0 + COV_WALL                          # 20.20 — the cell's f
 # >>> SO REVERSE-INSERTION PROTECTION IS NOW MARKINGS ONLY, AND THAT IS AN ELECTRICAL GAP. <<<
 #
 # The contact plate therefore sits FLUSH with the bay again and the tip datum is BAY_Y0.
-KEY_PLATE_T  = 4 * LH                                   # 0.80, a 0.30 stamped contact plus room
+# KEY_PLATE_T lived here -- 0.80, "a 0.30 stamped contact plus room". It was the depth of a
+# pocket that located the plate and retained nothing, and section 5g replaced it with a kerf
+# whose width is derived from the strip's own thickness. Deleted rather than left to rot.
 CELL_TIP_Y   = BAY_Y0                                   # flat face, no recess, no offset
 BAY_Y1   = CELL_TIP_Y + BAY_L                           # 89.80
 
@@ -182,8 +196,13 @@ MARK_PATHS_N = [[(-MARK_H/2, 0.0), (MARK_H/2, 0.0)]]
 MARK_INK     = MARK_H + E.LABEL_W                       # 3.70 overall ink extent
 MOB_OY1  = BAY_Y1 + COV_WALL                            # 98.50  <- the case's new top
 BROW_Y0  = OY1                                          # 88.95, where back_shell ends
-COVER_Z0 = BACK_Z - COV_WALL - CELL_BORE_D              # -31.50, the cover's outer face
-CAV_Z0   = COVER_Z0 + COV_WALL                          # -29.30, baffle inner AND bore floor
+# ⚠️ THESE TWO COMMENTS SAID -31.50 AND -29.30 UNTIL 2026-08-01, i.e. they were correct for a
+# CELL_BORE_D of 19.60 and the bare-cell re-primary took it to 19.40 without them following.
+# Harmless here because both are DERIVED and nothing reads the comment -- but it cost real time
+# downstream: a slice script written against -31.50 sliced the cover 0.20 too high and read a
+# tooth 0.20 up its own skew. §11 defect #8 is this exact class, one file over.
+COVER_Z0 = BACK_Z - COV_WALL - CELL_BORE_D              # -31.30, the cover's outer face
+CAV_Z0   = COVER_Z0 + COV_WALL                          # -29.10, baffle inner AND bore floor
 # ⚠️ CAV_Z0 IS ONE PLANE SERVING TWO FEATURES AND THAT IS DELIBERATE. The sealed cavity's
 # floor and the cell bore's floor are the same surface at the same Z because both are
 # "COV_WALL above the outer face". Writing them as two constants is how the stand's base
@@ -267,38 +286,235 @@ FRONT_GAP_MOBILE = (BACK_Z - DRIVER_T) - CAV_Z0         # 9.60
 GRILLE_FW = DRIVER_H - 2*GRILLE_INSET      # 25.00 across X -- driver is rotated 90deg here
 GRILLE_FH = DRIVER_W - 2*GRILLE_INSET      # 38.00 along Y
 DRV_CX    = (RIM_X0 + RIM_X1) / 2                       # 35.80
-DRV_CY    = (RIM_Y0 + RIM_Y1) / 2                       # 42.60
+DRV_CY    = (RIM_Y0 + RIM_Y1) / 2                       # 52.40 -- the comment said 42.60 until
+                                                        # 2026-08-01, and that was never right at
+                                                        # any RIM_Y0: plainly wrong, not drift.
 
 # ---- driver locating groove: alignment only, the tape does the work ----
 LIP_DEPTH = 3 * LH                                      # 0.60
 LIP_WIDTH = 1.20
 # ---- the plateau that refills the vent hexes so the rim lands on solid material ----
 PLATEAU_MARGIN = 2.00
-# ---- COVER RETENTION.  ONE SCREW, and the two hooks are placed by elimination. ----
+# ============================================================================
+# 5g. COVER RETENTION.  THE UNDERCUT HOOKS ARE DEAD.  READ THIS BEFORE REVIVING THEM.
+# ============================================================================
 #
-# The requirement is "user-replaceable without tools or with ONE screw", and one screw is only
-# possible if two hooks carry the other corners. Where those hooks can go is almost entirely
-# determined by what they must NOT touch, so the positions below are a result, not a choice:
+# >>> VERDICT (JP, 2026-08-01): "the cavity is bridging too far for the PLA to be able to <<<
+# >>> do those kind of tolerances."  THE HOOKS ARE NOT COMING BACK.                      <<<
 #
-#   * NOT y < 16.40           -- that is BOOT's cap and moat, and its living hinge lies on the
-#                                cap's +Y flat. A 1.40mm pocket there destroys the hinge.
-#   * NOT inside the seal rim -- a pocket in the midframe's back face inside the rim footprint
-#                                is a hole in the sealed cavity's ceiling. This eliminated the
-#                                obvious (44.00, y~22) position, which is inside it.
-#   * NOT across HEX_FIELD_X0..X1 (9..41) -- a lip made of honeycomb is not a lip.
-#   * The COVER must have material at BACK_Z to grow the hook from, which rules out anything
-#     over the open cell bay or the open upper compartment without a pillar.
+# What used to be here: two L-shaped barbs on the cover at x = 4.50 and x = 45.50, each dropping
+# into an 8.00 x 4.60 recess cut into the midframe's back face and sliding +Y under a lip, plus
+# the one M3 x 22. The engagement was HOOK_LIP_T = 0.60 of lip standing under a HOOK_SLOT_D =
+# 0.80 slot, 8.00 wide. Three separate reasons it cannot be printed, and only the first was
+# JP's -- the other two are this file's own arithmetic, found while replacing it:
 #
-# What survives: x=4.50 on the cover's own bottom wall, and x=45.50 up in the brow on a pillar.
-HOOK_A_X, HOOK_B_X = 4.50, 45.50
-HOOK_W        = 8.00
-HOOK_LIP_T    = 3 * LH                                  # 0.60 lip the barb slides under
-HOOK_SLOT_D   = 4 * LH                                  # 0.80 slot above it
-HOOK_D        = HOOK_LIP_T + HOOK_SLOT_D                # 1.40 into a 2.60 floor, leaves 1.20
-HOOK_ENTRY_L  = 4.60                                    # drop-in length; also the slide travel
-HOOK_BARB_L   = 3.20
-HOOK_CLR      = 0.30
-HOOK_LEG_L    = 1.00                                    # the L's vertical leg, in Y
+#   1. THE POCKET'S CEILING IS A BRIDGE, AND IT IS IN THE BED FACE. The midframe prints back-
+#      face-down, so `p -= bx(..., BACK_Z, BACK_Z + HOOK_D)` is a void that starts AT THE BED
+#      and is roofed at BACK_Z + 1.40 -- an 8.00 x 7.80 mm flat ceiling with nothing under it.
+#      The evidence is a day old: issue #47, the desk stand's grille, where 0.90mm webs
+#      collapsed on this machine on this filament. A 0.60mm lip cantilevered off one edge under
+#      a 62mm2 bridge is a worse ask than the webs that already failed.
+#   2. AND IT COULD NEVER HAVE GONE TOGETHER ANYWAY. The barb needed HOOK_BARB_L - HOOK_CLR =
+#      2.90mm of +Y slide with the parts already mated. The driver hangs DRIVER_T = 10.00 below
+#      BACK_Z into the cover's sealed cavity and the rim's high-Y wall stands the cavity's full
+#      19.40 -- the clearance between them is (RIM_INNER_Y - DRIVER_W)/2 = 2.40mm, see check 8d.
+#      A 2.90mm slide drives the rim wall through the speaker. NO CHECK IN THIS FILE LOOKED, and
+#      the driver is a phantom, so no boolean could have. Check 8d now sweeps the assembly.
+#   3. IT RETAINED THE WRONG 5mm OF AN 74mm COVER. Both hooks and the screw sat inside
+#      y 18.60..23.40. Everything above y = 23.40 -- the cell bay, the whole sealed cavity, the
+#      brow -- was held by nothing at all and would have gapped open along both long edges.
+#
+# ---------------------------------------------------------------------------
+# THE REPLACEMENT, PICKED BY JP: DOVETAIL SLIDES ON BOTH LONG WALLS + THE SAME ONE SCREW.
+# ---------------------------------------------------------------------------
+#
+# >>> THE DEFINING CONSTRAINT IS PRINT ORIENTATION, AND IT IS THE SAME FOR BOTH PARTS. <<<
+#
+# PRINT_LIFT (see section 8) translates each part in Z ONLY -- midframe by -BACK_Z, cover by
+# -COVER_Z0. Neither is rotated. So MODEL +Z IS PRINT UP ON BOTH PARTS, and a face's angle in
+# this file's coordinates IS its as-printed angle. That single fact is what makes the geometry
+# below checkable at all, and check 8b asserts it rather than trusting this comment.
+#
+# The rule that follows: every face of the joint must be VERTICAL or at least 45 degrees from
+# horizontal, and NO void may have a flat roof.
+#
+# >>> AND THE Z BUDGET IS 2.60, NOT 17.40.  THIS IS THE SECOND CONSTRAINT AND IT IS THE ONE <<<
+# >>> THAT PICKED THE CROSS-SECTION.                                                        <<<
+#
+# The obvious place for the groove is the midframe's 2.60 side wall, which stands 17.40 tall --
+# except it does not, over most of the run. ember_case.py:1541 cuts the side CABLE CHANNELS
+# through the FULL wall thickness at z CAV_FLOOR..PCB_BOT, and the -X wall carries three of them
+# (y 20.07..26.32, 28.91..41.06, 44.20..57.86). Over those spans the only material below the
+# channel is the 2.60 floor, so the groove and everything above it has to live in 2.60 mm.
+#
+# A textbook flared dovetail does not fit that. Its void is DT_MOUTH + 2*undercut wide at the
+# top, and a 45-degree gable to close a 1.80 void costs 0.90 on its own -- 2.40 total, leaving a
+# 0.20 lintel under the cable channel. So the undercut here is a SKEW, NOT A FLARE: the void
+# keeps its 1.20 width and TRANSLATES outboard as it rises. The gable then only has to close
+# 1.20, and the whole groove fits in 1.80 with 0.80 of lintel left.
+#
+#      u = distance INBOARD from the case's outer face, on either long wall
+#      z = height above BACK_Z (which is print-up on the midframe)
+#
+#         GROOVE (midframe, cut from its bed face)     RAIL/TOOTH (cover, proud of its top face)
+#      1.80 -        /\   <- gable apex, 53.1 deg
+#                   /  \                                    +------+   <- top, 0.60 wide
+#      1.00 -      +    +                                   |      |
+#                 /      \   <- BOTH walls skew outboard   /      /
+#      0.20 -    +--------+      at 53.1 deg              +      +      <- the tooth is the
+#                |        |                               |      |         same parallelogram,
+#      0.00 -    +--------+   <- mouth, 1.20 wide         +------+         inset 0.30 all round
+#              1.40      2.60                           1.70    2.30
+#      (top of skew spans 0.80..2.00)                   (top spans 1.10..1.70)
+#
+# Read the groove as the void: 1.20 wide at the bed, the SAME 1.20 wide at z = 1.00, but shifted
+# 0.60 outboard, then gabled shut. The outboard wall recedes as it rises (fully supported); the
+# inboard wall advances, at 53.1 degrees; the gable closes at 53.1. On the cover the tooth is the
+# same parallelogram and leans the same way -- one 53.1-degree overhang face, growing off a bead
+# that is 0.60 wide, which is a lean, not a bridge.
+#
+# THERE IS NO FLAT ROOF ANYWHERE IN THE JOINT. That is the whole difference from the hooks.
+#
+# ⚠️ THE SKEW COSTS THE CONTINUOUS NECK, and that is a real trade, not a free win. A straight
+# stem running the length of the rail cannot fit a slot that translates 0.60 -- there is no
+# width left after the skew and two clearances. So the rails are teeth ONLY, at DT_PITCH, with
+# nothing between them. Guidance in X comes from having twenty of them at 4.00mm centres rather
+# than from one continuous rib. The two walls' skews point in OPPOSITE X directions (u is
+# measured from each wall's own outer face), so the pair cannot cam its way out: escaping along
+# one rail's skew drives the other's tooth into its skin.
+#
+# CLEARANCE. 0.30 per engaging face, and it is calibrated against what this machine actually
+# did, not against a table: PRINT-SHEET's SLOT_W = 0.60 void prints open at a 0.4 nozzle with
+# gap-closing at 0, and #47's 0.90 webs collapsed the same day. 0.30 per face (0.60 across the
+# neck) sits exactly on the proven void and is what CELL_BORE_CLR and the old HOOK_CLR both
+# used. Expect it to SLIDE BY HAND with slight friction and no tools.
+DT_CLR       = 0.30                     # per engaging face
+DT_SKIN      = 4 * LH                   # 0.80 of outer wall left standing outboard of the groove
+DT_UNDER     = 3 * LH                   # 0.60 the skew -- how far outboard the void translates
+DT_NECK      = 3 * LH                   # 0.60 tooth width: 1.5 extrusions, constant top to bottom
+DT_MOUTH     = DT_NECK + 2 * DT_CLR     # 1.20 groove width, the SAME at every height
+DT_WIDE      = DT_MOUTH + DT_UNDER      # 1.80 the groove's swept u-band (mouth + skew)
+DT_NECK_H    = 1 * LH                   # 0.20 straight before the skew starts
+DT_SKEW_H    = 4 * LH                   # 0.80 -> atan(0.80/0.60) = 53.13 deg from horizontal
+DT_GABLE_H   = 4 * LH                   # 0.80 -> closes DT_MOUTH at the same 53.13 deg
+DT_DEPTH     = DT_NECK_H + DT_SKEW_H + DT_GABLE_H       # 1.80 total groove depth
+DT_RAIL_H    = DT_NECK_H + DT_SKEW_H                    # 1.00 rail height above BACK_Z
+DT_GRIP      = DT_UNDER - DT_CLR                        # 0.30 of positive capture per rail
+DT_LIFT      = DT_SKEW_H * DT_CLR / DT_UNDER            # 0.40 the cover may rise before it bites
+# ⚠️ BOTH BUDGETS ARE BINDING AND THAT IS WHY EVERY NUMBER IS SMALL.
+#
+#   Z: DT_DEPTH 1.80 + 0.80 of lintel = 2.60, the floor left under the side cable channels.
+#   X: DT_SKIN 0.80 + DT_UNDER 0.60 + DT_MOUTH 1.20 = 2.60 = WALL exactly, so the groove is cut
+#      from the side wall and never reaches the board-cavity floor.
+#
+# On the cover the tooth's bed footprint runs to DT_SKIN + DT_UNDER + DT_CLR + DT_NECK = 2.30,
+# which is 0.10 proud of COV_WALL -- the tooth's inboard 0.10 hangs over the bay's open mouth on
+# its first layer. A 0.10 step under a 0.60 bead is below the resolution of the process and is
+# named here rather than engineered away. Growing any term means shrinking another; the only way
+# out is a wider wall, which moves the cell lane, the divider, the rim and the grille.
+# ---- THE SLIDE, AND WHY IT IS ONLY 2.00mm ----
+#
+# >>> THE DRIVER SETS THE TRAVEL.  IT IS NOT A STYLE CHOICE. <<<
+#
+# The driver is taped to the midframe and hangs DRIVER_T into the cover's sealed cavity; the
+# rim's low-Y and high-Y walls stand the cavity's full height. Slide the cover in Y and those
+# walls sweep THROUGH the driver. The clearance between them is (RIM_INNER_Y - DRIVER_W)/2 =
+# 2.40mm, so 2.40 is the hard ceiling on any Y travel, for ANY retention scheme -- which is what
+# also killed the hooks (2.90 needed). Check 8d measures it by sweeping the actual solids.
+#
+# 2.00 of travel means each flared tooth can be at most DT_TRAVEL - 2*DT_CLR_Y = 1.40 long, so
+# the rails are CASTELLATED: a continuous neck for guidance, with short flared teeth at DT_PITCH,
+# and matching full-width drop-in pockets in the groove one travel-length back. Drop the cover
+# on, push it 2.00mm toward the brow, fit the screw. Because the pitch is uniform the teeth are
+# ONE degree of freedom, not twenty -- if any tooth lines up with its pocket they all do.
+DT_TRAVEL    = 2.00                                     # +Y to seat; -Y and lift to remove
+DT_CLR_Y     = 0.30                                     # end clearance on each tooth
+DT_TOOTH     = DT_TRAVEL - 2 * DT_CLR_Y                 # 1.40 engaged length of one tooth
+DT_PITCH     = 4.00                                     # >= tooth 1.40 + pocket 2.00 + gap 0.30
+DT_ENGAGE_MIN = 12.0                                    # mm2 of plan-view capture, check 8c
+# ---- WHERE THE RAILS CAN GO.  Asymmetric, because the constraints are. ----
+#
+#   * NOT under the seal rim's footprint. On the +X wall the rim's outboard leg IS the cover's
+#     own +X wall (RIM_X1 = OX1 - COV_WALL), so a groove anywhere in y 28.40..76.40 is a hole in
+#     the sealed cavity's ceiling. That is why the +X side is two short rails and not one long
+#     one, and it is the same constraint that put RETENTION_STRIP where it is. The -X wall is
+#     free: there the rim's inboard leg is the DIVIDER, not the case wall.
+#   * NOT past the brow's corner arc at MOB_OY1 - OUT_R, where the outer face stops being flat.
+#   * NOT into the cell-lead pass -- which is why LEAD_X0 moved inboard, see section 5.
+#   * The groove stays within u <= WALL so it is cut from the side wall's 17.40mm of material
+#     and never thins the 2.60 board-cavity floor. Check 8f measures all of these.
+DT_Y0     = COVER_Y0 + 0.60                             # 18.60, clear of the cover's bottom edge
+# ⚠️ DERIVED FROM THE **MIDFRAME'S** CORNER, AND THE FIRST VERSION USED THE COVER'S. It read
+# MOB_OY1 - OUT_R - 0.60 = 84.95, which is where the COVER's brow starts curving. But the groove
+# is cut in the MIDFRAME, and the midframe's outline is back_shell -- whose top corners turn at
+# OY1 - OUT_R = 82.50, six millimetres earlier. Over y 82.50..84.95 the +X wall's outer surface
+# is already arcing inboard, so the 0.80 of skin outboard of the groove thins toward breakout
+# and the shoulder the tooth pulls against stops being there.
+#
+# CHECK 8f FOUND IT, on the artifact, at 79.7% of one shoulder -- which is the whole reason that
+# probe measures the midframe instead of trusting these constants. Two parts, two outlines, and
+# the rail belongs to both: that is the CHAM_Y1 class of defect this file keeps naming, and it
+# arrived by taking the right formula from the wrong part.
+DT_Y1     = min(MOB_OY1, OY1) - OUT_R - 0.60            # 81.90, clear of BOTH parts' arcs
+DT_RAILS  = (("lo", DT_Y0, DT_Y1),                      # -X: the whole flank
+             ("hi", DT_Y0, RIM_Y0 - RIM_WALL - 0.40),   # +X: below the seal (28.00)
+             ("hi", RIM_Y1 + RIM_WALL + 0.60, DT_Y1))   # +X: above it   (77.00..84.95)
+
+
+def _dt_teeth(y0, y1):
+    """Seated Y start of every flared tooth on a rail spanning y0..y1.
+
+    The first tooth sits DT_TRAVEL + DT_CLR_Y past the rail's start, so its drop-in pocket
+    begins exactly at y0 and the groove never has to run out from under the cover.
+    """
+    first = y0 + DT_TRAVEL + DT_CLR_Y
+    n = int((y1 - DT_TOOTH - first) // DT_PITCH) + 1
+    return [first + k * DT_PITCH for k in range(max(n, 0))]
+
+
+# Cross-sections, as (u, z-above-BACK_Z), listed anticlockwise. u runs INBOARD from the case's
+# outer face, so ONE profile serves both walls. GROOVE and POCKET are cut from the midframe;
+# TOOTH is added to the cover, and it is the groove inset by DT_CLR on every engaging face.
+_A, _B = DT_SKIN + DT_UNDER, DT_SKIN + DT_UNDER + DT_MOUTH      # 1.40, 2.60 -- the mouth
+_C, _D = DT_SKIN, DT_SKIN + DT_MOUTH                            # 0.80, 2.00 -- the skew's top
+DT_P_GROOVE = ((_A, 0.0), (_B, 0.0),                            # mouth, on the bed face
+               (_B, DT_NECK_H), (_D, DT_NECK_H + DT_SKEW_H),    # inboard wall: straight, skewed
+               (DT_SKIN + DT_MOUTH / 2, DT_DEPTH),              # gable apex
+               (_C, DT_NECK_H + DT_SKEW_H), (_A, DT_NECK_H))    # outboard wall: skewed, straight
+DT_P_POCKET = ((_C, 0.0), (_B, 0.0),                            # ...the same, with the shoulder
+               (_B, DT_NECK_H), (_D, DT_NECK_H + DT_SKEW_H),    # taken away: the outboard wall
+               (DT_SKIN + DT_MOUTH / 2, DT_DEPTH),              # runs straight down to the bed
+               (_C, DT_NECK_H + DT_SKEW_H))                     # so the tooth drops in
+DT_P_TOOTH  = ((_A + DT_CLR, 0.0), (_B - DT_CLR, 0.0),
+               (_B - DT_CLR, DT_NECK_H), (_D - DT_CLR, DT_RAIL_H),
+               (_C + DT_CLR, DT_RAIL_H), (_A + DT_CLR, DT_NECK_H))
+
+
+def _yprism(pts, y0, y1):
+    """Extrude an ABSOLUTE (x, z) cross-section along +Y.
+
+    Rot(-90,0,0) sends sketch +v to world -Z and the extrude direction to world +Y -- the same
+    trick cyl_y() and the polarity markings use -- so a sketch point (x, -z) lands at (x, y, z).
+    """
+    sk = make_face(Polyline(*[(x, -z) for (x, z) in pts], close=True))
+    return Pos(0, y0, 0) * (Rot(-90, 0, 0) * extrude(sk, y1 - y0))
+
+
+def _dt_prism(pts, side, y0, y1):
+    """Extrude a (u, z-above-BACK_Z) cross-section along +Y on the named long wall.
+
+    Rot(-90,0,0) sends sketch +v to world -Z and the extrude direction to world +Y (the same
+    trick cyl_y() and the polarity markings use), so a sketch point (u, -dz) lands at
+    (outer face +/- u, y, BACK_Z + dz). The point order is reversed on the +X wall because
+    mirroring u would otherwise hand the face to OCC inside out.
+    """
+    s = 1.0 if side == "lo" else -1.0
+    x0 = OX0 if side == "lo" else OX1
+    seq = pts if side == "lo" else tuple(reversed(pts))
+    sk = make_face(Polyline(*[(s * u, -dz) for (u, dz) in seq], close=True))
+    return Pos(x0, y0, BACK_Z) * (Rot(-90, 0, 0) * extrude(sk, y1 - y0))
+
+
 GRILLE_CELL_N = None                                    # set by back_cover(), read by the checks
 # Narrowest a clipped grille opening may be before it is dropped from the cutting set. Above
 # HEX_WEB's 0.90 print floor and above SLOT_W's 0.60 proven void, with margin: a hole this
@@ -380,7 +596,20 @@ PROT_W        = 6.50            # UNMEASURED
 PROT_T        = 2.50            # UNMEASURED
 PROT_COMP_CLR = 1.00            # over the component face (the FETs are the tall parts)
 PROT_RIB_W    = 1.60
-PROT_RIB_H    = 6 * LH                                  # 1.20
+# ---- THE STRIP'S Z-RETENTION IS ITS TABS, AND THAT IS STATED, NOT IMPLIED. ----
+#
+# JP asked what holds the metalwork. For the strip the honest answer is: the two nickel tabs it
+# is soldered to at BOTH ends, one running into the divider's wire groove and one to the
+# spring. Those are real anchors, not friction, and a lid-clip over the strip would be a
+# DOWNWARD-FACING ledge in the cover's print orientation -- the bridging class JP rejected --
+# and would also make the strip unfittable, since a 21.50 PCB cannot slide under clips inside a
+# 22.30 seat. So: no clip, reliance recorded.
+#
+# What the ribs CAN do for free is stop it tipping, and at 1.20 against a 2.50 strip they did
+# not: the PCB could ride up on one edge and sit proud. Raised to 12 layers = 2.40, just under
+# the strip's own thickness so the ribs never lift it off its flat floor. Check 13b measures
+# that the floor stays flat and that the sky above the component face stays clear.
+PROT_RIB_H    = 12 * LH                                 # 2.40, was 1.20
 PROT_CX       = (RIM_X0 + RIM_X1) / 2
 # ⚠️ HELD CLEAR OF THE INTERIOR'S CORNER FILLET, AND THE FIRST VERSION WAS NOT. At
 # PROT_Y1 = BAY_Y1 - 1.00 the strip's high-X/high-Y corner sat 5.04 from the fillet centre
@@ -409,6 +638,93 @@ PROT_Y1       = BAY_Y1 - _INT_R - 0.55
 TAB_W         = 5.40            # 5.00 tab plus clearance
 TAB_D         = 2 * LH          # 0.40 deep: 0.15 of tab plus solder
 
+# ============================================================================
+# 5g. THE BAY'S METALWORK.  A SPRING THAT FALLS OUT IS A DESIGN FAILURE.
+# ============================================================================
+#
+# >>> JP, 2026-08-01: "we need features to hold the spring, and to hold the metal strips." <<<
+#
+# Until now the bay specified its metalwork and retained none of it: the "+" contact sat in a
+# 10 x 10 x 0.80 pocket that located it and held it not at all, and the "spring seat" was a
+# d9.00 scallop 1.00 deep in the cradle -- which, read as a print, is also a 9mm horizontal
+# bore roof over a 1.00 span, i.e. the same bridging class JP rejected the hooks for.
+#
+# THE ACCEPTANCE BEHAVIOUR IS JP'S AND IT IS SHARP: cell OUT, case held OPEN-SIDE-DOWN, the
+# spring stays put. That single sentence eliminates most of the obvious answers, because the
+# cradle is open above the cell's axis (it has to be -- that is how the cell goes in), so
+# gravity in that pose points STRAIGHT OUT OF THE BAY.
+#
+# ---- WHY A TUNNEL AND NOT A BOSS OR A CUP.  The brief offered both; neither survives. ----
+#
+#   * A BOSS the spring's ID slips over would sit on the cell's axis, which is 9.70mm above
+#     the bottom of the bore with NOTHING UNDER IT. In the cover's print orientation that is a
+#     horizontal cantilever starting in mid-air -- its first layer is a hairline hanging off
+#     the end wall. Gusseting it downward fails too: the gusset would have to pass through the
+#     spring's own coil to reach material.
+#   * A CUP 1.20 deep captures 1.20mm of a spring whose FREE length is 7.00. With no cell in,
+#     the other 5.80 cantilevers, droops, and levers itself out. A cup locates; it does not
+#     capture, and the acceptance test is about capture.
+#   * A TUNNEL is the cup taken as far as it goes: a short length of the bay where the bore
+#     CLOSES OVER, so the spring is threaded into a hole rather than laid in a trough. Three
+#     millimetres of a 7.00 free length inside a closed bore cannot fall in any orientation.
+#
+# And it is printable, which the other two are not, because the bore is GABLED rather than
+# round -- the same 45-degree trick the dovetail's groove uses, for the same reason. A round
+# d8.60 horizontal bore roofs a 8.60 span flat at its crown; a gable roofs nothing.
+#
+# ⚠️ IT ALSO BECOMES AN OVER-TRAVEL STOP, WHICH IS A CONSEQUENCE, NOT A DESIGN. The tunnel's
+# mouth is an annular face a cell can bottom on. Normally it never does -- at CELL_L_MAX the
+# cell's end sits 0.50 clear of it -- but a hard push now lands on plastic at a spring length
+# of 3.00 instead of driving the coil toward its 2.50 solid height. Asserted both ways below:
+# the mouth must NOT be reachable in normal service, and it must stop short of coil-bound.
+SPRING_OD      = 8.00                       # the generic AA/18650-holder spring of section 3
+# ⚠️ 0.50 PER SIDE, NOT THE 0.30 EVERYTHING ELSE HERE USES, AND THE GABLE IS WHY. A gable is a
+# chord across the corner of the bore, so it comes CLOSER to a round spring than the flat it
+# replaces: for a 45-degree roof to clear a radius r, the straight sides must run to
+# r/cos45 - w above the axis before the roof starts. At 0.30 per side that tangency lands with
+# 0.03mm to spare, which is not a clearance, it is a coincidence. 0.50 buys 0.31 of real margin
+# and costs nothing -- the spring is being CAPTURED here, not located.
+SPRING_CLR     = 0.50
+SPRING_BORE    = SPRING_OD + 2 * SPRING_CLR             # 9.00 across the flats
+# ⚠️ THE GABLE RUNS AT 53.13, NOT 45, AND THE FIRST VERSION RAN AT 45. A slice of the built mesh
+# measured its ridge at exactly 0.200mm of material per 0.20 layer per edge -- printable, and
+# precisely ON the limit. The dovetail is held to 50 for the stated reason that tessellation
+# must not be able to eat the margin, and there is no principled reason for a second roof in the
+# same part to be held to less. It costs a taller block inside a bay that has the room.
+SPRING_GABLE_Z    = 6 * LH                  # 1.20 of straight side above the axis, then the roof
+SPRING_GABLE_RISE = SPRING_BORE / 2 * 4 / 3             # 6.00 over 4.50 -> 53.13 deg
+SPRING_APEX_Z     = SPRING_GABLE_Z + SPRING_GABLE_RISE  # 7.20 above the axis
+SPRING_TUN_L   = 3.00                       # how much of the spring is inside a closed bore
+SPRING_TUN_Y0  = BAY_Y1 - SPRING_TUN_L                  # 86.80
+SPRING_TUN_CAP = 4 * LH                     # 0.80 of material over the bore's gable apex
+SPRING_TUN_TOP = CELL_AXIS_Z + SPRING_APEX_Z + SPRING_TUN_CAP       # -12.60, the block's top
+SPRING_TAB_W   = 0.25 + 0.10                # the -ve tab's exit slot, same kerf as the + plate
+
+# ---- THE "+" CONTACT.  A KERF, NOT A POCKET. ----
+#
+# CONTACT_T IS JP-CONFIRMED, THE KERF IS NOT. JP confirmed the MATERIAL: 0.25mm nickel strip,
+# his words on the thickness only -- "I don't know the kerf". So the slot width is DERIVED here
+# and owned here: CONTACT_T + CONTACT_PLAY, where the play is this design's FDM fit allowance
+# and is the first constant to move if the printed slot binds or rattles. Neither number is
+# calipered; if a fit issue ever appears, CONTACT_T is the second thing to measure.
+CONTACT_T      = 0.25                       # JP-CONFIRMED DEFAULT (material), not calipered
+CONTACT_PLAY   = 0.10                       # MINE: FDM fit allowance, tune this first
+CONTACT_KERF   = CONTACT_T + CONTACT_PLAY               # 0.35
+CONTACT_W      = 10.00                      # plate width in X -- was the old pocket's 10
+CONTACT_H      = 10.00                      # plate height in Z
+CONTACT_Z0     = CELL_AXIS_Z - CONTACT_H / 2            # -24.50, the kerf's floor
+CONTACT_Z1     = CONTACT_Z0 + CONTACT_H                 # -14.50, the plate's top when seated
+# ---- and the detent, because friction alone is not retention ----
+#
+# The kerf has to be OPEN AT THE TOP or the plate cannot be got in: it is 10mm square and
+# nothing 10mm square passes a closed slot. Open at the top means it can also come back out, so
+# a bar is left standing across the back of the slot just above the seated plate, filling
+# CONTACT_DETENT of the kerf's 0.35. The plate has to deform past 0.05 of interference going in
+# and the same coming out. Printability is free here: the bar's underside overhangs by the
+# kerf's own 0.35 depth and nothing else, which is under one extrusion width.
+CONTACT_DETENT = 0.15                       # how much of the kerf the bar fills
+CONTACT_DET_H  = 2 * LH                     # 0.40, the bar's height
+
 def prot_phantom():
     """The optional protection strip, so its fit is measured rather than asserted in words."""
     return bx(PROT_CX - PROT_L/2, PROT_CX + PROT_L/2, PROT_Y1 - PROT_W, PROT_Y1,
@@ -418,14 +734,6 @@ def tp4056_phantom():
     """The module that NO LONGER FITS. Kept so check 13 can prove that, not just claim it."""
     return bx(PROT_CX - TP_W/2, PROT_CX + TP_W/2, BAY_Y1 - 1.00 - TP_L, BAY_Y1 - 1.00,
               CAV_Z0, CAV_Z0 + TP_H)
-HOOK_A_Y0     = COVER_Y0 + 0.60                         # 18.60, clear of BOOT's moat by 2.20
-HOOK_B_Y0     = COVER_Y0 + 1.60                         # 19.60, in the retention strip
-def _hook_ys(y0):
-    """(entry span, slot span) for a hook pocket whose drop-in region starts at y0."""
-    return (y0, y0 + HOOK_ENTRY_L), (y0 + HOOK_ENTRY_L, y0 + HOOK_ENTRY_L + HOOK_BARB_L)
-HOOKS = ((HOOK_A_X, HOOK_A_Y0), (HOOK_B_X, HOOK_B_Y0))
-HOOK_B_PILLAR = True    # the cover has no material at BACK_Z under hook B; give it a tower
-
 # ---- THE ONE SCREW.  At the bottom edge, where the hand is. ----
 #
 # ⚠️ ITS PILOT IS THE INTERESTING PART. At y~19 the midframe is only its 2.60 floor, and a
@@ -484,7 +792,13 @@ assert SCREW_XY[1] + SCREW_BOSS_D/2 <= RIM_Y0 - RIM_WALL + 1e-9, (
 # CONN_L labelling. So the bay-to-board lead is a JST 1.25 2P pigtail leaving the cell's
 # contacts, up through this pass, to CONN_L[0] on the x=0 edge. The cell lane is deliberately
 # on that side: it is the shortest possible route.
-LEAD_X0, LEAD_X1 = OX0 + COV_WALL - 0.40, 2.50
+# ⚠️ MOVED INBOARD 1.25 FOR THE -X DOVETAIL, 2026-08-01. It used to start at OX0 + COV_WALL -
+# 0.40 = -1.15, i.e. 0.40 INSIDE the cover's wall footprint, for no stated reason -- the pass is
+# a slot in the midframe's FLOOR and the pigtail leaves the bay well inboard of the wall. The
+# dovetail groove needs u <= WALL of that wall unbroken over y 18.60..85.25, and at -1.15 this
+# slot punched straight through it for 6.50mm of that run. Same width, same Y, shifted to clear
+# the groove's inboard face (u = 2.60, x = -0.35) by 0.45. Check 8f measures the gap.
+LEAD_X0, LEAD_X1 = 0.10, 3.75
 LEAD_Y0, LEAD_Y1 = 20.00, 26.50
 
 # ============================================================================
@@ -501,13 +815,18 @@ LEAD_Y0, LEAD_Y1 = 20.00, 26.50
 #
 # TWO CONSEQUENCES THAT ARE NOT ABOUT GEOMETRY BUT BELONG NEXT TO THE CELL:
 #
-#   1. NO PROTECTION CIRCUIT ON THE BOARD, so a PROTECTED cell is mandatory, not preferred.
-#      That is why BAY_L is dimensioned to CELL_L_MAX and why this case is 9.55mm longer than
-#      a bare-cell design would be. Same two independent sources agree on this.
+#   1. NO PROTECTION CIRCUIT ON THE BOARD. ⚠️ THIS PARAGRAPH SAID "so a PROTECTED cell is
+#      mandatory ... this case is 9.55mm longer than a bare-cell design would be" UNTIL
+#      2026-08-01, WHICH CONTRADICTED SECTION 3 OF THIS SAME FILE. JP reversed to bare flat-tops
+#      only ("no protected tops"), the bay was re-primaried to CELL_L_MAX = 65.50, and the case
+#      got 5.90mm SHORTER rather than 9.55 longer. The electrical conclusion did not go away, it
+#      MOVED: with bare cells the missing protection is carried by the 1S DW01 strip in section
+#      5f, which is required equipment for exactly this reason. Two statements of the same fact,
+#      and the stale one was still asserting the opposite design.
 #   2. NO BOOST. On battery, +5 becomes the raw cell, and battery.md's finding is that the
-#      device "browns out rather than shutting down". With a protected cell the protection PCB
-#      cuts hard at its own threshold instead. Either way there is no graceful low-battery
-#      shutdown, which is a firmware question and is flagged in the issue, not solved here.
+#      device "browns out rather than shutting down". The strip's own cut-off is now what stops
+#      the cell going to zero afterwards. Either way there is no graceful low-battery shutdown,
+#      which is a firmware question and is flagged in the issue, not solved here.
 #
 # CHARGE TIME. Recomputed rather than inherited, using battery.md's own method so the two are
 # comparable: it quotes 2000 mAh -> 9.3 h, i.e. C/I x 1.35 (6.90 h of CC plus a CV tail).
@@ -602,7 +921,13 @@ GLOW_N        = 2
 GLOW_R        = 4.50 / math.sqrt(3)                     # AF exactly 4.50, this part's own
 GLOW_AF       = math.sqrt(3) * GLOW_R                   # 4.50 across flats -> the Z extent
 GLOW_AC       = 2 * GLOW_R                              # 5.196 across corners -> the Y extent
-GLOW_WEB      = HEX_WEB                                 # 0.90, the print floor
+# ⚠️ PINNED FOR THE SAME REASON GLOW_R IS, AND THE FIRST FIX ONLY DID HALF THE JOB. This was
+# `HEX_WEB` until 2026-08-01 -- so when #47 took the stand's grille web 0.90 -> 1.25 for
+# printable webs, THIS WINDOW, IN A DIFFERENT PART, silently followed it and GLOW_SPAN_Y went
+# 11.29 -> 11.64. The GLOW_R pin above caught the radius and left the web behind, which is the
+# tell that a cross-part coupling has to be broken everywhere at once or not at all. A window's
+# web is set by the wall it lives in, not by another part's lattice. Designed value, restated.
+GLOW_WEB      = 0.90                                    # this part's own, = the repo's print floor
 GLOW_EDGE     = 1.20                                    # material left at each end of the span
 # ⚠️ NOT A LAYER COUNT. This membrane's thickness runs along X -- it is a VERTICAL wall in the
 # print, so the criterion is extrusion width, not layer height: 0.80 is exactly two passes of a
@@ -626,7 +951,7 @@ def _glow_site():
     """(wall, centre y, straight-line distance from the LED) — the nearest usable solid span."""
     need = GLOW_SPAN_Y + 2 * GLOW_EDGE
     best = None
-    for wall, chans, wx in (("hi", E._CH_HI, E.BW + E.FIT), ("lo", E._CH_LO, -E.FIT)):
+    for wall, chans, wx in (("hi", MOB_CH_HI, E.BW + E.FIT), ("lo", MOB_CH_LO, -E.FIT)):
         for (a, b) in _solid_spans(chans):
             if (b - a) < need:
                 continue
@@ -639,6 +964,34 @@ def _glow_site():
         f"between cable channels is too narrow. Reduce GLOW_N or fall back to a light pipe")
     return best
 GLOW_WALL, GLOW_CY, GLOW_DIST = _glow_site()
+# >>> AND THE SITE IS RECORDED, BECAUSE A SOLVED FEATURE THAT MOVES IN SILENCE IS A DEFECT <<<
+# >>> EVEN WHEN THE MOVE IS AN IMPROVEMENT.  THIS IS #47's SHAPE, SECOND APPEARANCE.       <<<
+#
+# _glow_site() searches the solid spans BETWEEN flank openings, so it is a function of features
+# that have nothing to do with it. Suppressing SPK's opening on this variant merged two spans on
+# the +X wall and the solver promptly relocated the window by 12.30mm -- into the space that
+# channel used to occupy, and 6.86mm CLOSER to the LED. Nobody asked for that and nothing would
+# have reported it: the first time this shape appeared (#47, GLOW_R inheriting the stand's
+# lattice) it was caught only because an unrelated assert happened to fire.
+#
+# So the site is pinned to an EXPECTATION rather than merely computed. Moving it is allowed --
+# it is a solver, that is the point -- but moving it now costs one deliberate line, and the
+# build says where it went either way.
+#
+# ⚠️ luna's independent simulation of the same block put this at cy 36.82 / 23.1mm, and the
+# 0.17 difference is not noise -- it is the GLOW_WEB pin three sections up. At the inherited
+# HEX_WEB of 1.25 the span needs 14.04 and clamps to 36.82; at this part's own pinned 0.90 it
+# needs 13.69 and clamps to 36.99. Two defects in the same feature, and fixing one moved the
+# other. Recorded because that is the kind of interaction a single figure hides.
+GLOW_SITE_EXPECT = ("hi", 36.99, 23.02)     # (wall, centre y, straight-line distance to the LED)
+assert (GLOW_WALL == GLOW_SITE_EXPECT[0]
+        and abs(GLOW_CY - GLOW_SITE_EXPECT[1]) < 0.05
+        and abs(GLOW_DIST - GLOW_SITE_EXPECT[2]) < 0.05), (
+    f"the WS2812 window has RELOCATED: solved to ({GLOW_WALL}, cy {GLOW_CY:.2f}, "
+    f"{GLOW_DIST:.2f}mm from the LED) against a recorded ({GLOW_SITE_EXPECT[0]}, cy "
+    f"{GLOW_SITE_EXPECT[1]:.2f}, {GLOW_SITE_EXPECT[2]:.2f}). Something changed the solid spans "
+    f"this searches -- a flank opening, a connector table, GLOW_WEB, GLOW_N. The move may well "
+    f"be right; update GLOW_SITE_EXPECT deliberately and re-render the figures that name it")
 GLOW_CZ = (CAV_FLOOR + E.PCB_BOT) / 2                   # centred in the cavity band, derived
 assert GLOW_AF <= (E.PCB_BOT - CAV_FLOOR) - 0.80, (
     f"the {GLOW_AF:.2f}mm-tall window does not fit the "
@@ -712,7 +1065,7 @@ def midframe():
     the side channels, the SD slit, the printed-in-place caps, the SPK relief and every
     label come through unchanged and unre-derived.
     """
-    p = E.back_shell()
+    p = E.back_shell("mobile")
     p += _brow()
 
     # ---- BOND PLATEAU: refill the vent hexes under and around the seal rim ----
@@ -739,14 +1092,15 @@ def midframe():
     # ---- CELL LEAD PASS -> CONN_L[0] (BAT) ----
     p -= bx(LEAD_X0, LEAD_X1, LEAD_Y0, LEAD_Y1, BACK_Z - 1, CAV_FLOOR + 1)
 
-    # ---- COVER HOOK POCKETS: a drop-in recess, then an undercut slot the barb slides into.
-    # The lip left between BACK_Z and BACK_Z+HOOK_LIP_T is what actually retains the cover in
-    # -Z; a plain rectangular recess would locate the hook and hold nothing.
-    for hx, hy0 in HOOKS:
-        (ey0, ey1), (sy0, sy1) = _hook_ys(hy0)
-        p -= bx(hx - HOOK_W/2, hx + HOOK_W/2, ey0, ey1, BACK_Z, BACK_Z + HOOK_D)
-        p -= bx(hx - HOOK_W/2, hx + HOOK_W/2, sy0, sy1,
-                BACK_Z + HOOK_LIP_T, BACK_Z + HOOK_D)
+    # ---- DOVETAIL GROOVES: one constant-section slot per rail, with a full-width drop-in
+    # pocket one travel-length behind each of the cover's flared teeth. The shoulder left
+    # between the pockets is what the cover hangs from, and it is SOLID MATERIAL STANDING ON
+    # THE BED -- not a lip under a bridged void, which is what this replaced.
+    for _side, _y0, _y1 in DT_RAILS:
+        p -= _dt_prism(DT_P_GROOVE, _side, _y0, _y1 + DT_CLR_Y)
+        for _ty in _dt_teeth(_y0, _y1):
+            p -= _dt_prism(DT_P_POCKET, _side,
+                           _ty - DT_TRAVEL - DT_CLR_Y, _ty - DT_CLR_Y)
 
     # ---- THE ONE SCREW: boss UP into the board cavity, pilot down through it ----
     p += cyl(SCREW_XY[0], SCREW_XY[1], CAV_FLOOR, CAV_FLOOR + SCREW_BOSS_H, SCREW_BOSS_D)
@@ -819,27 +1173,56 @@ def back_cover():
     # where the cell's curve has already fallen away.
     p -= bx(CELL_X1 - WGROOVE_D, CELL_X1, BAY_Y0, BAY_Y1, BACK_Z - WGROOVE_Z, BACK_Z)
 
-    # ---- CONTACT POCKETS ----
-    # POSITIVE, FLUSH: a bare flat-top's +ve face is the plain can end, so the plate must be
-    # reachable by a flat surface. Pocket shrunk 12 -> 10 square, which is still ample for a
-    # stamped contact and frees 1.00 of end-wall face above it for the "+" marking.
-    _PP = 5.0
-    p -= bx(CELL_AXIS_X - _PP, CELL_AXIS_X + _PP,
-            CELL_TIP_Y - KEY_PLATE_T, CELL_TIP_Y,
-            CELL_AXIS_Z - _PP, CELL_AXIS_Z + _PP)                       # plate pocket, flush
+    # ---- THE "+" CONTACT: ONE KERF, doing three jobs (see 5g) ----
+    # A bare flat-top's +ve face is the plain can end, so the plate must be reachable by a flat
+    # surface — but "flush" was never an answer to "held by WHAT". The slot below is the plate's
+    # seat, the throat it is inserted through, and the lane its tab leaves by, in one cut,
+    # because all three want the same 0.35 of depth in the same wall. Open to BACK_Z: vertical
+    # walls, no roof, nothing bridged. It runs to CELL_X1 so the tab meets the divider's wire
+    # groove (which starts at BAY_Y0, where this stops) without a second feature.
+    p -= bx(CELL_AXIS_X - CONTACT_W/2, CELL_X1,
+            CELL_TIP_Y - CONTACT_KERF, CELL_TIP_Y,
+            CONTACT_Z0, BACK_Z)
+    # ...and the detent bar, left standing across the BACK of the kerf just above the seated
+    # plate. Adding it back after the cut keeps one source for the kerf's own depth.
+    p += bx(CELL_AXIS_X - CONTACT_W/2, CELL_AXIS_X + CONTACT_W/2,
+            CELL_TIP_Y - CONTACT_KERF, CELL_TIP_Y - CONTACT_KERF + CONTACT_DETENT,
+            CONTACT_Z1, CONTACT_Z1 + CONTACT_DET_H)
 
     # ---- POLARITY MARKINGS, debossed into the two end walls, facing into the bore ----
     # Rot(-90,0,0) sends sketch +v to world -Z; both glyphs are vertically symmetric so the
     # flip is harmless here — noted because it is NOT harmless for lettering.
-    _mz = _mz_check()                                                   # centred in the free
-    _sk_p = E._label_sketch(MARK_PATHS_P, E.LABEL_W)                    # face above the pocket
+    # ⚠️ THE "-" IS CUT AFTER THE TUNNEL BLOCK BELOW, not here, because it is debossed INTO
+    # that block's mouth face and the block does not exist yet. Cutting it here would remove
+    # nothing and the check would find a marking that was never made -- which check 15 would
+    # catch, but only after a 15-minute build.
+    _sk_p = E._label_sketch(MARK_PATHS_P, E.LABEL_W)
+    _mx, _mz, _my0, _my1 = _mark_face("+")
+    p -= Pos(_mx, _my0, _mz) * (Rot(-90, 0, 0) * extrude(_sk_p, MARK_DEPTH))
+
+    # ---- THE SPRING TUNNEL: the last SPRING_TUN_L of the bay closes over (see 5g) ----
+    # A block across the cell lane, then a GABLED bore through it. The block is supported off
+    # the cavity floor the whole way; the bore's roof is two 45-degree faces meeting at a
+    # ridge, so there is no crown to droop. The old d9.00 scallop this replaces was a round
+    # horizontal bore -- flat at its crown over 9mm, which is the hooks' defect in miniature.
+    _sc = SPRING_BORE / 2
+    p += bx(CELL_X0, CELL_X1 - WGROOVE_D, SPRING_TUN_Y0, BAY_Y1,
+            CAV_Z0, SPRING_TUN_TOP)
+    p -= _yprism(((CELL_AXIS_X - _sc, CELL_AXIS_Z - _sc),
+                  (CELL_AXIS_X + _sc, CELL_AXIS_Z - _sc),
+                  (CELL_AXIS_X + _sc, CELL_AXIS_Z + SPRING_GABLE_Z),   # straight to here...
+                  (CELL_AXIS_X,       CELL_AXIS_Z + SPRING_APEX_Z),    # ...then 45 deg to a ridge
+                  (CELL_AXIS_X - _sc, CELL_AXIS_Z + SPRING_GABLE_Z)),
+                 SPRING_TUN_Y0 - 1.0, BAY_Y1)
+    # ...and the -ve tab's way out of the closed bore: a vertical slot up through the cap.
+    # Vertical walls, open at the top, and it clears the "-" marking, which is on the END WALL
+    # beyond BAY_Y1 rather than on this block.
+    p -= bx(CELL_AXIS_X - SPRING_TAB_W/2, CELL_AXIS_X + SPRING_TAB_W/2,
+            SPRING_TUN_Y0, BAY_Y1, CELL_AXIS_Z, SPRING_TUN_TOP + 1.0)
+    # ---- "-" ON THE TUNNEL'S MOUTH FACE, beside the bore. See _mark_face(). ----
     _sk_n = E._label_sketch(MARK_PATHS_N, E.LABEL_W)
-    p -= Pos(CELL_AXIS_X, BAY_Y0 - MARK_DEPTH, _mz) * (
-        Rot(-90, 0, 0) * extrude(_sk_p, MARK_DEPTH))
-    p -= Pos(CELL_AXIS_X, BAY_Y1, _mz) * (
-        Rot(-90, 0, 0) * extrude(_sk_n, MARK_DEPTH))
-    # NEGATIVE: spring seat, high-Y end.
-    p -= cyl_y(CELL_AXIS_X, CELL_AXIS_Z, 9.00, BAY_Y1 - 5 * LH, BAY_Y1)
+    _nx, _nz, _ny0, _ny1 = _mark_face("-")
+    p -= Pos(_nx, _ny0, _nz) * (Rot(-90, 0, 0) * extrude(_sk_n, MARK_DEPTH))
 
     # ---- THE FAILURE VENT: VENT_N labyrinth units through the cell lane's -X wall ----
     for (iy0, iy1), (oy0, oy1), (by0, by1) in _vent_units():
@@ -933,18 +1316,13 @@ def back_cover():
             CAV_Z0, CAV_Z0 + TAB_D)
     p -= bx(CELL_X1 - WGROOVE_D, CELL_X1, BAY_Y0, _py1, CAV_Z0, CAV_Z0 + TAB_D)
 
-    # ---- HOOKS: an L standing proud of the mating plane. Vertical leg drops into the entry
-    # recess, barb slides +Y under the lip. Proud of BACK_Z is fine -- that is the cover's TOP
-    # when it prints, not its bed face.
-    for hx, hy0 in HOOKS:
-        (ey0, ey1), (sy0, sy1) = _hook_ys(hy0)
-        if hx == HOOK_B_X and HOOK_B_PILLAR:
-            # nothing at BACK_Z here to grow a hook from -- the upper compartment is open.
-            p += bx(hx - HOOK_W/2, hx + HOOK_W/2, ey0, sy1, CAV_Z0, BACK_Z)
-        _x0, _x1 = hx - HOOK_W/2 + HOOK_CLR, hx + HOOK_W/2 - HOOK_CLR
-        p += bx(_x0, _x1, ey1 - HOOK_LEG_L, ey1, BACK_Z, BACK_Z + HOOK_D - HOOK_CLR)  # vert leg
-        p += bx(_x0, _x1, ey1, sy1 - HOOK_CLR,                                    # barb
-                BACK_Z + HOOK_LIP_T + HOOK_CLR/2, BACK_Z + HOOK_D - HOOK_CLR)
+    # ---- DOVETAIL TEETH: short skewed parallelograms at DT_PITCH, nothing between them (the
+    # skew leaves no width for a continuous stem -- see 5g). Proud of BACK_Z is fine: that is
+    # the cover's TOP when it prints, not its bed face, and the lean is a 53.1-degree overhang
+    # growing off a 0.60 bead, so nothing here is bridged.
+    for _side, _y0, _y1 in DT_RAILS:
+        for _ty in _dt_teeth(_y0, _y1):
+            p += _dt_prism(DT_P_TOOTH, _side, _ty, _ty + DT_TOOTH)
 
     p = E.chamfer_outline(p, COVER_Z0, CHAMFER, "mobile cover bed face")
     return p
@@ -959,6 +1337,17 @@ def cell_phantom(dz=0.0, dy=0.0):
     """
     return cyl_y(CELL_AXIS_X, CELL_AXIS_Z - CELL_BORE_CLR + dz, CELL_D_MAX,
                  BAY_Y0 + CELL_L_CLR/2 + dy, BAY_Y0 + CELL_L_CLR/2 + CELL_L_MAX + dy)
+
+
+def spring_phantom(length, dz=0.0):
+    """The compression spring as a plain cylinder, so the bay can be asked about it.
+
+    Like the cell, the spring is in no STL, so nothing in a normal build would notice it
+    fouling the tunnel, the cell, or the cradle. Modelled ON the bore's axis rather than
+    resting at its bottom: the seated test then asks the harder question (is there room all
+    the way round) and the captivity test at dz=+2.00 asks the real one.
+    """
+    return cyl_y(CELL_AXIS_X, CELL_AXIS_Z + dz, SPRING_OD, BAY_Y1 - length, BAY_Y1)
 
 
 def driver_phantom():
@@ -981,10 +1370,30 @@ def _rrect_area(w, h, r):
     return w * h - (4 - math.pi) * r * r
 
 
-def _mz_check():
-    """Z the polarity markings are centred on. ONE derivation, shared by the geometry and the
-    check — the plate pocket's half-size is the only input and it must not be typed twice."""
-    return (CELL_AXIS_Z + 5.0 + BACK_Z) / 2
+def _mark_face(which):
+    """(centre z, face z-lo, face z-hi) for a polarity marking. ONE derivation, read by BOTH
+    the geometry and check 15, so a marking cannot drift off its face without the check
+    following it there.
+
+    BOTH MOVED ON 2026-08-01, and both for the same reason: the bay grew features where they
+    used to sit, which is the right way round -- retention beats decoration.
+
+      "+"  sat on the end-wall face ABOVE the plate pocket. The kerf has to be open to BACK_Z
+           or a 10mm-square plate cannot be got into it, so that face is a slot now. The face
+           left is the strip between the kerf's floor and the cavity floor, BELOW the plate.
+      "-"  sat on the high-Y end wall. THE SPRING TUNNEL NOW STANDS IN FRONT OF THAT WALL, so
+           the old spot is a marking nobody can see -- the exact failure class the markings
+           exist to avoid, since they are the ONLY reverse-insertion measure a flat-top cell
+           allows. It moves onto the tunnel's own mouth face, beside the bore: the surface you
+           are actually looking at when you look into the bay at the negative end.
+
+    Both are still read at the moment the cell goes in, which is the whole job.
+    """
+    if which == "+":
+        return (CELL_AXIS_X, (CAV_Z0 + CONTACT_Z0) / 2,
+                BAY_Y0 - MARK_DEPTH, BAY_Y0)
+    return ((CELL_X0 + CELL_AXIS_X - SPRING_BORE / 2) / 2, CELL_AXIS_Z,
+            SPRING_TUN_Y0, SPRING_TUN_Y0 + MARK_DEPTH)
 
 
 def _dirsign(wall):
@@ -997,9 +1406,14 @@ def _check_mobile(parts):
 
     # ---- 1. LAYER ALIGNMENT, every floor and recess against this part's own 0.20 ----
     for _d, _what in ((COV_WALL, "COV_WALL"), (LIP_DEPTH, "driver locating groove"),
-                      (HOOK_D, "hook pocket"), (RIM_WALL, "rim wall"),
+                      (DT_DEPTH, "dovetail groove depth"), (RIM_WALL, "rim wall"),
                       (CBORE_DEPTH, "cover counterbore"), (WGROOVE_Z, "lead groove"),
-                      (HOOK_LIP_T, "hook lip"), (CELL_BORE_D, "cell bore"),
+                      (DT_RAIL_H, "dovetail tooth height"), (DT_NECK_H, "dovetail straight"),
+                      (DT_SKEW_H, "dovetail skew"), (DT_GABLE_H, "dovetail gable"),
+                      (DT_SKIN, "dovetail skin"), (DT_UNDER, "dovetail skew offset"),
+                      (SPRING_TUN_CAP, "spring tunnel cap"), (SPRING_GABLE_Z, "spring gable"),
+                      (CONTACT_DET_H, "contact detent bar"), (PROT_RIB_H, "strip rib"),
+                      (CELL_BORE_D, "cell bore"),
                       (COV_WALL + CELL_BORE_D, "cover depth")):
         assert _lerr(_d, LH) < 1e-9, (
             f"{_what} = {_d:.4f} is not a whole multiple of LAYER_H_SHELL={LH} -- it would "
@@ -1141,30 +1555,56 @@ def _check_mobile(parts):
     # says nothing about WHICH feature holed it -- it took a hand search to find that the
     # screw pilot was the culprit. This states the invariant per feature, so the next person
     # who moves a fastener is told what they broke rather than that a percentage dropped.
+    # ⚠️ REWRITTEN AS RECTANGLE-OVERLAP, 2026-08-01, AND THE POINT+RADIUS FORM WAS WRONG FOR
+    # ANYTHING LONG. It tested a CENTRE against the ring's bounds inflated by r, which is only
+    # sound for a disc: fed a 66mm rail its centre lands mid-rim and r inflates the bounds past
+    # the whole part, so it reported a pierce that does not exist AND would have missed one
+    # whose centre fell outside. The rails made a general form necessary, and the general form
+    # is the right one for the screw too -- it is now the same test for both.
     _ring_y = (RIM_Y0 - RIM_WALL, RIM_Y1 + RIM_WALL)
     _ring_x = (RIM_X0 - RIM_WALL, RIM_X1 + RIM_WALL)
-    _pierce = [("screw pilot", SCREW_XY[0], SCREW_XY[1], PILOT_D/2)]
-    for _hx, _hy0 in HOOKS:
-        (_a, _b), (_c, _d2) = _hook_ys(_hy0)
-        _pierce.append((f"hook pocket x={_hx}", _hx, (_a + _d2)/2, max(HOOK_W, _d2 - _a)/2))
-    for _nm, _x, _y, _r in _pierce:
-        _inside_ring = (_ring_x[0] - _r < _x < _ring_x[1] + _r
-                        and _ring_y[0] - _r < _y < _ring_y[1] + _r
-                        and not (RIM_X0 + _r < _x < RIM_X1 - _r
-                                 and RIM_Y0 + _r < _y < RIM_Y1 - _r))
-        assert not _inside_ring, (
-            f"{_nm} at ({_x:.2f}, {_y:.2f}) r{_r:.2f} lands on or across the seal rim's "
-            f"footprint (x {_ring_x[0]:.2f}..{_ring_x[1]:.2f}, "
-            f"y {_ring_y[0]:.2f}..{_ring_y[1]:.2f}). A fastener through the seal vents the "
+
+    def _hits_ring(x0, x1, y0, y1):
+        """Does an axis-aligned footprint touch the seal RING (outer rect minus inner rect)?"""
+        _ov = (x0 < _ring_x[1] and x1 > _ring_x[0]
+               and y0 < _ring_y[1] and y1 > _ring_y[0])          # touches the outer rect...
+        _in = (x0 >= RIM_X0 and x1 <= RIM_X1
+               and y0 >= RIM_Y0 and y1 <= RIM_Y1)                # ...but not wholly inside it
+        return _ov and not _in
+
+    _pierce = [("screw pilot", SCREW_XY[0] - PILOT_D/2, SCREW_XY[0] + PILOT_D/2,
+                SCREW_XY[1] - PILOT_D/2, SCREW_XY[1] + PILOT_D/2)]
+    # The rails are pockets cut in the same back face and answer to the same rule. Their
+    # footprint is the groove's full u-band over the whole rail, drop-in pockets included.
+    for _side, _ry0, _ry1 in DT_RAILS:
+        _gx0 = (OX0 + DT_SKIN) if _side == "lo" else (OX1 - DT_SKIN - DT_WIDE)
+        _pierce.append((f"dovetail groove {_side} y {_ry0:.2f}..{_ry1:.2f}",
+                        _gx0, _gx0 + DT_WIDE, _ry0, _ry1 + DT_CLR_Y))
+    for _nm, _x0, _x1, _y0, _y1 in _pierce:
+        assert not _hits_ring(_x0, _x1, _y0, _y1), (
+            f"{_nm} (x {_x0:.2f}..{_x1:.2f}, y {_y0:.2f}..{_y1:.2f}) lands on or across the "
+            f"seal rim's footprint (x {_ring_x[0]:.2f}..{_ring_x[1]:.2f}, "
+            f"y {_ring_y[0]:.2f}..{_ring_y[1]:.2f}). A pocket through the seal vents the "
             f"cavity into the board cavity")
-    # CONTROL: the original, rejected screw position must be reported as piercing.
-    _bx_, _by_ = 25.00, RIM_Y0 - RIM_WALL / 2
-    assert (_ring_x[0] < _bx_ < _ring_x[1] and _ring_y[0] < _by_ < _ring_y[1]
-            and not (RIM_X0 < _bx_ < RIM_X1 and RIM_Y0 < _by_ < RIM_Y1)), (
-        "control failed: a point placed deliberately in the middle of the rim wall does not "
+    # CONTROLS, in both directions, because a predicate that always returns False passes the
+    # loop above silently. (1) the rejected screw position, sitting in the middle of the rim
+    # wall, must read as piercing; (2) the +X rail moved 1.00 up into the seal's Y span must
+    # ALSO read as piercing -- that one is the failure this rewrite exists to catch; and
+    # (3) a footprint wholly inside the rim must NOT.
+    assert _hits_ring(25.00 - PILOT_D/2, 25.00 + PILOT_D/2,
+                      RIM_Y0 - RIM_WALL/2 - PILOT_D/2, RIM_Y0 - RIM_WALL/2 + PILOT_D/2), (
+        "control failed: a bore placed deliberately in the middle of the rim wall does not "
         "read as piercing, so this test cannot detect a fastener through the seal")
-    print(f"  [seal 6b] {len(_pierce)} fasteners, all clear of the rim footprint; "
-          f"retention strip y {BAY_Y0:.2f}..{RIM_Y0-RIM_WALL:.2f} is what makes room for them")
+    assert _hits_ring(OX1 - DT_SKIN - DT_WIDE, OX1 - DT_SKIN,
+                      RIM_Y0 - RIM_WALL - 0.40, RIM_Y0 + 1.00), (
+        "control failed: a +X rail run 1.00mm up into the seal's Y span does not read as "
+        "piercing, so nothing stops the next person lengthening it")
+    assert not _hits_ring(RIM_X0 + 1.0, RIM_X0 + 3.0, RIM_Y0 + 1.0, RIM_Y0 + 3.0), (
+        "control failed: a footprint wholly INSIDE the rim reads as piercing, so this test "
+        "would reject the speaker relief and every legitimate feature in the cavity")
+    print(f"  [seal 6b] {len(_pierce)} back-face pockets, all clear of the rim footprint; "
+          f"retention strip y {BAY_Y0:.2f}..{RIM_Y0-RIM_WALL:.2f} is what makes room for the "
+          f"screw, and y>{RIM_Y1+RIM_WALL:.2f} / y<{RIM_Y0-RIM_WALL:.2f} for the +X rails")
 
     # ---- 7. FRONT CAVITY, MEASURED BY BOOLEAN, against the stand computed the same way ----
     cov = parts["ember-mobile-back"]
@@ -1217,28 +1657,377 @@ def _check_mobile(parts):
     print(f"             mouth web {HEX_WEB:.2f} unflared (stand: {E.GRILLE_MOUTH_WEB:.4f}, "
           f"flared -- issue #28's droop needs a horizontal bore and these are vertical prisms)")
 
-    # ---- 8b. THE HOOK CAN ACTUALLY BE INSERTED.  Kinematics, not clearance. ----
+    # ---- 8b. THE DOVETAIL IS PRINTABLE.  NO BRIDGE, AND EVERY FACE >= 45 deg. ----
     #
-    # A hook that fits in its engaged position and cannot reach it is exactly verification.md's
-    # reachability class again: every static check passes and it will not go together in a hand.
-    _travel_need = HOOK_BARB_L - HOOK_CLR                # barb must clear the lip to drop in
-    _travel_have = HOOK_ENTRY_L - HOOK_LEG_L             # room the leg has to slide back into
-    assert _travel_have >= _travel_need + 0.30, (
-        f"the hook barb needs {_travel_need:.2f}mm of -Y travel to clear the lip on insertion "
-        f"but the entry recess only offers {_travel_have:.2f}mm. The cover cannot be assembled")
-    assert HOOK_D < (BACK_Z - CAV_FLOOR) * -1, (
-        f"the hook pocket is {HOOK_D:.2f} deep in a {(BACK_Z-CAV_FLOOR)*-1:.2f} floor -- it "
-        f"breaks through into the board cavity")
-    for _hx, _hy0 in HOOKS:
-        (_a, _b), (_c, _d2) = _hook_ys(_hy0)
-        assert not (RIM_X0 < _hx < RIM_X1 and RIM_Y0 < _d2 and _a < RIM_Y1), (
-            f"hook at x={_hx} y={_a:.2f}..{_d2:.2f} sits inside the seal rim footprint -- its "
-            f"pocket is a hole in the sealed cavity's ceiling")
-        assert _a >= CAP_KEEPOUT, (
-            f"hook pocket at y={_a:.2f} reaches into the cap keepout ({CAP_KEEPOUT:.2f}) and "
-            f"would cut the living hinge on the +Y flat of a button cap")
-    print(f"  [hooks]   travel need {_travel_need:.2f} / have {_travel_have:.2f}; pocket "
-          f"{HOOK_D:.2f} in a {(BACK_Z-CAV_FLOOR)*-1:.2f} floor; both clear of the rim and the caps")
+    # >>> THIS IS THE CHECK THE HOOKS DID NOT HAVE, AND IT IS WHY THEY ARE GONE. <<<
+    #
+    # It runs in three layers, weakest first, and the last one is measured on the mesh:
+    #
+    #   (i)   the as-printed frame IS the model frame. Both parts are exported by a pure Z
+    #         translation (PRINT_LIFT), so an angle in this file is an angle on the bed. If a
+    #         future variant ever rotates a part for printing, every conclusion below dies --
+    #         so it is asserted, not assumed.
+    #   (ii)  the analytic face angles of the profile, from the constants.
+    #   (iii) THE ARTIFACT. Sweep thin slabs up through the finished solids and watch how much
+    #         MATERIAL each layer gains over the one below. A face at 45 degrees gains LH per
+    #         layer; a flat roof gains its whole width in one. Bounding the gain at LH makes a
+    #         bridge unmissable.
+    #
+    # ⚠️ THE SWEEP IS SPLIT AT THE GABLE APEX, AND THE UNSPLIT VERSION WAS BLIND IN THE ONE
+    # DIRECTION THAT MATTERS. Measuring total material across the whole u-band nets the two
+    # edges against each other -- and this joint's whole trick is a void that TRANSLATES, so
+    # through the skew one edge gains exactly what the other loses and the total reads a flat
+    # 0.60 the whole way up. That is the correct answer here, but only by luck: an edge running
+    # at 20 degrees would have been cancelled just as neatly by a shrink on the other side.
+    # Split at u = DT_SKIN + DT_MOUTH/2 and each half has exactly ONE moving edge, so the number
+    # is per-face and cannot be cancelled. This is the same lesson as the vent-throat and
+    # polarity probes: a measurement that sums over a feature can hide the feature.
+    #
+    # The control is the deleted hook pocket itself, rebuilt as a phantom and run through the
+    # same sweep. It has to fail, or this check is decoration.
+    assert PRINT_LIFT["ember-mobile-midframe"] == -BACK_Z and \
+           PRINT_LIFT["ember-mobile-back"] == -COVER_Z0, (
+        "PRINT_LIFT is no longer a pure Z translation of the model frame, so 'vertical in the "
+        "model' no longer means 'vertical on the bed' and every angle below is meaningless")
+    _a_skew = math.degrees(math.atan2(DT_SKEW_H, DT_UNDER))         # from HORIZONTAL
+    _a_gable = math.degrees(math.atan2(DT_GABLE_H, DT_MOUTH / 2))
+    _a_worst = min(_a_skew, _a_gable)
+    assert _a_worst >= 50.0, (
+        f"the shallowest face in the dovetail runs at {_a_worst:.1f} deg from horizontal "
+        f"(skew {_a_skew:.1f}, gable {_a_gable:.1f}). 45 is the print limit and this joint is "
+        f"held to 50 so tessellation cannot eat the margin. Raise DT_SKEW_H / DT_GABLE_H")
+    assert math.degrees(math.atan2(1.0, 1.0)) < 50.0, (
+        "control failed: a 45-degree face reads as clearing the 50-degree bar")
+
+    # ⚠️ THE METRIC IS MATERIAL GROWTH, NOT VOID CHANGE, AND THE FIRST VERSION HAD IT BACKWARDS.
+    # Void width also jumps at the TOP OF THE RAIL, where the part simply ends and there is
+    # nothing above to overhang -- a perfectly legal upward-facing face read as a 1.20mm step.
+    # An overhang is material APPEARING over void, so the quantity is how much wider the
+    # material gets from one layer to the next. Material narrowing is always free.
+    def _mat_widths(part, side, y, z0, z1, u0, u1):
+        """Material width (mm) inside a wall's u-band, layer by layer, from the ARTIFACT."""
+        s = 1.0 if side == "lo" else -1.0
+        xa = (OX0 if side == "lo" else OX1) + s * u0
+        xb = (OX0 if side == "lo" else OX1) + s * u1
+        out, _t, _dy = [], LH * 0.5, 0.40
+        _z = z0 + LH / 2
+        while _z <= z1:
+            _pr = bx(min(xa, xb), max(xa, xb), y - _dy/2, y + _dy/2, _z - _t/2, _z + _t/2)
+            out.append((part & _pr).volume / (_t * _dy))
+            _z += LH
+        return out
+
+    def _worst_growth(ws):
+        return max((b - a for a, b in zip(ws, ws[1:])), default=0.0)
+
+    _step_max = LH * 1.15              # ONE edge at the 45 deg limit, plus 15% for the mesh
+    # The u-window starts at CHAMFER so the midframe's own bed-side chamfer -- a legitimate
+    # 45-degree exterior face -- is not swept in and counted against the joint's budget.
+    _apex = DT_SKIN + DT_MOUTH / 2
+    _halves = ((CHAMFER, _apex), (_apex, DT_SKIN + DT_WIDE))
+    _worst, _where = 0.0, "nothing"
+    for _side, _ry0, _ry1 in DT_RAILS:
+        _t0 = _dt_teeth(_ry0, _ry1)[0]
+        for _nm, _y, _part, _pn in (("groove shoulder", _t0 + DT_TOOTH/2, mf, "midframe"),
+                                    ("groove pocket", _t0 - DT_TRAVEL/2, mf, "midframe"),
+                                    ("rail tooth", _t0 + DT_TOOTH/2, cov, "cover")):
+            _z1 = BACK_Z + (DT_DEPTH + 0.40 if _part is mf else DT_RAIL_H + 0.20)
+            for _ua, _ub in _halves:
+                _st = _worst_growth(_mat_widths(_part, _side, _y, BACK_Z, _z1, _ua, _ub))
+                if _st > _worst:
+                    _worst, _where = _st, (f"the {_pn}'s {_nm} on the {_side} wall at "
+                                           f"y={_y:.2f}, u {_ua:.2f}..{_ub:.2f}")
+    assert _worst <= _step_max, (
+        f"material grows {_worst:.2f}mm in one {LH} layer at {_where}, over the {_step_max:.2f} "
+        f"a single 45-degree face can produce. Something in the joint is BRIDGED -- that is "
+        f"the defect JP rejected the hooks for, reintroduced")
+    # >>> THE CONTROL IS THE THING THAT WAS DELETED. <<<
+    # The old hook pocket: an 8.00-wide void cut from BACK_Z to BACK_Z + 1.40 in the bed face,
+    # roofed flat. Rebuilt here on a scrap block and swept identically. If it passes, the sweep
+    # cannot see a bridge and nothing above is evidence.
+    _blk = bx(OX0, OX0 + 12.0, 0.0, 12.0, BACK_Z, BACK_Z + 6.0)
+    _blk -= bx(OX0 + 1.0, OX0 + 9.0, 2.0, 10.0, BACK_Z, BACK_Z + 1.40)      # HOOK_W x HOOK_D
+    _hw = _mat_widths(_blk, "lo", 6.0, BACK_Z, BACK_Z + 2.20, 0.0, 6.0)     # one half of it
+    assert _worst_growth(_hw) > _step_max, (
+        f"control failed: the deleted hook pocket -- an 8.00 x 1.40 flat-roofed void in the bed "
+        f"face -- grows only {_worst_growth(_hw):.2f}mm per layer, inside the "
+        f"{_step_max:.2f} budget. The sweep cannot detect a bridge")
+    print(f"  [dovetail] as-printed frame = model frame (pure Z lift, both parts). Worst face "
+          f"{_a_worst:.1f} deg from horizontal (skew {_a_skew:.1f}, gable {_a_gable:.1f})")
+    print(f"             per-face material growth: worst {_worst:.3f}mm/{LH} layer over "
+          f"{len(DT_RAILS)*3*len(_halves)} sweeps, split at the gable apex (budget "
+          f"{_step_max:.2f}); NO FLAT ROOF ANYWHERE")
+    print(f"             control: the deleted hook pocket grows {_worst_growth(_hw):.2f}mm in "
+          f"one layer -- it fails the same sweep, which is why it is deleted")
+
+    # ---- 8c. THE DOVETAIL CAPTURES.  Engagement area measured, and bounded BOTH ways. ----
+    #
+    # ⚠️ THIS FILE'S DEFECT LOG SAYS SINGLE-BOUNDED PROBES LIE. Three times: the vent throat swept
+    # fresh air, the polarity probe swept the contact pocket, the solder-access probe swept the
+    # compartment walls. So the shoulder is measured with a floor AND the pockets with a ceiling,
+    # from the same probe. A groove with no shoulders holds nothing; a groove with no pockets
+    # cannot be assembled at all. One number cannot tell those apart -- two can.
+    _sh_area, _pk_open, _n_teeth = 0.0, 0.0, 0
+    _sh_min, _pk_max = 1.0, 0.0
+    _sh_where, _pk_where = "", ""            # WHICH tooth, because "one shoulder" cost a build
+    for _side, _ry0, _ry1 in DT_RAILS:
+        _s = 1.0 if _side == "lo" else -1.0
+        _x0 = (OX0 if _side == "lo" else OX1) + _s * DT_SKIN
+        _x1 = _x0 + _s * DT_UNDER               # the skew band: material only over a shoulder
+        # ...and only in the STRAIGHT section. Above DT_NECK_H the void itself moves into this
+        # band, so a probe run any taller would read the joint's own clearance as a missing
+        # shoulder. The probe's extent is the feature's extent -- this file's standing rule.
+        _za, _zb = BACK_Z + 0.04, BACK_Z + DT_NECK_H - 0.04
+        for _ty in _dt_teeth(_ry0, _ry1):
+            _n_teeth += 1
+            for _nm, _ya, _yb in (("shoulder", _ty, _ty + DT_TOOTH),
+                                  ("pocket", _ty - DT_TRAVEL, _ty - DT_TRAVEL + DT_TOOTH)):
+                _pr = bx(min(_x0, _x1), max(_x0, _x1), _ya, _yb, _za, _zb)
+                _f = (mf & _pr).volume / _pr.volume
+                if _nm == "shoulder":
+                    if _f < _sh_min:
+                        _sh_min, _sh_where = _f, f"{_side} wall, tooth at y={_ty:.2f}"
+                    _sh_area += _f * DT_TOOTH * DT_UNDER
+                else:
+                    if _f > _pk_max:
+                        _pk_max, _pk_where = _f, f"{_side} wall, tooth at y={_ty:.2f}"
+                    _pk_open += (1 - _f) * DT_TOOTH * DT_UNDER
+    assert _sh_min > 0.98, (
+        f"the dovetail shoulder on the {_sh_where} is only {100*_sh_min:.1f}% solid -- the "
+        f"midframe has no material over that tooth, so the rail there retains nothing. Look "
+        f"first at what else owns that Y: a corner arc, a channel, a boss flare")
+    assert _pk_max < 0.02, (
+        f"the drop-in pocket on the {_pk_where} is {100*_pk_max:.1f}% material -- the tooth "
+        f"cannot enter the groove and the cover cannot be assembled. Every static clearance "
+        f"check would still pass")
+    assert _sh_area >= DT_ENGAGE_MIN, (
+        f"only {_sh_area:.1f} mm2 of dovetail capture over {_n_teeth} teeth, under the "
+        f"{DT_ENGAGE_MIN:.1f} mm2 floor. That floor is a load argument, not a taste: at PLA's "
+        f"conservative 20 MPa in shear it is ~240 N, three orders over the cover's own weight "
+        f"and past any hand pull, and it is the ONLY thing holding the long edges between the "
+        f"one screw at the chin and the brow")
+    # THE CAPTURE CONDITION ITSELF, with a control. The tooth is only trapped if its widest
+    # point cannot pass back out through the groove's mouth, i.e. if the undercut EXCEEDS the
+    # clearance. That is one inequality and it is the whole joint; state it, and prove the
+    # statement can fail by feeding it an undercut equal to the clearance.
+    def _captures(under, clr):
+        return under - clr > 0.05
+    assert _captures(DT_UNDER, DT_CLR) and abs(DT_GRIP - (DT_UNDER - DT_CLR)) < 1e-9, (
+        f"a {DT_UNDER:.2f} undercut at {DT_CLR:.2f} clearance leaves {DT_GRIP:.2f}mm of grip. "
+        f"At or below the clearance the tooth lifts straight back out of the mouth and the "
+        f"rail is a decorative fin")
+    assert not _captures(DT_CLR, DT_CLR), (
+        "control failed: an undercut exactly equal to the clearance reads as capturing, so the "
+        "capture condition cannot reject a joint that holds nothing")
+    # >>> AND THE KINEMATIC FORM, ON THE TWO REAL SOLIDS.  Area is a proxy; THIS is the property.
+    # Seated, the cover may sink DT_LIFT before the skewed flanks touch. Push it DT_LIFT + 0.20
+    # and it MUST bite. At the insertion offset the identical push has to pass clean through,
+    # because that is where the pockets are. One probe, both directions -- and neither reading
+    # means anything without the other: a joint that never bites does not retain, and a joint
+    # that always bites cannot be taken apart.
+    _bite = (Pos(0, 0, -(DT_LIFT + 0.20)) * cov & mf).volume
+    _free = (Pos(0, -DT_TRAVEL, -(DT_LIFT + 0.20)) * cov & mf).volume
+    assert _bite > 1.0, (
+        f"pulling the seated cover {DT_LIFT + 0.20:.2f}mm off the mating plane finds only "
+        f"{_bite:.2f} mm3 of midframe in the way -- the teeth are NOT captured and the cover "
+        f"lifts straight off with the screw out")
+    assert _free < 0.5, (
+        f"the same {DT_LIFT + 0.20:.2f}mm at the insertion offset already fouls the midframe by "
+        f"{_free:.2f} mm3, so the teeth never line up with their pockets and the cover cannot "
+        f"be fitted at all")
+    print(f"  [capture] {_n_teeth} teeth, {DT_TOOTH:.2f} x {DT_UNDER:.2f} each: "
+          f"{_sh_area:.1f} mm2 of shoulder measured on the midframe (floor {DT_ENGAGE_MIN:.1f}); "
+          f"worst shoulder {100*_sh_min:.1f}% solid")
+    print(f"             control: the {_n_teeth} drop-in pockets measure {_pk_open:.1f} mm2 OPEN "
+          f"(worst {100*_pk_max:.1f}% material) -- the cover can actually go on")
+    print(f"             grip {DT_GRIP:.2f}mm per rail past the mouth; the cover may rise "
+          f"{DT_LIFT:.2f}mm before the flanks bite, then it is solid against solid")
+
+    # ---- 8d. THE SLIDE IS POSSIBLE, AND THE DRIVER IS WHAT LIMITS IT. ----
+    #
+    # >>> THE HOOK DESIGN FAILED THIS AND NOTHING IN THE FILE LOOKED. <<<
+    #
+    # It wanted 2.90mm of +Y slide with the parts mated. The driver hangs into the cover's sealed
+    # cavity and the rim's end walls stand the cavity's full height, so a Y slide sweeps those
+    # walls THROUGH the speaker. The driver is a phantom -- it is in no STL -- so the part-vs-part
+    # boolean could never have seen it, exactly like the cell-vs-cradle interference at 13.1 mm3.
+    # Measured by sweeping the real solid, not by comparing constants.
+    _gap_drv = (RIM_INNER_Y - DRIVER_W) / 2
+    assert DT_TRAVEL <= _gap_drv - 0.30, (
+        f"the slide is {DT_TRAVEL:.2f}mm but the rim's end walls only clear the driver by "
+        f"{_gap_drv:.2f}mm. Sliding the cover drives a {BACK_Z-CAV_Z0:.2f}mm wall through a "
+        f"{DRIVER_T:.2f}mm speaker. This is the hard ceiling on ANY Y-travel retention here")
+    # The path, in the order a hand does it: drop the cover on 2.00mm low (the vertical approach,
+    # dz), then push it +Y to seat (dy). Sampled as poses rather than unioned into one swept
+    # solid -- a union of seven grille-bearing covers costs minutes and proves nothing extra,
+    # because a collision at any pose is a collision.
+    _drv = driver_phantom()
+    _path = ([(-DT_TRAVEL, -_d) for _d in (2.40, 1.20, 0.40)]        # coming down into the pockets
+             + [(-DT_TRAVEL * _k / 4.0, 0.0) for _k in (4, 3, 2, 1, 0)])   # then sliding home
+    _fo_drv = max((Pos(0, _dy, _dz) * cov & _drv).volume for _dy, _dz in _path)
+    _fo_mf = max((Pos(0, _dy, _dz) * cov & mf).volume for _dy, _dz in _path)
+    assert _fo_drv < 0.5, (
+        f"the cover passes {_fo_drv:.2f} mm3 through the driver somewhere on its way in -- it "
+        f"will not go together with the speaker fitted, and the speaker is fitted first")
+    assert _fo_mf < 0.5, (
+        f"the cover passes {_fo_mf:.2f} mm3 through the midframe on its way in. Either a tooth "
+        f"misses its drop-in pocket or something outside the joint fouls during the slide")
+    # >>> AND THE CONTENTS RIDE WITH IT.  The cell and the spring are loaded into the cover
+    # BEFORE it goes on, so they sweep the same path and they are in no STL either. Nothing
+    # else in this file would notice a cell that clears when seated and grazes on the way.
+    _load = max(max((Pos(0, _dy, _dz) * _ph & mf).volume for _dy, _dz in _path)
+                for _ph in (cell_phantom(), spring_phantom(SPRING_FREE)))
+    assert _load < 0.5, (
+        f"the cell or the spring passes {_load:.2f} mm3 through the midframe during the slide "
+        f"-- the cover goes on with them already in it")
+    # CONTROL: the hooks' own 2.90mm must be reported as a collision, or this proves nothing.
+    _fo_ctl = max((Pos(0, -2.90 * _k / 4.0, 0.0) * cov & _drv).volume for _k in range(5))
+    assert _fo_ctl > 1.0, (
+        f"control failed: the 2.90mm slide the deleted hooks required reads {_fo_ctl:.2f} mm3 "
+        f"of driver interference, i.e. clear. The sweep cannot detect the failure it exists for")
+    print(f"  [slide]   {DT_TRAVEL:.2f}mm of +Y travel to seat, against a {_gap_drv:.2f}mm "
+          f"rim-to-driver gap. Worst pose on the assembly path: vs driver {_fo_drv:.3f} mm3, "
+          f"vs midframe {_fo_mf:.3f} mm3 over {len(_path)} poses")
+    print(f"             control: the hooks' 2.90mm slide drives {_fo_ctl:.1f} mm3 of rim wall "
+          f"THROUGH the driver -- printability was not the only thing wrong with them")
+
+    # ---- 8e. THE ONE SCREW LOCKS THE SLIDE OUT.  That is now its second job. ----
+    _shank_play = (SCREW_D - 3.00) / 2.0                  # M3 shank in the cover's clearance bore
+    assert _shank_play * 2 < DT_TRAVEL - 1.00, (
+        f"with the screw fitted the cover can still shift {2*_shank_play:.2f}mm in Y against a "
+        f"{DT_TRAVEL:.2f}mm travel -- the screw does not block the slide and the cover can be "
+        f"walked off with the fastener still in")
+    for _side, _ry0, _ry1 in DT_RAILS:
+        _gx0 = (OX0 + DT_SKIN) if _side == "lo" else (OX1 - DT_SKIN - DT_WIDE)
+        assert (SCREW_XY[0] + CBORE_D/2 < _gx0 or SCREW_XY[0] - CBORE_D/2 > _gx0 + DT_WIDE), (
+            f"the d{CBORE_D} counterbore at x={SCREW_XY[0]:.2f} reaches into the {_side} rail's "
+            f"u-band (x {_gx0:.2f}..{_gx0 + DT_WIDE:.2f}) -- the screw boss and the rail are "
+            f"fighting for the same wall")
+    # >>> AND IT MUST ONLY GO IN AT FULL ENGAGEMENT.  A REACH CHECK, NOT A FIT CHECK. <<<
+    #
+    # The deleted hooks carried "travel need 2.90 / have 3.60" -- an assert that the mechanism
+    # can REACH its engaged state, not merely occupy it. That class of question is the one this
+    # repo keeps paying for (docs/verification.md's buried buttons; the hooks' own 2.90mm slide
+    # that no boolean could see), so the dovetails owe an equivalent. Here it is inverted and
+    # therefore stronger: a half-slid cover must be IMPOSSIBLE to screw down. Measured by
+    # pushing an M3 shank through and asking whether the cover is in its way.
+    _shank = cyl(SCREW_XY[0], SCREW_XY[1], COVER_Z0 - 1, BACK_Z + 1, 3.00)
+    _seated_blk = (_shank & cov).volume
+    _part_blk = min((_shank & (Pos(0, -DT_TRAVEL * _k / 3.0, 0) * cov)).volume
+                    for _k in (1, 2, 3))
+    assert _seated_blk < 0.02, (
+        f"the M3 shank fouls the seated cover by {_seated_blk:.3f} mm3 -- the clearance bore "
+        f"does not line up with the pilot even when the slide IS home")
+    assert _part_blk > 1.0, (
+        f"a cover slid only part way still passes the screw ({_part_blk:.2f} mm3 of the shank "
+        f"blocked at the worst partial pose). It can be fastened half-engaged, with the teeth "
+        f"sitting in their drop-in pockets and nothing retaining the cover at all")
+    print(f"  [lock]    M3 shank in a d{SCREW_D} bore leaves {2*_shank_play:.2f}mm of Y freedom "
+          f"against {DT_TRAVEL:.2f} of travel: the screw is the slide's stop, not just a clamp")
+    print(f"             reach: seated, the shank is {_seated_blk:.3f} mm3 obstructed; at the "
+          f"best partial slide {_part_blk:.1f} mm3 -- it CANNOT be screwed down half-engaged")
+
+    # ---- 8g. THE BAY HOLDS ITS METALWORK.  JP's question, answered in geometry. ----
+    #
+    # >>> "we need features to hold the spring, and to hold the metal strips." <<<
+    #
+    # The acceptance behaviour is JP's: cell OUT, case OPEN-SIDE-DOWN, the spring stays put.
+    # That is a CAPTIVITY question, and captivity is not an area or a depth -- it is "does the
+    # part collide with the enclosure when you try to take it out the way gravity would".
+    # So it is asked that way, with the escape direction and a control that must NOT collide.
+    _spr_free = spring_phantom(SPRING_FREE)
+    _spr_fit = (cov & _spr_free).volume
+    assert _spr_fit < 0.5, (
+        f"the spring at its {SPRING_FREE} free length fouls the bay by {_spr_fit:.2f} mm3 -- it "
+        f"does not go in, never mind stay in")
+    # THE CAPTIVITY TEST. Open-side-down is +Z out of the bay, so lift the spring that way and
+    # the tunnel must be in the road. 2.00 is past any rattle and short of clearing the bore.
+    _spr_up = (cov & spring_phantom(SPRING_FREE, dz=2.00)).volume
+    assert _spr_up > 5.0, (
+        f"lifting the spring 2.00mm toward the bay's open side finds only {_spr_up:.2f} mm3 of "
+        f"cover in the way. The tunnel is not capturing it and it will fall out when the cell "
+        f"comes out -- which is JP's stated acceptance behaviour, failed")
+    # CONTROL: the same lift applied to a spring sitting OUTSIDE the tunnel, where the cradle
+    # is open above the axis, must be free. Without this, "captive" and "the probe collides
+    # with everything" are the same reading.
+    _spr_out = (cov & cyl_y(CELL_AXIS_X, CELL_AXIS_Z + 2.00, SPRING_OD,
+                            SPRING_TUN_Y0 - 12.0, SPRING_TUN_Y0 - 2.0)).volume
+    assert _spr_out < 0.5, (
+        f"control failed: a spring lifted 2.00mm OUTSIDE the tunnel still reads {_spr_out:.2f} "
+        f"mm3 of interference, so the captivity probe cannot tell the tunnel from the trough")
+    # THE TUNNEL MOUTH IS NOT IN NORMAL SERVICE, AND IS A STOP WHEN IT IS.
+    _cell_end = BAY_Y0 + CELL_L_CLR/2 + CELL_L_MAX
+    assert SPRING_TUN_Y0 > _cell_end + 0.30, (
+        f"the tunnel's mouth at y={SPRING_TUN_Y0:.2f} is inside the longest cell's reach "
+        f"({_cell_end:.2f}) -- the cell bottoms on plastic in normal service instead of on its "
+        f"spring")
+    assert BAY_Y1 - SPRING_TUN_Y0 > SPRING_SOLID, (
+        f"the tunnel is {BAY_Y1-SPRING_TUN_Y0:.2f} long against a {SPRING_SOLID} coil-bound "
+        f"height -- as an over-travel stop it lets the spring go solid before the cell lands")
+    # THE GABLE CLEARS A ROUND SPRING, AND IT IS A TANGENCY, NOT A WIDTH. The roof is a chord
+    # across the corner, so "the bore is wider than the spring" is not the question -- the
+    # perpendicular distance from the axis to the roof line is. Stated as the inequality it is,
+    # with the angle held to the same 50 the dovetail is.
+    _sa = math.degrees(math.atan2(SPRING_GABLE_RISE, SPRING_BORE / 2))
+    _sd = (SPRING_GABLE_Z + SPRING_GABLE_RISE) * math.cos(math.radians(_sa))
+    assert _sa >= 50.0, (
+        f"the spring tunnel's gable runs at {_sa:.1f} deg from horizontal. 45 is the print "
+        f"limit and every roof in this part is held to 50 -- there is no reason for this one "
+        f"to be the exception")
+    assert _sd >= SPRING_OD / 2 + 0.20, (
+        f"the gable line passes {_sd:.2f}mm from the bore's axis against a {SPRING_OD/2:.2f} "
+        f"spring radius. The roof is a CHORD across the corner: it comes closer than the flat "
+        f"it replaces, and 'the bore is wide enough' is the wrong question")
+    assert (SPRING_GABLE_Z + SPRING_BORE/2) * math.cos(math.radians(45.0)) < SPRING_OD/2 + 0.20, (
+        "control failed: a 45-degree gable on this bore reads as clearing the spring with "
+        "margin, so the tangency test cannot reject the profile it was written to reject")
+    print(f"  [spring]  tunnel y {SPRING_TUN_Y0:.2f}..{BAY_Y1:.2f} ({SPRING_TUN_L:.2f} of a "
+          f"{SPRING_FREE:.2f} free length inside a closed d{SPRING_BORE:.2f} bore, gable "
+          f"{_sa:.1f} deg, roof {_sd:.2f} from the axis vs a {SPRING_OD/2:.2f} radius)")
+    print(f"             CAPTIVE: lifted 2.00 toward the open side it hits {_spr_up:.1f} mm3 of "
+          f"cover; the same lift outside the tunnel is free ({_spr_out:.2f} mm3)")
+    print(f"             mouth at {SPRING_TUN_Y0:.2f} vs the longest cell's {_cell_end:.2f}: "
+          f"{SPRING_TUN_Y0-_cell_end:.2f} clear in service, and a hard stop at a "
+          f"{BAY_Y1-SPRING_TUN_Y0:.2f} spring length vs {SPRING_SOLID} solid")
+
+    # ---- 8h. THE "+" CONTACT KERF.  Bounded BOTH ways, because one bound is meaningless. ----
+    #
+    # A slot too narrow does not take the strip; a slot too wide does not hold it. The same
+    # probe answers both, measured on the finished solid at the plate's own mid-height.
+    _kz = (CONTACT_Z0 + CONTACT_Z1) / 2
+    _kpr = bx(CELL_AXIS_X - 0.20, CELL_AXIS_X + 0.20, CELL_TIP_Y - 1.50, CELL_TIP_Y,
+              _kz - 0.20, _kz + 0.20)
+    _kw = (_kpr - cov).volume / (0.40 * 0.40)          # the slot's depth in Y, measured
+    assert _kw >= CONTACT_T + 0.05, (
+        f"the contact kerf measures {_kw:.3f}mm deep against a {CONTACT_T}mm strip -- it will "
+        f"not take the metal it is dimensioned for")
+    assert _kw <= CONTACT_KERF + 0.05, (
+        f"the contact kerf measures {_kw:.3f}mm against a designed {CONTACT_KERF:.2f} -- the "
+        f"strip rattles, and a rattling contact is an intermittent one")
+    # THE DETENT ACTUALLY INTERFERES. Above the seated plate the bar must leave LESS than the
+    # strip's thickness, or it is decoration; and MORE than nothing, or the plate cannot pass.
+    _dz = CONTACT_Z1 + CONTACT_DET_H / 2
+    _dpr = bx(CELL_AXIS_X - 0.20, CELL_AXIS_X + 0.20, CELL_TIP_Y - 1.50, CELL_TIP_Y,
+              _dz - 0.10, _dz + 0.10)
+    _dw = (_dpr - cov).volume / (0.40 * 0.20)
+    assert _dw < CONTACT_T, (
+        f"the detent leaves {_dw:.3f}mm of clear kerf against a {CONTACT_T}mm strip -- the "
+        f"plate slides straight back out and the detent is decoration")
+    assert _dw > 0.05, (
+        f"the detent leaves only {_dw:.3f}mm -- that is a wall, not a detent, and the plate "
+        f"cannot be got in past it at all")
+    # THE TAB HAS A WAY OUT. The kerf must run unbroken from the plate to the divider's wire
+    # groove, or the strip is captive and its tab is not.
+    _tpr = bx(CELL_X1 - WGROOVE_D - 0.20, CELL_X1 - WGROOVE_D + 0.20,
+              CELL_TIP_Y - CONTACT_KERF + 0.05, CELL_TIP_Y, BACK_Z - 3.0, BACK_Z - 2.6)
+    _topen = (_tpr - cov).volume / _tpr.volume
+    assert _topen > 0.90, (
+        f"the tab lane is only {100*(1-_topen):.0f}% open where it meets the divider's wire "
+        f"groove -- the +ve tab has no route to the protection strip")
+    print(f"  [contact] kerf {_kw:.3f} measured (CONTACT_T {CONTACT_T} JP-confirmed material + "
+          f"CONTACT_PLAY {CONTACT_PLAY} derived here); detent leaves {_dw:.3f} < {CONTACT_T}")
+    print(f"             plate seat z {CONTACT_Z0:.2f}..{CONTACT_Z1:.2f}, throat open to "
+          f"{BACK_Z:.2f}, tab lane to the divider {100*_topen:.0f}% open")
 
     # ---- 9. THE SPEAKER RELIEF IS INSIDE THE CAVITY, NOT STRADDLING ITS WALL ----
     #
@@ -1318,18 +2107,129 @@ def _check_mobile(parts):
           f"annulus {_ann:.2f} (min {E.BOSS_MIN_ANN}); seat {100*_sfrac:.1f}% solid, "
           f"control outside the boss {100*_wfrac2:.1f}%")
 
-    # ---- 11c. HOOK B HAS SOMETHING TO STAND ON. ----
-    # Its footprint is over open compartment; without the pillar the hook is a tab hanging in
-    # air, joined to the part by nothing. Measured, because HOOK_B_PILLAR being True is not
-    # evidence that a pillar was built.
-    (_ba, _bb2), (_bc, _bd) = _hook_ys(HOOK_B_Y0)
-    _pp = bx(HOOK_B_X - HOOK_W/2 + 0.5, HOOK_B_X + HOOK_W/2 - 0.5, _ba + 0.5, _bd - 0.5,
-             BACK_Z - 1.0, BACK_Z - 0.2)
-    _pf = (cov & _pp).volume / _pp.volume
-    assert _pf > 0.90, (
-        f"hook B's pillar is only {100*_pf:.1f}% material just under the mating plane -- the "
-        f"hook has nothing to stand on and would print as a floating tab")
-    print(f"  [pillar]  hook B pillar {100*_pf:.1f}% solid under the mating plane")
+    # ---- 8f. THE RAILS STAND ON SOMETHING, AND CLEAR EVERYTHING THEY MUST. ----
+    #
+    # The old hook B needed a purpose-built pillar because it sat over open compartment. The
+    # rails do not -- they sit on the cover's own long walls the whole way -- but "sits on the
+    # wall" is exactly the sort of claim that survives a wall moving, so it is measured.
+    # ⚠️ THE PROBE IS CLAMPED TO THE COVER'S OWN WALL, and that clamp is the documented 0.10.
+    # The tooth's bed footprint runs to u = 2.30 against a COV_WALL of 2.20, so 0.10 of it hangs
+    # over the bay's open mouth by design (see 5g). Probing the full 0.60 would read 83% and
+    # report a defect that is a stated tolerance; probing the wall's share reads what the
+    # question actually is -- is there a wall under this tooth at all.
+    _cant = (DT_SKIN + DT_UNDER + DT_CLR + DT_NECK) - COV_WALL
+    assert 0.0 <= _cant <= 0.20, (
+        f"the tooth's bed footprint overhangs the cover's wall by {_cant:.2f}mm. Up to 0.20 is "
+        f"a step the process absorbs under a {DT_NECK:.2f} bead; past that it is a cantilever "
+        f"and needs a buttress")
+    _root_min = 1.0
+    for _side, _ry0, _ry1 in DT_RAILS:
+        _s = 1.0 if _side == "lo" else -1.0
+        _a = (OX0 if _side == "lo" else OX1) + _s * (DT_SKIN + DT_UNDER + DT_CLR)
+        _b = (OX0 if _side == "lo" else OX1) + _s * COV_WALL
+        for _ty in _dt_teeth(_ry0, _ry1):
+            _pr = bx(min(_a, _b), max(_a, _b), _ty, _ty + DT_TOOTH, BACK_Z - 0.60, BACK_Z - 0.10)
+            _root_min = min(_root_min, (cov & _pr).volume / _pr.volume)
+    assert _root_min > 0.95, (
+        f"a dovetail tooth stands on only {100*_root_min:.1f}% material just under the mating "
+        f"plane -- the rail is growing out of open bay and would print as a floating fin")
+    # CONTROL: the same probe run over the bay, one wall thickness inboard, must read ~empty.
+    _cpr = bx(CELL_X0 + 0.10, CELL_X0 + 0.70, _dt_teeth(*DT_RAILS[0][1:])[3],
+              _dt_teeth(*DT_RAILS[0][1:])[3] + DT_TOOTH, BACK_Z - 0.60, BACK_Z - 0.10)
+    _croot = (cov & _cpr).volume / _cpr.volume
+    assert _croot < 0.10, (
+        f"control failed: the root probe reads {100*_croot:.1f}% solid over the OPEN cell bay, "
+        f"so it cannot tell a tooth on a wall from a tooth on nothing")
+    # ---- and the four things a groove in a side wall can run into. All in coordinates,
+    # because each of them is a different part of the file that has no idea the rails exist.
+    # ⚠️ THE GLOW WINDOW'S SITE IS SOLVED AT RUNTIME, so whether it shares a wall AND a Y band
+    # with a rail is a RESULT, not a constant — and it changed the day SPK's flank opening was
+    # suppressed, because that widened the solid span the search runs over. So the Z clearance
+    # is asserted where the two actually overlap in Y and REPORTED where they do not, rather
+    # than asserted unconditionally and quietly becoming an invariant that cannot fail.
+    _gtop = BACK_Z + DT_DEPTH
+    _glow_z0 = GLOW_CZ - GLOW_AF / 2
+    _gy0, _gy1 = GLOW_CY - GLOW_SPAN_Y/2, GLOW_CY + GLOW_SPAN_Y/2
+    _glow_shares = [(_a, _b) for _s, _a, _b in DT_RAILS
+                    if _s == GLOW_WALL and _a < _gy1 and _b + DT_CLR_Y > _gy0]
+    if _glow_shares:
+        assert _gtop <= _glow_z0 - 0.60, (
+            f"a {GLOW_WALL}-wall rail shares y {_glow_shares} with the WS2812 window and the "
+            f"groove's gable reaches z={_gtop:.2f} against a window pocket starting at "
+            f"z={_glow_z0:.2f} -- under 0.60 of material between two voids in one wall")
+    else:
+        assert min(abs(_a - _gy1) for _s, _a, _b in DT_RAILS if _s == GLOW_WALL) > 0.0, (
+            "control: the rails and the window were compared on the wrong wall")
+    assert DT_SKIN + DT_WIDE <= WALL + 1e-9, (
+        f"the groove reaches {DT_SKIN + DT_WIDE:.2f} inboard of the outer face, past the "
+        f"{WALL:.2f} side wall, so it is cutting the board-cavity floor instead of the wall")
+    # >>> AND THE Z BUDGET, WHICH IS THE CONSTRAINT THAT PICKED THE CROSS-SECTION. <<<
+    #
+    # The side wall is 17.40 tall, but ember_case.py:1541 cuts the CABLE CHANNELS through its
+    # full thickness at z CAV_FLOOR..PCB_BOT, and the rails cross every one of them. Over those
+    # Y spans the only material the groove has is the 2.60 floor beneath. Measured on the
+    # midframe rather than asserted from constants, because the channels are computed in
+    # ember_case from the connector tables and can move without anyone here noticing.
+    _lint_min, _lint_where = 99.0, "no channel crosses a rail"
+    for _side, _ry0, _ry1 in DT_RAILS:
+        _s = 1.0 if _side == "lo" else -1.0
+        _bx0 = (OX0 if _side == "lo" else OX1) + _s * DT_SKIN
+        _bx1 = (OX0 if _side == "lo" else OX1) + _s * (DT_SKIN + DT_WIDE)
+        for _ca, _cb in (MOB_CH_LO if _side == "lo" else MOB_CH_HI):
+            _oa, _ob = max(_ca, _ry0), min(_cb, _ry1)
+            if _ob - _oa < 0.5:
+                continue
+            _pr = bx(min(_bx0, _bx1), max(_bx0, _bx1), _oa + 0.2, _ob - 0.2,
+                     BACK_Z + DT_DEPTH, CAV_FLOOR)
+            _lf = (mf & _pr).volume / _pr.volume if _pr.volume > 0 else 1.0
+            if _lf < 0.98:
+                _lint_min = 0.0
+                _lint_where = f"{_side} wall, channel y {_ca:.2f}..{_cb:.2f}"
+            else:
+                _lint_min = min(_lint_min, CAV_FLOOR - (BACK_Z + DT_DEPTH))
+                _lint_where = f"{_side} wall, channel y {_ca:.2f}..{_cb:.2f}"
+    assert _lint_min >= 0.60, (
+        f"the lintel between the groove's gable and the side cable channel measures "
+        f"{_lint_min:.2f}mm at {_lint_where}. Under 0.60 (3 layers) the groove and the channel "
+        f"are one void and the wall loses its section -- shorten DT_DEPTH, do not move the rail")
+    print(f"             cable-channel lintel {_lint_min:.2f}mm ({_lint_where}); the groove is "
+          f"{DT_DEPTH:.2f} of the {CAV_FLOOR - BACK_Z:.2f} that lies under those channels")
+    assert DT_SKIN >= CHAMFER, (
+        f"only {DT_SKIN:.2f} of skin outboard of the groove against a {CHAMFER} bed chamfer -- "
+        f"the groove would break out through the chamfered edge and stop being a groove")
+    _lead_gap = LEAD_X0 - (OX0 + DT_SKIN + DT_WIDE)
+    assert _lead_gap >= 0.30, (
+        f"the cell-lead pass starts at x={LEAD_X0:.2f}, only {_lead_gap:.2f} from the -X "
+        f"groove's inboard face -- it punches through the rail's own wall")
+    _vent_gap = BACK_Z - VENT_Z1
+    assert _vent_gap >= 1.20, (
+        f"only {_vent_gap:.2f}mm of cover wall between the vent's top and the mating plane the "
+        f"rail grows from -- the rail has no root over the vent's Y span")
+    for _side, _ry0, _ry1 in DT_RAILS:
+        _gx0 = (OX0 + DT_SKIN) if _side == "lo" else (OX1 - DT_SKIN - DT_WIDE)
+        # ⚠️ BOTH OUTLINES, NOT JUST THE COVER'S. The tooth belongs to the cover and the groove
+        # to the midframe, and they turn their top corners at DIFFERENT Y -- MOB_OY1 - OUT_R
+        # for the cover's brow, OY1 - OUT_R for back_shell, 6.45 apart. Checking only the
+        # cover's let a rail run 3.05mm into the midframe's arc, where the skin outboard of the
+        # groove thins toward breakout. Check 8c measured it at 79.7% of a shoulder.
+        for _lim, _whose in ((MOB_OY1 - OUT_R, "the cover's brow"),
+                             (OY1 - OUT_R, "back_shell (the midframe's outline)")):
+            assert _ry1 + DT_CLR_Y <= _lim, (
+                f"a rail runs to y={_ry1 + DT_CLR_Y:.2f}, into {_whose}'s OUT_R corner arc "
+                f"which starts at {_lim:.2f} -- the outer face is no longer flat there, so the "
+                f"skin outboard of the groove thins and the shoulder stops being solid")
+        for _cx, _cn in ((E.BTN_BOOT_X, "BOOT"), (E.BTN_RESET_X, "RESET")):
+            _cy, _R, _ = E.cap_geometry(_cx)
+            assert abs(_cx - (_gx0 + DT_WIDE/2)) > _R + DT_WIDE, (
+                f"the {_side} groove passes within {abs(_cx - _gx0):.2f} of the {_cn} cap at "
+                f"x={_cx} -- a slot there cuts the living hinge")
+    print(f"  [rails]   {len(DT_RAILS)} rails, worst tooth root {100*_root_min:.1f}% solid on "
+          f"the cover's own wall (no pillars needed, unlike the hooks)")
+    print(f"             clearances: glow window {_glow_z0 - _gtop:.2f} in Z (shares Y with a rail: "
+          f"{bool(_glow_shares)}), lead pass "
+          f"{_lead_gap:.2f} in X, vent-to-mating-plane {_vent_gap:.2f}, groove depth "
+          f"{DT_SKIN + DT_WIDE:.2f}/{WALL:.2f} of side wall, skin {DT_SKIN:.2f} vs "
+          f"{CHAMFER} chamfer")
 
     # ---- 13. THE UPPER COMPARTMENT: what fits now, and what stopped fitting ----
     _prot = prot_phantom()
@@ -1451,11 +2351,16 @@ def _check_mobile(parts):
     # reporting 25.48 mm2 against 4.87 of ink -- 20 mm2 of it space that is not the marking.
     # Exactly the vent-throat probe's mistake, caught this time only because this check carries
     # an UPPER bound as well as a lower one. A one-sided assert would have sailed through.
-    _fz0, _fz1 = CELL_AXIS_Z + 5.0, BACK_Z              # the face the markings actually sit on
-    for _nm, _y0, _y1, _ink in (("+", BAY_Y0 - MARK_DEPTH, BAY_Y0, _ink_p),
-                                ("-", BAY_Y1, BAY_Y1 + MARK_DEPTH, _ink_n)):
-        _pr = bx(CELL_AXIS_X - MARK_INK/2 - 0.30, CELL_AXIS_X + MARK_INK/2 + 0.30, _y0, _y1,
-                 _fz0, _fz1)
+    # ...and the probe now follows _mark_face() in ALL FOUR coordinates, because the two glyphs
+    # no longer share a face, a wall, or even a part of the bay: "+" is on the low-Y end wall
+    # below the contact kerf, "-" is on the spring tunnel's mouth. One derivation feeds the
+    # geometry and this probe, so a marking cannot move without its check moving with it -- and
+    # the box is clamped to the ink in X and Z as well as Y, which the old whole-face version
+    # was not.
+    for _nm, _ink in (("+", _ink_p), ("-", _ink_n)):
+        _mx, _mz, _y0, _y1 = _mark_face(_nm)
+        _pr = bx(_mx - MARK_INK/2 - 0.30, _mx + MARK_INK/2 + 0.30, _y0, _y1,
+                 _mz - MARK_INK/2 - 0.30, _mz + MARK_INK/2 + 0.30)
         _cut = (_pr - cov).volume / MARK_DEPTH
         assert _cut >= 0.80 * _ink, (
             f"the '{_nm}' marking removed only {_cut:.2f} mm2 of face against {_ink:.2f} of ink "
@@ -1518,9 +2423,26 @@ def _check_mobile(parts):
     assert _cfr < 0.05, (
         f"control failed: a wall deliberately drilled through still reads {100*_cfr:.1f}% "
         f"material, so the line-of-sight probe cannot detect a straight hole")
+    # >>> AND IT IS INDEPENDENT OF THE FLANK OPENINGS, WHICH IS NOW WORTH SAYING OUT LOUD. <<<
+    #
+    # Suppressing SPK and BAT on this variant removed an INCIDENTAL secondary path a cell's gas
+    # could have taken -- bay -> the shell's hex field -> board cavity -> a side channel -> out.
+    # That path was never the answer and was never measured; the engineered one is these four
+    # labyrinth units, and they are in the COVER's -X wall, exiting straight to outside air at
+    # a Z band (VENT_Z0..VENT_Z1) nowhere near the midframe's flank channels
+    # (CAV_FLOOR..PCB_BOT, a different part). So the blocks cannot have tightened it -- but
+    # "cannot" is what this file measures rather than argues, and the throat above is the
+    # re-measured number, taken after the blocks, on the built solid.
+    assert VENT_Z1 < CAV_FLOOR and VENT_Z0 < CAV_FLOOR, (
+        f"the cell vent's Z band ({VENT_Z0:.2f}..{VENT_Z1:.2f}) has risen into the midframe's "
+        f"flank-channel band (from {CAV_FLOOR:.2f} up) -- the two features now share a wall and "
+        f"suppressing a channel could throttle the vent")
     print(f"  [vent]    {VENT_N} labyrinth units, throat {_throat:.2f} mm2 vs an assumed "
           f"{CELL_PORTS_MM2:.2f} mm2 of cell port ({_throat/CELL_PORTS_MM2:.2f}x); "
           f"band {VENT_BAND:.2f} x {VENT_Z1-VENT_Z0:.2f}, skin {VENT_SKIN:.2f} each face")
+    print(f"             UNAFFECTED BY THE FLANK BLOCKS: this exits the COVER's -X wall direct "
+          f"to air at z {VENT_Z0:.2f}..{VENT_Z1:.2f}; the suppressed channels are in the "
+          f"MIDFRAME at z {CAV_FLOOR:.2f}..{E.PCB_BOT:.2f}. Re-measured after the blocks.")
     print(f"             control: solid wall between units {_sopen:.2f} mm2 open (must be ~0)")
     print(f"             line of sight: worst outer slot is {100*_los_min:.0f}% obstructed; "
           f"control on a drilled wall {100*_cfr:.1f}% (must be ~0)")
@@ -1560,16 +2482,19 @@ def _check_mobile(parts):
         f"the membrane probe cannot distinguish a window from an unmodified wall")
     # SITED CLEAR: not in a cable channel (that is what _glow_site solves), and clear of the
     # bosses. The seal rim and the vent are on other faces/parts and cannot be reached from here.
-    for _a, _b in (E._CH_HI if GLOW_WALL == "hi" else E._CH_LO):
+    for _a, _b in (MOB_CH_HI if GLOW_WALL == "hi" else MOB_CH_LO):
         assert (GLOW_CY + GLOW_SPAN_Y/2) < _a or (GLOW_CY - GLOW_SPAN_Y/2) > _b, (
             f"the glow window at y {GLOW_CY-GLOW_SPAN_Y/2:.2f}..{GLOW_CY+GLOW_SPAN_Y/2:.2f} "
             f"overlaps the cable channel at y {_a:.2f}..{_b:.2f} -- it would open into a hole")
     for _hx, _hy in E.HOLES:
         assert math.hypot(_hx - _wx, _hy - GLOW_CY) > E.BOSS_FLARE_D/2 + GLOW_AC/2, (
             f"the glow window is inside the boss flare at {(_hx, _hy)}")
-    print(f"  [glow]    WS2812 window: {GLOW_N} hex cells, {GLOW_WALL} wall, y "
-          f"{GLOW_CY-GLOW_SPAN_Y/2:.2f}..{GLOW_CY+GLOW_SPAN_Y/2:.2f}, z "
-          f"{GLOW_CZ-GLOW_AF/2:.2f}..{GLOW_CZ+GLOW_AF/2:.2f}")
+    print(f"  [glow]    WS2812 window: {GLOW_N} hex cells, {GLOW_WALL} wall, GLOW_CY "
+          f"{GLOW_CY:.2f} (y {GLOW_CY-GLOW_SPAN_Y/2:.2f}..{GLOW_CY+GLOW_SPAN_Y/2:.2f}), z "
+          f"{GLOW_CZ-GLOW_AF/2:.2f}..{GLOW_CZ+GLOW_AF/2:.2f}, GLOW_DIST {GLOW_DIST:.2f}")
+    print(f"             SITE IS SOLVED, NOT TYPED, and pinned to GLOW_SITE_EXPECT "
+          f"{GLOW_SITE_EXPECT} -- it searches the solid spans between the flank openings, so "
+          f"closing one moves it. Web pinned at {GLOW_WEB:.2f} vs the stand's {HEX_WEB:.2f}.")
     print(f"             EXIT AREA {_exit:.2f} mm2 (about {GLOW_SPAN_Y:.1f} x {GLOW_AF:.1f} mm of "
           f"glow, not a pinhole); {GLOW_DIST:.1f} mm from the LED across the cavity")
     print(f"             membrane {GLOW_MEMBRANE:.2f} = 2 extrusions, {100*_mfrac:.1f}% intact "
@@ -1599,6 +2524,19 @@ def _check_mobile(parts):
 # ============================================================================
 # 8. BUILD
 # ============================================================================
+# ---- PRINT LIFT.  Both parts are modelled entirely below z=0 (the midframe's bed face is
+# BACK_Z, the cover's is COVER_Z0), so the exported mesh must be raised to rest on the bed.
+# ember_case.py:2939 -- "a slicer silently drops it onto the bed, so the mistake never surfaces
+# as an error", only as a part whose Z is off everywhere a measurement is taken from the mesh.
+# Asserted at export, in the same words, for the same reason.
+#
+# ⚠️ MODULE LEVEL SINCE THE DOVETAILS, AND THAT IS DELIBERATE. It is now load-bearing FOR THE
+# GEOMETRY, not just for the export: because it is a pure Z translation with no rotation, model
+# +Z is print-up on both parts, which is the only reason an angle written in this file is an
+# angle on the bed. Check 8b asserts it before trusting a single overhang number, and a check
+# cannot assert a constant that only exists inside `if __name__`.
+PRINT_LIFT = {"ember-mobile-midframe": -BACK_Z, "ember-mobile-back": -COVER_Z0}
+
 if __name__ == "__main__":
     assert E._selftest_export_gate()
     out = _HERE
@@ -1613,12 +2551,6 @@ if __name__ == "__main__":
         print("\n!! BUILD DID NOT PASS -- nothing committed, no debris. The .stl files on "
               "disk are the previous good set, untouched.")))
 
-    # ---- PRINT LIFT.  Both parts are modelled entirely below z=0 (the midframe's bed face is
-    # BACK_Z, the cover's is COVER_Z0), so the exported mesh must be raised to rest on the bed.
-    # ember_case.py:2939 -- "a slicer silently drops it onto the bed, so the mistake never
-    # surfaces as an error", only as a part whose Z is off everywhere a measurement is taken
-    # from the mesh. Asserted, in the same words, for the same reason.
-    PRINT_LIFT = {"ember-mobile-midframe": -BACK_Z, "ember-mobile-back": -COVER_Z0}
     for n, p in parts.items():
         bb = p.bounding_box()
         print(f"{n:24s} vol={p.volume/1000:7.2f} cm^3   "

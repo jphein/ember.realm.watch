@@ -2,9 +2,9 @@
   "ember-back-shell": {
     "printed_at": "2026-07-31",
     "printed_rev": 1,
-    "rev": 2,
-    "sha8": "13c154f4",
-    "updated": "2026-07-31T17:58"
+    "rev": 3,
+    "sha8": "c80e95de",
+    "updated": "2026-08-01T16:23"
   },
   "ember-front-bezel": {
     "printed_at": "2026-08-01",
@@ -16,9 +16,9 @@
   "ember-mobile-back": {
     "printed_at": null,
     "printed_rev": 0,
-    "rev": 2,
-    "sha8": "82c3ac9c",
-    "updated": "2026-08-01T13:24"
+    "rev": 3,
+    "sha8": "b0869080",
+    "updated": "2026-08-01T16:23"
   },
   "ember-mobile-midframe": {
     "printed_at": null,

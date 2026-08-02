@@ -1087,16 +1087,70 @@ def _merge_spans(spans, min_rib):
             out.append([a, b])
     return [(a, b) for a, b in out]
 
-def side_channels():
+# ============================================================================
+# 5a-ter. WHICH FLANK OPENINGS ARE SUPPRESSED, AND ON WHICH VARIANT.  JP, 2026-08-01.
+# ============================================================================
+#
+# >>> JP: "block the speaker and the battery holes out the side." <<<
+#
+# It lands FULLY on the mobile and PARTLY on the desk, and the difference is not a preference —
+# it is a route that exists on one variant and not the other. Stated per connector, because
+# "close the flanks" is the kind of instruction that is right about the goal and wrong about
+# the geometry, and this file has already paid for one walled-in connector (the microSD).
+#
+#   BAT   — blocked on BOTH. On the mobile the pigtail never used a side channel: it runs
+#           cover compartment -> the midframe's own floor pass (outside the seal rim) -> board
+#           cavity -> CONN_L[0], entirely internal. On the desk the connector has no consumer
+#           at all; there is no cell in the stand.
+#   SPK   — blocked on the MOBILE ONLY, where the driver lives inside the cover's sealed cavity
+#           and its pigtail leaves through the SPK relief, never through the flank.
+#
+#           ⚠️ AND NOT ON THE DESK, WHERE IT IS LOad-BEARING. Two witnesses, both in this file:
+#           (1) SPK_RELIEF_CLR's own block — the relief is PLUG clearance, and "the connector
+#               already fills the cavity to within 0.80mm, so the lead CANNOT travel over the
+#               top of it"; the recorded route is that the lead "leaves through the side channel
+#               that already serves this Y span";
+#           (2) the stand's speaker-wire route — "the board's speaker header is on a LONG EDGE,
+#               so the wire has to reach the slab slot".
+#           A rear exit cannot substitute: the stand's route is 16 wide on ST_W/2 and this
+#           connector docks about ST_W/2 + 22.4, i.e. ~14mm outboard of it, so a wire leaving
+#           the back face there is pinched between shell and stand — precisely the hazard both
+#           files were written to avoid. Blocking it would strand the desk speaker.
+SIDE_BLOCK = {
+    "desk":   {("L", 0)},                       # BAT
+    "mobile": {("L", 0), ("R", SPK_CONN_I)},    # BAT + SPK
+}
+
+
+def _side_spans():
+    """Every connector's NOMINAL flank span, tagged, before any variant suppression.
+
+    Kept separate from what is actually cut because the LABELS and the access ledger both need
+    to reason about connectors that no longer have an opening — which is the whole point of the
+    ledger now that "served" no longer means "has a side channel".
+    """
+    hi = [(("R", i), (y0 - CHAN_PAD, y1 + CHAN_PAD)) for i, (y0, y1) in enumerate(CONN_R)]
+    lo = [(("L", i), (y0 - CHAN_PAD, y1 + CHAN_PAD)) for i, (y0, y1) in enumerate(CONN_L)]
+    slit = (SD_SOCKET[2] + SD_SLIT_INSET, SD_SOCKET[3] - SD_SLIT_INSET)
+    (lo if _SD_CX < BW/2 else hi).append((("SD", 0), slit))
+    return hi, lo
+
+
+def side_channels(variant=None):
     """(spans on the x=BW edge, spans on the x=0 edge), derived from the component tables.
 
     The microSD slit goes on WHICHEVER EDGE THE SOCKET IS ON — read from SD_SOCKET, not typed.
     That is deliberate: the last time this was decided by a human reading a coordinate, the
-    coordinate was a placeholder and the opening landed on the far side of the board."""
-    hi = [(y0 - CHAN_PAD, y1 + CHAN_PAD) for (y0, y1) in CONN_R]
-    lo = [(y0 - CHAN_PAD, y1 + CHAN_PAD) for (y0, y1) in CONN_L]
-    slit = (SD_SOCKET[2] + SD_SLIT_INSET, SD_SOCKET[3] - SD_SLIT_INSET)
-    (lo if _SD_CX < BW/2 else hi).append(slit)
+    coordinate was a placeholder and the opening landed on the far side of the board.
+
+    variant=None returns the NOMINAL set — every connector's span, nothing suppressed. That is
+    what the labels are packed against, so a label's position does not shift between variants
+    just because a neighbour's opening closed. Pass a variant name for what is actually CUT.
+    """
+    _blocked = SIDE_BLOCK.get(variant, set())
+    hi, lo = _side_spans()
+    hi = [s for k, s in hi if k not in _blocked]
+    lo = [s for k, s in lo if k not in _blocked]
     return _merge_spans(hi, CHAN_RIB), _merge_spans(lo, CHAN_RIB)
 
 # ============================================================================
@@ -1323,6 +1377,19 @@ _DRAW_CHAIN_R = (13.55, 17.85, 18.25)   # CONN_R[0] -> [1] -> [2] -> board end
 _DRAW_CHAIN_L = (11.82, 15.97, 35.03)   # CONN_L[0] -> [1] -> microSD centre -> board end
 CONN_LBL_R = ("SPK", "I2C", "IO")       # X=50 edge, in increasing Y
 CONN_LBL_L = ("BAT", "UART")            # X=0  edge, in increasing Y
+# ---- and the tie back to the spans, so a suppressed opening suppresses its label ----
+#
+# >>> NO LABEL MAY NAME AN OPENING THAT IS NOT THERE. <<<
+#
+# This is check 0d's rule applied to ink instead of plastic, and it is the sharper half: an
+# opening with nothing behind it is invisible until someone looks; a LABEL beside solid plastic
+# actively sends a person hunting for a port that does not exist. The desk's BAT and the
+# mobile's BAT and SPK are dropped rather than re-captioned — a moulded-in name is wayfinding
+# for a port you can USE, and the connector's position is already documented in the vendor
+# drawing and in this file. Positions of the SURVIVING labels are packed against the NOMINAL
+# span set, so nothing shifts sideways just because a neighbour closed.
+CONN_LBL_KEY = {**{_n: ("R", _i) for _i, _n in enumerate(CONN_LBL_R)},
+                **{_n: ("L", _i) for _i, _n in enumerate(CONN_LBL_L)}}
 
 
 def _chain_centres(chain):
@@ -1496,7 +1563,11 @@ for _cx in BTN:
                                    "power symbol on the small cap")
 
 
-def back_shell():
+def back_shell(variant="desk"):
+    """The shared back shell. `variant` selects which flank openings are cut and therefore
+    which connector labels are truthful — see SIDE_BLOCK. Everything else is identical, and
+    deliberately so: the mobile midframe IS this part plus additions, and the day that stops
+    being true is the day the screw-stack derivation has to be redone."""
     p  = rbox(OX0,OX1,OY0,OY1, BACK_Z, SEAM_Z, OUT_R)
     # board + glass pocket, and the back-component cavity, in one cut
     p -= rbox(PK0,PK1,PY0,PY1, CAV_FLOOR, SEAM_Z+1, POCK_R)
@@ -1524,6 +1595,8 @@ def back_shell():
     # Placement and the port mapping are derived and asserted at _conn_place — see the block
     # there, and do not move one of these without re-reading it.
     for _t, (_lx, _ly, _) in _conn_place.items():
+        if CONN_LBL_KEY[_t] in SIDE_BLOCK.get(variant, set()):
+            continue                      # its opening is suppressed on this variant — see above
         p -= _back_label(_LBL[_t], _lx, _ly,
                          BACK_Z - 1.0, BACK_Z + LABEL_DEBOSS, rot90=True)
     # screw standoffs up to the PCB back face
@@ -1538,7 +1611,11 @@ def back_shell():
     p -= bx(18.0,32.0, OY0-1, PY0+0.5, -6.60,-0.60)
     p -= bx(15.5,34.5, OY0-1, OY0+1.6, -8.20, 0.40)      # outside relief for overmould
     # ---- side channels: connectors + the microSD slit.  DERIVED — see side_channels(). ----
-    _hi, _lo = side_channels()
+    # ⚠️ VARIANT-DEPENDENT SINCE 2026-08-01. SIDE_BLOCK says which are suppressed and why; the
+    # LABELS above are cut from the same set, so the back face can never name a hole that is
+    # not there. That failure is this repo's founding hazard, one level up: check 0d exists
+    # because an opening once had nothing behind it, and a label is the same lie told in ink.
+    _hi, _lo = side_channels(variant)
     for (a,b) in _hi:
         p -= bx(BW+FIT-0.01, OX1+1, a,b, CAV_FLOOR, PCB_BOT)
     for (a,b) in _lo:
@@ -3287,26 +3364,78 @@ def _check_geometry(parts=None):
     # 0d. THE OPENING/COMPONENT LEDGER — the assert the old code could not have had.
     #     Every side-wall span must have a component behind it. An opening over empty board is
     #     invisible to a clearance check: nothing collides, so it reads as agreement.
-    _hi, _lo = side_channels()
-    for _edge, _spans, _conns in (("x=%g" % BW, _hi, list(CONN_R)), ("x=0", _lo, list(CONN_L))):
-        # Anything that may LEGITIMATELY sit behind an opening on this edge.
-        _behind_ok = list(_conns)
-        if (_SD_CX < BW/2) == (_edge == "x=0"):
-            _behind_ok.append((SD_SOCKET[2], SD_SOCKET[3]))
-        for (_a, _b) in _spans:
-            assert any(not (k[1] < _a or k[0] > _b) for k in _behind_ok), (
-                f"{_edge} edge has an opening at Y {_a:.2f}..{_b:.2f} with NO component behind "
-                f"it. This is the phantom-opening failure: the old Y 14.0..40.5 channel had "
-                f"18.54mm of nothing behind it and every check passed")
-        # ⚠️ The two directions are NOT symmetric, and conflating them is a bug. A CONNECTOR has
-        # a plug that must pass THROUGH the wall, so it must be WHOLLY exposed. The SOCKET must
-        # not be: only a card aperture passes, and opening the full 14.66mm body would undercut
-        # the socket's own side walls. 0f checks the socket's aperture separately, against the
-        # card rather than against the body.
-        for _k in _conns:
-            assert any(_a <= _k[0] and _k[1] <= _b for (_a, _b) in _spans), (
-                f"{_edge} edge connector at Y {_k[0]:.2f}..{_k[1]:.2f} is not wholly inside any "
-                f"opening — it is walled in, which is how the microSD shipped")
+    # ⚠️ REWRITTEN 2026-08-01, AND THE OLD FORM WAS RIGHT ABOUT THE HAZARD AND WRONG ABOUT THE
+    # RULE. It asserted "every connector is wholly inside a SIDE OPENING", which was true only
+    # while a side opening was the ONLY way to reach one. JP has since suppressed two of them,
+    # and the two have different reasons: SPK on the mobile because its lead leaves through the
+    # SPK relief into the cover's sealed cavity, BAT on both because the mobile routes it
+    # internally through the midframe's floor pass and the desk has no cell at all.
+    #
+    # The microSD lesson SURVIVES INTACT — a connector may not be silently walled in. What does
+    # not survive is the assumption that ACCESS MEANS A HOLE IN THE FLANK. So the invariant is
+    # now "every connector is served by SOME NAMED ROUTE", the route is enumerated per
+    # connector and per variant, and the check PRINTS THE LEDGER so a route that quietly becomes
+    # fiction is visible in the build log rather than only in an assert that no longer fires.
+    _ROUTES = {                       # (edge, index) -> the route, per variant
+        ("L", 0): {"desk":   "NONE — no cell in the stand, connector unused, label dropped",
+                   "mobile": "internal: cover compartment -> midframe floor pass -> cavity"},
+        ("R", SPK_CONN_I): {"desk":   "flank opening -> down to the stand's slab slot",
+                            "mobile": "SPK relief -> the cover's sealed cavity (sealed after "
+                                      "wiring)"},
+    }
+    for _variant in ("desk", "mobile"):
+        _hi, _lo = side_channels(_variant)
+        _blk = SIDE_BLOCK[_variant]
+        print(f"  [access ledger] {_variant}:")
+        for _edge, _key, _spans, _conns in (("x=%g" % BW, "R", _hi, list(CONN_R)),
+                                            ("x=0", "L", _lo, list(CONN_L))):
+            # Anything that may LEGITIMATELY sit behind an opening on this edge.
+            _behind_ok = list(_conns)
+            if (_SD_CX < BW/2) == (_edge == "x=0"):
+                _behind_ok.append((SD_SOCKET[2], SD_SOCKET[3]))
+            for (_a, _b) in _spans:
+                assert any(not (k[1] < _a or k[0] > _b) for k in _behind_ok), (
+                    f"{_variant} {_edge} edge has an opening at Y {_a:.2f}..{_b:.2f} with NO "
+                    f"component behind it. This is the phantom-opening failure: the old Y "
+                    f"14.0..40.5 channel had 18.54mm of nothing behind it and every check passed")
+            # ⚠️ The two directions are NOT symmetric, and conflating them is a bug. A CONNECTOR
+            # has a plug that must pass THROUGH the wall, so where it IS served by a flank
+            # opening it must be WHOLLY exposed. The SOCKET must not be: only a card aperture
+            # passes, and opening the full 14.66mm body would undercut the socket's own side
+            # walls. 0f checks the socket's aperture separately, against the card.
+            for _i, _k in enumerate(_conns):
+                _served = any(_a <= _k[0] and _k[1] <= _b for (_a, _b) in _spans)
+                if (_key, _i) in _blk:
+                    assert not _served, (
+                        f"{_variant}: ({_key},{_i}) is listed in SIDE_BLOCK but its flank "
+                        f"opening is still cut — the suppression did not take, and its label "
+                        f"has been dropped from a face that still has the hole")
+                    _route = _ROUTES.get((_key, _i), {}).get(_variant)
+                    assert _route, (
+                        f"{_variant}: ({_key},{_i}) has had its flank opening suppressed and "
+                        f"NO route recorded in _ROUTES. A connector with no way out is exactly "
+                        f"the walled-in microSD, arrived at by deletion instead of by oversight")
+                    print(f"    {_edge:6s} Y {_k[0]:5.2f}..{_k[1]:5.2f}  no flank opening  ->  "
+                          f"{_route}")
+                else:
+                    assert _served, (
+                        f"{_variant} {_edge} edge connector at Y {_k[0]:.2f}..{_k[1]:.2f} is "
+                        f"not wholly inside any opening and is not in SIDE_BLOCK — it is walled "
+                        f"in by accident, which is how the microSD shipped")
+                    print(f"    {_edge:6s} Y {_k[0]:5.2f}..{_k[1]:5.2f}  flank opening")
+    # CONTROLS, and the first draft of this one was VACUOUS — `any(... for x in [])` is False by
+    # construction, so it proved nothing about the predicate. Both of these feed the predicate a
+    # span set that is WRONG IN A SPECIFIC WAY and require it to notice.
+    _ctl_c = CONN_R[1]
+    assert not any(_a <= _ctl_c[0] and _ctl_c[1] <= _b
+                   for (_a, _b) in [(_ctl_c[0] + 1.0, _ctl_c[1] - 1.0)]), (
+        "control failed: a connector reads as 'wholly inside' an opening 1mm narrower than "
+        "itself at each end — the served test cannot detect a partly walled-in port")
+    assert any(_a <= _ctl_c[0] and _ctl_c[1] <= _b
+               for (_a, _b) in [(_ctl_c[0] - 0.01, _ctl_c[1] + 0.01)]), (
+        "control failed: a connector does NOT read as inside an opening that just contains it, "
+        "so the served test would reject every legitimate port")
+    _hi, _lo = side_channels()          # the NOMINAL set, for the checks below
     # 0e. the phantom's victim must stay covered. LCD_FLEX is the 0.5mm placeholder the old
     #     SD_PLATE name was attached to; the X=BW openings are the only ones that can reach it.
     for (_a, _b) in _hi:
