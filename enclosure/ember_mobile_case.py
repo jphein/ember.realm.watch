@@ -47,6 +47,7 @@ OUT_R, WALL, CHAMFER = E.OUT_R, E.WALL, E.CHAMFER
 LH = E.LAYER_H_SHELL                                    # 0.20 -- this file's ONLY layer height
 BAFFLE_T = E.BAFFLE_T                                   # 2.20
 HEX_R, HEX_WEB, GRILLE_INSET = E.HEX_R, E.HEX_WEB, E.GRILLE_INSET
+HEX_FIELD_X0 = E.HEX_FIELD_X0                           # 9.00, the back field's -X edge
 DRIVER_W, DRIVER_H, DRIVER_T = E.DRIVER_W, E.DRIVER_H, E.DRIVER_T
 DRIVER_R, DRIVER_CLR = E.DRIVER_R, E.DRIVER_CLR
 CBORE_D, CBORE_DEPTH, SCREW_D, PILOT_D = E.CBORE_D, E.CBORE_DEPTH, E.SCREW_D, E.PILOT_D
@@ -1944,13 +1945,22 @@ def _check_mobile(parts):
         f"only {100*_frac:.2f}% of the seal rim's footprint lands on solid midframe back face "
         f"({_got:.1f} of {_want:.1f} mm3). The bond plateau is not covering the vent hexes under "
         f"the rim, so the 'sealed' cavity vents into the board cavity through a honeycomb")
-    # CONTROL: the same ring, moved onto the untouched vent field, must NOT read solid.
-    _ctl = Pos(0, -12.0, 0) * ring
-    _cfrac = (mf & _ctl).volume / _want if _want else 1.0
+    # CONTROL: the same measurement, on a patch of the SAME back face that is deliberately
+    # perforated. If this reads solid, the probe cannot see a honeycomb and the 100.00% above
+    # is silence rather than evidence.
+    #
+    # ⚠️ IT USED TO BE `Pos(0, -12.0, 0) * ring` AND THAT STOPPED WORKING THE MOMENT THE MOBILE
+    # DROPPED ITS SECOND HEX ROW -- the ring slid onto floor that is now solid and read 98.40%,
+    # failing as a control while the geometry it guards was perfectly fine. A control anchored
+    # to an offset rather than to a FEATURE goes stale silently the first time the feature
+    # moves. This one is anchored to the open strip the plateau does not reach: x < RIM_X0 -
+    # PLATEAU_MARGIN is outside the refill by construction, and the field runs y 19..75.
+    _ctl = bx(HEX_FIELD_X0 + 2.0, CELL_X1 - 1.0, 40.0, 60.0, BACK_Z, BACK_Z + _probe_t)
+    _cfrac = (mf & _ctl).volume / _ctl.volume
     assert _cfrac < 0.98, (
-        f"control failed: the seal probe reads {100*_cfrac:.2f}% solid even when moved onto the "
-        f"open hex vent field, so it cannot detect an unsealed rim")
-    print(f"  [seal]    rim footprint {100*_frac:.2f}% solid; control on the vent field "
+        f"control failed: the seal probe reads {100*_cfrac:.2f}% solid over a patch of the back "
+        f"face that IS the open hex vent field, so it cannot detect an unsealed rim")
+    print(f"  [seal]    rim footprint {100*_frac:.2f}% solid; control on the open vent field "
           f"{100*_cfrac:.2f}% (must be < 98)")
 
     # ---- 6b. NO FASTENER MAY PIERCE THE SEAL.  In coordinates, as well as by boolean. ----
@@ -2459,48 +2469,29 @@ def _check_mobile(parts):
         return _tot
 
     _dock_i = _dock_hit()
-    # >>> ⚠️⚠️ IT DOES NOT DOCK, AND THIS CHECK IS THE FIRST THING EVER TO SAY SO. <<<
-    
-    # 8i was written last round and has NEVER RUN: that gate died upstream at check 8a's
-    # false positive, so everything from 8a down -- including this -- was written, committed,
-    # described as "gated-sound" in the handoff, and never executed. The first time it ran it
-    # failed. That is the check doing precisely its job, and it is also this repo's founding
-    # hazard one level up: an invariant nobody has watched fire is a comment.
-    
-    # WHAT IT IS, MEASURED: the COVER fouls by ~121.8 mm3, at stand x 4.05..59.95 (the full
-    # width), y 55.23..64.00 (the stand's rear 8.8mm) and z 37.65..40.00 (its top 2.4mm). The
-    # bezel and the midframe are both 0.000. So it is the BACKPACK'S BOTTOM-REAR EDGE sweeping
-    # the stand's rear top corner as the stack lies back TILT degrees -- the 21.60mm of body
-    # that starts at COVER_Y0 and did not exist when the slot was cut for a 17.40 slab.
-    
-    # ⚠️ AND IT IS NOT THIS ROUND'S DOING. Every surface involved -- COVER_Y0, COVER_Z0, the
-    # outline, OUT_R -- is untouched, and the case got SHORTER this round, not longer. The
-    # defect is as old as the backpack; only the check is new.
-    
-    # NOT FIXED HERE, AND THE THREE FIXES ARE PRICED BECAUSE THE CHOICE IS JP'S:
-    #   1. BEVEL the cover's low-Y outer edge ~2.6mm at 45deg. Cheapest, and it improves the
-    #      silhouette (a square 21.60 step at the chin is the same class of thing JP caught at
-    #      the top). COSTS: the chin screw must move +Y to ~23.70 first, because at its present
-    #      22.60 the bevel would open the d5.80 counterbore's low-Y side and turn it back into
-    #      a notch -- the exact defect this file has already paid for twice.
-    #   2. RAISE COVER_Y0. Clean, but it is a REACHABILITY decision (§4) and therefore JP's.
-    #   3. RECUT THE STAND's rear top. Out of scope: the desk parts are byte-identical by
-    #      contract this round.
-    
-    # Until then it is a KNOWN, BOUNDED defect rather than a hidden one: the build reports the
-    # number every time and fails if it GROWS.
-    DOCK_FOUL_KNOWN = 130.0
-    if _dock_i < 0.01:
-        print("  [dock]    ⚠️ IT NOW DOCKS CLEAN -- delete DOCK_FOUL_KNOWN and restore the "
-              "hard assert, the allowance has outlived its subject")
-    else:
-        assert _dock_i <= DOCK_FOUL_KNOWN, (
-            f"the docked MOBILE stack fouls the stand by {_dock_i:.3f} mm3, up from the known "
-            f"{DOCK_FOUL_KNOWN:.1f}. The backpack's bottom-rear edge was already hitting the "
-            f"stand's rear top corner and something has just made it WORSE. The slab band "
-            f"below y={COVER_Y0:.2f} is what seats in the slot; anything added to the long "
-            f"walls under that line, or any growth of the {FRONT_Z-COVER_Z0:.2f} body behind "
-            f"it, is what does this")
+    # >>> IT DOCKS.  IT DID NOT WHEN THIS CHECK FIRST RAN, AND THAT IS WORTH KEEPING. <<<
+    #
+    # 8i was written the round before and had NEVER RUN: that gate died upstream at check 8a's
+    # false positive, so everything below 8a was written, committed, described as "gated-sound"
+    # in a handoff, and never executed. Its first execution failed by 121.784 mm3. An invariant
+    # nobody has watched fire is a comment, and this file has now paid for that twice.
+    #
+    # WHAT IT FOUND, and the fix is in ember_case because the CASE could not give it: the
+    # cover's chin end swept the stand's rear top corner. In cover coordinates y 18.00..20.06,
+    # z -26.44..-17.37, full width -- MID-HEIGHT on the end face, not the bed-face corner where
+    # a bevel is cheap. The cover's bottom wall is COV_WALL 2.20 with the leaf's 0.35 kerf
+    # behind it, so it cannot yield 2.06; raising COVER_Y0 grows the case past its start. The
+    # stand was cut for a slab that predates the backpack, so DOCK_RELIEF_Y/Z put a 13.00 x
+    # 4.40 bevel on its rear top edge and the number went to zero.
+    #
+    # ⚠️ HARD ZERO, NOT A BOUND. It was carried as a bounded known defect for exactly one
+    # commit, to land a gate; there is no legitimate nonzero value for it and a tolerance left
+    # behind is how the next one arrives unnoticed.
+    assert _dock_i < 0.01, (
+        f"the docked MOBILE stack intersects the stand by {_dock_i:.3f} mm3 -- the backpack "
+        f"fouls it. The slab band below y={COVER_Y0:.2f} is what seats in the slot; anything "
+        f"added to the long walls under that line, any growth of the {FRONT_Z-COVER_Z0:.2f} "
+        f"body behind it, or any shrinking of ember_case's DOCK_RELIEF_Y/Z, does this")
     # CONTROL, exactly as its desk sibling carries: 0.000 is what a blind detector says too.
     _dock_self = _dock_hit(-2.0)
     assert _dock_self > 1.0, (
@@ -2519,12 +2510,12 @@ def _check_mobile(parts):
             f"{_nm} reaches y={_y:.2f}, below the cover's own start at {COVER_Y0:.2f} -- it is "
             f"in the DOCKING BAND, where the slab profile must stay exactly the 17.40 the "
             f"stand's slot was cut for")
-    print(f"  [dock]    ⚠️ MOBILE STACK vs THE STAND: {_dock_i:.3f} mm3 OF INTERFERENCE "
-          f"(known {DOCK_FOUL_KNOWN:.1f}, must not grow); control sunk 2mm -> {_dock_self:.1f} "
-          f"mm3, detector WORKS. Bezel 0.000, midframe 0.000 -- it is the COVER.")
-    print(f"             >>> THE BACKPACK DOES NOT DOCK. First run of a check written last "
-          f"round and never executed (that gate died at 8a). NOT caused by this round: the "
-          f"case got shorter, and every surface involved is untouched. JP's call -- see 8i.")
+    print(f"  [dock]    MOBILE STACK (bezel + midframe + cover) vs the stand: {_dock_i:.3f} "
+          f"mm3 CLEAR; control sunk 2mm -> {_dock_self:.1f} mm3, detector WORKS")
+    print(f"             >>> IT DOCKS WITH THE BACKPACK ON. It did not when this check first "
+          f"ran (121.784 mm3, the cover's chin end through the stand's rear top corner); "
+          f"ember_case's DOCK_RELIEF {E.DOCK_RELIEF_Y:.2f} x {E.DOCK_RELIEF_Z:.2f} is the fix, "
+          f"and this assert is a HARD ZERO now, not a bound.")
     print(f"             docking band is y < {COVER_Y0:.2f} at the unchanged "
           f"{FRONT_Z-BACK_Z:.2f} slab; the {FRONT_Z-COVER_Z0:.2f} backpack starts above it. "
           f"6 features checked, lowest is the leaf kerf at y {LEAF_SEAT_Y-LEAF_KERF:.2f}.")
@@ -2659,6 +2650,42 @@ def _check_mobile(parts):
             f"the {_who} screw's boss stands on only {100*_f:.1f}% material just below the "
             f"compartment floor -- it is growing out of open space and would print as a "
             f"floating column")
+    # ---- AND EACH PILOT HAS A FULL COLLAR OF FLOOR AROUND IT.  MEASURED, NOT COUNTED. ----
+    #
+    # >>> THIS IS WHY THE MOBILE DROPS TWO HEX ROWS AND NOT ONE. <<<
+    #
+    # The chin pilot is bored through the SAME 2.60 floor the back hex field perforates, and
+    # "the cells are somewhere else" is exactly the claim that survives a screw moving. Row 1's
+    # cells at x 23.00 and 27.00 overlapped the bore outright; row 2's at x 25.00 left 0.80mm,
+    # under the floor, at a thread-forming screw that expands material radially as it enters.
+    # Neither was visible in any number -- the seal was 100%, the engagement was 3.40, the
+    # boolean was clear. So the collar is measured on the artifact, all the way round.
+    for _sxy, _who in ((SCREW_XY, "chin"), (TOP_SCREW_XY, "top ")):
+        _collar = (cyl(_sxy[0], _sxy[1], BACK_Z + 1.00, BACK_Z + 1.40,
+                       PILOT_D + 2*MIN_SOLID)
+                   - cyl(_sxy[0], _sxy[1], BACK_Z + 0.50, BACK_Z + 1.90, PILOT_D))
+        _cf = (mf & _collar).volume / _collar.volume
+        assert _cf > 0.98, (
+            f"the {_who} pilot has only {100*_cf:.1f}% of a {MIN_SOLID:.2f}mm collar of floor "
+            f"around it -- a vent cell, a label or a pocket is inside the material this screw "
+            f"forms its thread in. At 0.80mm (one hex row) this reads 92%")
+    # CONTROL: the same collar over the middle of the surviving hex field must read LOW, or it
+    # cannot tell a solid floor from a perforated one.
+    # ...ANCHORED TO THE OPEN STRIP, NOT TO A COORDINATE. At (25, 50) it read 100% solid --
+    # correctly, because that is inside the BOND PLATEAU, which refills the hexes under the
+    # seal. Second control in this file to go stale by being pinned to a number instead of a
+    # feature. The strip the plateau cannot reach is x < RIM_X0 - PLATEAU_MARGIN.
+    _cc_x = (HEX_FIELD_X0 + CELL_X1) / 2
+    _cc_ring = (cyl(_cc_x, 50.00, BACK_Z + 1.00, BACK_Z + 1.40, PILOT_D + 2*MIN_SOLID)
+                - cyl(_cc_x, 50.00, BACK_Z + 0.50, BACK_Z + 1.90, PILOT_D))
+    _ccf = (mf & _cc_ring).volume / _cc_ring.volume
+    assert _ccf < 0.90, (
+        f"control failed: the pilot-collar probe reads {100*_ccf:.1f}% solid in the MIDDLE of "
+        f"the hex field, so it cannot see a perforation and the two asserts above are blind")
+    print(f"  [collar]  both pilots have a full {MIN_SOLID:.2f}mm collar of floor; control in "
+          f"the open hex field reads {100*_ccf:.0f}% and is REJECTED. The mobile drops TWO hex "
+          f"rows for this -- row 2's cell at x=25.00 left 0.80mm at a thread-forming screw.")
+
     # CONTROL: the same probe over the OPEN cell bore must read ~empty.
     # ...ON THE CELL AXIS, not off to one side: at CELL_X0 + 1.0 the probe straddles the
     # cradle's lobe and read 36.4% solid, which is the cradle doing its job rather than the

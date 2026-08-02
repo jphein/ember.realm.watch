@@ -1714,11 +1714,20 @@ def back_shell(variant="desk", top_y=None):
     # 1.60 across its half-flat and the pilot is 1.25 in radius, so the two OVERLAP: as built,
     # the chin screw threads into the web between two vent holes. Dropping the row (8 cells,
     # y 20.90..24.60) puts 3.2mm of continuous floor back around the boss on every side.
+    # ⚠️ TWO ROWS, NOT ONE, AND THE SECOND ONE IS THE INTERESTING ONE. Row 1 (hy 22.7513) had
+    # to go because its cells at x=23.00 and 27.00 physically OVERLAP the pilot. Row 2
+    # (hy 26.2154) looks innocent and is not: its cell at x=25.00 leaves 0.80mm of floor
+    # between itself and the pilot's wall -- under the 1.60 minimum-solid floor, at a
+    # THREAD-FORMING screw, which expands the material radially as it goes in. It was never
+    # measured because nothing measured it; the new pilot-collar probe in ember_mobile_case
+    # does, on the artifact, and rejects 0.80. Dropping the row takes the nearest cell to
+    # 4.00mm and costs 7 apertures that vent into the cover's retention band -- a dead-end
+    # volume with no exit of its own, so the thermal price is close to nothing.
     # The DESK shell keeps all 113 cells: its back face has no boss and no cover, the field is
     # the LED's diffuser there, and byte-identical desk output is the point of the gate.
     p -= _hex_panel(HEX_FIELD_X0, HEX_FIELD_X1, HEX_FIELD_Y0, HEX_FIELD_Y1,
                 BACK_Z-1, CAV_FLOOR+1, 3.2, 0.8,
-                drop_bottom_rows=(1 if variant == "mobile" else 0))
+                drop_bottom_rows=(2 if variant == "mobile" else 0))
     return p
 
 # diffuser() deleted along with the LED window it seated into — see back_shell().
@@ -1835,6 +1844,10 @@ SLOT_CY  = 34.0                    # slot centreline Y at the floor
 # ample), the visible area is entirely clear of the stand, and 20.0mm remains below for
 # the plug. See the VA_CLEAR assert below — this must not silently regress.
 SLOT_FLOOR = 24.0
+# ---- and the rear-top relief that makes the MOBILE variant dockable. Sized by
+# ---- bisection against the real docked stack, not chosen -- see desk_stand().
+DOCK_RELIEF_Y = 13.00    # back from ST_D along the rear top edge
+DOCK_RELIEF_Z = 4.40     # down from ST_H
 
 
 def dock_pose(part):
@@ -2987,6 +3000,30 @@ def desk_stand():
     # ledger is re-derived to account for it rather than having its floor quietly nudged.
     p = chamfer_outline(p, -PLINTH_H, CHAMFER, "stand base")
     p = chamfer_outline(p, ST_H, CHAMFER, "stand rim")
+    # ---- REAR-TOP RELIEF.  THIS IS WHAT LETS THE MOBILE STACK DOCK, AND IT IS THE STAND
+    # ---- THAT HAD TO GIVE, NOT THE CASE.
+    #
+    # >>> JP: "so I can still use the dock with the backpack on?"  Without this: NO. <<<
+    #
+    # The mobile's cover adds 21.60mm of body behind the 17.40 slab this slot was cut for, and
+    # laid back TILT degrees that body's chin end sweeps THROUGH the stand's rear top corner --
+    # 121.784 mm3, measured by check 8i in ember_mobile_case, which is the first thing ever to
+    # ask. In COVER coordinates the contact is y 18.00..20.06, z -26.44..-17.37, full width:
+    # mid-height on the chin end face, NOT at the bed-face corner where a bevel would have been
+    # cheap. The cover cannot give it. Its bottom wall is COV_WALL = 2.20 and the leaf's kerf
+    # is 0.35 of that, so relieving the 2.06 needed leaves 0.14mm of wall over the cell bay --
+    # and raising COVER_Y0 instead grows the whole case past where it started.
+    #
+    # So the stand yields, and it is the right part to: it was cut for a slab that existed
+    # before the backpack did. 13.00 x 4.40 on the rear top edge removes 250 mm3 of a 100+ cm3
+    # part, reads as a deliberate rear bevel, and takes the interference to ZERO -- 6.00 x 2.00
+    # only reaches 96.6, 9.00 x 3.00 reaches 28.8, 10.00 x 3.50 reaches 7.8, so the size is
+    # solved rather than chosen. Check 8i asserts the zero HARD; there is no legitimate
+    # nonzero value now and a tolerance left behind is how the next 121.784 arrives unnoticed.
+    _rt = make_face(Polyline((-(ST_H + 1.0), ST_D - DOCK_RELIEF_Y),
+                             (-(ST_H + 1.0), ST_D + 1.0),
+                             (-(ST_H - DOCK_RELIEF_Z), ST_D + 1.0), close=True))
+    p -= Pos(-1.0, 0, 0) * (Rot(0, 90, 0) * extrude(_rt, ST_W + 2.0))
     return p
 
 def stand_base():
