@@ -1563,12 +1563,26 @@ for _cx in BTN:
                                    "power symbol on the small cap")
 
 
-def back_shell(variant="desk"):
+def back_shell(variant="desk", top_y=None):
     """The shared back shell. `variant` selects which flank openings are cut and therefore
     which connector labels are truthful — see SIDE_BLOCK. Everything else is identical, and
     deliberately so: the mobile midframe IS this part plus additions, and the day that stops
-    being true is the day the screw-stack derivation has to be redone."""
-    p  = rbox(OX0,OX1,OY0,OY1, BACK_Z, SEAM_Z, OUT_R)
+    being true is the day the screw-stack derivation has to be redone.
+
+    `top_y` extends the OUTER PROFILE past OY1, and it exists because of a defect a render
+    found and no assert could: the mobile used to bolt a separately-rounded block on top of a
+    shell that had already rounded ITS corners at OY1, so the silhouette narrowed to a 46.50
+    nose and then jumped back out to 51.98 — a 5.48mm step PER SIDE, 3.05mm from the end.
+    JP, looking at it in the viewer: "why does the case have the additional weird bump on the
+    top?" The old block's own comment claimed it "keeps the silhouette from stepping twice"
+    while causing exactly that. Passing the real top here draws ONE profile with ONE nose
+    radius, and the bolted-on block disappears.
+    """
+    _ty = OY1 if top_y is None else top_y
+    assert _ty >= PY1 + 1.0, (
+        f"the shell's outer profile stops at {_ty:.2f}, inside the board pocket's own top at "
+        f"{PY1:.2f} — the case would be open over the board")
+    p  = rbox(OX0,OX1,OY0,_ty, BACK_Z, SEAM_Z, OUT_R)
     # board + glass pocket, and the back-component cavity, in one cut
     p -= rbox(PK0,PK1,PY0,PY1, CAV_FLOOR, SEAM_Z+1, POCK_R)
     # ---- BACK-FACE LABELS, cut EARLY and on purpose. ----
@@ -1810,6 +1824,24 @@ SLOT_CY  = 34.0                    # slot centreline Y at the floor
 # ample), the visible area is entirely clear of the stand, and 20.0mm remains below for
 # the plug. See the VA_CLEAR assert below — this must not silently regress.
 SLOT_FLOOR = 24.0
+
+
+def dock_pose(part):
+    """A model-frame part placed in its DOCKED pose, in stand coordinates.
+
+    ⚠️ MODULE LEVEL SINCE 2026-08-01, AND THAT MATTERS MORE THAN IT LOOKS. This used to be a
+    closure inside check 2f, which meant the MOBILE variant could not ask the same question
+    without transcribing the transform — and a transcribed transform is the drift this exact
+    check exists to catch (see 2f: "transcribing -25 / -1 / 2.95 would have re-created the same
+    drift this check exists to detect, one indirection further away"). One derivation, both
+    variants.
+
+    THE PLACEMENT MUST NOT USE SLAB_T. The slot is cut as SLAB_T + 2*SLOT_CLR; if the body were
+    positioned from SLAB_T too, both sides would move together and the check could never fail.
+    It is placed from FRONT_Z and BACK_Z, the actual extents.
+    """
+    _loc = Pos(-BW/2, (FRONT_Z + BACK_Z)/2, -OY0) * (Rot(90, 0, 0) * part)
+    return Pos(ST_W/2, SLOT_CY, SLOT_FLOOR) * (Rot(-TILT, 0, 0) * _loc)
 # ============================================================================
 # THE PLINTH — #29 / #30.  A 40mm RIGID CABLE DOES NOT FIT UNDER A 40mm STAND.
 # ============================================================================
@@ -3774,10 +3806,7 @@ def _check_geometry(parts=None):
     # after _print_oriented() had written back would silently dock a rotated slab and measure
     # nothing. Pos/Rot return NEW objects, so `parts` is not mutated and the exported STLs are
     # untouched by this check.
-    def _dock(_part):
-        """A model-frame part in its docked pose, in stand coordinates."""
-        _loc = Pos(-BW/2, (FRONT_Z + BACK_Z)/2, -OY0) * (Rot(90, 0, 0) * _part)
-        return Pos(ST_W/2, SLOT_CY, SLOT_FLOOR) * (Rot(-TILT, 0, 0) * _loc)
+    _dock = dock_pose        # ONE derivation, shared with the mobile variant
 
     def _slab_hit(_dz=0.0):
         _tot, _sbb = 0.0, _stand.bounding_box()
