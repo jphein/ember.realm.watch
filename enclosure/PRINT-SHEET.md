@@ -87,6 +87,9 @@ and a `../cadenv` that does not exist. See [`README.md`](README.md) for first-ti
 | `ember-back-shell.stl` | 1 | **back face DOWN**, open side up | **none** *(measured)* | ⛔ **Set gap-closing radius / hole horizontal expansion to 0 before slicing — see below, a default will weld the buttons shut.** Hexagonal button pads + living hinges print in the first ~8 layers; the pips point up into the cavity. Counterbores are flat-floored ⌀5.80 pockets opening onto the bed. (This line said "countersinks widen downward" — a leftover from the deleted conical version; the head is cylindrical.) ⚠️ **REPRINT if you have not started this part yet — it gained five connector labels (#27) and a speaker-plug relief (#33).** The relief is a **through-opening in the back slab** over the speaker connector, x 44.54–50.35, y 31.79–40.94 — it prints as a bed-side aperture, so it costs nothing and needs no support. It stops at the *cavity* wall, not the outer edge, so the shell's outline is unbroken. **Labels** (`SD`, `MIC`, `VOL`, power symbol, and now `UART` `I2C` `SPK` `BAT` `IO`) are debossed **0.40 mm = 2 layers at the shell's own 0.20** (was 0.48 = 3 layers at the *bezel's* 0.16 — issue #26), and the two cap labels sit at the bottom of bridged recesses, so they are the first thing sag will blur. **The nine labels are exactly what the gap-closing warning above protects** — every one is a 0.90 mm groove, which is precisely the width a default gap-closer welds shut, and a welded label reads as a smudge rather than as a missing feature. **The debossed cap faces are bed-side recesses and they bridge 13.27 mm (BOOT) / 8.27 (RESET)** — expect visible sag in the middle of both, and run the fan at 100 % for the first ~5 layers. |
 | `ember-stand.stl` | 1 | **bottom face DOWN** | **none** | ⚠️ **REPRINT — this part is 16 mm taller than the one you have, and its grille is finer** (issues #29/#30/#31 + #28, see *The plinth* below). **Bridges, quoted by the span the printer actually crosses — the *narrow* dimension, since a bridge is laid the short way:** chamber ceiling **15.3 mm**, speaker-wire channel **24.7 mm** (both unchanged, both printed fine for JP), cable egress **6.0 mm**. ✅ **The baffle recess's top edge is a LEDGE, not a bridge, and needs nothing** — this row said "37.1 mm bridge, expect visible sag" and that was wrong. The 37.1 mm is its length **along an edge that is anchored for its whole run**: the recess is only **1.80 mm deep** and the 2.20 mm baffle sits directly behind it, so the lip is a **1.80 mm cantilever**, not a span. Measured — one layer above the edge there is 12.24 mm³ of lip and 14.96 mm³ of baffle behind it; one layer below there is **0.00 under the lip and 14.96 still under the baffle**. Expect minor droop on the top layer or two of the recess lip. ⚠️ **If you do see lip droop, do not attribute it to #28** — the grille rescale never touched this edge and could not have. **The egress figure is 6.0 and not 14** because the channel's R4 corners taper the void closed over the last 4 mm, leaving only 6 mm genuinely flat at the top — and it is a **true bridge** rather than an anchored ledge, because the channel is open through the plinth's full depth beneath it, so there is no material behind the span. Leave bridging on (slicer default). The plinth is **solid in the model on purpose**: a hollow one would have made the cradle floor bridge ~56 mm, whereas a solid one is just infill and the transition needs no bridge at all. Set infill by the *slicer*, not by hollowing the CAD. ✅ **The gap-closing / hole-horizontal-expansion warning on the shell row does NOT extend to this part's new features** — the egress is 14 mm wide and the corridor 18, three orders off anything that setting welds shut. Two features depend on it, not three; the grille's 0.90 mm webs are the ones to worry about. The **finger scoop** in the rear slot wall opens *upward*, so every wall is near-vertical: no bridge. (It is **one** opening, x 13.94–50.51, not two — `SCALLOP_MIN_RIB` merges them.) The **rear rim is now notched** across x 13.20–50.23 down to z 43.62 so you can reach the caps; the two full-height zones either side of it are what still holds the slab. The **wire saddle** merges into the notch's right-hand end — deliberate, same rule. |
 | `ember-stand-base.stl` | 1 | flat | none | Closes the speaker chamber. Press fit. ⚠️ **Resized in `89001ea` — reprint if you made one earlier.** |
+| `ember-mobile-midframe.stl` | 1 *(mobile only)* | **back face DOWN**, open side up — same face as the shell it is derived from | **none** | ⛔ **Inherits the shell's gap-closing warning in full** — it *is* `back_shell("mobile")`, so the same living-hinge buttons and 0.90 mm label grooves are in it, and the same default welds them. Two differences from the desk shell, both subtractive: the `BAT` **flank opening is blocked** and its label is **deleted with it** (a label beside solid plastic sends someone hunting for a port), and **two hex rows are dropped** near the chin screw — see the collar note below, it is a real defect and not tidying. Carries the speaker's **bond plateau** (fill the hex field flush, do not hollow it), the driver's 0.60 mm locating groove, two ⌀9.00 screw bosses, and the **+Y end-face cooling field**. **20.99 cm³**, 27 598 tris, watertight (0 boundary, 0 non-manifold). |
+| `ember-mobile-back.stl` | 1 *(mobile only)* | **OUTER face DOWN** — note this is the *opposite* convention to every other part on this sheet, and it is what makes the part support-free | **none** *(by construction)* | The cell trough opens **upward** as a concave cradle, the grille cells are **vertical prisms** rather than horizontal bores, the counterbore is a recess, and the screw bosses stand proud of what is the part's **top** while printing. ⛔ **The vent labyrinth's connecting band is 0.60 mm — the same width the gap-closer welds shut.** Weld it and the cell bay's failure vent becomes a dead end, which is the one feature on this part whose whole purpose is to not be closed. **26.98 cm³**, 5 874 tris, watertight. Bed contact **3242.9 mm²**. |
+| `ember-front-bezel.stl` | 1 | as above | none | ✅ **Reused bit-identical by the mobile build** — same STL, same four M3×12. If you have a good one, it serves either variant. |
 
 **All exposed exterior edges now carry a 0.80 mm 45° chamfer** (#35) — the shell's back face,
 the stand's base and rim, and the base plate's one exposed edge. ⚠️ **The bed-side ones are
@@ -98,7 +101,10 @@ the same constant. The parting line is deliberately left plain — chamfering on
 joint gives an asymmetric reveal.
 
 Outer sizes: slab (bezel + shell assembled) **55.9 × 91.9 × 17.4 mm**; stand
-**64 × 64 × 56 mm** (was 40 — the plinth, see below).
+**64 × 64 × 56 mm** (was 40 — the plinth, see below); **mobile backpack (bezel + board +
+midframe + cover) 55.90 × 93.63 × 39.00 mm** — the same width to the hundredth, because the
+bezel did not move, and 1.32 mm longer for a reason worth reading in
+[`docs/enclosure-mobile.md`](../docs/enclosure-mobile.md) §1.
 Material use ≈ **166 cm³** total (~206 g in PLA), measured from the current STLs by
 signed-tetrahedron volume — not an estimate. Per part: stand **137.6**, back shell 17.9, bezel
 7.5, base **2.8** cm³. The stand is **83 %** of the print, because it is a speaker cabinet
@@ -661,6 +667,127 @@ below Fs does nothing and a mistuned one is worse than sealed.
    open rim rather than down a 12 mm pocket. If a finger does not fit, that is the fault this
    feature exists to fix and something has regressed: `_check_geometry()` drives a 6 × 4 mm
    fingertip probe at each cap and fails if the stand blocks more than 1 mm³ of it.
+
+---
+
+## The mobile (battery) variant
+
+Three printed parts, one of which you may already own: the **bezel is reused bit-identical**, the
+**midframe** is `back_shell("mobile")`, and the **cover** is new. The desk stand and its base are
+not used — but see the reprint warning at the end of this section, because **the stand changed for
+this build even though the mobile does not include it.**
+
+### Fasteners — 2 × M3 × 0.5 × 22 ISO 4762 socket cap
+
+Same head and counterbore family as the bezel screws, driven **down** through the cover into
+bosses in the midframe.
+
+| | |
+|---|---|
+| Screws | **2 × `M3 × 0.5 × 22` ISO 4762** socket cap, hex recess — 2.5 mm key |
+| Positions | one lane at **x 23.55**, which is the case's own centreline: chin **y 22.60**, top **y 85.98**, **63.38 mm baseline** between them |
+| Boss | ⌀**9.00** at both ends — not 7.00: at 7.00 the annulus is 0.60 against a 1.00 minimum, because `CBORE_DEPTH` 3.00 exceeds the cover's 2.20 wall, so **the head bears on the boss and not on the wall** |
+| Pilot | ⌀2.50 blind, **6.60 mm** deep |
+| Engagement | **3.40 mm** — it clamps, and it cannot bottom out; both asserted |
+
+⚠️ **The under-head length trap applies here exactly as it does to the bezel screws, and it is
+why this is a 22 and not something rounder.** `M3 × 22` is an **under-head** length. The head
+bears at z −28.30 and the tip lands at −6.30 in a pilot whose floor is at −3.00, so the numbers
+that matter are the 3.40 of thread engaged and the 3.20 of empty pilot beyond it. **Fit a longer
+screw and it bottoms on the pilot floor before the head seats** — the joint then feels tight while
+clamping nothing, which is the failure mode that reads as success. That is the same reason the
+desk build could not simply take a deeper back shell: deepening it moves the counterbore 21.80 mm
+further from its pilot and invalidates the derivation while still looking correct.
+
+⚠️ **Two screws is the whole fastener count, and the rest of the edge is carried by the cover's
+21.60 mm closed box section.** The worst unheld point on the outline is **43.19 mm, at
+(52.95, 54.34)** — mid-span of the +X long edge. If the cover's top edge gaps on your print, that
+figure is where to look first, and it is a stiffness result rather than a fastener one.
+
+### Assembly order — and two steps are effectively one-way
+
+
+1. **Seat the protection strip** in its pocket in the cover, **and solder its tabs now.** The whole
+   compartment is open from above until the midframe goes on. Solder access is a property of *this
+   ordering* and of nothing else — it is measured, not asserted in prose.
+
+2. **Form and fit the folded nickel leaf** at the −Y end. It is made from the strip's *own* B− tab,
+   so it is not a separate part to source. Root sits in a **0.35 mm kerf at y 20.20**; free height
+   **3.60**, closed height **0.75**, **2.85 mm of travel**. ⚠️ **The free height is JP-tunable** —
+   it is the one number here set by feel rather than derived, and it sets the contact preload
+   (1.75 mm on the shortest cell in tolerance, 0.50 off fully closed on the longest).
+
+3. **Tape the driver** to the midframe's back face inside its 0.60 mm locating groove. That face is
+   a printed **bed face** — the flattest plane in the project — so unlike the desk stand there is
+   **no proud pad**, and the groove is an outline only: the tape does the work, and a pocket would
+   leave the bond bridging a step.
+
+4. **Route the driver leads through the SPK relief, then ⛔ SEAL THE RELIEF** — silicone, hot glue
+   or putty. It opens into the sealed acoustic cavity. It is asserted to lie *wholly inside* the
+   seal rim rather than straddling its wall, because a straddled opening cannot be sealed at all.
+
+5. **Run the cell leads** down the divider groove (1.00 deep × 5.40 wide — widened from 3.20 so a
+   **flat 5 mm nickel tab** lies in it rather than a round wire) and out to `BAT`.
+
+6. **Fit board and bezel** exactly as the desk build. Four M3 × 12, same torque, same order.
+
+7. **Drop the cell in — `+` toward HIGH Y** — then seat the cover and drive **both** M3 × 22.
+
+### The polarity marks, and why they do not match each other
+
+`+` is debossed on the **high-Y end wall at y 86.95**. `−` is on the **cover's mating face at
+y 19.10**. They are deliberately **not** mirror images, and the asymmetry is the point:
+
+> ⚠️ **The `−` mark was originally cut correctly and could not be seen.** It measured **34 %
+> visible** — the folded leaf sits in front of it. Nothing about that geometry was wrong; the mark
+> was at the right depth in the right place, and a person loading a cell could not read it. The
+> deboss check passed, because it measures **volume** and the thing that mattered was **sightline**.
+> The check gained a visibility lens with the old geometry as its rejected control.
+
+⛔ **There is no mechanical reverse-insertion protection, and there cannot be.** A bare flat-top
+18650 has geometrically identical ends, so any aperture that stops a reversed cell stops a correct
+one. **The marks are the only protection, and they are advisory.** Making reverse insertion *safe*
+is electrical and it is not built.
+
+### ⚠️ The cooling and grille lattice is ON TRIAL — 1.25 mm web, below the 1.60 minimum
+
+> **JP: "we have proven two that collapse and none that survives."**
+
+The +Y cooling field and the speaker grille both use **4.75 mm across flats on a 1.25 mm web** —
+the stand's own grille constants, shared **deliberately**. This is the opposite call from the glow
+window, which was *pinned away* from that same pair after #47, and the difference is what each
+feature is for: the window's size is set by the cavity band it lives in, so inheriting another
+part's lattice was pure accident there and broke the fit. **The cooling fields have no such
+constraint and exist precisely to BE the pattern under test.** If the 1.25 web survives a real
+print, that answers #47 for the whole family at once; if it collapses, it collapses everywhere in
+one place.
+
+⛔ **So this web is below the 1.60 mm minimum-solid floor, and it is deliberately NOT in the
+minimum-solid check's list.** That is not an oversight and **must not be "fixed" by adding it** —
+the check would then fail the build on a pattern that is on trial on purpose. The build prints it
+as an `[exempt]` line instead, so it is loud rather than silent. **When you print these parts, the
+web is the thing to look at.**
+
+The end-vent cells are **flat-top in Z — 60.0° shoulders** measured from horizontal. Vertex-up
+would give **30.0°**, which is issue #28's droop exactly, and the build keeps that orientation as a
+**rejected control**.
+
+### ⛔ The stand needs reprinting — r5 — even though the mobile does not use it
+
+If you dock a backpack in the desk stand, **the stand you have will not accept it.** The cover
+fouls the stand's rear top edge by **121.784 mm³**, and it was *pre-existing* — the check for it
+had never actually executed, and a check that has never fired is indistinguishable from one that
+passes.
+
+The cover cannot be the fix: the interference is **mid-height on its chin end face and full
+width**, not a corner a bevel could take off, and its 2.20 mm wall with the leaf's 0.35 kerf behind
+can yield **0.60 and no more**. So the stand takes a **13.00 × 4.40 mm relief** on its rear top
+edge, sized by **bisection against the real docked stack** — 6.00 × 2.00 → 96.6, 9.00 × 3.00 →
+28.8, 10.00 × 3.50 → 7.8, **13.00 × 4.40 → 0.000 mm³** — and the check is now a hard zero.
+
+250 mm³ off a part of over 100 cm³. **The stand's slot was cut for a slab that existed before the
+backpack did**, and every part since inherited that opening as though it were a fact about the
+world. It was a fact about a decision.
 
 ---
 
