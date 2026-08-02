@@ -33,7 +33,21 @@ stand, base  = E.desk_stand(), E.stand_base()
 # There is no diffuser any more. The LED window and the printed translucent disc that
 # seated in it were both deleted when the back gained its fine hex field — the WS2812's
 # light leaves through the hexes now. Four printable parts, not five.
-_STEP = os.path.join(_sys.path[0], "ES3C28P_3D", "ES3C28P_3D.step")
+# RESOLVED BY `E._find_step()`, not composed here — and this file is the reason that helper
+# exists to be used rather than duplicated.
+#
+# It was `os.path.join(_sys.path[0], "ES3C28P_3D", ...)`, which anchors on the script's own
+# location and is a strict improvement on the cwd-relative version it replaced (see the note
+# below). It is still wrong in a WORKTREE. `enclosure/ES3C28P_3D` is a symlink, and a symlink
+# to an absolute path outside the repo is NOT tracked content — so `git worktree add` produces
+# a tree where this path does not exist, and every desk figure died on the FATAL below while
+# `make_mobile_renders.py`, three feet away, rendered fine because it goes through the helper.
+#
+# That is this file's own lesson recurring one layer out: "the script's location is a fact, the
+# caller's cwd is a guess" — and the checkout is a fact too, but which checkout is a guess.
+# `_find_step()` searches the places the file actually lives, so it is correct from the main
+# clone, from any worktree, and from a `git archive` extract that has had it symlinked in.
+_STEP = E._find_step()
 if not os.path.exists(_STEP):
     # SAYS "FATAL" BECAUSE IT IS ONE, AND THE PREVIOUS WORDING COST AN HOUR.
     # This is sys.exit() — nothing after it runs, no figure is written. But the message used to
