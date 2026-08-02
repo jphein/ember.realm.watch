@@ -335,7 +335,11 @@ MARK_INK     = MARK_H + E.LABEL_W                       # 3.70 overall ink exten
 # derivation is a NO-OP today -- BACK_Z - CELL_BORE_D/2 and CAV_Z0 + CELL_BORE_D/2 are the same
 # number until BAY_EXTRA is non-zero -- which is why it is written this way rather than as a
 # constant: it says WHICH END the growth belongs to.
-BAY_EXTRA = 8 * LH                                      # 1.60, all of it below the bore
+# ⚠️ BACK TO ZERO.  JP: "i want it flush with teh main body. i don't thingk gorwing it is the
+# answer."  The corner-solid growth of the previous checkpoint is reverted and the envelope is
+# 39.00 again. What houses the body instead is the DIVIDER's own 2.00, deleted across the span
+# the strip needs -- his call, made after being told plainly what it costs (§5f-c).
+BAY_EXTRA = 0 * LH                                      # flush. See 5f-c for what pays for it.
 COVER_Z0 = BACK_Z - COV_WALL - CELL_BORE_D - BAY_EXTRA  # -32.90, the cover's outer face
 CAV_Z0   = COVER_Z0 + COV_WALL                          # -29.10, baffle inner AND bore floor
 # ⚠️ CAV_Z0 IS ONE PLANE SERVING TWO FEATURES AND THAT IS DELIBERATE. The sealed cavity's
@@ -600,13 +604,13 @@ SCREW_XY        = (SCREW_LANE_X, COVER_Y0 + SCREW_EDGE_MIN + 0.40)   # (23.55, 2
 TOP_SCREW_XY    = (SCREW_LANE_X,
                    MOB_OY1 - max(SCREW_EDGE_MIN, SCREW_BOSS_D/2 + 0.20))    # (23.55, 85.98)
 SCREWS          = (SCREW_XY, TOP_SCREW_XY)
-# ⚠️ 22 -> 25 BECAUSE THE CASE GOT DEEPER, AND THE GATE IS WHAT NOTICED.
-# BAY_EXTRA (§4c) put 1.60 more cover between the head and the midframe, so an M3x22 that used
-# to engage 3.40 engages 1.80 -- under check 11's floor, and it would have felt perfectly
-# tight going in. Every millimetre the backpack grows comes off the thread, one for one.
-# ⚠️⚠️ THIS IS A SHOPPING-LIST CHANGE, NOT A MODEL ONE: the mobile now takes M3 x 25 ISO 4762
-# where the desk case takes M3 x 12 and the old backpack took M3 x 22. Both mobile screws.
-MOB_SCREW_LEN   = 25.00                                 # M3 x 0.5 x 25 ISO 4762, under-head
+# ⚠️ LENGTH IS DERIVED FROM THE COVER'S DEPTH, NOT CHOSEN -- and JP has explicitly released it
+# as a constraint ("i don't ccare about the lendthte of the screws"). Every millimetre the
+# backpack grows comes off the thread one for one: at BAY_EXTRA 1.60 this had to be 25 because
+# an M3x22 engaged only 1.80, under check 11's floor, and it would have felt perfectly tight
+# going in. Back at flush, 22 engages 3.40. Check 11 is the arbiter; the report carries the
+# shopping line.
+MOB_SCREW_LEN   = 22.00                                 # M3 x 0.5 x 22 ISO 4762, under-head
 MOB_PILOT_DEPTH = (BACK_Z - CAV_FLOOR) * -1 + SCREW_BOSS_H   # 2.60 floor + 4.00 boss = 6.60
 # ---- WHY THE TOP SCREW ALSO NEEDS A MIDFRAME BOSS, WHICH IS NOT WHAT THE SITE LOOKS LIKE ----
 #
@@ -846,9 +850,35 @@ PROT_SOLDER   = 3.00                                    # joint room at the outp
 PROT_CX       = None                                    # -> the bay, not the chin band
 PROT_Y0       = (BAY_Y0 + CELL_TIP_Y)/2 - PROT_L/2      # body centred along the bay
 PROT_Y1       = PROT_Y0 + PROT_L
-PROT_PKT_X1   = CELL_X1                                 # the pocket's +X face IS the divider
-PROT_PKT_X0   = PROT_PKT_X1 - (PROT_W + 2*PROT_PKT_CLR)
-PROT_PKT_Z0   = COVER_Z0 + MIN_SOLID                    # floor: MIN_SOLID of outer wall left
+# ============================================================================
+# 5f-c. THE STRIP LIES BESIDE THE BATTERY, IN THE DIVIDER'S PLACE.
+# ============================================================================
+#
+# >>> JP, after being told what it costs: "no strip and nickel lay besid ethe batteyr like <<<
+# >>> i toild you" / "you can delete that inner wall it's fine" / "or modify it".           <<<
+#
+# Every other construction was measured and none closes at 39.00: the bay's corner solid is
+# 0.73 short axis-aligned and cannot be rotated into a fit (no angle satisfies both the divider
+# and the outer wall); a midframe straddle is 0.21 short; the upper compartment fits but puts
+# the body 74.70mm of tab-path from the far leaf seat, needing 52.08mm of NEW soldered nickel
+# against 23.25 of surplus. The divider's own 2.00 is the only space in the case, and it is
+# 4.17 with the corner -- real clearance, plus room for the solder JP correctly points out will
+# make his part thicker than 2.50.
+#
+# ⚠️ WHAT IT COSTS, SO NOBODY RE-LEARNS IT: the divider IS the sealed speaker chamber's -X
+# wall -- one wall doing two jobs, as its own definition has said since it was written. Over
+# RIM_Y0..RIM_Y1 the chamber and the cell bay become ONE VOLUME. Check 7b reports that side
+# instead of asserting it, check 19c restates the ingress picture, and the report carries the
+# opening map. This is an informed owner's decision, not an oversight, and it is recorded as
+# one.
+#
+# The body lies FLAT ON THE BAY FLOOR beside the cell, mid-bay -- which is also what keeps the
+# 34.25 tabs closing with no extension at all (check 13d). Its +X half stands clear of the cell
+# entirely (the cell's surface has fallen away by then), so THE SOLDER JOINTS GO ON THAT SIDE
+# and their thickness stops being a constraint.
+PROT_PKT_X1   = RIM_X0                                  # up to where the divider used to be
+PROT_PKT_X0   = PROT_PKT_X1 - PROT_W                    # 16.15, the body's -X edge
+PROT_PKT_Z0   = CAV_Z0                                  # it stands on the bay's own floor
 PROT_PKT_Z1   = PROT_PKT_Z0 + PROT_T + PROT_PKT_CLR
 PROT_BOSS_CLR = 0.50            # plan clearance, strip corner to the chin screw's boss
 # ============================================================================
@@ -892,19 +922,25 @@ _INT_R        = max(OUT_R - COV_WALL, 1.0)              # the interior rbox's ow
 _pkt_dx = PROT_PKT_X0 - CELL_AXIS_X
 _pkt_need = math.sqrt(max((CELL_D_MAX/2)**2 - _pkt_dx**2, 0.0))
 assert (CELL_AXIS_Z - CELL_BORE_CLR) - PROT_PKT_Z1 >= _pkt_need, (
-    f"the body pocket's inner corner is {(CELL_AXIS_Z-CELL_BORE_CLR)-PROT_PKT_Z1:.2f} below the "
-    f"cell's axis and the cell's own surface is {_pkt_need:.2f} there -- the CELL WOULD SIT IN "
-    f"THE POCKET. BAY_EXTRA is the knob: every 1.00 of it buys 1.00 here, and +1.20 misses by "
-    f"0.01, which is why this is 8 layers and not 6")
-assert PROT_PKT_Z0 - COVER_Z0 >= MIN_SOLID - 1e-9, (
-    f"the pocket leaves {PROT_PKT_Z0-COVER_Z0:.2f}mm of outer wall under it, under the "
-    f"{MIN_SOLID:.2f} floor -- that wall is the case's own bed face")
-assert PROT_PKT_X1 <= CELL_X1 + 1e-9, (
-    f"the body pocket reaches x {PROT_PKT_X1:.2f}, into the divider -- whose far side at "
-    f"mid-bay is the SEALED SPEAKER CAVITY")
+    f"the seated body's top is {(CELL_AXIS_Z-CELL_BORE_CLR)-PROT_PKT_Z1:.2f} below the cell's "
+    f"axis and the cell's own surface is {_pkt_need:.2f} down at that x -- THE CELL WOULD SIT "
+    f"ON THE BODY. Move PROT_PKT_X0 +X (the cell's surface falls away fast there) or thin the "
+    f"seat; do NOT grow the case, the envelope is JP's one hard line")
+# THE SOLDER SIDE MUST BE CELL-FREE. JP: "once i solder teh battery wires it wil be thikcer."
+# Past the cell's +X extreme there is no cell at any height, so joints and wire roots have the
+# whole compartment above them and their thickness stops being a dimension anyone has to know.
+assert PROT_PKT_X1 > CELL_AXIS_X + CELL_D_MAX/2, (
+    f"the body's +X edge at {PROT_PKT_X1:.2f} does not clear the cell's surface at "
+    f"{CELL_AXIS_X+CELL_D_MAX/2:.2f} -- there is nowhere on it for a solder joint to stand, and "
+    f"JP has said twice that his joints make the part thicker")
+# ...and the body must sit inside the span the divider actually vacated.
+assert PROT_Y0 >= RIM_Y0 and PROT_Y1 <= RIM_Y1, (
+    f"the body at y {PROT_Y0:.2f}..{PROT_Y1:.2f} runs outside the divider's deleted span "
+    f"({RIM_Y0:.2f}..{RIM_Y1:.2f}) -- past either end a STUB is still standing and the body "
+    f"would have to pass through it")
 assert PROT_Y0 > BAY_Y0 and PROT_Y1 < CELL_TIP_Y, (
     f"the body at y {PROT_Y0:.2f}..{PROT_Y1:.2f} has run past a contact face "
-    f"({BAY_Y0:.2f}/{CELL_TIP_Y:.2f}) -- the tabs fold at those faces and cannot start beyond them")
+    f"({BAY_Y0:.2f}/{CELL_TIP_Y:.2f}) -- the tabs fold at those faces")
 
 # ---- THE HOLD-DOWN.  JP: "secured with the ... strip-securing features", not tape or hope. ----
 #
@@ -1729,7 +1765,21 @@ def back_cover():
     # ---- THE SHARED DIVIDER. One wall doing two jobs: the cell trough's inboard wall and
     # the seal rim's inboard wall. Two separate walls do not fit in the X budget (see
     # COV_WALL) and check 3 asserts the budget stays closed.
-    p += bx(CELL_X1, RIM_X0, BAY_Y0, BAY_Y1, CAV_Z0, BACK_Z)
+    # ---- THE DIVIDER IS NOW TWO STUBS.  §5f-c: JP's call, informed, and what it costs. ----
+    # He was told in plain terms that this wall is the sealed chamber's -X boundary and that
+    # removing it merges the chamber with the bay, and he reaffirmed the architecture: "no strip
+    # and nickel lay besid ethe batteyr like i toild you" / "you can delete that inner wall it's
+    # fine" / "or modify it". Modified, then -- because the latitude is worth taking:
+    #
+    #   KEPT  y BAY_Y0..RIM_Y0            and  y RIM_Y1..BAY_Y1     (9.80 and 13.68 of stub)
+    #   GONE  y RIM_Y0..RIM_Y1            (the chamber's own span, and the strip's home)
+    #
+    # The stubs are not decoration. A rigid 65mm cylinder located in +X at BOTH ENDS cannot
+    # migrate mid-span, so the cell keeps its lateral datum without the wall that used to give
+    # it; and they keep the screw lane's derivation subject (its counterbore still stops at the
+    # divider's base) and a root for the internal labyrinth vent's region.
+    p += bx(CELL_X1, RIM_X0, BAY_Y0, RIM_Y0, CAV_Z0, BACK_Z)
+    p += bx(CELL_X1, RIM_X0, RIM_Y1, BAY_Y1, CAV_Z0, BACK_Z)
     # ---- the rim's two genuinely new sides; the other two are the divider and the case wall
     p += bx(RIM_X0, RIM_X1, RIM_Y1, RIM_Y1 + RIM_WALL, CAV_Z0, BACK_Z)
     # ⚠️ THE LOW-Y WALL IS DELETED.  JP's standing call, and its premise is TRUE again.
@@ -1930,10 +1980,13 @@ def back_cover():
     # its fold seat, in the shoulder gap where the round cell has already fallen away from the
     # flat face. TAB_D deep, so the run sits below the bore's surface and the cell cannot shave
     # it on the way in -- which check 8d's descent sweep now has a reason to look for.
-    p -= bx(PROT_PKT_X1 - TAB_W, PROT_PKT_X1, BAY_Y0, PROT_Y0,
-            PROT_PKT_Z0, PROT_PKT_Z0 + TAB_D)
-    p -= bx(PROT_PKT_X1 - TAB_W, PROT_PKT_X1, PROT_Y1, CELL_TIP_Y,
-            PROT_PKT_Z0, PROT_PKT_Z0 + TAB_D)
+    # ⚠️ THE GUIDES RUN IN THE CELL LANE, NOT UP TO RIM_X0, AND THE MESH CHECK IS WHY. Taken to
+    # the divider's old face they grazed both screw bosses TANGENTIALLY -- a cut edge meeting a
+    # cylinder's surface at a single line, four faces on one edge, non-manifold at exactly
+    # (20.650, 22.600) and (20.650, 85.984), which are the two screw positions. It is also the
+    # wrong place for them: the run should hug the CELL, which is where the leaf seats are.
+    p -= bx(CELL_X1 - TAB_W, CELL_X1, BAY_Y0, PROT_Y0, PROT_PKT_Z0, PROT_PKT_Z0 + TAB_D)
+    p -= bx(CELL_X1 - TAB_W, CELL_X1, PROT_Y1, CELL_TIP_Y, PROT_PKT_Z0, PROT_PKT_Z0 + TAB_D)
     # ---- SOLDER ROOM + THE WIRE ROUTE.  JP: "soldered to the battery wires."
     # The output joints stand proud of the body's 2.50, so the pocket is locally deeper at the
     # -Y end, and the pigtail leaves along the same corner to the cell-lead pass at the chin --
@@ -2396,7 +2449,6 @@ def _check_mobile(parts):
     for _nm, _w in (
             ("high-Y ", bx(RIM_X0 + 0.1, RIM_X1 - 0.1, RIM_Y1 + 0.1, RIM_Y1 + RIM_WALL - 0.1,
                            *_cav_z)),
-            ("-X divi", bx(CELL_X1 + 0.1, RIM_X0 - 0.1, RIM_Y0 + 0.1, RIM_Y1 - 0.1, *_cav_z)),
             ("+X wall", bx(RIM_X1 + 0.1, OX1 - CHAMFER - 0.1, RIM_Y0 + 0.1, RIM_Y1 - 0.1,
                            *_cav_z))):
         _f = (cov & _w).volume / _w.volume
@@ -2414,8 +2466,16 @@ def _check_mobile(parts):
         f"control failed: the cavity-closure probe reads {100*_cav_cf:.1f}% solid INSIDE the "
         f"cavity, so it cannot distinguish a wall from the air it encloses")
     _open_area = (RIM_X1 - RIM_X0) * (BACK_Z - CAV_Z0)
-    print(f"  [chamber] closed on 3 sides (high-Y, divider, case wall); control inside the "
-          f"cavity {100*_cav_cf:.1f}%")
+    _div_gone = (RIM_X0 - CELL_X1) * (BACK_Z - CAV_Z0)
+    print(f"  [chamber] closed on 2 sides (high-Y, case wall); control inside the cavity "
+          f"{100*_cav_cf:.1f}%")
+    print(f"             ⚠️ TWO SIDES ARE DELIBERATELY OPEN, BOTH ON JP'S INFORMED CALL: the "
+          f"low-Y wall ({_open_area:.0f} mm2) and now the -X DIVIDER over the chamber's own span "
+          f"({_div_gone:.0f} mm2). The chamber and the CELL BAY are ONE VOLUME over "
+          f"y {RIM_Y0:.2f}..{RIM_Y1:.2f}.")
+    print(f"             He was told the divider is the chamber's -X wall and reaffirmed the "
+          f"architecture: the strip and its nickel lie beside the battery, in the space the "
+          f"wall used to occupy (§5f-c). Recorded as a decision, not an oversight.")
     print(f"             ⚠️ THE LOW-Y SIDE IS DELIBERATELY OPEN -- JP's call, {_open_area:.0f} "
           f"mm2 against the grille's intended 562.7. It is a SECOND MOUTH, not a leak, and the "
           f"band behind it is empty now that the BMS body lives in the bay (§4c).")
