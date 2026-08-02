@@ -44,13 +44,18 @@ def convert(md: str) -> tuple[str, str]:
     title = "Print sheet"
     lines = md.splitlines()
     i = 0
-    in_code = in_list = False
+    in_code = False
+    # WHICH list is open, not merely WHETHER one is. The converter only ever emitted <ul>, so an
+    # ordered list fell through to paragraph text and a numbered procedure rendered as one
+    # run-on block -- on the document people read while a printer is running. Tracking the tag
+    # is what lets <ol> exist without <ul> closing with the wrong one.
+    list_tag: str | None = None
 
     def close_list() -> None:
-        nonlocal in_list
-        if in_list:
-            out.append("</ul>")
-            in_list = False
+        nonlocal list_tag
+        if list_tag:
+            out.append(f"</{list_tag}>")
+            list_tag = None
 
     while i < len(lines):
         ln = lines[i]
@@ -108,16 +113,25 @@ def convert(md: str) -> tuple[str, str]:
             out.append("</tbody></table></div>")
             continue
 
-        m = re.match(r"^\s*[-*]\s+(.*)$", ln)
+        m_ul = re.match(r"^\s*[-*]\s+(.*)$", ln)
+        m_ol = re.match(r"^\s*\d+\.\s+(.*)$", ln)
+        m = m_ul or m_ol
         if m:
-            if not in_list:
-                out.append("<ul>")
-                in_list = True
+            want = "ul" if m_ul else "ol"
+            # A switch between kinds closes the old list first, so a bullet list followed
+            # immediately by a numbered one cannot nest one inside the other.
+            if list_tag != want:
+                close_list()
+                out.append(f"<{want}>")
+                list_tag = want
             item = [m.group(1).strip()]
             i += 1
+            # Continuation lines are indented and are not themselves a marker of EITHER kind --
+            # the ordered alternative had to be added here too, or step 2 would be swallowed as
+            # a continuation of step 1 whenever it happened to be indented.
             while (i < len(lines) and lines[i].strip()
                    and lines[i].startswith(("   ", "\t"))
-                   and not re.match(r"^\s*[-*]\s", lines[i])):
+                   and not re.match(r"^\s*(?:[-*]|\d+\.)\s", lines[i])):
                 item.append(lines[i].strip())
                 i += 1
             out.append(f"<li>{inline(' '.join(item))}</li>")
