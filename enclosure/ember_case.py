@@ -1706,8 +1706,19 @@ def back_shell(variant="desk", top_y=None):
     # them gives 16.30 + 0.80 + 1.85 = 18.95. An earlier estimate of 18.5 omitted the cell's
     # half-height; an earlier one of 34 was measured against a different cap architecture
     # entirely. The field yields 8mm so the caps can be thumb-sized — JP authorised that trade.
+    #
+    # ⚠️ THE MOBILE DROPS THE BOTTOM ROW, AND IT IS A STRUCTURAL FIX, NOT A STYLE CHOICE.
+    # JP: "so the boss is stronger." The mobile's chin screw sits at (25.00, 22.60) with a
+    # d9.00 boss and a d2.50 pilot bored up through THIS FLOOR — and the bottom row's cells at
+    # x=23.00 and x=27.00, hy=22.75, are each 2.01mm from that pilot's axis. A 3.2mm cell is
+    # 1.60 across its half-flat and the pilot is 1.25 in radius, so the two OVERLAP: as built,
+    # the chin screw threads into the web between two vent holes. Dropping the row (8 cells,
+    # y 20.90..24.60) puts 3.2mm of continuous floor back around the boss on every side.
+    # The DESK shell keeps all 113 cells: its back face has no boss and no cover, the field is
+    # the LED's diffuser there, and byte-identical desk output is the point of the gate.
     p -= _hex_panel(HEX_FIELD_X0, HEX_FIELD_X1, HEX_FIELD_Y0, HEX_FIELD_Y1,
-                BACK_Z-1, CAV_FLOOR+1, 3.2, 0.8)
+                BACK_Z-1, CAV_FLOOR+1, 3.2, 0.8,
+                drop_bottom_rows=(1 if variant == "mobile" else 0))
     return p
 
 # diffuser() deleted along with the LED window it seated into — see back_shell().
@@ -2295,10 +2306,16 @@ assert GRILLE_MOUTH_WEB >= 0.45 or GRILLE_MOUTH_MERGED, (
     f"{HEX_WEB/math.sqrt(3):.4f} to merge on purpose. This is the SCALLOP_MIN_RIB rule: a wall "
     f"or no wall, never a fin")
 
-def _hex_panel(x0, x1, y0, y1, z0, z1, aflat, web):
+def _hex_panel(x0, x1, y0, y1, z0, z1, aflat, web, drop_bottom_rows=0):
     """Fine hex lattice filling a rectangular patch, extruded through Z.
 
     >>> rotation=30 IS LOAD-BEARING. Without it this field is a single hole. <<<
+
+    `drop_bottom_rows` removes the N lowest-Y rows AFTER the lattice is laid out, which is
+    NOT the same as raising y0 and is the whole reason it exists as a parameter. cy0 is
+    (y0+y1)/2, so moving y0 SHIFTS EVERY ROW; dropping rows leaves the surviving cells at
+    exactly the coordinates they had. Default 0 -> byte-identical output for every existing
+    caller, which is what keeps the desk shell out of this change.
 
     `RegularPolygon(R, 6)` is FLAT-top: two vertices share the maximum Y, so the cell
     measures 2R across-corners in X and R*sqrt(3) across-flats in Y. Both lattices here
@@ -2324,6 +2341,7 @@ def _hex_panel(x0, x1, y0, y1, z0, z1, aflat, web):
     out = None
     ny = int((y1 - y0) / dy) + 2
     nx = int((x1 - x0) / dx) + 2
+    keep = []
     for j in range(-ny, ny + 1):
         for i in range(-nx, nx + 1):
             hx = cx0 + i * dx + (dx / 2 if j % 2 else 0)
@@ -2331,8 +2349,17 @@ def _hex_panel(x0, x1, y0, y1, z0, z1, aflat, web):
             # keep every hex wholly inside the patch — a clipped hex leaves a sliver
             if not (x0 + R <= hx <= x1 - R and y0 + R <= hy <= y1 - R):
                 continue
-            h = Pos(hx, hy, z0) * extrude(RegularPolygon(R, 6, rotation=30), z1 - z0)
-            out = h if out is None else out + h
+            keep.append((hy, hx))
+    if drop_bottom_rows:
+        # ROWS, not cells: bucket on hy so a whole row goes at once. Rounded to 1e-6 because
+        # hy is accumulated as cy0 + j*dy and the two halves of a row are the same float only
+        # up to that; bucketing on the raw value would drop half a row and leave the rest.
+        _rows = sorted({round(hy, 6) for hy, _ in keep})
+        _cut = set(_rows[:drop_bottom_rows])
+        keep = [(hy, hx) for (hy, hx) in keep if round(hy, 6) not in _cut]
+    for hy, hx in keep:
+        h = Pos(hx, hy, z0) * extrude(RegularPolygon(R, 6, rotation=30), z1 - z0)
+        out = h if out is None else out + h
     return out
 
 
