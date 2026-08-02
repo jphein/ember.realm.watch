@@ -77,7 +77,13 @@ PARTS.forEach((p,i)=>{
   const cb=document.createElement('input');cb.type='checkbox';cb.checked=true;
   cb.onchange=e=>m.visible=e.target.checked;
   const sm=document.createElement('small');sm.textContent=p.tag;
-  l.appendChild(cb);l.appendChild(document.createTextNode(' '+p.name+' '));l.appendChild(sm);
+  // flip 180 about X: shows the BED FACE (underside) without wrestling the orbit.
+  const fb=document.createElement('button');fb.textContent='\u27F2 flip';
+  fb.style.cssText='margin-left:8px;font:12px system-ui;cursor:pointer;background:none;border:1px solid currentColor;border-radius:4px;color:inherit;padding:1px 6px';
+  const cz=(g.boundingBox.min.z+g.boundingBox.max.z)/2;
+  fb.onclick=e=>{e.preventDefault();m.rotation.x=m.rotation.x?0:Math.PI;
+    m.position.z=m.rotation.x?2*cz:0;};
+  l.appendChild(cb);l.appendChild(document.createTextNode(' '+p.name+' '));l.appendChild(sm);l.appendChild(fb);
   document.getElementById('boxes').appendChild(l);
 });
 const bb=new THREE.Box3().setFromObject(group),c=bb.getCenter(new THREE.Vector3()),s=bb.getSize(new THREE.Vector3());
