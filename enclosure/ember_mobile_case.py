@@ -649,6 +649,11 @@ assert not (SCREW_LANE_X - CBORE_D/2 >= OX0 + COV_WALL and SCREW_LANE_X + CBORE_
 def _yprism(pts, y0, y1):
     """Extrude an ABSOLUTE (x, z) cross-section along +Y.
 
+    ⚠️ ITS CALLER LIST HAS TURNED OVER COMPLETELY AND A HANDOFF NOTE SAID OTHERWISE. It was
+    written for the dovetail, then "kept because the spring tunnel uses it" -- and both of
+    those are now deleted. Its one live caller is the +Y end cooling vent (§5h). Kept on that
+    evidence, not on the note: `grep _yprism` is the check, and it is two lines long.
+
     Rot(-90,0,0) sends sketch +v to world -Z and the extrude direction to world +Y -- the same
     trick cyl_y() and the polarity markings use -- so a sketch point (x, -z) lands at (x, y, z).
     """
@@ -736,8 +741,8 @@ PROT_CLR      = 0.40
 # so the real limit is the one derived beside the strip's placement below. Both are printed.
 PROT_L_MAX    = (RIM_X1 - RIM_X0) - 2*PROT_CLR          # 29.30, the bare compartment
 PROT_L        = 21.50           # JP re-measured: "a little over 21" — seat derives to 22.30 between ribs
-PROT_W        = 6.50            # UNMEASURED
-PROT_T        = 2.50            # UNMEASURED
+PROT_W        = 6.50            # ⚠️ UNMEASURED -- class placeholder
+PROT_T        = 2.50            # ⚠️ UNMEASURED -- class placeholder
 PROT_COMP_CLR = 1.00            # over the component face (the FETs are the tall parts)
 PROT_RIB_W    = 1.60
 # ---- THE STRIP'S Z-RETENTION IS ITS TABS, AND THAT IS STATED, NOT IMPLIED. ----
@@ -1359,7 +1364,7 @@ def midframe():
     p -= bx(LEAD_X0, LEAD_X1, LEAD_Y0, LEAD_Y1, BACK_Z - 1, CAV_FLOOR + 1)
 
     # ---- THE TWO SCREWS: boss UP into the board cavity, pilot down through it ----
-    #
+    
     # Identical treatment at both ends and that is not tidiness, it is the same problem twice.
     # At the CHIN the midframe is only its 2.60 floor, so a blind 2.60 pilot cannot hold a
     # cover; at the TOP the block is 14.40 of solid but the board pocket's +Y wall leaves a
@@ -1375,7 +1380,7 @@ def midframe():
     # GLOW_MEMBRANE skin at the exterior. Cutting from the inside keeps the outer face flat and
     # unbroken -- the hexes are invisible until lit -- and puts the membrane flush with the
     # outside rather than at the bottom of a recess that would shadow it.
-    #
+    
     # rotation=30 is load-bearing here for a DIFFERENT reason than in the lattice: it puts the
     # hex's FLATS on +/-Z, so the window is GLOW_AF (4.50) tall and fits the cavity band. Flat-top
     # would need GLOW_AC (5.196) in Z and would not fit with margin.
@@ -1454,7 +1459,7 @@ def back_cover():
     # the head's seat is 0.80 inside the compartment and it bears on a boss, not on the wall.
     # Without one the annulus is whatever the wall happens to leave, which at the chin was a
     # notch rather than a hole.
-    #
+    
     # CHIN: a rectangular pad from the cover's own bottom edge back to the rim's low-Y wall, so
     # the two tie together across the retention strip band.
     p += bx(SCREW_XY[0] - SCREW_BOSS_D/2, SCREW_XY[0] + SCREW_BOSS_D/2,
@@ -1520,18 +1525,21 @@ def back_cover():
     # that block's mouth face and the block does not exist yet. Cutting it here would remove
     # nothing and the check would find a marking that was never made -- which check 15 would
     # catch, but only after a 15-minute build.
-    _sk_p = E._label_sketch(MARK_PATHS_P, E.LABEL_W)
-    _mx, _mz, _my0, _my1 = _mark_face("+")
-    p -= Pos(_mx, _my0, _mz) * (Rot(-90, 0, 0) * extrude(_sk_p, MARK_DEPTH))
+    for _glyph, _paths in (("+", MARK_PATHS_P), ("-", MARK_PATHS_N)):
+        _pl, _cx, _cy, _cz = _mark_face(_glyph)
+        _sk = E._label_sketch(_paths, E.LABEL_W)
+        if _pl == "y":
+            p -= Pos(_cx, _cy, _cz) * (Rot(-90, 0, 0) * extrude(_sk, MARK_DEPTH))
+        else:
+            p -= Pos(_cx, _cy, _cz - MARK_DEPTH) * extrude(_sk, MARK_DEPTH)
 
     # ---- THE SPRING TUNNEL IS GONE.  There is no coil to capture (§3b). ----
     # It was a block across the cell lane with a gabled bore through it, and it cost 3.00mm of
     # bay length plus the coil's own 2.50 solid height plus 1.00 of margin -- 6.50mm that the
     # case carried as the brow. The leaf's kerf does the same retention job in 0.35mm of wall.
     # ---- "-" ON THE BAY'S -Y END WALL, beside the leaf's kerf. See _mark_face(). ----
-    _sk_n = E._label_sketch(MARK_PATHS_N, E.LABEL_W)
-    _nx, _nz, _ny0, _ny1 = _mark_face("-")
-    p -= Pos(_nx, _ny0, _nz) * (Rot(-90, 0, 0) * extrude(_sk_n, MARK_DEPTH))
+    # (both glyphs are cut in the one loop above -- the "-" is on the mating face now, not on
+    # a bay end wall, so there is nothing left to cut here. See _mark_face().)
 
     # ---- THE FAILURE VENT: VENT_N labyrinth units through the cell lane's -X wall ----
     for (iy0, iy1), (oy0, oy1), (by0, by1) in _vent_units():
@@ -1551,7 +1559,7 @@ def back_cover():
     # 438.4 mm2 against a 946.6 mm2 field -- 46%, where the stand runs at ~70%. The claim that
     # the mobile throat was "identical by construction" was FALSE AS BUILT, and only the raster
     # said so; the lattice constants were identical the whole time.
-    #
+    
     # So: build over a rectangle enlarged by one pitch, then intersect with the field's rounded
     # rect. That is exactly what the stand does, and it inherits the stand's hazard too -- a
     # clipped cell can leave a sliver -- so the minimum surviving opening is measured below.
@@ -1568,7 +1576,7 @@ def back_cover():
     # the first clipped build produced one of 4.15 mm2. Rather than lower the bar, the slivers
     # are DROPPED FROM THE CUTTING SET -- an undersized hole becomes solid baffle, which costs
     # a little open area and cannot print badly.
-    #
+    
     # ⚠️ AND THE CRITERION IS WIDTH, NOT AREA. verification.md: "area is insensitive to
     # connectivity". A 10 x 0.5mm crescent has 5mm2 and is unprintable; an 8mm2 hex is 3.0mm
     # across flats and is fine. Filtering on area would have kept exactly the wrong ones.
@@ -1604,7 +1612,7 @@ def back_cover():
 
     # ---- SCREWS: clearance bore + FLAT-FLOORED counterbore in the bed face (inward, so
     # bed-legal). No tube is needed at either: the boss above already carries the seat.
-    #
+    
     # ⚠️ THE COUNTERBORE DEPTH IS THE DISCIPLINE, NOT A FINISH. It is CBORE_DEPTH = exactly the
     # head height, so the head lands FLUSH. Shallower and the head stands proud -- and a proud
     # head on a case that docks in a slot is a case that will not seat, discovered at the dock
@@ -1623,7 +1631,7 @@ def back_cover():
     _px0, _px1 = PROT_CX - PROT_L/2 - PROT_CLR, PROT_CX + PROT_L/2 + PROT_CLR
     _py0, _py1 = PROT_Y1 - PROT_W - PROT_CLR, PROT_Y1 + PROT_CLR
     # the -X packing between the chin boss pad's face and the PCB, and the one new +Y rib.
-    #
+    
     # ⚠️ THEY OVERLAP IN VOLUME AT THE CORNER, DELIBERATELY, AND THE FIRST VERSION DID NOT.
     # Butted exactly -- the -X rib ending at y = _py1 where the +Y rib began -- the two boxes
     # met along ONE LINE at (28.45, 27.50) with four faces on it and no shared surface, which
@@ -1651,10 +1659,10 @@ def back_cover():
     # LANE and the seal rim stands across every other route: the compartment is cut into a
     # lower band, a sealed cavity that may never be crossed, and an upper compartment. So the
     # only lane from here to the far end of the bay is the divider's wire groove.
-    #
+    
     #     B-   a few mm: across the crossing lane, into the leaf's kerf at y BAY_Y0
     #     B+   the long one: down the wire groove to the "+" plate at y BAY_Y1
-    #
+    
     # ⚠️ THE LONG RUN IS ~66mm AND ITS REACH IS AN ASSUMPTION, NOT A MEASUREMENT. JP's photo
     # class carries long pre-welded tabs, but "long" is not a number and this file does not
     # have one. Check 13c prints the required length so it can be checked against the actual
@@ -1668,7 +1676,7 @@ def back_cover():
     # would have opened straight into the fastener's head recess. Nothing in the check suite
     # looks for a tab slot meeting a counterbore, and it would have been a hole in the outside
     # of the case at the one place a user puts a screwdriver.
-    #
+    
     # So the wiring plane is BACK_Z instead of the floor, which turns out to be where it wanted
     # to be anyway: BOTH kerfs are open to BACK_Z (they have to be -- that is how the nickel is
     # got into them) and the divider's wire groove is at the top of the divider. Everything the
@@ -1734,28 +1742,50 @@ def _rrect_area(w, h, r):
     return w * h - (4 - math.pi) * r * r
 
 
+def _ink_half(paths):
+    """(half-extent in u, half-extent in v) of a stroke glyph's INK, groove included.
+
+    ⚠️ MARK_INK IS THE OVERALL EXTENT AND ONLY "+" IS SQUARE. Using MARK_INK/2 on both axes of
+    a "-" claims 1.85mm of half-height for a glyph that is 0.45 -- which put its footprint
+    1.40mm into the DOCKING BAND on paper and failed check 8i, and which would have made check
+    15's own probe sweep 1.40mm of fresh air below COVER_Y0 and read the deboss as oversized.
+    Exactly 8a's flare-height trap in another costume: the right number, on the wrong axis.
+    """
+    _us = [p[0] for path in paths for p in path]
+    _vs = [p[1] for path in paths for p in path]
+    return ((max(_us) - min(_us)) / 2 + E.LABEL_W / 2,
+            (max(_vs) - min(_vs)) / 2 + E.LABEL_W / 2)
+
+
 def _mark_face(which):
-    """(centre z, face z-lo, face z-hi) for a polarity marking. ONE derivation, read by BOTH
+    """(plane, centre x, centre y, face) for a polarity marking. ONE derivation, read by BOTH
     the geometry and check 15, so a marking cannot drift off its face without the check
     following it there.
 
-    ⚠️ THEY SWAPPED ENDS ON 2026-08-01 AND THE SWAP IS THE WHOLE POINT OF THIS DOCSTRING.
-    The polarity of the bay inverted when the protection strip moved to the lower band and the
-    coil became a folded leaf (§3b, §5f): the leaf and its B- tab want to be beside each other,
-    so "-" is now the LOW-Y end and "+" the HIGH-Y one. A marking left at its old end would be
-    worse than no marking at all -- these are the ONLY reverse-insertion measure a flat-top
-    cell allows, so a wrong one is an instruction to destroy the board.
+    `plane` is "y" for a deboss into a wall facing along Y (cut +Y from `cy`, centred at `cz`)
+    or "z" for one into the cover's mating face (cut -Z from `cz`, centred at `cx, cy`).
 
-    Both sit on the strip of end wall BELOW their kerf, between the kerf's floor and the cavity
-    floor: the kerf itself has to be open to BACK_Z or a 10mm-square piece of nickel cannot be
-    got into it, so the face above is a slot at both ends now.
+    ⚠️ THEY SWAPPED ENDS WHEN THE POLARITY DID, and then the "-" ONE HAD TO LEAVE THE WALL
+    ENTIRELY. The bay's polarity inverted with the leaf and the strip (§3b, §5f), so "-" became
+    the low-Y end. Put on that end wall it is DEBOSSED CORRECTLY AND CANNOT BE SEEN: the folded
+    leaf stands LEAF_FREE proud of exactly that face, directly over the mark, and you read a
+    bay-end marking by looking down the bore from the other end. Check 15 measured its area and
+    passed it -- area is not visibility, which is the #47 shape again (an invariant insensitive
+    to the failure it names).
+    
+    # So "-" moves to the cover's own MATING FACE at BACK_Z, in the solid band between COVER_Y0
+    # and BAY_Y0. Nothing can ever stand in front of a horizontal face that IS the opening:
+    # with the cover off and the bay empty -- the moment the mark does its job -- you are
+    # looking straight at it. "+" does NOT move, and the asymmetry is the point rather than an
+    # oversight: the positive plate sits FLUSH in its kerf and projects nothing, so its wall
+    # face is clear. Only the end with something standing in front of it had a problem.
 
-    Both are still read at the moment the cell goes in, which is the whole job.
+    Both are still read at the moment the cell goes in, which is the whole job, and check 15
+    now proves it with a sight line instead of assuming it.
     """
-    _z = (CAV_Z0 + CONTACT_Z0) / 2
     if which == "+":
-        return (CELL_AXIS_X, _z, CELL_TIP_Y, CELL_TIP_Y + MARK_DEPTH)
-    return (CELL_AXIS_X, _z, BAY_Y0 - MARK_DEPTH, BAY_Y0)
+        return ("y", CELL_AXIS_X, CELL_TIP_Y, (CAV_Z0 + CONTACT_Z0) / 2)
+    return ("z", CELL_AXIS_X, (COVER_Y0 + BAY_Y0) / 2, BACK_Z)
 
 
 def _dirsign(wall):
@@ -1818,7 +1848,7 @@ def _check_mobile(parts):
           f"USB-C at z {E.USB_Z[0]}..{E.USB_Z[1]} is clear of the cover at {BACK_Z}")
 
     # ---- 5. THE CELL BAY ACCEPTS THE WHOLE TOLERANCE BAND, ON A FOLD RATHER THAN A COIL ----
-    #
+    
     # Same question as before, different mechanism, and the bounds are the two ends of one
     # manufacturing spread rather than two cell CLASSES: the SHORTEST cell must still be
     # preloaded, and the LONGEST must not close the fold. Both directions, both with controls,
@@ -1855,7 +1885,7 @@ def _check_mobile(parts):
           f"by making the case {94.95-(MOB_OY1-OY0):.2f}mm longer. THAT WAS THE BROW.")
 
     # ---- 6. THE SEAL LANDS ON SOLID MATERIAL.  The two-parts-must-agree case. ----
-    #
+    
     # This is the CHAM_Y1 lesson. The rim is on the cover, the surface it seals against is on
     # the midframe, and nothing else in this file compares them. Measured as an APERTURE --
     # intersect the midframe with the rim wall's own footprint in its own plane and require it
@@ -1890,7 +1920,7 @@ def _check_mobile(parts):
         print(f"    seal leg {_lnm}  {100*_lf:6.2f}% solid  "
               f"({(1-_lf)*_lw/_probe_t:6.3f} mm2 open)")
     # ---- 6c. THE BED-SIDE CHAMFER SURVIVES THE PLATEAU. ----
-    #
+    
     # This check exists because the plateau ate 39.65mm of it and NOTHING NOTICED. The plateau
     # is additive, and every other check in this file looks for material that is missing --
     # a feature destroyed by material that was added is invisible to all of them. PRINT-SHEET:
@@ -1924,7 +1954,7 @@ def _check_mobile(parts):
           f"{100*_cfrac:.2f}% (must be < 98)")
 
     # ---- 6b. NO FASTENER MAY PIERCE THE SEAL.  In coordinates, as well as by boolean. ----
-    #
+    
     # The boolean above is the real check, but it reports one number for the whole ring and
     # says nothing about WHICH feature holed it -- it took a hand search to find that the
     # screw pilot was the culprit. This states the invariant per feature, so the next person
@@ -2009,7 +2039,7 @@ def _check_mobile(parts):
     print(f"             governing cavity mode: stand {_sm:.0f} Hz   mobile {_mm:.0f} Hz")
 
     # ---- 8. GRILLE THROAT, RASTERED.  Neither figure inherited from a comment. ----
-    #
+    
     # Measured by intersecting the finished part with a thin slab mid-baffle and subtracting
     # from the field's area -- i.e. the aperture, not the sum of the cells that were cut.
     _zmid = COVER_Z0 + BAFFLE_T / 2
@@ -2034,19 +2064,19 @@ def _check_mobile(parts):
           f"flared -- issue #28's droop needs a horizontal bore and these are vertical prisms)")
 
     # ---- 8a. THE MACHINE'S OWN FLOOR.  THE LENS EVERY OTHER CHECK WAS MISSING. ----
-    #
+    
     # >>> THIS CHECK EXISTS BECAUSE ROUND 2 PASSED EVERY OTHER ONE AND WAS STILL UNPRINTABLE. <<<
-    #
+    
     # The skew rails were self-consistent, unbridged, >= 50 degrees everywhere, captured with
     # margin, and made of 0.60mm SOLID ribs on a machine documented to have collapsed 0.90mm
     # solid webs (#47). Not one assert here knew that, because they all measure the geometry
     # against ITSELF. This one measures it against THE PRINTER, and its control is #47's own
     # failure -- the only honest calibration point this project has.
-    #
+    
     # ⚠️ THE TWO CALIBRATION NUMBERS ARE NOT INTERCHANGEABLE, and mixing them is what killed
     # round 2: SLOT_W's 0.60 is a proven VOID and #47's 0.90 is a failed SOLID. A void that
     # prints open says nothing about a rib that has to stand up.
-    #
+    
     # ⚠️⚠️ AND THE CHECK'S FIRST RUN FAILED ON ITS AUTHOR'S OWN GEOMETRY, WHICH IS WHY THE
     # SCOPE IS NOW WRITTEN DOWN INSTEAD OF ASSUMED. It rejected DT_FLARE_H -- a vertical RISE,
     # not a section; through that whole rise the tongue ran 1.60 -> 3.20 and was never thinner
@@ -2054,7 +2084,7 @@ def _check_mobile(parts):
     # ember_case.py records the identical trap from the other side: "over-strict is not safe --
     # it is just wrong in the other direction, AND IT GETS SWITCHED OFF." So both halves of the
     # scope are stated, and the exempt half is PRINTED rather than silently omitted:
-    #
+    
     #   IN  -- free-standing sections: a rib, a boss annulus, a wall standing in a void, and
     #          the material left between two adjacent cut features.
     #   OUT -- heights, depths and rises (they are not sections at all), and MEMBRANES: a thin
@@ -2097,7 +2127,7 @@ def _check_mobile(parts):
         print(f"  [exempt]  {_v:.2f}mm -- {_why}")
 
     # ---- 8b. NOTHING DROOPS.  The one flat roof in the new work is named and bounded. ----
-    #
+    
     # Three layers, weakest first, and the last is measured on the mesh:
     #   (i)   the as-printed frame IS the model frame -- both parts export by a pure Z lift.
     #   (ii)  the analytic face angles, from the constants.
@@ -2181,16 +2211,16 @@ def _check_mobile(parts):
           f"one layer -- it fails the same sweep, which is why it is deleted")
 
     # ---- 8d. IT GOES TOGETHER STRAIGHT DOWN, OVER A DRIVER THAT IS ALREADY TAPED ON. ----
-    #
+    
     # >>> THIS IS THE CHECK THAT KILLED THREE RETENTION DESIGNS, ONCE IT WAS ASKED PROPERLY. <<<
-    #
+    
     # It began as a SLIDE sweep, because every scheme up to round 3 needed a slide. JP then
     # double-stick-taped the speaker to the printed midframe and said "the backpack can't
     # involve any sliding, it has to come straight down" -- and that sentence retired the whole
     # family of schemes, because the driver is now IN THE PATH and it is bonded. So the sweep
     # is inverted: the cover must be free through the entire -Z approach, and the assembly is
     # only legal if that number is a zero.
-    #
+    
     # The driver is a PHANTOM -- it is in no STL -- so no part-vs-part boolean could ever have
     # seen it, exactly like the cell-vs-cradle interference at 13.1 mm3. Same for the cell and
     # the spring, which are loaded into the cover BEFORE it goes on and therefore ride the same
@@ -2241,11 +2271,11 @@ def _check_mobile(parts):
           f"{(RIM_X1-RIM_X0-DRIVER_H)/2:.2f} in X and {_gap_drv:.2f} in Y <<<")
 
     # ---- 8e. THE SCREWS.  Two, on the centreline, and a head may not stand proud. ----
-    #
+    
     # The old form of this check asked whether the screw blocked a slide. There is no slide, so
     # the question changes to the two that are left: can the head be WRONG, and do the two
     # screws actually fix the cover in its plane.
-    #
+    
     # ⚠️ A PROUD HEAD IS THE FAILURE THAT LOOKS LIKE SUCCESS FROM THE OTHER SIDE. CBORE_DEPTH
     # is exactly SCREW_HEAD_H so the head lands flush. Shallower and it stands proud -- on a
     # case that DOCKS IN A SLOT, a proud head is discovered at the stand, not at the bench.
@@ -2290,14 +2320,14 @@ def _check_mobile(parts):
 
 
     # ---- 8g. THE BAY HOLDS ITS METALWORK.  JP's question, answered in geometry. ----
-    #
+    
     # >>> "we need features to hold the spring, and to hold the metal strips." <<<
-    #
+    
     # The acceptance behaviour is JP's: cell OUT, case held OPEN-SIDE-DOWN, the metal stays put.
     # That is a CAPTIVITY question, and captivity is not an area or a depth -- it is "does the
     # part collide with the enclosure when you try to take it out the way gravity would". So it
     # is asked that way, with the escape direction and a control that must NOT collide.
-    #
+    
     # There is no coil to ask about any more; the question moved to the LEAF, and it is the
     # same question because the leaf is retained the same way the plate is (§5g). Check 8h
     # measures the kerf and the detent at the "+" end; this measures the fold at the "-" end.
@@ -2352,7 +2382,7 @@ def _check_mobile(parts):
           f"constant load a battery contact carries. Metal does the force, PLA the geometry.")
 
     # ---- 8h. THE "+" CONTACT KERF.  Bounded BOTH ways, because one bound is meaningless. ----
-    #
+    
     # A slot too narrow does not take the strip; a slot too wide does not hold it. The same
     # probe answers both, measured on the finished solid at the plate's own mid-height.
     _kz = (CONTACT_Z0 + CONTACT_Z1) / 2
@@ -2392,20 +2422,20 @@ def _check_mobile(parts):
           f"{BACK_Z:.2f}, tab lane to the divider {100*_topen:.0f}% open")
 
     # ---- 8i. IT STILL DOCKS.  The cross-part property that had no check at all. ----
-    #
+    
     # >>> JP: "does the mobile case still dock in the desk stand with the backpack on?" <<<
-    #
+    
     # The answer is yes BY DESIGN and that is precisely the problem: it is true because the
     # cover stops at COVER_Y0 and the docking band is the UNCHANGED 17.40 slab below it, and
     # nothing anywhere asserted either half. It has survived three redesigns of the retention
     # on the strength of everyone remembering that the step at y=18.00 exists. That is not a
     # property, it is a habit -- and habits do not survive the fourth redesign.
-    #
+    
     # Two questions, and they are different: (a) does the SLAB still fit the slot, and (b) does
     # the BACKPACK -- 39.00 of body that rises behind the slot, including the rim notch cut for
     # cap access -- clear the stand's rear geometry once the case is laid back TILT degrees.
     # (a) is the desk's check 2f asked of the mobile stack; (b) has never been asked by anyone.
-    #
+    
     # E.dock_pose is the SHARED transform, deliberately: transcribing it here is the drift that
     # 2f's own comment warns about, one indirection further away.
     _stand = E.desk_stand()
@@ -2430,23 +2460,23 @@ def _check_mobile(parts):
 
     _dock_i = _dock_hit()
     # >>> ⚠️⚠️ IT DOES NOT DOCK, AND THIS CHECK IS THE FIRST THING EVER TO SAY SO. <<<
-    #
+    
     # 8i was written last round and has NEVER RUN: that gate died upstream at check 8a's
     # false positive, so everything from 8a down -- including this -- was written, committed,
     # described as "gated-sound" in the handoff, and never executed. The first time it ran it
     # failed. That is the check doing precisely its job, and it is also this repo's founding
     # hazard one level up: an invariant nobody has watched fire is a comment.
-    #
+    
     # WHAT IT IS, MEASURED: the COVER fouls by ~121.8 mm3, at stand x 4.05..59.95 (the full
     # width), y 55.23..64.00 (the stand's rear 8.8mm) and z 37.65..40.00 (its top 2.4mm). The
     # bezel and the midframe are both 0.000. So it is the BACKPACK'S BOTTOM-REAR EDGE sweeping
     # the stand's rear top corner as the stack lies back TILT degrees -- the 21.60mm of body
     # that starts at COVER_Y0 and did not exist when the slot was cut for a 17.40 slab.
-    #
+    
     # ⚠️ AND IT IS NOT THIS ROUND'S DOING. Every surface involved -- COVER_Y0, COVER_Z0, the
     # outline, OUT_R -- is untouched, and the case got SHORTER this round, not longer. The
     # defect is as old as the backpack; only the check is new.
-    #
+    
     # NOT FIXED HERE, AND THE THREE FIXES ARE PRICED BECAUSE THE CHOICE IS JP'S:
     #   1. BEVEL the cover's low-Y outer edge ~2.6mm at 45deg. Cheapest, and it improves the
     #      silhouette (a square 21.60 step at the chin is the same class of thing JP caught at
@@ -2456,7 +2486,7 @@ def _check_mobile(parts):
     #   2. RAISE COVER_Y0. Clean, but it is a REACHABILITY decision (§4) and therefore JP's.
     #   3. RECUT THE STAND's rear top. Out of scope: the desk parts are byte-identical by
     #      contract this round.
-    #
+    
     # Until then it is a KNOWN, BOUNDED defect rather than a hidden one: the build reports the
     # number every time and fails if it GROWS.
     DOCK_FOUL_KNOWN = 130.0
@@ -2483,7 +2513,7 @@ def _check_mobile(parts):
                     ("chin counterbore", SCREW_XY[1] - CBORE_D/2),
                     ("chin boss pad", COVER_Y0),
                     ("leaf kerf", LEAF_SEAT_Y - LEAF_KERF),
-                    ("'-' marking", _mark_face("-")[2]),
+                    ("'-' marking", _mark_face("-")[2] - _ink_half(MARK_PATHS_N)[1]),
                     ("strip pocket", PROT_Y1 - PROT_W - PROT_CLR)):
         assert _y >= COVER_Y0 - 1e-9, (
             f"{_nm} reaches y={_y:.2f}, below the cover's own start at {COVER_Y0:.2f} -- it is "
@@ -2503,7 +2533,7 @@ def _check_mobile(parts):
           f"desk stack plus depth, which is the strongest form this check has ever had.")
 
     # ---- 9. THE SPEAKER RELIEF IS INSIDE THE CAVITY, NOT STRADDLING ITS WALL ----
-    #
+    
     # Inside is correct and wanted: it is the shortest possible route from the driver's pigtail
     # to the connector #33 pins down, and it is ONE hole to seal after wiring. Straddling the
     # rim wall would be unsealable at all, which is the failure this assert exists for.
@@ -2545,7 +2575,7 @@ def _check_mobile(parts):
           f"{_head_z:.2f}, {_eng:.2f}mm engaged in an {MOB_PILOT_DEPTH:.1f}mm pilot")
 
     # ---- 11b. EACH COUNTERBORE IS A HOLE, NOT A NOTCH. ----
-    #
+    
     # The widest circular feature at a fastener is the counterbore, and it must clear every
     # edge of the part it is sunk into or the head loses its annular seat on that side. This is
     # the check that was missing when the chin screw sat at y=19.20 and d5.80 hung 1.70mm off
@@ -2583,10 +2613,10 @@ def _check_mobile(parts):
               f"{100*_wfrac2:.1f}%")
 
     # ---- 8f. THE RETENTION BUDGET, PER EDGE, AS NUMBERS RATHER THAN AS A CLAIM. ----
-    #
+    
     # >>> EVERY ROUND OF THIS DESIGN RE-DISCOVERED THE SAME FACT AND NONE OF THEM WROTE IT   <<<
     # >>> DOWN AS A MEASUREMENT.  THE CELL LANE MAKES THE ENTIRE -X HALF UNFASTENABLE.       <<<
-    #
+    
     # For x < CELL_X1 the bore owns y BAY_Y0..BAY_Y1; above that the SCREW_EDGE_MIN rule kills
     # it against MOB_OY1 and below it against COVER_Y0. There is no valid -X screw position at
     # any y, on any scheme, and there never will be while the cell is where it is. So the lane
@@ -2695,7 +2725,7 @@ def _check_mobile(parts):
     # air outside the part; the polarity-marking probe swept the contact pocket; this one, at
     # +/-1.0 of margin, swept 0.60 of divider on one side and 0.60 of case wall on the other and
     # reported 162.24 mm3 of "overhang" that is simply the compartment's own walls.
-    #
+    
     # >>> STANDING RULE FOR EVERY PROBE IN THIS FILE: its extent is the FEATURE's extent. <<<
     # A margin "to be safe" is not safe — it silently annexes whatever is next door, and the
     # error is always in the direction that makes the number look worse or better than it is.
@@ -2712,8 +2742,9 @@ def _check_mobile(parts):
         f"{PROT_L_MAX:.2f} flat -- short by {PROT_L-PROT_L_MAX:.2f}mm. It does not fit rotated "
         f"({_free_y:.2f} of Y), on edge ({BACK_Z-CAV_Z0:.2f} of depth) or diagonally. Either the "
         f"strip is wrong for this case or the case has to grow in X, which moves the bezel")
-    print(f"  [strip]   1S protection PCB {PROT_L:.2f} x {PROT_W:.2f} x {PROT_T:.2f} "
-          f"(⚠️ UNMEASURED — awaiting JP's calipers); max that seats flat {PROT_L_MAX:.2f}")
+    print(f"  [strip]   1S protection PCB {PROT_L:.2f} (JP-measured) x {PROT_W:.2f} x "
+          f"{PROT_T:.2f} (⚠️ W and T still UNMEASURED — awaiting calipers); max that seats "
+          f"flat {PROT_L_MAX:.2f}")
     print(f"             ⚠️ the briefed class figure {PROT_L_CLASS:.2f} EXCEEDS that by "
           f"{PROT_L_CLASS-PROT_L_MAX:.2f}mm and will not fit in any orientation")
     print(f"             floor under the PCB {_fint:.2f} mm3 (flat, no ribs); "
@@ -2729,10 +2760,10 @@ def _check_mobile(parts):
           f"{CELL_CAPACITY_MAH/CHARGE_MA*CHARGE_CV_FACTOR:.1f} h  (docs/enclosure.md:165)")
 
     # ---- 13c. THE TABS REACH.  An ASSUMPTION, printed as a length JP can check in seconds. ----
-    #
+    
     # >>> JP's constraint was the metal, not the plastic: "the strip has to lie flat close to <<<
     # >>> the battery so the already-soldered nickel strips reach the places."               <<<
-    #
+    
     # Two runs, and moving the strip to the lower band made the short one short and left only
     # one long. Both are measured along the actual lane the tab lies in -- across the crossing
     # slot, then along the divider's wire groove -- not as a straight line through plastic.
@@ -2764,18 +2795,18 @@ def _check_mobile(parts):
           f"number in this section nothing here can derive.")
 
     # ---- 14. THE WS2812.  OCCLUDED, AND THE OCCLUSION IS PROVEN, NOT ASSUMED. ----
-    #
+    
     # docs/enclosure.md:161 already states the general case: "WS2812 RGB LED (GPIO42) is on the
     # BACK, inboard, and fires backwards. A CLOSED BACK COVER HIDES IT COMPLETELY." So this is a
     # documented property of any back cover, not something this variant introduced. What IS
     # this variant's to answer is whether the geometry leaves a way out, and it does not:
-    #
+    
     #   * the LED is inside the DRIVER's footprint, so the module's body is the first thing in
     #     front of it -- a window in the plateau would look straight at the back of the speaker;
     #   * and the driver CANNOT be moved off it. The sealed cavity must contain the SPK relief
     #     (the wire's only exit, check 9), the driver is DRIVER_W long, and clearing the LED
     #     would need the driver wholly above or wholly below it. Both overrun the cavity.
-    #
+    
     # That second clause is the real finding, so it is computed rather than asserted in prose:
     # if a future change frees the LED, this stops being true and the note above becomes wrong.
     _lx, _ly = E.LED
@@ -2798,7 +2829,7 @@ def _check_mobile(parts):
           f"closed back cover). The 2.8in display is the battery indicator.")
 
     # ---- 15. POLARITY MARKINGS.  The only reverse-insertion measure that remains. ----
-    #
+    
     # ⚠️ min_gap IS NOT THE PROOF HERE AND MUST NOT BE. Measured: min_gap(MARK_PATHS_P, LABEL_W)
     # returns (inf, 0 pairs) -- the "+" strokes cross, so _touch() drops the only pair; "-" has
     # a single stroke and no pair at all. `min_gap >= LABEL_W` would therefore pass on `inf` for
@@ -2825,10 +2856,19 @@ def _check_mobile(parts):
     # geometry and this probe, so a marking cannot move without its check moving with it -- and
     # the box is clamped to the ink in X and Z as well as Y, which the old whole-face version
     # was not.
+    _leaf = leaf_phantom(LEAF_FREE)
     for _nm, _ink in (("+", _ink_p), ("-", _ink_n)):
-        _mx, _mz, _y0, _y1 = _mark_face(_nm)
-        _pr = bx(_mx - MARK_INK/2 - 0.30, _mx + MARK_INK/2 + 0.30, _y0, _y1,
-                 _mz - MARK_INK/2 - 0.30, _mz + MARK_INK/2 + 0.30)
+        _pl, _mx, _my, _mz = _mark_face(_nm)
+        _hu, _hv = _ink_half(MARK_PATHS_P if _nm == "+" else MARK_PATHS_N)
+        if _pl == "y":
+            _pr = bx(_mx - _hu - 0.30, _mx + _hu + 0.30, _my, _my + MARK_DEPTH,
+                     _mz - _hv - 0.30, _mz + _hv + 0.30)
+            # the sight line: straight up out of the bay from just in front of the face
+            _los = bx(_mx - _hu, _mx + _hu, _my - 0.60, _my, _mz + _hv, BACK_Z)
+        else:
+            _pr = bx(_mx - _hu - 0.30, _mx + _hu + 0.30, _my - _hv - 0.30, _my + _hv + 0.30,
+                     _mz - MARK_DEPTH, _mz)
+            _los = bx(_mx - _hu, _mx + _hu, _my - _hv, _my + _hv, _mz, _mz + 2.00)
         _cut = (_pr - cov).volume / MARK_DEPTH
         assert _cut >= 0.80 * _ink, (
             f"the '{_nm}' marking removed only {_cut:.2f} mm2 of face against {_ink:.2f} of ink "
@@ -2836,15 +2876,45 @@ def _check_mobile(parts):
         assert _cut <= 1.60 * _ink, (
             f"the '{_nm}' probe reads {_cut:.2f} mm2 against {_ink:.2f} of ink -- it is counting "
             f"the bore or the contact pocket, not the marking")
-    print(f"  [marks]   '+' and '-' debossed {MARK_DEPTH:.2f} into the bay end walls, "
-          f"{MARK_H:.2f} tall, {E.LABEL_W} groove; area measured against ink both ways")
+        # >>> AND THE LENS THIS CHECK DID NOT HAVE: CAN IT BE SEEN. <<<
+        #
+        # Area proves the groove was cut. It says nothing about whether anything STANDS IN
+        # FRONT OF IT, and on a flat-top cell the markings are the ONLY reverse-insertion
+        # measure there is -- so a mark that is present and hidden is the exact failure the
+        # feature exists to prevent, passing the exact check written to prevent it. The bay is
+        # loaded from +Z, so the test is a clear column from the mark out of the opening, and
+        # it is run against the METALWORK as well as the plastic because the leaf is a phantom
+        # and no part-vs-part boolean can see it.
+        _free = (_los - cov - _leaf).volume / _los.volume
+        assert _free > 0.90, (
+            f"the '{_nm}' marking is only {100*_free:.0f}% visible from the bay's open side -- "
+            f"something stands in front of it. It is debossed, it measures correct, and nobody "
+            f"can read it. Flat-top cells have NO mechanical keying, so this is the whole of "
+            f"the reverse-insertion defence")
+    # CONTROL, and it is the defect this lens was added for: the "-" mark's OLD home, on the
+    # low-Y end wall, has the folded leaf standing directly over it. If that reads clear, the
+    # lens is blind and the two asserts above are decoration.
+    _ctl_los = bx(CELL_AXIS_X - MARK_INK/2, CELL_AXIS_X + MARK_INK/2, BAY_Y0, BAY_Y0 + 0.60,
+                  (CAV_Z0 + CONTACT_Z0)/2 + MARK_INK/2, BACK_Z)
+    _ctl_free = (_ctl_los - cov - _leaf).volume / _ctl_los.volume
+    assert _ctl_free < 0.90, (
+        f"control failed: the '-' mark's old position on the low-Y end wall reads "
+        f"{100*_ctl_free:.0f}% visible even with the leaf standing on that very face, so this "
+        f"lens cannot detect an obscured marking")
+    print(f"  [marks]   '+' on the +Y bulkhead's bay face (y {_mark_face('+')[2]:.2f}), '-' on "
+          f"the cover's MATING FACE at BACK_Z (y {_mark_face('-')[2]:.2f}) -- see _mark_face")
+    print(f"             VISIBILITY: both >90% clear to the bay's open side, measured against "
+          f"the cover AND the leaf phantom; control (the '-' mark's old wall position, behind "
+          f"the leaf) reads {100*_ctl_free:.0f}% and is REJECTED")
+    print(f"             debossed {MARK_DEPTH:.2f}, {MARK_H:.2f} tall, {E.LABEL_W} groove; "
+          f"area measured against ink both ways AND a sight line measured on the solid")
     print(f"             min_gap is VACUOUS on these glyphs (inf, 0 pairs) and is asserted to "
           f"STAY vacuous rather than used as a proof")
     print(f"             ⚠️ NO MECHANICAL KEYING IS POSSIBLE FOR FLAT-TOP CELLS -- both ends are "
           f"identical. Reverse-insertion protection is MARKINGS ONLY. Electrical, JP's call.")
 
     # ---- 16. THE FAILURE VENT: throat area, AND no line of sight. ----
-    #
+    
     # Two properties, and each is silent without the other: a vent big enough to be useful that
     # is a straight hole, or a proper labyrinth so tight nothing flows.
     # ⚠️ THE PROBE IS CLAMPED TO THE WALL, AND THE FIRST VERSION WAS NOT. Spanning
@@ -2892,7 +2962,7 @@ def _check_mobile(parts):
         f"control failed: a wall deliberately drilled through still reads {100*_cfr:.1f}% "
         f"material, so the line-of-sight probe cannot detect a straight hole")
     # >>> AND IT IS INDEPENDENT OF THE FLANK OPENINGS, WHICH IS NOW WORTH SAYING OUT LOUD. <<<
-    #
+    
     # Suppressing SPK and BAT on this variant removed an INCIDENTAL secondary path a cell's gas
     # could have taken -- bay -> the shell's hex field -> board cavity -> a side channel -> out.
     # That path was never the answer and was never measured; the engineered one is these four
@@ -3079,7 +3149,7 @@ if __name__ == "__main__":
     assert _cc < 0.5, f"the cell fouls its own cradle by {_cc:.3f} mm3"
 
     # ---- CONTROLS, in both directions, on every one of those ----
-    #
+    
     # ⚠️ THE DIRECTION IS NOT ARBITRARY AND THE FIRST VERSION OF THIS GOT IT WRONG. ember_case
     # sinks the BEZEL by -2.0 because the bezel sits IN FRONT of the board and -Z drives it into
     # the glass. Every part here sits BEHIND the board, so -Z moves them further AWAY and the
