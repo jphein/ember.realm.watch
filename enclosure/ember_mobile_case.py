@@ -52,7 +52,7 @@ DRIVER_W, DRIVER_H, DRIVER_T = E.DRIVER_W, E.DRIVER_H, E.DRIVER_T
 DRIVER_R, DRIVER_CLR = E.DRIVER_R, E.DRIVER_CLR
 CBORE_D, CBORE_DEPTH, SCREW_D, PILOT_D = E.CBORE_D, E.CBORE_DEPTH, E.SCREW_D, E.PILOT_D
 SCREW_HEAD_D, SCREW_HEAD_H = E.SCREW_HEAD_D, E.SCREW_HEAD_H
-bx, rbox, cyl = E.bx, E.rbox, E.cyl
+bx, rbox, cyl, hexp = E.bx, E.rbox, E.cyl, E.hexp
 
 # ⚠️ THE MOBILE'S OWN FLANK OPENINGS, NOT THE NOMINAL SET. JP suppressed SPK and BAT on this
 # variant (SIDE_BLOCK in ember_case) — SPK because the driver lives in the cover's sealed cavity
@@ -663,6 +663,7 @@ def _yprism(pts, y0, y1):
 
 
 GRILLE_CELL_N = None                                    # set by back_cover(), read by the checks
+TOPMESH_N     = None                                    # ditto, the blind end-face mesh
 # Narrowest a clipped grille opening may be before it is dropped from the cutting set. Above
 # HEX_WEB's 0.90 print floor and above SLOT_W's 0.60 proven void, with margin: a hole this
 # narrow in a 2.20 baffle is a slot the nozzle has to trace, not a feature that resolves.
@@ -1334,6 +1335,67 @@ assert EASE_WALL >= MIN_SOLID, (
     f"move the cell lane +X, which moves the divider, the rim, the driver and the grille")
 
 
+# ============================================================================
+# 5j. TWO THINGS JP ASKED FOR IN THE TOP OF THE BACKPACK.  ONE IS A HOLE, ONE IS NOT.
+# ============================================================================
+#
+# >>> "a hexagon mesh at the top of the backpack on battery side of the boss"          <<<
+# >>> "there's room for a RGB LED in that upper compartment ... so there should be a   <<<
+# >>>  hexagon in the mid plate to get in there with a wire"                           <<<
+#
+# ⚠️ THE FIRST ONE CANNOT BE A THROUGH-VENT, AND THE REASON IS WHAT IS BEHIND IT.
+# "Battery side of the boss" is x < the boss's -X edge. Working back from the +Y end face on
+# that side: 2.20 of top wall, then the CELL-LANE BULKHEAD (§4b, solid), then at y < CELL_TIP_Y
+# the 18650 BORE itself. So a hole either dead-ends in the bulkhead or breaks into the cell bay
+# -- and the cell bay's ingress rule is already settled and is the strictest in the part: §5d's
+# vent is a LABYRINTH specifically so no straight light or dust path reaches a Li-ion cell. A
+# hex field would be that path, several times over.
+#
+# So this one is BLIND: debossed TOPMESH_D into the end face, leaving MIN_SOLID of wall. It is
+# what JP can see and feel -- the family's own motif on the face his fingers sit on -- and it
+# is not an opening. The honest place for a through-vent on that end is the OTHER side of the
+# boss, over the upper compartment, which is where the LED below is going; that is a choice for
+# JP to make deliberately rather than to inherit from a hex field pointed at a battery.
+TOPMESH_D    = 3 * LH                   # 0.60 deep; COV_WALL - 0.60 = 1.60 left, the floor
+TOPMESH_EDGE = 1.60                     # material at each edge of the field
+assert COV_WALL - TOPMESH_D >= MIN_SOLID - 1e-9, (
+    f"the blind top mesh is {TOPMESH_D:.2f} deep in a {COV_WALL:.2f} wall, leaving "
+    f"{COV_WALL-TOPMESH_D:.2f} against the {MIN_SOLID:.2f} floor -- at that depth it stops "
+    f"being a deboss and starts being a window into the cell bay")
+# the field: the flat part of the +Y end face, from the corner arc to the boss, and clear of
+# the eased edge below and the mating plane above.
+TOPMESH_X0 = OX0 + OUT_R + TOPMESH_EDGE
+TOPMESH_X1 = (SCREW_LANE_X - SCREW_BOSS_D/2) - TOPMESH_EDGE
+# ⚠️ THE Z BOUNDS ARE TIGHT AND THAT IS WHY THERE IS A COUNT FLOOR. At the first attempt the
+# field was 16.00 tall against the 16.75 three staggered rows need, so exactly ONE cell landed
+# -- a single hexagon where JP asked for a mesh, and every assert passed because a field of one
+# is still a valid field. TOPMESH_N_MIN is the invariant that was missing: the count is the
+# feature, so the count is what gets asserted.
+TOPMESH_Z0 = COVER_Z0 + EASE_RISE + 0.40        # just clear of the eased edge below
+TOPMESH_Z1 = BACK_Z - 1.20                      # 3 extrusions under the mating plane
+TOPMESH_N_MIN = 4
+#
+# ---- AND THE SECOND ONE IS A REAL APERTURE, IN THE MIDFRAME ----
+#
+# One hex through the midframe's 2.60 floor, from the BOARD CAVITY into the upper compartment,
+# so an RGB LED sitting in that compartment can be wired to the board. It is the first thing
+# ever to open those two volumes to each other, so the ingress picture is stated rather than
+# assumed: the board cavity already has four open flank channels and ~100 back-face vent cells,
+# and the upper compartment is dry, dead space above the seal rim. What the aperture does NOT
+# touch is the two volumes that have rules -- the sealed speaker cavity (it is +Y of the rim's
+# high-Y wall) and the cell bay (it is +X of the divider).
+#
+# ⚠️ IT MUST OPEN INTO THE CAVITY, NOT INTO THE BLOCK. Above PY1 the midframe is solid
+# BACK_Z..SEAM_Z, so a hex placed there would be a blind hole that looks identical from the
+# back face. Sited below PY1, above the bond plateau, and clear of the mic bore, the +X boss
+# and the top screw's pilot collar -- all measured in check 19, not eyeballed here.
+LED_PASS_XY    = (32.00, 80.50)
+LED_PASS_BREAK = 3 * LH                 # 0.60 edge break at the CAVITY-side mouth, where the
+                                        # wire turns from running flat to going through. That
+                                        # mouth is the TOP of the hole in the print, so a flare
+                                        # there widens upward and cannot overhang.
+
+
 def _ease_profile():
     """(x, ABSOLUTE z) polygon of the material the eased battery edge REMOVES.
 
@@ -1453,6 +1515,17 @@ def midframe():
         _cy = GLOW_CY - GLOW_SPAN_Y/2 + GLOW_AC/2 + _i * (GLOW_AC + GLOW_WEB)
         p -= Pos(_x0, _cy, GLOW_CZ) * (
             Rot(0, 90, 0) * extrude(RegularPolygon(GLOW_R, 6, rotation=30), _depth))
+
+    # ---- RGB LED WIRE PASS: board cavity -> upper compartment, one hex (see 5j) ----
+    # hexp() is the family's own flat-top prism, the one the button caps use -- reused rather
+    # than re-derived, because the one time this project wrote its own hex orientation it got
+    # a field of loose prisms (_hex_panel's docstring).
+    p -= hexp(LED_PASS_XY[0], LED_PASS_XY[1], LAT_R, BACK_Z - 1.0, CAV_FLOOR + 1.0)
+    # ...and the edge break at the CAVITY-side mouth, where the wire turns from running flat to
+    # going through. That mouth is the TOP of the hole in the print, so a wider hex over the
+    # last LED_PASS_BREAK flares UPWARD and cannot overhang.
+    p -= hexp(LED_PASS_XY[0], LED_PASS_XY[1], LAT_R + LED_PASS_BREAK,
+              CAV_FLOOR - LED_PASS_BREAK, CAV_FLOOR + 1.0)
 
     # ---- +Y END COOLING VENT: the board cavity's only exit on this variant (see 5h) ----
     # Cut LAST, after the boss, so a bore stays a bore: the top boss's cylinder runs the full
@@ -1762,6 +1835,34 @@ def back_cover():
     # silhouette to blend -- and it dies EASE_RISE above the bed, ~19mm below the mating plane,
     # which is why the midframe, the vent labyrinth and the "-" marking are all untouched.
     p -= _yprism(_ease_profile(), COVER_Y0 - 1.0, MOB_OY1 + 1.0)
+
+    # ---- THE BLIND TOP MESH on the battery side of the boss (see 5j). NOT a vent. ----
+    # Debossed TOPMESH_D into the +Y end face, leaving MIN_SOLID of wall. Cells are the family
+    # lattice, flats on +/-Z like the end vent's, so the two read as the same pattern on the
+    # two ends of the same edge -- but this one is closed, because what is behind it is the
+    # cell-lane bulkhead and then the 18650.
+    global TOPMESH_N
+    TOPMESH_N = 0
+    _tm_pitch_x, _tm_pitch_z = 2*LAT_R + LAT_WEB, LAT_AF + LAT_WEB
+    _tm_cx = (TOPMESH_X0 + TOPMESH_X1) / 2
+    _tm_cz = (TOPMESH_Z0 + TOPMESH_Z1) / 2
+    for _j in range(-6, 7):
+        _z = _tm_cz + _j * _tm_pitch_z
+        if not (TOPMESH_Z0 + LAT_AF/2 <= _z <= TOPMESH_Z1 - LAT_AF/2):
+            continue
+        for _i in range(-6, 7):
+            _x = _tm_cx + _i * _tm_pitch_x + (_tm_pitch_x/2 if _j % 2 else 0)
+            if not (TOPMESH_X0 + LAT_R <= _x <= TOPMESH_X1 - LAT_R):
+                continue
+            p -= _yprism(_hex_xz(_x, _z, LAT_R), MOB_OY1 - TOPMESH_D, MOB_OY1 + 1.0)
+            TOPMESH_N += 1
+    assert TOPMESH_N >= TOPMESH_N_MIN, (
+        f"the blind top mesh solved to {TOPMESH_N} cell(s) in a {TOPMESH_X1-TOPMESH_X0:.2f} x "
+        f"{TOPMESH_Z1-TOPMESH_Z0:.2f} field, under the {TOPMESH_N_MIN} that make it a MESH. "
+        f"Three staggered rows need {2*(LAT_AF+LAT_WEB)+LAT_AF:.2f} of Z and two columns "
+        f"{(2*LAT_R+LAT_WEB)+2*LAT_R:.2f} of X. Most likely the boss, the ease or the mating "
+        f"plane moved and squeezed it -- a field of one is still a valid field, which is "
+        f"exactly why this is counted and not just built")
     return p
 
 
@@ -2116,6 +2217,55 @@ def _check_mobile(parts):
     print(f"             FRONT_GAP  stand {E.FRONT_GAP:.2f}      mobile {FRONT_GAP_MOBILE:.2f}   "
           f"(declared departure)")
     print(f"             governing cavity mode: stand {_sm:.0f} Hz   mobile {_mm:.0f} Hz")
+
+    # ---- 7b. THE SEALED CAVITY IS CLOSED ON ALL FOUR SIDES.  THE CHECK THAT WAS MISSING. ----
+    #
+    # >>> IT WAS PROPOSED THAT THE CHAMBER'S BOTTOM INNER WALL BE DELETED FOR CABLE ROOM,  <<<
+    # >>> AND NOTHING IN THIS FILE WOULD HAVE STOPPED IT.                                  <<<
+    #
+    # Check 6 measures the MIDFRAME's back face over the rim's footprint. Check 7 measures the
+    # air inside the envelope y RIM_Y0..RIM_Y1. The cover's own rim walls are at y < RIM_Y0 and
+    # y > RIM_Y1 -- OUTSIDE BOTH. Delete one and the front cavity opens into the retention-strip
+    # band, the cell bay's neighbourhood and the board cavity, and the build gates GREEN.
+    #
+    # ember_case.py:1689 is why it matters: the driver is a SEALED-BACK module, so "the chamber
+    # volume barely matters -- what matters is the FRONT." A front cavity with a wall missing is
+    # not a smaller cavity, it is not a cavity. And the one hole that IS in it, the SPK relief,
+    # is closed by hand after wiring (check 9 prints the instruction); a missing WALL cannot be.
+    #
+    # Two of these four are not walls this file built -- the divider and the case's own side --
+    # and they are probed anyway, because "it is obviously solid there" is the sentence every
+    # other defect in this file started as.
+    _cav_z = (CAV_Z0 + 0.20, BACK_Z - 0.20)
+    for _nm, _w in (
+            ("low-Y  ", bx(RIM_X0 + 0.1, RIM_X1 - 0.1, RIM_Y0 - RIM_WALL + 0.1, RIM_Y0 - 0.1,
+                           *_cav_z)),
+            ("high-Y ", bx(RIM_X0 + 0.1, RIM_X1 - 0.1, RIM_Y1 + 0.1, RIM_Y1 + RIM_WALL - 0.1,
+                           *_cav_z)),
+            ("-X divi", bx(CELL_X1 + 0.1, RIM_X0 - 0.1, RIM_Y0 + 0.1, RIM_Y1 - 0.1, *_cav_z)),
+            ("+X wall", bx(RIM_X1 + 0.1, OX1 - CHAMFER - 0.1, RIM_Y0 + 0.1, RIM_Y1 - 0.1,
+                           *_cav_z))):
+        _f = (cov & _w).volume / _w.volume
+        assert _f > 0.98, (
+            f"the sealed speaker cavity's {_nm} boundary is only {100*_f:.1f}% material -- the "
+            f"front cavity is open to the rest of the case. The driver is a SEALED-BACK module, "
+            f"so the front volume is the whole of its loading; a wall missing here is not a "
+            f"bigger chamber, it is no chamber. If this is a deliberate cable pass, it belongs "
+            f"in the cavity FLOOR or as a scallop in a wall's inboard face, not through it")
+    # CONTROL: the same probe inside the cavity itself must read ~empty, or it cannot tell a
+    # wall from air.
+    _cav_ctl = bx(RIM_X0 + 4.0, RIM_X0 + 6.0, RIM_Y0 + 4.0, RIM_Y0 + 6.0, *_cav_z)
+    _cav_cf = (cov & _cav_ctl).volume / _cav_ctl.volume
+    assert _cav_cf < 0.10, (
+        f"control failed: the cavity-closure probe reads {100*_cav_cf:.1f}% solid INSIDE the "
+        f"cavity, so it cannot distinguish a wall from the air it encloses")
+    print(f"  [chamber] sealed cavity closed on all 4 sides (low-Y, high-Y, divider, case wall); "
+          f"control inside the cavity {100*_cav_cf:.1f}%")
+    print(f"             ⚠️ THE BOTTOM INNER WALL IS LOAD-BEARING FOR THE ACOUSTICS and this "
+          f"check is new: 6 and 7 both look past it (it sits at y < RIM_Y0). Cable room at that "
+          f"end is {(BACK_Z-DRIVER_T-TAPE_T)-CAV_Z0:.2f}mm under the driver and "
+          f"{(RIM_INNER_Y-DRIVER_W)/2:.2f}mm beside it -- the pigtail's exit, the SPK relief, "
+          f"is INSIDE the rim, so the run never crosses this wall.")
 
     # ---- 8. GRILLE THROAT, RASTERED.  Neither figure inherited from a comment. ----
     
@@ -3173,6 +3323,91 @@ def _check_mobile(parts):
           f"this will be dim. GLOW_MEMBRANE = 0 makes them true through-holes, which adds no "
           f"ingress class this wall does not already have (3 open cable channels).")
     print(f"             ⚠️ THIS FEATURE IS ON THE MIDFRAME, NOT THE COVER.")
+
+    # ---- 19. THE RGB LED WIRE PASS, AND WHAT IT OPENS BETWEEN. ----
+    #
+    # JP wants an LED in the upper compartment, so the midframe gets one hex for its pigtail.
+    # It is the first aperture ever cut between the board cavity and that compartment, so the
+    # ingress picture is measured rather than asserted: WHICH volumes it joins, that it is
+    # actually open end to end, and that it joins no volume that has a rule.
+    _lp = hexp(LED_PASS_XY[0], LED_PASS_XY[1], LAT_R - 0.20, BACK_Z + 0.10, CAV_FLOOR - 0.10)
+    _lp_open = (_lp - mf).volume / _lp.volume
+    assert _lp_open > 0.98, (
+        f"the LED wire pass is only {100*_lp_open:.0f}% open through the midframe's floor -- it "
+        f"is a blind pocket, not an aperture, and from the back face the two look identical")
+    # CONTROL: the same probe on solid floor must read shut.
+    #
+    # ⚠️ THIRD TIME IN THIS FILE, SO IT IS A RULE NOW: A CONTROL MUST BE ANCHORED TO A FEATURE
+    # THAT GUARANTEES ITS PROPERTY, NEVER TO AN OFFSET. "8mm to the +X" landed on the MIC BORE
+    # and read 40% open -- failing as a control while the aperture it guards was perfect. The
+    # seal control did the same thing (slid onto floor a row deletion had just made solid) and
+    # so did the pilot collar's (sat inside the bond plateau). The plateau is the right anchor
+    # here for the opposite reason: it exists to be SOLID, by construction, so a probe at its
+    # centre cannot go stale unless the plateau itself does.
+    _pl_c = _plateau_region()
+    _lp_ctl = hexp((_pl_c[0] + _pl_c[1]) / 2, (_pl_c[2] + _pl_c[3]) / 2, LAT_R - 0.20,
+                   BACK_Z + 0.10, CAV_FLOOR - 0.10)
+    _lp_cf = (_lp_ctl - mf).volume / _lp_ctl.volume
+    assert _lp_cf < 0.20, (
+        f"control failed: solid floor 8mm from the pass reads {100*_lp_cf:.0f}% open, so this "
+        f"probe cannot tell an aperture from a plate")
+    # IT MUST OPEN INTO THE CAVITY, NOT THE SOLID BLOCK: above PY1 the midframe is solid to
+    # SEAM_Z and a hex there is a blind hole that looks the same from the back.
+    assert LED_PASS_XY[1] + LAT_R <= E.PY1 - 1.00, (
+        f"the wire pass reaches y {LED_PASS_XY[1]+LAT_R:.2f} against the board pocket's top at "
+        f"{E.PY1:.2f} -- part of it is boring into the solid top block, where it opens onto "
+        f"nothing")
+    # ...and it joins NO volume that has a rule. The sealed cavity and the cell bay both do.
+    assert LED_PASS_XY[1] - LAT_R > RIM_Y1 + RIM_WALL, (
+        f"the wire pass reaches y {LED_PASS_XY[1]-LAT_R:.2f}, into the sealed cavity's footprint "
+        f"which ends at {RIM_Y1+RIM_WALL:.2f}")
+    assert LED_PASS_XY[0] - LAT_R > RIM_X0, (
+        f"the wire pass reaches x {LED_PASS_XY[0]-LAT_R:.2f}, over the divider and the CELL BAY "
+        f"-- the one volume in this design with a settled ingress rule (§5d's labyrinth)")
+    assert LED_PASS_XY[1] - LAT_R > _plateau_region()[3], (
+        f"the wire pass at y {LED_PASS_XY[1]-LAT_R:.2f} is inside the bond plateau (to "
+        f"{_plateau_region()[3]:.2f}) -- it would be a hole in the surface the seal lands on")
+    for _nm, _p, _r in (("mic bore", E.MIC, E.MIC_HOLE_D/2),
+                        ("+X boss", (46.0, 82.0), E.BOSS_FLARE_D/2),
+                        ("top pilot", TOP_SCREW_XY, PILOT_D/2)):
+        _d = math.hypot(LED_PASS_XY[0] - _p[0], LED_PASS_XY[1] - _p[1]) - LAT_R - _r
+        assert _d >= MIN_SOLID, (
+            f"the wire pass leaves {_d:.2f}mm to the {_nm} at {_p}, under the {MIN_SOLID:.2f} "
+            f"floor")
+    print(f"  [ledwire] one {LAT_AF:.2f} hex at {LED_PASS_XY} through the midframe floor, "
+          f"{100*_lp_open:.0f}% open (control on solid floor {100*_lp_cf:.0f}%), "
+          f"{LED_PASS_BREAK:.2f} edge break at the cavity-side mouth")
+    print(f"             IT JOINS: the board cavity <-> the upper compartment. Both already "
+          f"open volumes -- the cavity has 4 flank channels and the back hex field, the "
+          f"compartment is dry dead space above the seal rim.")
+    print(f"             IT DOES NOT JOIN: the sealed speaker cavity (ends y "
+          f"{RIM_Y1+RIM_WALL:.2f}, pass starts {LED_PASS_XY[1]-LAT_R:.2f}) or the CELL BAY "
+          f"(ends x {RIM_X0:.2f}, pass starts {LED_PASS_XY[0]-LAT_R:.2f}). ⚠️ NO LED MOUNT — "
+          f"JP asked for the wire pass only.")
+
+    # ---- 19b. THE BLIND TOP MESH IS BLIND. ----
+    # A deboss that has quietly become a window into the cell bay is the failure this feature
+    # was redesigned to avoid, and it is invisible from the outside -- which is the whole
+    # problem. Measured as a membrane, exactly like the glow window's.
+    _tm_probe = bx(TOPMESH_X0, TOPMESH_X1, MOB_OY1 - COV_WALL, MOB_OY1 - TOPMESH_D,
+                   TOPMESH_Z0, TOPMESH_Z1)
+    _tm_frac = (cov & _tm_probe).volume / _tm_probe.volume
+    assert _tm_frac > 0.98, (
+        f"the blind top mesh's membrane is only {100*_tm_frac:.1f}% material -- the deboss has "
+        f"become a through-hole on the battery side, i.e. a straight path into the 18650 bay. "
+        f"That is what §5d's labyrinth exists to prevent")
+    # CONTROL: the debossed band itself must read mostly OPEN, or the mesh was never cut.
+    _tm_cut = bx(TOPMESH_X0, TOPMESH_X1, MOB_OY1 - TOPMESH_D, MOB_OY1, TOPMESH_Z0, TOPMESH_Z1)
+    _tm_cf = (_tm_cut - cov).volume / _tm_cut.volume
+    assert _tm_cf > 0.20, (
+        f"control failed: the deboss band reads only {100*_tm_cf:.0f}% removed, so the mesh is "
+        f"not there and the membrane check above is measuring a plain wall")
+    print(f"  [topmesh] {TOPMESH_N} blind cells, {TOPMESH_D:.2f} deep in the +Y end face over "
+          f"x {TOPMESH_X0:.2f}..{TOPMESH_X1:.2f}, z {TOPMESH_Z0:.2f}..{TOPMESH_Z1:.2f}; "
+          f"{100*_tm_frac:.1f}% membrane behind it ({COV_WALL-TOPMESH_D:.2f}mm)")
+    print(f"             ⚠️ BLIND ON PURPOSE. Behind this face on the battery side is the "
+          f"cell-lane bulkhead and then the 18650. A through-vent here is a straight light and "
+          f"dust path into a Li-ion bay; the +X side of the boss is where one could go.")
 
     # ---- 12. BED-FACE RULE: nothing proud of min Z on the cover ----
     # ember_case.py:2771 records this defect on BOTH shell parts in one session, on opposite
