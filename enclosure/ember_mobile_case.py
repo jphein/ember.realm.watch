@@ -2466,7 +2466,13 @@ def _check_mobile(parts):
         f"control failed: the cavity-closure probe reads {100*_cav_cf:.1f}% solid INSIDE the "
         f"cavity, so it cannot distinguish a wall from the air it encloses")
     _open_area = (RIM_X1 - RIM_X0) * (BACK_Z - CAV_Z0)
-    _div_gone = (RIM_X0 - CELL_X1) * (BACK_Z - CAV_Z0)
+    # ⚠️ THE OPENING IS THE FACE THE WALL VACATED, NOT THE WALL'S CROSS-SECTION. The first
+    # version of this line multiplied the divider's THICKNESS by its height -- 2.00 x 19.40 =
+    # 39 mm2 -- and printed that as the opening. It is off by more than twentyfold: what is now
+    # open between the chamber and the bay is the deleted wall's FACE, its Y span by its height.
+    # A wrong area in a report is worse than no area, because it will be trusted; and this is
+    # the number JP judges the acoustic trade by.
+    _div_gone = (RIM_Y1 - RIM_Y0) * (BACK_Z - CAV_Z0)
     print(f"  [chamber] closed on 2 sides (high-Y, case wall); control inside the cavity "
           f"{100*_cav_cf:.1f}%")
     print(f"             ⚠️ TWO SIDES ARE DELIBERATELY OPEN, BOTH ON JP'S INFORMED CALL: the "
@@ -2476,6 +2482,10 @@ def _check_mobile(parts):
     print(f"             He was told the divider is the chamber's -X wall and reaffirmed the "
           f"architecture: the strip and its nickel lie beside the battery, in the space the "
           f"wall used to occupy (§5f-c). Recorded as a decision, not an oversight.")
+    print(f"             >>> FOR THE MORNING: that -X opening is BIGGER THAN THE GRILLE "
+          f"({_div_gone:.0f} vs 562.7 mm2). The driver's front chamber now includes the cell "
+          f"bay, and the cell and the BMS are inside the acoustic volume. r9 (40.60 deep, "
+          f"chamber intact) is on the shelf if that sounds wrong in the hand. <<<")
     print(f"             ⚠️ THE LOW-Y SIDE IS DELIBERATELY OPEN -- JP's call, {_open_area:.0f} "
           f"mm2 against the grille's intended 562.7. It is a SECOND MOUTH, not a leak, and the "
           f"band behind it is empty now that the BMS body lives in the bay (§4c).")
