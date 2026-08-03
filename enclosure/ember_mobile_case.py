@@ -2276,14 +2276,18 @@ assert SIDE_LBL_SD_SHORTFALL > 0, (
 def _side_label(paths, face, cy, cz, depth, w=None):
     """A label sketch laid onto a flank, authored in READING SPACE and mirrored on placement.
 
-    ⚠️ THE +X FLANK READS BACKWARDS IF NOBODY WRITES THIS DOWN -- the same hazard as
-    _back_label()'s X mirror, on a different pair of faces. For a viewer at -X (forward +X,
-    up +Z) their right hand is up x forward = (0,0,1)x(1,0,0) = +Y, so model +Y reads LEFT TO
-    RIGHT and no mirror is wanted. For a viewer at +X, forward is -X and their right hand is
-    (0,0,1)x(-1,0,0) = -Y, so +Y runs RIGHT TO LEFT and the glyphs MUST be mirrored in u.
-    Two of the three labels are on the +X flank, so getting this backwards mirrors most of them.
+    ⚠️ THE MIRROR IS BENCH-ANCHORED, NOT DERIVED -- because the derivation was wrong once.
+    The original cross-product argument here ("viewer at -X reads +Y left-to-right, so -X
+    needs no mirror, +X does") was self-consistent, passed its own chirality check, and
+    printed ALL FOUR labels mirrored. JP, holding the printed r10 (2026-08-02): "all 4
+    labels are backwards." The check's control shared the derivation's frame error, so it
+    verified consistency, not truth -- a correct measurement of the wrong frame reads
+    exactly like a correct measurement. The mirror below is the EMPIRICAL opposite; _CHIR
+    in the chirality check encodes the same bench verdict. If flank labels ever read
+    mirrored ON PLASTIC again, flip this condition and _CHIR TOGETHER -- never one alone,
+    and never trust a handedness argument over a printed part.
     """
-    _p = paths if face == "-X" else [[(-u, v) for u, v in _path] for _path in paths]
+    _p = paths if face == "+X" else [[(-u, v) for u, v in _path] for _path in paths]
     _sk = E._label_sketch(_p, SIDE_LBL_W if w is None else w)
     # sketch u -> world +Y, v -> world +Z (so its normal lands on +X): Rz90 after Rx90
     _sk = Rot(0, 0, 90) * (Rot(90, 0, 0) * _sk)
@@ -3458,7 +3462,8 @@ def _check_mobile(parts):
     # MEASURED, not reasoned: each glyph is placed SEPARATELY through the very transform the cut
     # uses, and its world Y is read off the resulting solid. Reading order must advance toward
     # that face's own viewer-right.
-    _CHIR = {"-X": +1.0, "+X": -1.0}        # viewer-right, in model Y, per face
+    _CHIR = {"-X": -1.0, "+X": +1.0}        # viewer-right in model Y, per face -- BENCH-ANCHORED
+                                            # (JP, printed r10: the +1/-1 derivation mirrored all 4)
 
     def _glyph_ys(text, face, cy, h, w, gap, mirror_as=None):
         """World Y of each glyph, one glyph at a time, through _side_label's own transform.
@@ -3503,8 +3508,8 @@ def _check_mobile(parts):
             f"{_face} ({[round(_v, 2) for _v in _yc]}) -- this check cannot detect the defect it "
             f"is named for")
         _chir_rows.append((_nm, _face, _ys))
-    print(f"  [chirality] ⚠️ THE FLANK LABELS ARE CORRECT AS BUILT. If they look mirrored in a "
-          f"viewer, the viewer is showing you the -X flank THROUGH the part from +X. Each glyph "
+    print(f"  [chirality] reading direction is BENCH-ANCHORED (JP, printed r10, 2026-08-02: the "
+          f"derived frame mirrored all 4 labels; the derivation lost to the plastic). Each glyph "
           f"below was placed separately and its world Y measured off the solid.")
     for _nm, _face, _ys in _chir_rows:
         print(f"             {_nm:5s} {_face}  glyph Y "
