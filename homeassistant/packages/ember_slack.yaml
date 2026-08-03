@@ -1,0 +1,172 @@
+# Ember → Slack: two channels, two jobs.
+#
+#   #ember  — COMPLETE MIRROR. Every line Ember would say, whether or not she
+#             actually said it aloud. The full log: replay a day, debug a
+#             silent herald, see what happened while you were out.
+#   #yurt   — SIGNAL ONLY. The house's established channel (it already carries
+#             mailbox alerts). Gets a message only when you'd have MISSED the
+#             spoken one, or when the thing is interesting regardless:
+#               · quiet hours 22:30-07:30 (Ember stays silent, house sleeps)
+#               · nobody home (nobody there to hear her)
+#               · importance: high (bears, people after dark, failures)
+#             Deliberately NOT every daytime car — you already heard that one,
+#             and a channel you learn to ignore is worse than no channel.
+#
+# TRANSPORT: notify.the_homefront — the Slack integration that has been posting
+# mailbox alerts to #yurt since 2023. No new credentials, no webhook.
+#
+# HOOK POINT: script.ember_broadcast replaces direct calls to
+# script.ember_announce_if_awake in the heralds. It decides speak / mirror /
+# escalate in one place, so a future herald gets all three behaviours free.
+#
+# QUIET HOURS moved from "don't run" to "route to Slack instead of speaking" —
+# previously the driveway herald's time condition aborted the whole automation,
+# so a 3am visitor left no trace anywhere. That was the gap this closes.
+script:
+  ember_broadcast:
+    alias: "Ember - broadcast (speak + Slack)"
+    mode: queued
+    max: 10
+    fields:
+      message:
+        name: Message
+        description: The line Ember would speak.
+        required: true
+        selector:
+          text:
+            multiline: true
+      importance:
+        name: Importance
+        description: "'high' also posts to #yurt even in waking hours at home."
+        selector:
+          select:
+            options: [normal, high]
+      category:
+        name: Category
+        description: Emoji/label prefix for the log (driveway, laundry, alert…).
+        selector:
+          text:
+      image_url:
+        name: Image URL
+        description: >-
+          Optional snapshot to attach (Frigate event snapshot, camera proxy…).
+          Must be reachable from HA. Slack renders it inline.
+        selector:
+          text:
+    sequence:
+      - variables:
+          # Shared definition — see packages/house_config.yaml. Editable from
+          # any panel dashboard; every consumer follows immediately.
+          quiet: "{{ is_state('binary_sensor.quiet_hours', 'on') }}"
+          # whenever the phone's GPS is unknown and BLE can't see it (it was
+          # wrong while JP stood in the kitchen, 2026-08-03). The radar-backed
+          # fused occupancy sensors are the truthful signal, plus the phone as
+          # a backstop for rooms without a radar.
+          away: >-
+            {{ not (is_state('binary_sensor.kitchen_occupancy', 'on')
+                    or is_state('binary_sensor.laundry_occupancy', 'on')
+                    or is_state('binary_sensor.bedroom_occupancy', 'on')
+                    or is_state('binary_sensor.lunas_room_occupancy', 'on')
+                    or is_state('binary_sensor.shed_occupancy', 'on')
+                    or is_state('binary_sensor.lunas_room_radar_presence', 'on')
+                    or is_state('binary_sensor.pumphouse_radar_presence', 'on')
+                    or is_state('device_tracker.jps_phone_bermuda', 'home')) }}
+          high: "{{ importance | default('normal') == 'high' }}"
+          icon: >-
+            {{ {'driveway': '🚗', 'laundry': '🧺', 'alert': '⚠️'}
+               .get(category | default('event'), '🔥') }}
+          stamp: "{{ now().strftime('%H:%M') }}"
+
+      # ---- 1. MIRROR: always, unconditionally -------------------------------
+      - action: notify.the_homefront
+        continue_on_error: true
+        data:
+          # NAMES, not IDs: HA's slack notify resolves a target by comparing it
+          # to channel["name"], so an ID is searched for as a literal name and
+          # never found ("Channel C0BM85QLJ0P not found"). It lists both public
+          # and private channels, so private is fine — it just needs the
+          # groups:read scope, granted 2026-08-03.
+          target: ["#ember"]
+          message: >-
+            {{ icon }} `{{ stamp }}` {{ message }}
+            {{- ' _(quiet hours — not spoken)_' if quiet else '' }}
+            {{- ' _(nobody home)_' if away and not quiet else '' }}
+
+      # ---- 1b. DRIVEWAY-ONLY FEED ------------------------------------------
+      # #driveway carries nothing but arrivals — no laundry, no alerts, no
+      # house chatter. Useful as a phone-notification channel you can leave
+      # unmuted precisely because it only ever says "something came up the
+      # drive". Same event still lands in #ember (the full mirror).
+      - if:
+          - condition: template
+            value_template: "{{ category | default('') == 'driveway' }}"
+        then:
+          - action: notify.the_homefront
+            continue_on_error: true
+            data:
+              target: ["#driveway"]
+              message: >-
+                {{ icon }} `{{ stamp }}` {{ message }}
+                {{- ' _(quiet hours — not spoken aloud)_' if quiet else '' }}
+
+      # ---- 2. SPEAK: only outside quiet hours -------------------------------
+      - if:
+          - condition: template
+            value_template: "{{ not quiet }}"
+        then:
+          - action: script.ember_announce_if_awake
+            continue_on_error: true
+            data:
+              message: "{{ message }}"
+
+      # ---- 3. ESCALATE to #yurt: only what you'd otherwise miss -------------
+      - if:
+          - condition: template
+            value_template: "{{ quiet or away or high }}"
+        then:
+          - action: notify.the_homefront
+            continue_on_error: true
+            data:
+              target: ["#yurt"]
+              message: >-
+                {{ icon }} *{{ message }}*
+                {% if quiet %}
+                _{{ stamp }} — quiet hours, not announced aloud._
+                {% elif away %}
+                _{{ stamp }} — nobody home to hear it._
+                {% else %}
+                _{{ stamp }}_
+                {% endif %}
+
+      # ---- 4. SNAPSHOT (best effort, separate call) -------------------------
+      # Deliberately a SEPARATE notify call, after the text has already landed.
+      # Attaching a file makes HA use Slack's upload path, which needs scopes
+      # this bot token lacks (files:write + groups:read — it validates even a
+      # raw channel ID through conversations.list). When a file is attached and
+      # the call fails, the ENTIRE message is lost — so text is never risked on
+      # it. Flip input_boolean.ember_slack_images on once the Slack app has the
+      # scopes; until then this branch is skipped and only text posts.
+      #
+      # The picture goes to #driveway, NOT #ember (JP, 2026-08-03). #driveway is
+      # the channel you actually leave unmuted on your phone, and a car photo is
+      # exactly what you want to see there without opening the app. #ember stays
+      # the text mirror — a snapshot in both channels is the same picture twice.
+      # A non-driveway snapshot still falls back to #ember so no image is lost
+      # to a channel that only carries arrivals.
+      - if:
+          - condition: state
+            entity_id: input_boolean.ember_slack_images
+            state: "on"
+          - condition: template
+            value_template: "{{ image_url | default('', true) != '' }}"
+        then:
+          - action: notify.the_homefront
+            continue_on_error: true
+            data:
+              target: >-
+                {{ ['#driveway'] if category | default('') == 'driveway'
+                   else ['#ember'] }}
+              message: "{{ icon }} snapshot"
+              data:
+                file:
+                  url: "{{ image_url }}"

@@ -15,6 +15,36 @@
 #
 # Rather than rely on every future automation remembering that, call this
 # script instead of the raw service. `preannounce: false` is not optional here.
+#
+# WHERE THIS SITS IN THE CHAIN. Automations do NOT call this directly any more —
+# they call `script.ember_broadcast` (packages/ember_slack.yaml), which decides
+# whether the event is spoken or routed to Slack during quiet hours, and only
+# then lands here. So this script is the *terminal speaker*, and it is the right
+# place for "which box makes the sound" and the wrong place for "should this be
+# spoken at all".
+#
+#   ember_driveway_watch / ember_laundry_herald
+#        -> script.ember_broadcast   (quiet hours? -> Slack)
+#             -> script.ember_announce[_if_awake]   (this file)
+#                  -> assist_satellite.announce
+#
+# THERE ARE TWO EMBERS NOW (2026-08-03, issue #44)
+#
+#   assist_satellite.ember_satellite_assist_satellite   the desk unit
+#   assist_satellite.ember_mobile_assist_satellite      the 18650 / portable unit
+#
+# The `satellite` field DEFAULTS TO THE DESK UNIT, and that default is
+# load-bearing: every existing caller passes `message` only, and they must keep
+# behaving exactly as they did when there was one Ember. A default of "both"
+# would have turned every existing automation into a two-room announcement
+# without anyone asking for it.
+#
+# ⚠️ Announcing to the MOBILE unit is not equivalent to announcing to the desk
+# unit, for a reason no amount of config can fix: it is portable, so it may be
+# in another room, in a drawer, or flat. `assist_satellite.announce` to an
+# unavailable satellite fails the action rather than queueing it — so anything
+# that MUST be heard should target the desk unit (the default) or use
+# ember_announce_all, never the mobile unit alone.
 
 script:
   ember_announce:
@@ -29,15 +59,71 @@ script:
         selector:
           text:
             multiline: true
+      satellite:
+        name: Satellite
+        description: >
+          Which Ember speaks. Defaults to the desk unit, which is what every
+          pre-existing caller expects — omit it unless you specifically mean
+          the portable one.
+        required: false
+        selector:
+          entity:
+            domain: assist_satellite
     sequence:
       - action: assist_satellite.announce
         target:
-          entity_id: assist_satellite.ember_satellite_assist_satellite
+          entity_id: >
+            {{ satellite | default('assist_satellite.ember_satellite_assist_satellite', true) }}
         data:
           message: "{{ message }}"
           # >>> Do not remove. Without it HA prepends its own generic chime and
           #     JP hears two heralds. See the header. <<<
           preannounce: false
+
+  # Both hearths at once. Deliberately NOT the default for ember_announce — see
+  # the header.
+  #
+  # ⚠️ `parallel:` IS LOAD-BEARING, AND THE SEQUENTIAL VERSION WAS A REAL BUG
+  # (found and fixed during the mobile unit's bring-up, 2026-08-03). Written as
+  # two ordered steps with `continue_on_error: true`, this script hung: the desk
+  # unit went to `responding` and never reported completion,
+  # `assist_satellite.announce` blocks until it does, and step 2 therefore never
+  # ran. The mobile unit was healthy the whole time and simply never got asked.
+  #
+  # The lesson is that `continue_on_error` catches an ERROR, not a HANG — a call
+  # that never returns is not an error, and no amount of error handling reaches
+  # it. Two satellites are not two steps; they are two independent deliveries,
+  # and the config has to say so. Under `parallel:` one wedged satellite costs
+  # its own branch and nothing else.
+  #
+  # Do not "tidy" this back into a sequence. It looks equivalent and is not.
+  ember_announce_all:
+    alias: Ember - announce on every hearth
+    mode: queued
+    max: 10
+    fields:
+      message:
+        name: Message
+        required: true
+        selector:
+          text:
+            multiline: true
+    sequence:
+      - parallel:
+          - action: assist_satellite.announce
+            continue_on_error: true
+            target:
+              entity_id: assist_satellite.ember_satellite_assist_satellite
+            data:
+              message: "{{ message }}"
+              preannounce: false
+          - action: assist_satellite.announce
+            continue_on_error: true
+            target:
+              entity_id: assist_satellite.ember_mobile_assist_satellite
+            data:
+              message: "{{ message }}"
+              preannounce: false
 
   # Same thing, but refuses when the local model can't answer — for
   # announcements whose whole point is that Ember is available. Uses the
@@ -53,6 +139,15 @@ script:
         selector:
           text:
             multiline: true
+      satellite:
+        name: Satellite
+        description: >
+          Passed straight through to script.ember_announce; defaults to the desk
+          unit there. Present so the awake-guard and the target choice compose.
+        required: false
+        selector:
+          entity:
+            domain: assist_satellite
     sequence:
       - if:
           - condition: state
@@ -62,13 +157,29 @@ script:
           - action: script.ember_announce
             data:
               message: "{{ message }}"
+              satellite: "{{ satellite | default('', true) }}"
         else:
+          # Backend asleep: wake it and retry once (packages/ember_wake_backend.yaml).
+          # Added 2026-08-03 — this used to just skip, so a sleeping `familiar`
+          # made the whole pipeline look broken until a human hit Wake familiar.
+          - action: script.ember_wake_backend
+            continue_on_error: true
+          - if:
+              - condition: state
+                entity_id: binary_sensor.ember_reachable
+                state: "on"
+            then:
+              - action: script.ember_announce
+                data:
+                  message: "{{ message }}"
+                  satellite: "{{ satellite | default('', true) }}"
+              - stop: "spoke after waking the backend"
           - action: system_log.write
             data:
               level: warning
               logger: ember_announce
               message: >
-                Skipped announcement, Ember unreachable
+                Skipped announcement, Ember unreachable even after WoL
                 ({{ state_attr('binary_sensor.ember_reachable', 'detail') }}):
                 {{ message }}
 

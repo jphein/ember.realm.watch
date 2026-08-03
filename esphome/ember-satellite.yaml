@@ -92,11 +92,26 @@ substitutions:
   # is the I2S one below, which is a bench-observable audio bug, not a data question —
   # and it is observed in the first ten seconds of a flash that JP is present for.
   #
-  # ⚠️ NEVER FLASHED. The arbiter below is reasoned from the ESPHome sources and gated
-  # by a clean compile; it has not been heard. If after flashing Ember goes silent —
-  # no chimes, no replies, and the log repeats "Parent bus is busy" or "Driver failed
-  # to start; retrying in 1 second" — the arbiter is not yielding the bus. Set this
-  # back to 0 and reflash; that restores today's behaviour exactly.
+  # ✅ FLASHED AND HEARD. This block read "⚠️ NEVER FLASHED" until 2026-08-03; JP
+  # confirmed "Okay Nabu" works on the desk unit, and the same mode came up clean on
+  # ember-mobile's first flash (wake word -> STREAMING_MICROPHONE -> STT, no bus
+  # errors in the log). The I2S arbiter below yields the bus correctly. The risk the
+  # old banner described was real when written and is now retired by observation.
+  #
+  # Kept as the rollback recipe, because the failure mode is still worth recognising:
+  # if a board ever goes silent — no chimes, no replies, and the log repeats "Parent
+  # bus is busy" or "Driver failed to start; retrying in 1 second" — the arbiter is
+  # not yielding. Set this back to 0 and reflash; that restores touch-only exactly.
+  #
+  # ⚠️ WHAT A FRESH FLASH *DOES* DO, and it looks like a fault: a board that is on
+  # WiFi but NOT YET ADOPTED IN HOME ASSISTANT sits in a ~1 Hz loop —
+  #   micro_wake_word: Stopping / Starting
+  #   [E][voice_assistant]: No API client connected
+  #   [W]: sound_level.sensor ... Microphone isn't running
+  # because the re-arm triggers fire on voice_assistant *ending* and a failed start
+  # counts as an end. Nothing is wrong with the board or the bus. It stops the
+  # instant HA adopts the device. Observed on ember-mobile's bring-up 2026-08-03 —
+  # do not go hunting the arbiter for it.
   #
   # MODE 1 vs MODE 2, honestly:
   #

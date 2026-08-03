@@ -9,12 +9,54 @@
 #
 # SOURCE: Frigate on ubox0 publishes to the HA broker (frigate/events).
 # type=new fires once per tracked object, so each arriving vehicle heralds
-# once. The 3-minute tail delay below absorbs the same vehicle being lost
-# and re-acquired by the tracker (new event id, same physical car) without
-# suppressing a genuinely separate second arrival for long.
+# once. The tail delay (configurable, default 3 min) absorbs the same vehicle
+# being lost and re-acquired by the tracker (new event id, same physical car)
+# without suppressing a genuinely separate second arrival for long.
 #
-# QUIET HOURS: same 22:30-07:30 window as everything else that makes noise.
+# CAMERAS: driveway only by default. The shed cam was briefly included and
+# produced 26 events in one morning off ONE parked car — it watches a parking
+# area, so it is a presence sensor ("is my car there?", see the Parked Cars
+# section of the dashboard), not an arrival sensor. Toggle it on if you want it.
+#
+# QUIET HOURS: the shared house window (packages/house_config.yaml), applied
+# by script.ember_broadcast — which routes quiet-hours events to Slack instead
+# of speaking them, so nothing is silently dropped.
 # A midnight arrival stays unheralded — Frigate still records it.
+
+# ---------------------------------------------------------------------------
+# All of it configurable from the Driveway Watch dashboard (2026-08-03).
+# Per-CAMERA toggles are named ember_herald_<frigate camera name>, so adding a
+# camera means adding one toggle — the condition below builds the entity id.
+# ---------------------------------------------------------------------------
+input_boolean:
+  ember_herald_driveway:
+    name: "Herald: driveway camera"
+    icon: mdi:car-arrow-right
+  ember_herald_shed:
+    name: "Herald: shed camera"
+    icon: mdi:home-variant-outline
+  ember_herald_car:
+    name: "Herald: car camera"
+    icon: mdi:cctv
+  ember_herald_vehicles:
+    name: "Herald: vehicles (car/truck/moto/bike)"
+    icon: mdi:car-multiple
+  ember_herald_people:
+    name: "Herald: people"
+    icon: mdi:walk
+  ember_herald_animals:
+    name: "Herald: animals"
+    icon: mdi:paw
+
+input_number:
+  ember_herald_cooldown:
+    name: "Herald: cooldown between announcements"
+    icon: mdi:timer-outline
+    min: 0
+    max: 30
+    step: 1
+    unit_of_measurement: min
+    mode: box
 
 automation:
   - id: ember_driveway_watch
@@ -31,14 +73,25 @@ automation:
     condition:
       - condition: template
         value_template: >-
+          {% set cam = trigger.payload_json.after.camera %}
+          {% set lbl = trigger.payload_json.after.label %}
+          {% set vehicles = ['car', 'truck', 'motorcycle', 'bicycle'] %}
+          {% set animals  = ['dog', 'cat', 'bear', 'horse', 'sheep', 'cow'] %}
           {{ trigger.payload_json.type == 'new'
-             and trigger.payload_json.after.camera in ['driveway', 'shed']
-             and trigger.payload_json.after.label in ['car', 'truck', 'motorcycle', 'bicycle',
-                                                       'person', 'dog', 'cat', 'bear', 'horse',
-                                                       'sheep', 'cow'] }}
-      - condition: time
-        after: "07:30:00"
-        before: "22:30:00"
+             and is_state('input_boolean.ember_herald_' ~ cam, 'on')
+             and ( (lbl in vehicles and is_state('input_boolean.ember_herald_vehicles', 'on'))
+                or (lbl == 'person' and is_state('input_boolean.ember_herald_people', 'on'))
+                or (lbl in animals  and is_state('input_boolean.ember_herald_animals', 'on')) ) }}
+      # Skip STATIONARY objects: a parked car that Frigate loses and
+      # re-acquires fires a fresh 'new' event (26 of them one morning on the
+      # shed cam = one parked car flickering). Only moving objects are
+      # arrivals. This is what makes shed announcements survivable while
+      # sensor.shed_car_count still reports the parked cars.
+      - condition: template
+        value_template: "{{ not trigger.payload_json.after.stationary | default(false) }}"
+      # NOTE: the quiet-hours check moved into script.ember_broadcast, which
+      # routes 22:30-07:30 events to Slack instead of aborting them (a 3am
+      # visitor used to leave no trace anywhere). See ember_slack.yaml.
     variables:
       label: "{{ trigger.payload_json.after.label }}"
       place: >-
@@ -61,12 +114,24 @@ automation:
         - "A bear is on the driveway. I am a dragon, so I am not worried. You might be."
         - "Bear on the drive. I suggest admiring it from indoors."
     action:
-      - action: script.ember_announce_if_awake
+      - action: script.ember_broadcast
         data:
+          category: driveway
+          # Frigate event snapshot, fetched by HA on the LAN. `snapshot.jpg`
+          # is the annotated frame (bounding box), which is what makes the
+          # Slack post actually useful — you can see WHAT it saw.
+          image_url: >-
+            http://10.0.6.11:5000/api/events/{{ trigger.payload_json.after.id }}/snapshot.jpg?bbox=1
+          # bears and after-dark people reach #yurt even at home in daylight
+          importance: >-
+            {{ 'high' if label == 'bear'
+                 or (label == 'person' and is_state('sun.sun','below_horizon'))
+               else 'normal' }}
           message: >-
             {{ (bear_lines if label == 'bear'
                 else animal_lines if label in ['dog', 'cat', 'horse', 'sheep', 'cow']
                 else person_lines if label == 'person'
                 else vehicle_lines) | random }}
       # Absorb tracker flap on the same physical vehicle; see header.
-      - delay: "00:03:00"
+      - delay:
+          minutes: "{{ states('input_number.ember_herald_cooldown') | int(3) }}"

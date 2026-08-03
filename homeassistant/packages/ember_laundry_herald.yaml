@@ -81,6 +81,7 @@ automation:
           line: >-
             {{ composed if composed not in ['', 'unknown', 'unavailable']
                else fallback_lines[appliance] | random }}
-      - action: script.ember_announce_if_awake
+      - action: script.ember_broadcast
         data:
+          category: laundry
           message: "{{ line }}"

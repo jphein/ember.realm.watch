@@ -2313,3 +2313,55 @@ it correct. It is that **a derived value needs its result printed.** A number th
 own must announce where it landed, or the next person to move an opening will move the window too
 and not know. Cheap fix, and the inverse of §30's: there the artifact existed before it was
 checked; here the value is checked but never *reported*.
+
+### 32. A stale warning is worse than no warning, because it supplies the wrong diagnosis for free
+
+Found bringing up the second board, 2026-08-03 (#44).
+
+`ember-satellite.yaml` carried, on the `wake_word_mode` block, a banner reading **"⚠️ NEVER
+FLASHED"**, followed by a precise and genuinely useful failure recipe: *if Ember goes silent — no
+chimes, no replies, and the log repeats "Parent bus is busy" or "Driver failed to start" — the
+arbiter is not yielding the bus. Set this back to 0 and reflash.* All of it was true when written.
+By the time the second board existed, the first clause was false: JP had flashed mode 1 and "Okay
+Nabu" had been working for days. Nothing updated the file, because **nothing fails when a warning
+goes stale.** Every check still passed. The compile was clean. The banner is a comment.
+
+Then the fresh flash produced this, at about 1 Hz, forever:
+
+```
+micro_wake_word: Stopping wake word detection
+[E][voice_assistant]: No API client connected
+[W]: sound_level.sensor ... Microphone isn't running, can't compute statistics
+micro_wake_word: Starting wake word detection
+```
+
+A wake-word component cycling, and the microphone repeatedly reported as not running. Read that
+against the banner and the conclusion is already made for you: *the shared I2S bus is being fought
+over, the arbiter is not yielding, set mode back to 0.* That "fix" would have worked — the loop does
+stop at mode 0 — and it would have been **entirely wrong**, disabling a feature that was functioning
+in order to treat a symptom it wasn't causing. The actual cause is in the third line of the log and
+has nothing to do with audio: the board was on WiFi but **not yet adopted in Home Assistant**, and
+the re-arm triggers fire on `voice_assistant` *ending*, which a failed start satisfies. Arm, fail,
+re-arm. It cleared the instant HA adopted the device, with no firmware change at all.
+
+The two are a near-perfect trap for one another: the banner's symptom list is *silence plus repeated
+audio-driver complaints*, and a fresh unadopted flash produces silence plus repeated audio-driver
+complaints. The overlap is real, the causes are unrelated, and the wrong one was written down and
+sitting in the file with a ⚠️ on it.
+
+Two lessons, and the second is the one this file keeps relearning:
+
+- **A warning must state what would retire it.** "NEVER FLASHED" is a claim about history with no
+  expiry condition attached, so no observation could ever discharge it — only a person remembering.
+  The banner now says what was observed, when, and on which board, and keeps the recipe explicitly
+  demoted to *"if this ever happens"* rather than *"this is what is happening."*
+- **A confident wrong diagnosis costs more than an unknown one.** Faced with a bare log and no
+  banner, the reading order is bottom-up from the error — and `No API client connected` is not
+  subtle. The banner's real damage was not being wrong; it was being *specific and adjacent*, which
+  bought it credibility it had stopped earning. Sections §12 and §17 are the same animal: guidance
+  that reads as authoritative about a case it was never tested against.
+
+The generalisation for this repo, which comments heavily on purpose and gains a lot from it: **the
+cost of a comment is not zero at the moment it goes stale, it is paid later and by someone else.**
+A file whose comments are its docs needs the ⚠️ ones dated and grounded in an observation, because
+those are exactly the ones a future reader will act on without re-deriving.
