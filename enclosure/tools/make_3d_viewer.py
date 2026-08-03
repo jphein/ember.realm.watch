@@ -80,7 +80,10 @@ PARTS.forEach((p,i)=>{
   if(!groups[p.tab]){const g=new THREE.Group();groups[p.tab]=g;scene.add(g);offs[p.tab]=0;}
   const buf=Uint8Array.from(atob(p.b64),c=>c.charCodeAt(0)).buffer;
   const g=loader.parse(buf);g.computeVertexNormals();g.computeBoundingBox();
-  const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:colors[i%4],metalness:.05,roughness:.65}));
+  // DoubleSide: walls stay opaque from inside too. Single-sided culling made interior
+  // views into a glass box — the far flank's labels showed through a vanished near wall,
+  // MIRRORED, and twice read as "the labels are backwards". The part was always correct.
+  const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:colors[i%4],metalness:.05,roughness:.65,side:THREE.DoubleSide}));
   if(p.tab==='print'){const w=g.boundingBox.max.x-g.boundingBox.min.x;
     m.position.x=offs.print-g.boundingBox.min.x; offs.print+=w+14;}
   groups[p.tab].add(m);
