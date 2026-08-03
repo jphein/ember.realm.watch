@@ -191,11 +191,16 @@
             gatekeeper. Leave out for an overview.
   function:
     # Reads Home Assistant's own connectivity sensors — real ICMP probes it
-    # already runs. Deliberately NOT realmwatch: measured 2026-08-02, its
-    # /status `wol` map called serialhub and nodered "dark" while both answered
-    # ping, and its /topology still lists familiar at serialhub's address. Two
-    # instruments that would have had Ember state a falsehood with confidence.
-    # An unwatched host is reported as unwatched, never guessed.
+    # already runs. An unwatched host is reported as unwatched, never guessed.
+    #
+    # This originally avoided realmwatch because realmwatch was lying: its /status
+    # `wol` map called 16 of 70 hosts "dark" while they answered ping, and its
+    # /topology listed familiar at serialhub's address. Both were fixed upstream on
+    # 2026-08-02 (realmwatch#122) and the wol lane now measures 0 of 70 wrong, so
+    # `realm_query` is wired to it. This tool still stays on HA's own probes on
+    # purpose: it is a second, independent opinion, and the cheapest way to catch
+    # the next instrument that starts lying is to not have both answers come from
+    # the same place.
     type: template
     value_template: >-
       {%- set want = (host | default('', true)) | lower | trim | replace(' ', '_') | replace('.lan', '') -%}
@@ -415,3 +420,121 @@
             {%- if today %}; today_high={{ today.temperature | default('?', true) }}F; today_low={{ today.templow | default('?', true) }}F; today_condition={{ (today.condition | default('?', true)) | replace('-', ' ') }}; rain_mm={{ today.precipitation | default(0, true) }}
             {%- else %}; forecast_unavailable=true
             {%- endif -%}
+
+- spec:
+    name: realm_query
+    description: >-
+      Realmwatch, the fantasy map of JP's homelab: which machines are awake, what
+      has been happening on the network, the open quests, and the in-world persona
+      of a given machine. Use for "how's the realm", "what happened overnight",
+      "any open quests", "tell me about the gatekeeper". This is the realm's own
+      lore and game layer; for a plain up/down answer about one machine, realm_status
+      is faster and independent.
+    parameters:
+      type: object
+      properties:
+        topic:
+          type: string
+          description: >-
+            Which view to fetch. overview = realm scale, threats and quest counts.
+            power = which machines are awake, dark or unmeasured. events = what
+            recently happened. quests = the open quests. node = plain facts about
+            one machine. persona = a machine's in-world name and title.
+          enum: [overview, power, events, quests, node, persona]
+        name:
+          type: string
+          description: >-
+            Machine name, for topic=node or topic=persona. For example gatekeeper,
+            katana, familiar, serialhub.
+        limit:
+          type: integer
+          description: How many events or quests to return. Default 10, max 25.
+      required: [topic]
+  function:
+    # `katana.lan`, not `katana`. Measured 2026-08-02 from the HA VM: the bare name
+    # does not resolve there (HAOS ships no LAN search domain) while the FQDN answers
+    # in 14ms. Not an IP either — realmwatch moved hosts once already and a literal
+    # would rot the same way its own topology did.
+    #
+    # Realmwatch's :80 is unauthenticated on the LAN, so this tool carries no
+    # credential — which is the only reason it can be a `rest` tool at all. This
+    # list is parsed with plain `yaml.safe_load` and cannot hold a `!secret`.
+    #
+    # Every endpoint below was curl'd and compared against ground truth before being
+    # wired up (see the realm-watch skill for the audit). Deliberately NOT used:
+    # `/player`, which disagrees with `/api/hud` about the player's own level (11 vs
+    # 13) because it reads the pre-absorption realm.db rather than the game.db the
+    # RPG layer actually owns. Two endpoints, one question, two answers — so this
+    # tool asks only the one that owns the data.
+    type: rest
+    timeout: 8
+    resource_template: >-
+      {%- set n = (name | default('', true)) | lower | trim | replace(' ', '-') | replace('.lan', '') -%}
+      {%- set lim = [(limit | default(10, true)) | int, 25] | min -%}
+      {%- if topic == 'overview' -%}http://katana.lan:80/api/hud
+      {%- elif topic == 'power' -%}http://katana.lan:80/plugins/wol/status
+      {%- elif topic == 'events' -%}http://katana.lan:80/events?limit={{ lim }}
+      {%- elif topic == 'quests' -%}http://katana.lan:80/quests
+      {%- elif topic == 'persona' -%}http://katana.lan:80/personas
+      {%- else -%}http://katana.lan:80/topology
+      {%- endif -%}
+    value_template: >-
+      {%- set n = (name | default('', true)) | lower | trim | replace(' ', '-') | replace('.lan', '') -%}
+      {%- set lim = [(limit | default(10, true)) | int, 25] | min -%}
+      {%- if topic == 'overview' -%}
+      {%-   set p = value_json.player | default({}, true) -%}
+      {%-   set q = value_json.quest | default({}, true) -%}
+      {%-   set t = value_json.threats | default({}, true) -%}
+      {%-   set r = value_json.realm | default({}, true) -%}
+      entities={{ r.entities | default(0, true) }}; events_last_24h={{ r.events_24h | default(0, true) }};
+      quests_active={{ r.quests_active | default(0, true) }}; threats={{ t.count | default(0, true) }}
+      {%- if (t.count | default(0, true)) | int > 0 %}; worst_threat_severity={{ t.max_severity | default(0, true) }}{% endif -%}
+      {%- if p %}; watcher={{ p.name | default('the Watcher', true) }}; watcher_level={{ p.level | default('?', true) }}{% endif -%}
+      {%- if q %}; current_quest={{ q.title | default('none', true) }}{% endif -%}
+      {%- elif topic == 'power' -%}
+      {%-   set hosts = value_json.hosts | default([], true) -%}
+      {%-   set awake = hosts | selectattr('state', 'equalto', 'awake') | list -%}
+      {%-   set dark = hosts | selectattr('state', 'equalto', 'dark') | list -%}
+      {%-   set unknown = hosts | selectattr('state', 'equalto', 'unknown') | list -%}
+      {%-   set sleeping = hosts | selectattr('state', 'equalto', 'slumbering') | list -%}
+      awake={{ awake | count }}; dark={{ dark | count }}; unmeasured={{ unknown | count }}
+      {%- if sleeping %}; slumbering={{ sleeping | map(attribute='host') | join(', ') }}{% endif -%}
+      {%- if dark %}; dark_hosts={{ dark | map(attribute='host') | join(', ') }}{% endif %};
+      note=unmeasured means never successfully probed, not down — do not report those as down.
+      {%- elif topic == 'events' -%}
+      {%-   set evs = (value_json | default([], true))[:lim] -%}
+      {%-   if evs -%}
+      events={{ evs | count }};
+      {%      for e in evs %}[{{ e.type | default('event', true) }}] {{ e.node | default('realm', true) }}: {{ (e.text | default('', true)) | regex_replace('[^\x00-\x7F]+', '') | trim | truncate(150, true, '') }}
+      {%      endfor -%}
+      {%-   else -%}
+      events=0; nothing has been recorded.
+      {%-   endif -%}
+      {%- elif topic == 'quests' -%}
+      {%-   set active = (value_json | default([], true)) | selectattr('status', 'equalto', 'active') | list -%}
+      {%-   set shown = active[:lim] -%}
+      quests_active={{ active | count }}; showing={{ shown | count }};
+      {%    for q in shown %}- {{ (q.title | default('untitled', true)) | regex_replace('[^\x00-\x7F]+', '') | trim }}{% if q.description %}: {{ (q.description) | regex_replace('[^\x00-\x7F]+', '') | trim | truncate(120, true, '') }}{% endif %}
+      {%    endfor -%}
+      {%-   if not active %}no open quests.{% endif -%}
+      {%- elif topic == 'persona' -%}
+      {%-   set pj = value_json | default({}, true) -%}
+      {%-   if n and n in pj -%}
+      {%-     set p = pj[n] -%}
+      node={{ n }}; persona_name={{ p.name | default(n, true) }}; title={{ p.title | default('untitled', true) }}
+      {%- if p.hints %}; flavour={{ (p.hints | string) | replace('[', '') | replace(']', '') | replace("'", '') | trim }}{% endif -%}
+      {%-   else -%}
+      node={{ n | default('(none given)', true) }}; no_persona=true; this machine has no in-world persona — describe it plainly.
+      {%-   endif -%}
+      {%- else -%}
+      {%-   set nodes = (value_json.nodes | default([], true)) | selectattr('id', 'equalto', n) | list -%}
+      {%-   if nodes -%}
+      {%-     set d = nodes[0] -%}
+      node={{ d.id }}; kind={{ d.type | default('unknown', true) }}; realm={{ d.realm | default('unknown', true) }}
+      {%- if d.ip %}; address={{ d.ip }}{% endif -%}
+      {%- if d.os_pretty %}; os={{ d.os_pretty }}{% elif d.os %}; os={{ d.os }}{% endif -%}
+      {%- if d.sublabel %}; note={{ d.sublabel }}{% endif -%}
+      {%-   else -%}
+      node={{ n | default('(none given)', true) }}; not_on_the_map=true; realmwatch has no node by that name.
+      {%-   endif -%}
+      {%- endif -%}
