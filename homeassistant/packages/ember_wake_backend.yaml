@@ -1,0 +1,97 @@
+# Ember wakes her own backend.
+#
+# THE PROBLEM (2026-08-03): the LLM that composes Ember's lines runs on
+# `familiar`, which sleeps to save power. When it is asleep,
+# binary_sensor.ember_reachable goes off and script.ember_announce_if_awake
+# deliberately SKIPS the announcement — correct behaviour, but the pipeline
+# looks "broken" and stays broken until a human presses Wake familiar.
+#
+# THREE LAYERS, because a cold boot takes ~30-60s and that is far too slow to
+# rescue a request already in flight:
+#
+#   1. PROACTIVE  — someone is in the hearth room (kitchen) during waking
+#                   hours => wake familiar now, so it is ready BEFORE anyone
+#                   speaks. This is the layer that actually prevents the
+#                   failure; the other two are safety nets.
+#   2. ON-DEMAND  — the voice satellite starts listening => fire WoL. Too late
+#                   for THIS utterance if it was fully asleep, but it recovers
+#                   in seconds if it was only idle, and the follow-up works.
+#   3. REACTIVE   — an announcement finds the backend down => wake it, wait a
+#                   bounded 75s, then speak. Fine for laundry-done; the
+#                   driveway herald does not use this path (latency beats
+#                   poetry there — it speaks from canned lines and never
+#                   needed the LLM).
+#
+# WoL only works because familiar's NIC has it enabled; the MAC lives in
+# packages/wake_on_lan.yaml (script.wake_familiar).
+script:
+  ember_wake_backend:
+    alias: "Ember - wake the backend (familiar)"
+    icon: mdi:server-network
+    mode: single          # never stack magic packets
+    max_exceeded: silent
+    sequence:
+      - if:
+          - condition: state
+            entity_id: binary_sensor.ember_backend
+            state: "on"
+        then:
+          - stop: "backend already serving"
+      - action: script.wake_familiar
+        continue_on_error: true
+      - action: system_log.write
+        data:
+          level: info
+          logger: ember_wake
+          message: "Ember backend was down — sent WoL to familiar"
+      # bounded wait: succeed as soon as it serves, give up at 75s rather than
+      # holding a queued script slot forever
+      - wait_template: "{{ is_state('binary_sensor.ember_backend', 'on') }}"
+        timeout: "00:01:15"
+        continue_on_timeout: true
+
+automation:
+  - id: ember_wake_backend_proactive
+    alias: "Ember: wake backend when someone's in the hearth room"
+    description: >-
+      The hearth satellite lives in the kitchen. If someone is in there during
+      waking hours, Ember will probably be asked something — wake the backend
+      now so the first request doesn't fail. mode:single + the script's own
+      already-serving guard keep this cheap.
+    mode: single
+    max_exceeded: silent
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.kitchen_occupancy
+        to: "on"
+    condition:
+      - condition: state
+        entity_id: binary_sensor.quiet_hours
+        state: "off"
+      - condition: state
+        entity_id: binary_sensor.ember_backend
+        state: "off"
+    action:
+      - action: script.ember_wake_backend
+      # don't re-fire on every presence flicker
+      - delay: "00:10:00"
+
+  - id: ember_wake_backend_on_listen
+    alias: "Ember: wake backend when the satellite starts listening"
+    description: >-
+      Belt-and-braces: the wake word fired. Too late for a cold boot to rescue
+      this utterance, but it recovers a merely-idle host quickly and makes the
+      follow-up question work.
+    mode: single
+    max_exceeded: silent
+    trigger:
+      - platform: state
+        entity_id: assist_satellite.ember_satellite_assist_satellite
+        to: "listening"
+    condition:
+      - condition: state
+        entity_id: binary_sensor.ember_backend
+        state: "off"
+    action:
+      - action: script.ember_wake_backend
+      - delay: "00:05:00"

@@ -47,7 +47,13 @@ PKG_DIR="${PKG_DIR:-/homeassistant/packages}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_DIR="$(dirname "$SCRIPT_DIR")/packages"
 
-PACKAGES=(ember_backend_health ember_persona ember_announce ember_laundry_herald ember_driveway_watch ember_toolkit ember_print_context)
+# ⚠️ THIS LIST IS THE DRIFT MECHANISM. A package that is not named here is not
+# deployed, not compared, and not reported by --dry-run — so it can be edited on
+# the VM and never come back to the repo, and nothing complains. That is exactly
+# what happened to ember_slack and ember_wake_backend, which lived only on the VM
+# from 2026-08-03 until the second board's bring-up went looking for them.
+# ADD NEW PACKAGES HERE IN THE SAME COMMIT THAT CREATES THEM.
+PACKAGES=(ember_backend_health ember_persona ember_announce ember_laundry_herald ember_driveway_watch ember_toolkit ember_print_context ember_slack ember_wake_backend)
 
 # Which reload service each package needs. A package that declares several
 # domains needs each of them reloaded.
@@ -62,6 +68,10 @@ declare -A RELOADS=(
   # Spyglass). Both reload live; neither needs a restart.
   [ember_toolkit]="rest rest_command"
   [ember_print_context]="automation"
+  # ember_slack owns script.ember_broadcast — the hook point every herald now
+  # calls, which decides spoken-vs-Slack before ember_announce ever runs.
+  [ember_slack]="script"
+  [ember_wake_backend]="script automation"
 )
 
 DRY=0; CHECK_ONLY=0; ONLY=""
