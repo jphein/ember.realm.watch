@@ -46,9 +46,9 @@ Your workspace is at: {{extended_openai.working_directory()}}
 ## Devices
 Available Devices:
 ```csv
-entity_id,name,area_id
+entity_id,name,area_id,aliases
 {% for entity in extended_openai.exposed_entities() -%}
-{{ entity.entity_id }},{{ entity.name }},{{area_id(entity.entity_id)}}
+{{ entity.entity_id }},{{ entity.name }},{{area_id(entity.entity_id)}},{{entity.aliases | join('/')}}
 {% endfor -%}
 ```
 

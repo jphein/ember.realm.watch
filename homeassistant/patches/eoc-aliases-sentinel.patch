@@ -1,5 +1,5 @@
-# STAGED — NOT APPLIED. Needs a Home Assistant restart, so it waits for a natural window.
-#
+# APPLIED 2026-08-02 (HA restart window granted by JP; live on the VM + committed on the
+# ember branch of jphein/extended_openai_conversation). Re-apply after any HACS update.
 # Target: /config/custom_components/extended_openai_conversation/helpers.py
 # on the HA VM (HACS integration, so a HACS update will revert this — re-apply after).
 # Verified against HA 2026.7.4 + the integration as installed 2026-07-31.
