@@ -470,10 +470,18 @@ HEX_FIELD_Y1 = 75.00
 # THE DIFFERENTIAL IS WHAT MATTERS AND IT IS PRESERVED EXACTLY. 0.90-0.50 and 0.80-0.40 are both
 # 0.40mm, so the "two independent discriminators in the dark — size and depth" property is
 # untouched; only the absolute depths moved, and both got shallower by the same amount.
-DEBOSS_BIG   = 4 * LAYER_H_SHELL   # 0.80  BOOT/volume, the one you reach for
-DEBOSS_SMALL = 2 * LAYER_H_SHELL   # 0.40  RESET, deliberately shyer under the finger
-CAP_INSET  = 1.00    # cap circumradius is R - this, leaving a shoulder inside the island
-                     # edge so the raised cap can never bridge the slot and weld shut.
+#
+# ⚠️ THE CAP FACE IS FLAT SINCE r11 — THESE NO LONGER CUT A FACE RECESS. The printed r10
+# killed it (JP, 2026-08-02: "don't indent the buttons. it doesn't work it's taoo far to
+# span"): face-down on the bed, the recess floor is a 13.3mm-wide bed-side bridge across the
+# big cap, and it sagged. The constants survive because they were always doing a second job:
+# each cap's LABEL cuts DEBOSS_* + LABEL_DEBOSS deep, so the big cap keeps its 1.20mm VOL —
+# "the deep deboss of the button lables is a good tactile hint" (same bench) — with no bridge
+# anywhere. The 0.40 depth differential between the caps now lives entirely in the labels.
+DEBOSS_BIG   = 4 * LAYER_H_SHELL   # 0.80  extra label depth, BOOT/volume — the one you reach for
+DEBOSS_SMALL = 2 * LAYER_H_SHELL   # 0.40  extra label depth, RESET, deliberately shyer
+CAP_INSET  = 1.00    # the label-safe zone is a hex of R - this. It was also the face-recess
+                     # inset; the labels' fit asserts still key on it, so it stays.
 # ⚠️ WAS 0.90, WHICH IS 5.625 LAYERS AT 0.16 AND 4.5 AT 0.20 — MID-LAYER AT BOTH. This is the
 # STRAIN-CRITICAL dimension: `strain = (t/2)*theta/L` is computed to three significant figures
 # throughout this file and asserted at <=2.0%, and t was whatever the slicer rounded 0.90 to. A
@@ -555,6 +563,11 @@ def rrect_y(cx, cz, w, h, r, y0, depth):
     """
     sk = RectangleRounded(w, h, r)
     return Pos(cx, y0, cz) * (Rot(-90,0,0) * extrude(sk, depth))
+
+def cyl_y(cx, cz, d, y0, depth):
+    """Cylinder along +Y — rrect_y's round sibling, same Rot(-90,0,0) mapping. Exists for
+    the braille dots: RectangleRounded rejects r == w/2, so a true circle needs its own."""
+    return Pos(cx, y0, cz) * (Rot(-90,0,0) * extrude(Circle(d/2), depth))
 
 
 def chamfer_outline(part, z, size, what):
@@ -930,7 +943,10 @@ def cap_center_x(cx):
     return CAP_CX_BOOT if cx == BTN_BOOT_X else CAP_CX_RESET
 
 def cap_geometry(cx):
-    """(cy, R, deboss_depth) for the cap at board x=cx. THE single derivation.
+    """(cy, R, extra_label_depth) for the cap at board x=cx. THE single derivation.
+
+    The third element cut a face recess until r11; the bench rejected that recess (bed-side
+    bridge, sagged) and it now only deepens the cap's label — see DEBOSS_BIG/DEBOSS_SMALL.
 
     Keyed on the coordinate rather than an index or a side, per the never-say-left-or-right
     rule above: the apparent side flips between three figures of this same part, so a caller
@@ -1573,10 +1589,11 @@ assert _uart_top <= LBL_SD_Y - _SD_W / 2 - LABEL_WORD_GAP + 1e-9, (
 # to the CONNECTORS, which is the confusion that actually matters.
 
 # CAP LABELS. The remaining cap thickness is the thing to watch, and it was worth a number
-# rather than a shrug: the big cap goes 1.70 -> 1.22mm under its label. As a cantilever plate
-# (b~13, L~7, E~3500MPa) a 2N press bows it 0.033mm, against 0.012mm before the label and a
-# ~0.25mm switch travel. So the label costs ~8% of travel in bow. Negligible — but it is
-# negligible because it was computed, not because 1.22 > 0.90 sounded comfortable.
+# rather than a shrug. Since r11 the cap face is FLAT (the r10 bench killed the face recess)
+# and the label alone spends DEBOSS_* + LABEL_DEBOSS: the big cap keeps 1.40mm under its VOL
+# ink and full 2.60 everywhere else — strictly stiffer than the r10 plate whose 1.22 already
+# bowed only 0.033mm under a 2N press (~8% of the 0.25mm switch travel). The assert below is
+# unchanged because the label FLOOR never moved; only the face around it rose.
 for _cx in BTN:
     _cy, _R, _deb = cap_geometry(_cx[0])
     _big = (_cx[0] == BTN_BOOT_X)
@@ -1590,6 +1607,90 @@ for _cx in BTN:
         _pw = 2 * (PWR_R + LABEL_W / 2)
         _slack = _hex_holds_circle(_pw, _R - CAP_INSET, LABEL_MARGIN,
                                    "power symbol on the small cap")
+
+# ---- USB-C PORT, CONFORMING (r11) ----
+#
+# JP, 2026-08-02: "can we make the bottom usb c opening conform a little better the the
+# acutaly usb c plug?" A USB-C shell is a STADIUM — full-radius ends on an 8.94 x 3.25 body
+# (USB_X/USB_Z, measured off the vendor STEP) — and the uniform offset of a stadium is a
+# stadium, so both cuts now derive from the receptacle's own numbers plus one clearance.
+# The old cuts were rectangles typed in whole-mm slop (14 x 6 bore, 19 x 8.6 relief): the
+# port read as a letterbox and told the plug nothing about where centre was.
+USBC_CLR = 0.80                           # bore clearance around the RECEPTACLE shell. The
+                                          # PLUG shell is smaller still (8.34 x 2.56 nominal),
+                                          # so the plug itself sees ~1.1/side: a snug guide
+                                          # that still accepts a blind stab in the dark.
+USBC_CX  = (USB_X[0] + USB_X[1]) / 2      # 25.000 — the receptacle's own axis, never retyped
+USBC_CZ  = (USB_Z[0] + USB_Z[1]) / 2      # -3.225
+USBC_W   = (USB_X[1] - USB_X[0]) + 2*USBC_CLR    # 10.54
+USBC_H   = (USB_Z[1] - USB_Z[0]) + 2*USBC_CLR    #  4.85; end radius H/2 makes a true stadium
+# The outside relief seats the moulded body, not the shell. TAIL_W's survey: no moulded
+# USB-C body is over 14mm across; heights run to ~6.5. ⚠️ 15.0 x 7.0 IS SIZED TO THAT
+# SURVEY, not measured off one cable — the same standing as CABLE_OD, and the same risk.
+USBC_OM_W, USBC_OM_H, USBC_OM_R = 15.0, 7.0, 2.5
+USBC_OM_DEPTH = 1.6                       # unchanged from the r10 relief
+assert USBC_OM_W >= USBC_W + 2*1.0 and USBC_OM_H >= USBC_H + 2*1.0, (
+    f"the overmould pocket ({USBC_OM_W} x {USBC_OM_H}) must contain the bore ({USBC_W:.2f} x "
+    f"{USBC_H:.2f}) with a >=1.0 ledge all round -- the ledge is what the moulded body seats on")
+assert 18.0 <= USBC_CX - USBC_W/2 and USBC_CX + USBC_W/2 <= 32.0 \
+   and -6.60 <= USBC_CZ - USBC_H/2 and USBC_CZ + USBC_H/2 <= -0.60, (
+    "the conforming bore has left the r10 bore's window (x 18..32, z -6.60..-0.60). That "
+    "window is air the bench has already seen; outside it, prove the wall is clear first")
+assert -8.20 <= USBC_CZ - USBC_OM_H/2 and USBC_CZ + USBC_OM_H/2 <= 0.40 \
+   and 15.5 <= USBC_CX - USBC_OM_W/2 and USBC_CX + USBC_OM_W/2 <= 34.5, (
+    "the conforming relief has left the r10 relief's window (x 15.5..34.5, z -8.20..0.40) "
+    "-- same rule as the bore: only cut where the old cut proved there was nothing to hit")
+
+# ---- BRAILLE (r11), for fun ----
+#
+# JP, holding the printed r10: "the deep deboss of the button lables is a good tactile hint
+# but you should add brail too for fun." One Grade-1 cell per button, the letter the INK
+# already uses (V for VOL, P for PWR — braille agrees with the print, not the schematic),
+# recessed into the bottom edge flanking the USB-C well.
+#
+# WHY THE BOTTOM EDGE — the obvious homes were measured and none holds a cell:
+#   * on a cap: VOL's ink is 10.63 wide; in a flat-top hex only 13.27 tall through centre,
+#     text + a 6.5-tall cell overruns the slant inset at every offset. The small cap is
+#     worse (R 5.77 barely holds the cell ALONE).
+#   * left face strip: 4.55mm free between the (4,4) boss and BAT's ink; a cell needs 6.5.
+#   * right face strip: fits ONE cell in the boss..SPK gap, not two — and splitting the
+#     pair breaks the property that actually matters (next paragraph).
+# The bottom edge has ~12mm clear each side of the port and nothing else on it.
+#
+# THE MAPPING IS ADJACENCY, NOT CHIRALITY: V sits on the big cap's side of the port (cell
+# centre 14.65 vs island 16.66), P on the small cap's (35.35 vs 35.66) — nearest-cell-wins,
+# the same rule the port labels use. A mirror mistake can misdraw a letter; it can never
+# point a letter at the wrong button.
+#
+# RECESSED, NOT RAISED, deliberately: real braille is embossed, but raised dots here would
+# grow the 91.90 Y envelope and ride the stand's slot floor; recesses cost neither and a
+# vertical wall prints them crisply (the flank labels' class). Standard cell metrics
+# otherwise: 2.5mm dot pitch, O-1.6 dots, 0.8 deep (leaves WALL - 0.8 = 1.80 of wall).
+#
+# ⚠️ READING FRAME IS PROVISIONAL UNTIL PLASTIC — the flank labels earned that rule tonight.
+# Authored to read with the BACK FACE UP and the bottom edge toward the reader (the pose in
+# which the caps are pressed and their labels read): reading-right = model -X, reading-up =
+# model -Z. If the bench reads the letters mirrored, flip BRL_CHIR alone and nothing else.
+BRL_PITCH, BRL_DOT_D, BRL_DEPTH = 2.5, 1.6, 0.8
+BRL_CHIR = -1.0                # reading-right, in model X. BENCH-PENDING (r11 will answer)
+BRL_GAP  = 0.80                # cell ink to pocket edge; LABEL_MARGIN's value, same job
+_BRL = {"V": ((0,0),(0,1),(0,2),(1,2)),      # dots 1,2,3,6   (col, row), row 0 = cell top
+        "P": ((0,0),(0,1),(0,2),(1,0))}      # dots 1,2,3,4
+_BRL_EXT = (BRL_PITCH + BRL_DOT_D) / 2                    # cell centre -> ink edge, 2.05
+BRL_CX_V = USBC_CX - USBC_OM_W/2 - BRL_GAP - _BRL_EXT     # 14.65
+BRL_CX_P = USBC_CX + USBC_OM_W/2 + BRL_GAP + _BRL_EXT     # 35.35
+assert abs(BRL_CX_V - CAP_CX_BOOT) < abs(BRL_CX_V - CAP_CX_RESET) \
+   and abs(BRL_CX_P - CAP_CX_RESET) < abs(BRL_CX_P - CAP_CX_BOOT), (
+    "a braille cell is nearer the OTHER button's island -- adjacency is the whole mapping; "
+    "move the cells, not the letters")
+assert WALL - BRL_DEPTH >= 1.60, (
+    f"braille dots leave {WALL - BRL_DEPTH:.2f}mm of bottom wall, under the 1.60 solid floor")
+_brl_z_lo = USBC_CZ - BRL_PITCH - BRL_DOT_D/2             # -6.525, lowest ink
+_brl_z_hi = USBC_CZ + BRL_PITCH + BRL_DOT_D/2             # +0.075, highest ink
+assert _brl_z_lo >= BACK_Z + 2.0 and _brl_z_hi <= 0.40, (
+    "braille ink has left the bottom wall band this design has proof of: below, the back-"
+    "face chamfer (0.80 at BACK_Z, defined later in this file) plus margin; above, the r10 "
+    "relief's top edge (0.40) -- wall beyond either has never been shown to exist")
 
 
 def back_shell(variant="desk", top_y=None):
@@ -1617,8 +1718,9 @@ def back_shell(variant="desk", top_y=None):
     # ---- BACK-FACE LABELS, cut EARLY and on purpose. ----
     # Boolean cost in OCC depends on how many faces the operand already has, so the same four
     # cuts are cheap here and expensive after the ~110-cell hex field lands. The RESULT is
-    # order-independent (p-A-B == p-B-A); only the bill changes. Cutting the cap labels here
-    # also means they do not depend on the cap recess existing yet -- both are just cuts.
+    # order-independent (p-A-B == p-B-A); only the bill changes. The labels cut to
+    # BACK_Z + deb + LABEL_DEBOSS: deb once matched a face recess (removed r11, bench), so
+    # the label FLOOR is where it always was -- it is now simply that deep into a flat face.
     #
     # Which label goes on which cap is keyed on the SWITCH x, never on "the big one": the
     # apparent side flips between figures of this same part, and reading a side off a picture
@@ -1655,8 +1757,22 @@ def back_shell(variant="desk", top_y=None):
         # COUNTERBORE for a cylindrical head. Flat floor, CBORE_DEPTH deep = 19 layers.
         p -= cyl(hx,hy, BACK_Z-0.01, BACK_Z+CBORE_DEPTH, CBORE_D)
     # ---- USB-C opening + cable relief (bottom short edge) ----
-    p -= bx(18.0,32.0, OY0-1, PY0+0.5, -6.60,-0.60)
-    p -= bx(15.5,34.5, OY0-1, OY0+1.6, -8.20, 0.40)      # outside relief for overmould
+    # Conforming stadiums since r11 — geometry and receipts in the USBC_* block above this
+    # function. Depths are the r10 cuts' own: bore through to PY0+0.5, pocket 1+OM_DEPTH.
+    # The bore is a TRUE stadium (rect + two round ends): RectangleRounded rejects r == h/2.
+    _usr = USBC_H / 2
+    p -= bx(USBC_CX - USBC_W/2 + _usr, USBC_CX + USBC_W/2 - _usr,
+            OY0 - 1, PY0 + 0.5, USBC_CZ - _usr, USBC_CZ + _usr)
+    for _sx in (USBC_CX - USBC_W/2 + _usr, USBC_CX + USBC_W/2 - _usr):
+        p -= cyl_y(_sx, USBC_CZ, USBC_H, OY0 - 1, (PY0 + 0.5) - (OY0 - 1))
+    p -= rrect_y(USBC_CX, USBC_CZ, USBC_OM_W, USBC_OM_H, USBC_OM_R,
+                 OY0 - 1, 1 + USBC_OM_DEPTH)             # outside relief for overmould
+    # ---- braille V / P flanking the port — receipts in the BRL block above ----
+    for _cell, _bcx in (("V", BRL_CX_V), ("P", BRL_CX_P)):
+        for _c, _r in _BRL[_cell]:
+            p -= cyl_y(_bcx + BRL_CHIR * (_c - 0.5) * BRL_PITCH,   # col 0 = reading-left
+                       USBC_CZ + (_r - 1) * BRL_PITCH,             # reading-up = -Z: row 0 low
+                       BRL_DOT_D, OY0 - 1, 1 + BRL_DEPTH)
     # ---- side channels: connectors + the microSD slit.  DERIVED — see side_channels(). ----
     # ⚠️ VARIANT-DEPENDENT SINCE 2026-08-01. SIDE_BLOCK says which are suppressed and why; the
     # LABELS above are cut from the same set, so the back face can never name a hole that is
@@ -1703,7 +1819,7 @@ def back_shell(variant="desk", top_y=None):
     # just shows you the die — and it deletes a part, a seat, and a second filament.
     # ---- printed-in-place HEXAGONAL button pushers ----
     for (cx, cy) in BTN:
-        cyh, R, deb = cap_geometry(cx)
+        cyh, R, _ = cap_geometry(cx)    # extra label depth is spent at the LABEL cut, not here
         icx = cap_center_x(cx)          # island centre; cx remains the SWITCH
         ytop = cap_hex_top_y(cyh, R)
         # A HEX RING, THEN THE HINGE PUT BACK. The old pad was three box cuts forming a U,
@@ -1724,10 +1840,11 @@ def back_shell(variant="desk", top_y=None):
                 BACK_Z+HINGE_T, CAV_FLOOR+1)
         # pip that reaches the switch plunger
         p += cyl(cx,cy, CAV_FLOOR, BTN_TIP_Z-0.15, PIP_D)   # on the SWITCH, not the island
-        # DEBOSSED CAP FACE. Cut after the ring, inset CAP_INSET from the island edge so
-        # the recess never breaks into the slot and never undercuts the hinge — at
-        # R - CAP_INSET it stops 0.87mm short of the hinge line.
-        p -= hexp(icx, cyh, R - CAP_INSET, BACK_Z - 1.0, BACK_Z + deb)
+        # NO DEBOSSED CAP FACE — REMOVED r11, BENCH VERDICT. There used to be a hexp cut
+        # here, R - CAP_INSET wide and DEBOSS_* deep. Printed face-down, its floor was a
+        # 13.3mm bed-side bridge across the big cap and it sagged; JP on the printed r10:
+        # "don't indent the buttons. it doesn't work it's taoo far to span." The cap face
+        # is flat; the tactile depth cue lives in the labels (DEBOSS_* + LABEL_DEBOSS).
     # ---- FINE HEX BACK. Replaces two arrays of slot vents. ----
     #
     # The patch is bounded by what is already in the back face, not by taste:
@@ -3647,8 +3764,8 @@ def _check_geometry(parts=None):
     _floors = [
         ("CBORE_DEPTH",  CBORE_DEPTH,  LAYER_H_SHELL, "the screw head bears on this floor"),
         ("LABEL_DEBOSS", LABEL_DEBOSS, LAYER_H_SHELL, "visible recess floor, back face"),
-        ("DEBOSS_BIG",   DEBOSS_BIG,   LAYER_H_SHELL, "visible AND tactile cap recess floor"),
-        ("DEBOSS_SMALL", DEBOSS_SMALL, LAYER_H_SHELL, "visible AND tactile cap recess floor"),
+        ("DEBOSS_BIG",   DEBOSS_BIG,   LAYER_H_SHELL, "sets the big cap's LABEL floor (r11+)"),
+        ("DEBOSS_SMALL", DEBOSS_SMALL, LAYER_H_SHELL, "sets the small cap's LABEL floor (r11+)"),
         ("HINGE_T",      HINGE_T,      LAYER_H_SHELL, "material LEFT; it sets flexure strain"),
         ("BEZEL_DEBOSS", BEZEL_DEBOSS, LAYER_H_BEZEL, "visible recess floor, front face"),
     ]
