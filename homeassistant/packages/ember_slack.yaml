@@ -146,6 +146,13 @@ script:
       # the call fails, the ENTIRE message is lost — so text is never risked on
       # it. Flip input_boolean.ember_slack_images on once the Slack app has the
       # scopes; until then this branch is skipped and only text posts.
+      #
+      # The picture goes to #driveway, NOT #ember (JP, 2026-08-03). #driveway is
+      # the channel you actually leave unmuted on your phone, and a car photo is
+      # exactly what you want to see there without opening the app. #ember stays
+      # the text mirror — a snapshot in both channels is the same picture twice.
+      # A non-driveway snapshot still falls back to #ember so no image is lost
+      # to a channel that only carries arrivals.
       - if:
           - condition: state
             entity_id: input_boolean.ember_slack_images
@@ -156,7 +163,9 @@ script:
           - action: notify.the_homefront
             continue_on_error: true
             data:
-              target: ["#ember"]
+              target: >-
+                {{ ['#driveway'] if category | default('') == 'driveway'
+                   else ['#ember'] }}
               message: "{{ icon }} snapshot"
               data:
                 file:
