@@ -1,0 +1,87 @@
+# Ember persona context — the transient-context channel, by worked example.
+#
+# `input_text.ember_persona_extra` (defined in ember_persona.yaml) is appended to
+# the very end of Ember's system prompt. This package is the reference pattern
+# for automations that want to tell Ember something about right now, and this
+# example uses the 3D printer: while a print is running, Ember knows it without
+# being asked, so "how's it going" has an obvious subject.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# READ THIS BEFORE WRITING ANOTHER AUTOMATION AGAINST THIS FIELD
+#
+# Every change to this field costs one prompt re-prefill. Ember answers in
+# ~0.4 s only because the prompt prefix is byte-stable and llama.cpp reuses its
+# KV cache; the field is safe at the *end* of the prompt precisely because it
+# normally changes only when a human changes it. See docs/home-assistant.md §6.3
+# — a sub-hourly timestamp in the prompt cost this project months of 1 s turns.
+#
+# So the rules for this channel are:
+#
+#   1. Write STATES, never progress. "A 3D print is running" is one write when it
+#      starts and one when it ends. Putting the percentage in here would
+#      re-prefill the prompt on every poll — that is the documented bug, arriving
+#      from a new direction. Percentages are what `check_print` is for: pulled on
+#      demand, costing nothing when nobody asks.
+#   2. Guard every write with "is it already what I want?". A no-op write is not
+#      free; it still invalidates the cache. That guard is the `condition` below,
+#      and it is the reason this automation can afford to run often.
+#   3. Keep it under 255 characters — `input_text`'s hard cap — and keep it short
+#      anyway: it is prose the model reads on every single turn.
+#   4. Always ship the clearing half. A stale "a print is running" is worse than
+#      silence, because Ember will state it with total confidence.
+#
+# ── Why one reconciler instead of a start/stop pair ──────────────────────────
+# The obvious shape is two automations, one on the print starting and one on it
+# ending. Both are edge-triggered, so they are only ever correct if they see
+# every edge — and they cannot. A print already running when the automation is
+# installed or reloaded produces no edge, so Ember stays ignorant of it; that
+# exact case happened on first deploy, 2026-08-02. HA does not replay state
+# triggers on reload.
+#
+# So this computes the DESIRED note and writes it only when it differs, and it
+# is driven by anything that might have changed the answer, including a clock.
+# Edge triggers make it prompt, the clock makes it eventually right, and rule 2
+# makes running often free. Declare desired state, don't chase transitions.
+#
+# Reloadable without a restart: `automation.reload`.
+
+automation:
+  - id: ember_context_print
+    alias: "Ember context — 3D print running"
+    description: >-
+      Keeps input_text.ember_persona_extra in sync with whether a print is
+      running. The reference pattern for the persona-knob channel: compute the
+      note you want, write only if it changed.
+    mode: single
+    triggers:
+      # A template trigger fires when the rendered RESULT changes, so this is one
+      # trigger per real transition. A plain state trigger on the sensor would
+      # fire every 30 s instead, because the poll rewrites `progress` attributes
+      # on every cycle even when the state is unchanged.
+      - trigger: template
+        value_template: "{{ states('sensor.ember_print_job') == 'Printing' }}"
+      # Reconcile: catches the print that was already running at reload, and any
+      # edge missed while HA was down. Costs nothing when already in sync.
+      - trigger: time_pattern
+        minutes: "/15"
+      - trigger: homeassistant
+        event: start
+    variables:
+      # One definition of the note, used by both the guard and the write, so they
+      # cannot drift apart.
+      desired: >-
+        {{ 'A 3D print is running.' if states('sensor.ember_print_job') == 'Printing' else '' }}
+    conditions:
+      # Rule 2. Also rule 4's safety catch: when `desired` is empty this only
+      # clears OUR note — a nudge JP typed into the field himself does not match,
+      # so a finishing print never silently wipes it.
+      - condition: template
+        value_template: >-
+          {% set cur = states('input_text.ember_persona_extra') %}
+          {{ cur != desired and (desired != '' or cur == 'A 3D print is running.') }}
+    actions:
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.ember_persona_extra
+        data:
+          value: "{{ desired }}"

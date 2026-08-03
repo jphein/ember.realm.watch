@@ -124,9 +124,21 @@ def deploy(new_prompt: str, dry: bool = False) -> None:
 
     missing = [f for f in live["fields"] if f not in payload]
     if missing:
+        hint = ""
+        if "skills" in missing:
+            # The flow only advertises `skills` once skills are loaded from disk, and
+            # it carries no suggested value until something has enabled some. Guessing
+            # `[]` here would silently disable every skill, so refuse and point at the
+            # tool that owns that field.
+            hint = (
+                "\n   `skills` is advertised but unset: skills exist on disk but none are "
+                "enabled.\n   Run `homeassistant/tools/ember-toolkit.py --deploy` first — it "
+                "owns that field."
+            )
         sys.exit(
             "refusing to deploy: the flow advertises fields with no live value: "
             f"{missing}. Submitting would DROP them. Reconfigure once in the HA UI first."
+            + hint
         )
     if "functions" not in payload or not payload["functions"]:
         sys.exit("refusing to deploy: no `functions` in the live payload — would kill tool calling")

@@ -47,7 +47,7 @@ PKG_DIR="${PKG_DIR:-/homeassistant/packages}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_DIR="$(dirname "$SCRIPT_DIR")/packages"
 
-PACKAGES=(ember_backend_health ember_persona ember_announce ember_laundry_herald ember_driveway_watch)
+PACKAGES=(ember_backend_health ember_persona ember_announce ember_laundry_herald ember_driveway_watch ember_toolkit ember_print_context)
 
 # Which reload service each package needs. A package that declares several
 # domains needs each of them reloaded.
@@ -57,6 +57,11 @@ declare -A RELOADS=(
   [ember_announce]="script"
   [ember_laundry_herald]="automation"
   [ember_driveway_watch]="automation"
+  # ember_toolkit carries the credential-bearing data plane behind Ember's
+  # tools: a `rest:` sensor (OctoPrint) and `rest_command:` entries (MemPalace,
+  # Spyglass). Both reload live; neither needs a restart.
+  [ember_toolkit]="rest rest_command"
+  [ember_print_context]="automation"
 )
 
 DRY=0; CHECK_ONLY=0; ONLY=""

@@ -12,6 +12,7 @@ The device firmware is documented separately; this is the HA half.
 - [6 · The voice pipeline](#6--the-voice-pipeline)
 - [7 · Troubleshooting](#7--troubleshooting)
 - [8 · Why copy and not symlink](#8--why-copy-and-not-symlink)
+- [9 · The toolkit — tools and skills](#9--the-toolkit--tools-and-skills)
 
 > **The repo cannot fully describe a working Ember.** About half the HA-side
 > configuration lives in HA's own `.storage`, created through the UI, and isn't
@@ -41,9 +42,14 @@ The device firmware is documented separately; this is the HA half.
 | `homeassistant/packages/ember_announce.yaml` | `/homeassistant/packages/` | `script.ember_announce`, `…_if_awake`, `script.ember_say` |
 | `homeassistant/dashboards/ember-hearth.dashboard.json` | HA `.storage`, over WebSocket | the `ember-hearth` dashboard — 4 views (Hearth, Voice Pipeline, Diagnostics, Fleet) |
 | `homeassistant/prompts/ember-system.md.j2` | HA `.storage`, over the REST config-flow API | Ember's **system prompt** — the persona, the device manifest, the Environment State block |
+| `homeassistant/packages/ember_toolkit.yaml` | `/homeassistant/packages/` | `sensor.ember_print_job`; `rest_command.palace_search`, `…spyglass_cams` — the credential-bearing data plane behind Ember's tools ([§9](#9--the-toolkit--tools-and-skills)) |
+| `homeassistant/packages/ember_print_context.yaml` | `/homeassistant/packages/` | `automation.ember_context_3d_print_running` — the persona-knob pattern ([§9.5](#95-the-persona-knob-channel)) |
+| `homeassistant/functions/ember-functions.yaml` | HA `.storage`, over the REST config-flow API | Ember's **tool definitions** — 10 tools ([§9.2](#92-the-tools)) |
+| `homeassistant/skills/*/SKILL.md` | `/homeassistant/extended_openai_conversation/skills/` | Ember's **skills** — `printer-watch`, `morning-report`, `whos-home` ([§9.3](#93-the-skills)) |
 | `homeassistant/patches/eoc-aliases-sentinel.patch` | applied by hand on the HA VM | staged `helpers.py` fix; needs a restart, so it waits |
 | `homeassistant/tools/deploy-ha.sh` | — | copies packages + reloads only what changed |
 | `homeassistant/tools/ember-prompt.py` | — | `--diff` / `--extract` / `--deploy` the system prompt, live, no restart |
+| `homeassistant/tools/ember-toolkit.py` | — | `--diff` / `--extract` / `--deploy` the tools + skills, live, no restart |
 | `homeassistant/tools/build_ember_dashboard.py` | — | creates-if-absent + pushes the dashboard |
 
 **This repo is the source of truth.** Packages are *copied* to the VM, not symlinked —
@@ -774,3 +780,277 @@ and rejected:
 
 The copy-then-reload path is also the convention already proven in the workspace this
 was extracted from — one less novel mechanism to trust.
+
+---
+
+## 9 · The toolkit — tools and skills
+
+Ember's first real tools. Ten tool definitions, three skills, and the data plane
+that feeds them. Added 2026-08-02; **no HA restart was needed for any of it**, and
+none is needed to change any of it.
+
+> **The integration on the VM is v3.0.0, and the clone at
+> `~/Projects/extended_openai_conversation` is v2.0.2.** The older clone has no
+> skills, no `functions/` package and no `working_directory()`. Read the VM's copy
+> at `/config/custom_components/extended_openai_conversation/` when you need the
+> loader's actual behaviour — everything in this section came from there.
+
+### 9.1 Three storage classes, and the constraint that shaped everything
+
+| What | Lives in | Deployed by | Reload |
+|:--|:--|:--|:--|
+| **Tool definitions** (`functions`) | HA `.storage`, a YAML **string** in the conversation subentry | `ember-toolkit.py --deploy` | none — applies on submit |
+| **Skills** | files on the VM, `/config/extended_openai_conversation/skills/<name>/SKILL.md` | `ember-toolkit.py --deploy` | `extended_openai_conversation.reload_skills` |
+| **Enabled-skills list** (`skills`) | HA `.storage`, same subentry | `ember-toolkit.py --deploy` | none |
+| **The data plane** (sensors, rest_commands) | real HA YAML, `packages/ember_toolkit.yaml` | `deploy-ha.sh ember_toolkit` | `rest.reload`, `rest_command.reload` |
+
+**The constraint that decided the architecture:** the `functions` field is parsed
+with a plain `yaml.safe_load()`, which does **not** understand `!secret` — it
+raises on the unknown tag. So **a tool definition can never hold a credential.**
+
+That is why `packages/ember_toolkit.yaml` exists. Anything needing a key is a
+`rest:` sensor or a `rest_command:` in real HA YAML, where `!secret` works, and the
+tool reads the *result*. Two things fall out of it, both worth keeping:
+
+1. Credentials stay in `/config/secrets.yaml`. Git only ever sees `!secret`.
+2. `check_print` does no network I/O during a conversation — it reads an
+   already-polled sensor, so a wedged printer host cannot stall a voice turn.
+
+### 9.2 The tools
+
+Ten total: the integration's stock four, plus six from this repo. The field is
+replaced **wholesale** on deploy, so `ember-functions.yaml` always carries the
+complete list — `ember-toolkit.py` refuses to submit one missing
+`execute_services`, because that is how Ember controls the house.
+
+| Tool | Type | Reads | Notes |
+|:--|:--|:--|:--|
+| `execute_services` | native | — | stock; device control |
+| `get_attributes` | template | exposed entities | stock; **refuses unexposed entities** |
+| `load_skill` | read_file | skill files | stock; how a skill body is read |
+| `bash` | bash | the workspace | stock |
+| `check_print` | template | `sensor.ember_print_job` | state, file, percent, time left |
+| `realm_status` | template | `binary_sensor.infra_*` | "is X up"; names what it doesn't watch |
+| `whos_home` | template | `person.*` | one person is tracked; see [§9.6](#96-what-the-instruments-lie-about) |
+| `weather_now` | script | `weather.forecast_home_2` + `weather.get_forecasts` | now, today's high/low/rain |
+| `palace_recall` | script | `rest_command.palace_search` | MemPalace; takes an optional `wing` |
+| `look_at_camera` | script | `rest_command.spyglass_cams` | posts a snapshot, reports frame age |
+
+**Tools return facts, not sentences.** Every one answers in `key=value` form —
+`state=Printing; file=ember mobile midframe r10; percent=68`. Ember's voice is
+defined in the prompt, and a tool that returns polished prose fights the persona
+and wins. This is why she says *"the ember mobile midframe is about two thirds
+done"* rather than reading out a percentage.
+
+Two tools exist because of an exposure gap that is easy to trip over:
+**`person.*`, `weather.*`, `calendar.*` and `device_tracker.*` are NOT in Ember's
+306-entity manifest.** `get_attributes` validates exposure and raises
+`EntityNotExposed`, so it cannot reach any of them. Template-type functions read
+state directly and are not exposure-checked, which is the only route to that data
+— hence `whos_home` and `weather_now` rather than a skill telling Ember to look
+the entities up herself.
+
+`look_at_camera` **cannot see**. The Qwen lane has no vision, so the tool posts the
+frame to Home Assistant's notifications, reports its age in seconds, and returns
+`do_not_describe_the_image=true`. Its five cameras are validated against a fixed
+allow-list before the name reaches a URL — the model chooses that value, and an
+unchecked one would be a request-forgery seam through Spyglass.
+
+### 9.3 The skills
+
+A skill is a **directory** containing `SKILL.md` with YAML frontmatter carrying a
+`description`. Discovered from `skills.py`, and each of these is load-bearing:
+
+- The skill's **name is its directory name**. A `name:` in the frontmatter is
+  ignored.
+- `description` is **required**; without it the loader logs a warning and skips
+  the skill. Max 1024 chars, name max 64.
+- Loose files in the skills directory are skipped, which is why the stock
+  `README.md` there is harmless.
+- The body is **not** in the prompt. Only name, description and path are; Ember
+  calls `load_skill` to read the instructions when she decides they apply.
+
+| Skill | Covers |
+|:--|:--|
+| `printer-watch` | answering print questions, and what to do when one looks stuck |
+| `morning-report` | the four-sentence spoken briefing |
+| `whos-home` | who is in, and the limits of what this house can know |
+
+### 9.4 Deploying, and the order that is not negotiable
+
+```bash
+./homeassistant/tools/deploy-ha.sh ember_toolkit        # data plane first
+./homeassistant/tools/deploy-ha.sh ember_print_context
+./homeassistant/tools/ember-toolkit.py --diff           # repo vs live, changes nothing
+./homeassistant/tools/ember-toolkit.py --deploy --dry-run
+./homeassistant/tools/ember-toolkit.py --deploy         # skills, reload, then tools
+```
+
+`--deploy` does three things in one order, and the order is forced:
+
+1. **Write the skill files** to the VM. Nothing has changed yet.
+2. **`reload_skills`**. `SkillManager` only rescans on that service.
+3. **Submit `functions` and the enabled-skills list.**
+
+Step 3 cannot precede step 2. The config flow builds the `skills` field's options
+from the skills *currently loaded*, and `config_flow.py` **drops the field
+entirely when none are loaded** — so enabling a skill before reloading is either
+rejected by voluptuous or silently offers nothing. The tool verifies the loaded
+count against what it is about to enable and aborts on a mismatch, because a skill
+whose frontmatter was rejected is otherwise only a warning in HA's log.
+
+> ⚠️ **The submit replaces `subentry.data` wholesale** — the same trap
+> `ember-prompt.py` documents. Every field must be resubmitted or it is dropped.
+> `ember-toolkit.py` reads the live values, substitutes only `functions` and
+> `skills`, and aborts if the flow advertises a field it has no live value for.
+>
+> A successful submit makes HA **reload the config entry**, and for a second or two
+> the flow cannot be reopened. The read-back retries on `entry_not_loaded`; without
+> that, a deploy that fully worked reports a scary `abort`.
+
+**One knock-on for `ember-prompt.py`:** the flow now advertises a `skills` field.
+That is fine while skills are enabled, because it carries a live value and gets
+passed through. But on an instance where skills exist on disk and none are enabled,
+`ember-prompt.py --deploy` will refuse — guessing `[]` would silently disable every
+skill. Its error now names `ember-toolkit.py` as the tool that owns that field.
+
+#### Testing a tool end to end
+
+Ask Ember through the conversation API — this is the real path, tools included:
+
+```bash
+HA=https://ha.jphe.in
+curl -sS -X POST "$HA/api/conversation/process" \
+  -H "Authorization: Bearer $HA_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"text":"How is the print going?",
+       "agent_id":"conversation.extended_openai_conversation_2","language":"en"}' \
+  | jq -r .response.speech.plain.speech
+```
+
+Measured 2026-08-02, live, with a real print running:
+
+| Asked | Ember said | |
+|:--|:--|--:|
+| *How's the print going?* | "The ember mobile midframe r10 is 68 per cent done with about 55 minutes left." | 17.7 s |
+| *Is familiar up?* | "Yes, familiar is up and serving." | 4.2 s |
+| *Is serialhub up?* | "Serialhub is not on my watch list, so I cannot check it. I am only watching familiar, gatekeeper, gigabeam1, hp switch, katana, north bedroom ap, north office ap, and ubox0." | 4.7 s |
+| *Is anyone home?* | "No, you are out." | 3.5 s |
+| *What's the weather doing?* | "Clear night, 55F. High today was 55, low 43, and no rain about." | 4.0 s |
+| *Show me the road camera* | "I have put the road camera on screen. The frame is fresh." | 2.6 s |
+| *Show me the basement camera* | "I don't have a basement camera. The cameras I can show are parking, road, car, printer, and printroom." | 3.5 s |
+| *Give me the morning report* | "Clear night, fifty-five out, dropping to forty-three by morning with no rain. The midframe print is about seventy percent done, roughly half an hour left. Everything else is up. You are out." | 8.0 s |
+| *What's on my calendar today?* | "I don't have access to your calendar. I can check the weather, the printer, or who is home if that would help." | 3.2 s |
+
+The 17.7 s first call is the **cold prefill**, not a tool cost: deploying `functions`
+changes the prompt's tool preamble and invalidates llama.cpp's prefix cache exactly
+once, by design ([§7.4](#74-replies-got-slow)). Everything after it is a warm turn
+plus one tool round trip.
+
+Note the morning report spelling numbers out and the calendar refusal — neither is
+in the prompt. Both come from `morning-report/SKILL.md`, which is how you can tell
+a skill actually loaded.
+
+### 9.5 The persona-knob channel
+
+`packages/ember_print_context.yaml` is the reference pattern for telling Ember
+about *right now*: it keeps `input_text.ember_persona_extra` in sync with whether a
+print is running, so "how's it going" has an obvious subject.
+
+**Every change to that field costs one prompt re-prefill** ([§6.3](#63-the-persona-and-the-one-rule)).
+So the pattern's rules are:
+
+1. **Write states, never progress.** A percentage in this field would re-prefill
+   the prompt on every poll — the documented cache bug, arriving from a new
+   direction. Percentages are what `check_print` is for.
+2. **Guard every write** with "is it already what I want?". A no-op write still
+   invalidates the cache. That guard is what lets the automation run often.
+3. Keep it under 255 characters, `input_text`'s hard cap.
+4. **Always ship the clearing half.** A stale "a print is running" is worse than
+   silence, because Ember states it with total confidence.
+
+It is **one reconciler, not a start/stop pair**, and that is deliberate. Edge
+triggers are only correct if they see every edge, and they cannot: a print already
+running when the automation is installed produces no edge, and HA does not replay
+state triggers on reload. That happened on the first deploy of this very file. So
+it computes the desired note, writes only on a difference, and is driven by a
+template trigger, a 15-minute clock and HA start. Declare desired state; don't
+chase transitions.
+
+### 9.6 What the instruments lie about
+
+Every one of these was found by measuring while building, and each would have had
+Ember state a falsehood confidently.
+
+| Instrument | The lie | Measured |
+|:--|:--|:--|
+| realmwatch `/status` → `wol` | `serialhub` and `nodered` reported **`dark`** while both answered ping | 2026-08-02 |
+| realmwatch `/topology` | reports `familiar` at **10.0.6.104**, which is **serialhub's** address | 2026-08-02 |
+| `weather.home` | **"sunny, 83F"** at 20:38 local, well after dark; met.no said clear-night, 55F | 2026-08-02 |
+| palace-daemon `/search` | HTTP 200 with a JSON-RPC error body: `UnboundLocalError: … 'lexical'` | 2026-08-02 |
+
+Consequences, all baked into the tools:
+
+- **`realm_status` deliberately does not use realmwatch.** It reads HA's own
+  `binary_sensor.infra_*` connectivity sensors — real ICMP probes HA already runs —
+  and reports an unwatched host **as unwatched**. Only 8 hosts are watched, and
+  `serialhub` is not one of them; the tool says so rather than guessing.
+- **`weather_now` pins `weather.forecast_home_2`** (met.no), not `weather.home`.
+  Its forecast comes from the `weather.get_forecasts` *service*, because modern HA
+  weather entities no longer carry a `forecast` attribute and reading one returns
+  nothing rather than failing loudly.
+- **`palace_search` uses `/search/fast`.** `/search` is broken server-side, so the
+  reranked endpoint is not an option today regardless of quality. Re-measure before
+  switching if palace-daemon is fixed.
+- **Palace relevance is currently weak unfiltered** — a query about Ember's own
+  latency returned candela release notes, while the same query scoped to a wing
+  found the right drawer. `palace_recall` therefore takes a `wing`, and its
+  description tells Ember to pass it whenever the question is about one project.
+- **`palace_recall` dedupes on snippet text, not drawer id.** The palace holds
+  genuine duplicate drawers with different ids and identical bodies, so id-dedupe
+  returns the same memory twice.
+
+### 9.7 Secrets
+
+Two new keys, both **only** on the VM in `/config/secrets.yaml`, referenced from
+`packages/ember_toolkit.yaml` as `!secret`:
+
+| Key | From the vault |
+|:--|:--|
+| `octoprint_api_key` | `OctoPrint API key (serialhub)` |
+| `palace_daemon_api_key` | `palace-daemon-v1` |
+
+```bash
+# how they got there — never into git, never into .storage
+bw get password "OctoPrint API key (serialhub)" \
+  | ssh jp@ha.lan "sudo tee -a /config/secrets.yaml"   # as `octoprint_api_key: …`
+```
+
+Verify before every commit that the repo carries references and not values:
+
+```bash
+grep -rn "!secret" homeassistant/packages/ember_toolkit.yaml   # expect 2 hits
+git diff --cached | grep -iE "api.?key|token|secret" | grep -v '!secret'   # expect nothing
+```
+
+### 9.8 Adding a tool, or a skill
+
+**A tool that needs no credential:** add it to
+`homeassistant/functions/ember-functions.yaml` and run `ember-toolkit.py --deploy`.
+Prefer `template` for anything readable from HA state — it is instant, cannot fail
+mid-turn, and is not exposure-checked. Return `key=value` facts, not prose.
+
+**A tool that needs a credential:** it cannot live in the tool definition at all
+([§9.1](#91-three-storage-classes-and-the-constraint-that-shaped-everything)). Add
+a `rest:` sensor or a `rest_command:` to `packages/ember_toolkit.yaml` with
+`!secret`, deploy it with `deploy-ha.sh ember_toolkit`, then add a `template` or
+`script` tool that reads the result. Give on-demand `rest_command` calls
+`continue_on_error: true` and a branch that says the source was unreachable —
+`familiar` sleeps, and a tool must never fill a gap with invention.
+
+**A skill:** create `homeassistant/skills/<name>/SKILL.md` with frontmatter
+carrying a `description`, then `ember-toolkit.py --deploy`. The description is what
+Ember sees in the prompt and the only thing she uses to decide whether to load the
+body — write it as a trigger ("use for questions about X"), not a summary.
+
+Test any of it by asking Ember, not by reading the config
+([§9.4](#testing-a-tool-end-to-end)). A tool that parses is not a tool that answers.

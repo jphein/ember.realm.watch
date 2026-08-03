@@ -1,0 +1,417 @@
+# Ember's tool definitions — the source of truth for the conversation subentry's
+# `functions` field.
+#
+# WHERE THIS ACTUALLY LIVES: not in any YAML file Home Assistant reads. It is a
+# YAML *string* stored inside HA's `.storage`, in the Extended OpenAI
+# Conversation subentry, exactly like the system prompt. Deploy it with
+#
+#     homeassistant/tools/ember-toolkit.py --deploy
+#
+# which drives the same config-subentry reconfigure flow ember-prompt.py uses:
+# live, no HA restart. Committing this file changes nothing on its own.
+#
+# The deploy REPLACES the field wholesale, so this file must always contain the
+# complete list — the stock four included. Dropping `execute_services` would
+# silently disable Ember's ability to control the house.
+- spec:
+    name: execute_services
+    description: Execute service in Home Assistant.
+    parameters:
+      type: object
+      properties:
+        delay:
+          type: object
+          description: Time to wait before execution
+          properties:
+            hours:
+              type: integer
+              minimum: 0
+            minutes:
+              type: integer
+              minimum: 0
+            seconds:
+              type: integer
+              minimum: 0
+        list:
+          type: array
+          items:
+            type: object
+            properties:
+              domain:
+                type: string
+                description: The domain of the service.
+              service:
+                type: string
+                description: The service to be called
+              service_data:
+                type: object
+                description: The service data object to indicate what to control.
+                properties:
+                  entity_id:
+                    type: array
+                    items:
+                      type: string
+                      description: The entity_id retrieved from available devices.
+                        It must start with domain, followed by dot character.
+                  area_id:
+                    type: array
+                    items:
+                      type: string
+                      description: The id retrieved from areas. You can specify only
+                        area_id without entity_id to act on all entities in that area
+            required:
+            - domain
+            - service
+            - service_data
+  function:
+    type: native
+    name: execute_service
+- spec:
+    name: get_attributes
+    description: Get attributes of entity or multiple entities.
+    parameters:
+      type: object
+      properties:
+        entity_id:
+          type: array
+          description: entity_id of entity or multiple entities
+          items:
+            type: string
+      required:
+      - entity_id
+  function:
+    type: template
+    value_template: '```csv
+
+      entity,attributes
+
+      {%for entity in entity_id%}
+
+      {{entity}},{{states[entity].attributes}}
+
+      {%endfor%}
+
+      ```'
+- spec:
+    name: load_skill
+    description: Load a file from a skill's directory.
+    parameters:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Skill name
+        file:
+          type: string
+          description: Relative file path within the skill directory
+      required:
+      - name
+      - file
+  function:
+    type: read_file
+    path: '{{extended_openai.skill_dir(name)}}/{{file}}'
+- spec:
+    name: bash
+    description: Execute a bash command in workspace.
+    parameters:
+      type: object
+      properties:
+        command:
+          type: string
+          description: Bash command to execute
+      required:
+      - command
+  function:
+    type: bash
+    command: '{{command}}'
+
+# ─── Ember toolkit, added 2026-08-02 ─────────────────────────────────────────
+# Everything above this line is the integration's stock set and is deployed
+# verbatim; everything below is this repo's.
+#
+# House style for these tools: a tool returns FACTS as `key=value`, not a
+# finished sentence. Ember has a voice — plain prose, British, one sentence —
+# and it is defined in the system prompt, not here. A tool that returns polished
+# prose fights the persona and wins, which is how a hearth-spirit ends up saying
+# "state=Printing; percent=60".
+#
+# Nothing here may hold a credential: this list lives in HA's `.storage` and is
+# parsed with plain `yaml.safe_load`, which does not understand `!secret`.
+# Secret-bearing calls go through packages/ember_toolkit.yaml instead.
+
+- spec:
+    name: check_print
+    description: >-
+      How the 3D print is going. Whether anything is printing, which file, how far
+      along it is, and how much time is left. Use this for any question about the
+      printer, a print, or when something will be finished.
+    parameters:
+      type: object
+      properties: {}
+  function:
+    # A template over the polled sensor, NOT a live HTTP call: a wedged or
+    # sleeping print host must not be able to stall a voice turn. The sensor is
+    # in packages/ember_toolkit.yaml, which is also where the API key lives.
+    type: template
+    value_template: >-
+      {%- set e = 'sensor.ember_print_job' -%}
+      {%- set s = states(e) -%}
+      {%- if s in ['unknown', 'unavailable', 'none', ''] -%}
+      printer_unreachable=true; I cannot tell what the printer is doing.
+      {%- elif s in ['Printing', 'Paused'] -%}
+      {%- set p = state_attr(e, 'progress') or {} -%}
+      {%- set j = state_attr(e, 'job') or {} -%}
+      {%- set f = ((j.file or {}).display or 'an unnamed file')
+            | regex_replace('\.gcode$', '')
+            | regex_replace('_[0-9a-f]{6,}$', '')
+            | replace('_', ' ') | replace('-', ' ') -%}
+      {%- set pct = (p.completion | default(0, true)) | round(0) | int -%}
+      {%- set left = (p.printTimeLeft | default(0, true)) | int -%}
+      {%- set h = (left // 3600) | int -%}
+      {%- set m = ((left % 3600) // 60) | int -%}
+      state={{ s }}; file={{ f }}; percent={{ pct }};
+      time_left={% if left <= 0 %}unknown{% elif h > 0 %}{{ h }} hour{{ 's' if h != 1 }}{% if m > 0 %} {{ m }} minute{{ 's' if m != 1 }}{% endif %}{% else %}{{ m }} minute{{ 's' if m != 1 }}{% endif %}
+      {%- else -%}
+      state={{ s }}; nothing is printing.
+      {%- endif -%}
+
+- spec:
+    name: realm_status
+    description: >-
+      Whether the machines and network gear of the house are up. Use for "is
+      familiar up", "is anything down", or a general check on the servers. Call it
+      with no host for an overview of everything watched.
+    parameters:
+      type: object
+      properties:
+        host:
+          type: string
+          description: >-
+            Optional single machine to check, for example familiar, katana, ubox0,
+            gatekeeper. Leave out for an overview.
+  function:
+    # Reads Home Assistant's own connectivity sensors — real ICMP probes it
+    # already runs. Deliberately NOT realmwatch: measured 2026-08-02, its
+    # /status `wol` map called serialhub and nodered "dark" while both answered
+    # ping, and its /topology still lists familiar at serialhub's address. Two
+    # instruments that would have had Ember state a falsehood with confidence.
+    # An unwatched host is reported as unwatched, never guessed.
+    type: template
+    value_template: >-
+      {%- set want = (host | default('', true)) | lower | trim | replace(' ', '_') | replace('.lan', '') -%}
+      {%- set ns = namespace(rows=[]) -%}
+      {%- for e in states.binary_sensor
+            | selectattr('entity_id', 'match', 'binary_sensor\.infra_')
+            | sort(attribute='entity_id') -%}
+      {%-   set n = e.entity_id | replace('binary_sensor.infra_', '') -%}
+      {%-   set up = 'up' if e.state == 'on' else ('down' if e.state == 'off' else 'not reporting') -%}
+      {%-   set ns.rows = ns.rows + [{'name': n, 'up': up}] -%}
+      {%- endfor -%}
+      {%- set mind = state_attr('binary_sensor.ember_reachable', 'detail') -%}
+      {%- if want -%}
+      {%-   set hit = ns.rows | selectattr('name', 'equalto', want) | list -%}
+      {%-   if hit -%}
+      {{ want | replace('_', ' ') }}={{ hit[0].up }}
+      {%-     if want == 'familiar' and mind %}; my own mind, the model lane={{ mind }}{% endif -%}
+      {%-   else -%}
+      not_watched={{ want | replace('_', ' ') }}; I only watch: {{ ns.rows | map(attribute='name') | map('replace', '_', ' ') | join(', ') }}
+      {%-   endif -%}
+      {%- else -%}
+      {%-   set down = ns.rows | rejectattr('up', 'equalto', 'up') | list -%}
+      {%-   if down -%}
+      watched={{ ns.rows | count }}; down={{ down | map(attribute='name') | map('replace', '_', ' ') | join(', ') }}
+      {%-   else -%}
+      watched={{ ns.rows | count }}; all up
+      {%-   endif -%}
+      {%-   if mind %}; my own mind, the model lane={{ mind }}{% endif -%}
+      {%- endif -%}
+
+- spec:
+    name: palace_recall
+    description: >-
+      Search JP's memory palace: notes, decisions, problems and references written
+      down from his projects. Use when asked what was decided, why something is the
+      way it is, or what happened before. This is written history, not live device
+      state — for what a device is doing right now, use the other tools.
+    parameters:
+      type: object
+      properties:
+        query:
+          type: string
+          description: What to look for, in a few plain words.
+        wing:
+          type: string
+          description: >-
+            Optional project to narrow the search to, for example
+            familiar_realm_watch, ember_realm_watch, realmwatch. Pass it whenever
+            the question is clearly about one project — unfiltered relevance is
+            noticeably worse.
+      required:
+        - query
+  function:
+    type: script
+    sequence:
+      # `continue_on_error` because `familiar` S3-sleeps and hosts the palace.
+      # A sleeping palace must produce "I could not reach it", never a fabricated
+      # memory and never a raised error mid-conversation.
+      - action: rest_command.palace_search
+        data:
+          query: "{{ query }}"
+          limit: 3
+          wing: "{{ wing | default('', true) }}"
+        response_variable: hits
+        continue_on_error: true
+      - variables:
+          _function_result: >-
+            {%- set ok = hits is defined and (hits.status | default(0)) == 200 -%}
+            {%- set rows = hits.content if (ok and hits.content is sequence and hits.content is not string) else [] -%}
+            {%- set ns = namespace(seen=[], out=[]) -%}
+            {%- for r in rows -%}
+            {%-   set raw = (r.snippet | default('', true)) -%}
+            {#-   Drawers written as skill files start with YAML frontmatter, whose
+                  `description` is a hand-written one-line summary — far better to
+                  speak than the raw body. Fall back to the body otherwise. -#}
+            {%-   set desc = raw | regex_findall('description:\s*"([^"]{10,400})"') -%}
+            {%-   set line = (desc[0] if desc else raw) | replace('\n', ' ') | regex_replace('\s+', ' ')
+                    | regex_replace('^[-\s]*name:\s*\S+\s*', '') | trim -%}
+            {#-   Dedupe on the TEXT, not on the drawer id: the palace holds genuine
+                  duplicate drawers with different ids and identical content, so
+                  id-dedupe returns the same memory twice. Measured 2026-08-02. -#}
+            {%-   if line[:80] not in ns.seen and line | length > 0 -%}
+            {%-     set ns.seen = ns.seen + [line[:80]] -%}
+            {%-     set ns.out = ns.out + [(r.wing | default('?', true)) ~ ' / ' ~ (r.room | default('?', true)) ~ ': ' ~ line[:170]] -%}
+            {%-   endif -%}
+            {%- endfor -%}
+            {%- if ns.out -%}
+            found={{ ns.out | count }}
+            {% for o in ns.out %}- {{ o }}
+            {% endfor %}
+            {%- elif not ok -%}
+            palace_unreachable=true; the palace did not answer, familiar may be asleep.
+            {%- else -%}
+            found=0; nothing in the palace matched that.
+            {%- endif -%}
+
+- spec:
+    name: look_at_camera
+    description: >-
+      Put a live camera snapshot on screen for JP and report how fresh the frame is.
+      You CANNOT see the picture yourself, so never describe what is in it and never
+      guess at what it shows — say that you have put it up, and how old the frame is.
+      Cameras: parking, road, car, printer, printroom.
+    parameters:
+      type: object
+      properties:
+        camera:
+          type: string
+          description: Which camera to show.
+          enum:
+            - parking
+            - road
+            - car
+            - printer
+            - printroom
+      required:
+        - camera
+  function:
+    type: script
+    sequence:
+      - action: rest_command.spyglass_cams
+        response_variable: cams
+        continue_on_error: true
+      - variables:
+          # Validated against a fixed list rather than interpolated straight into
+          # a URL. The model chooses this value, and an unchecked value would be
+          # a request-forgery seam through Spyglass.
+          cam: >-
+            {%- set c = (camera | default('', true)) | lower | trim -%}
+            {{ c if c in ['parking', 'road', 'car', 'printer', 'printroom'] else '' }}
+          info: >-
+            {%- set ok = cams is defined and (cams.status | default(0)) == 200 -%}
+            {{ ((cams.content or {}).cams or {}) if ok else {} }}
+      - variables:
+          entry: "{{ info.get(cam, {}) if cam and info else {} }}"
+      - choose:
+          - conditions: "{{ cam != '' and (entry.ok | default(false)) }}"
+            sequence:
+              - action: persistent_notification.create
+                data:
+                  title: "Ember — {{ entry.label | default(cam, true) }}"
+                  # ?fresh=1 forces Spyglass to pull a live frame rather than
+                  # serving its poll cache, so what JP opens is what is there now.
+                  message: >-
+                    ![{{ entry.label | default(cam, true) }}](http://ubox0.lan:8300/cam/{{ cam }}.jpg?fresh=1)
+                  notification_id: "ember_camera_{{ cam }}"
+      - variables:
+          _function_result: >-
+            {%- if cam == '' -%}
+            unknown_camera=true; the cameras are parking, road, car, printer and printroom.
+            {%- elif not info -%}
+            cameras_unreachable=true; Spyglass did not answer, so I could not put anything up.
+            {%- elif entry.ok | default(false) -%}
+            shown={{ cam }}; label={{ entry.label | default(cam, true) }}; frame_age_seconds={{ (entry.age | default(0, true)) | round(1) }}; where=posted to the Home Assistant notifications, JP should look there now; say_you_have_put_it_up=true; you_cannot_see_it=true; do_not_describe_the_image=true
+            {%- else -%}
+            camera_down={{ cam }}; reason={{ entry.error | default('not responding', true) }}; nothing_placed=true
+            {%- endif -%}
+
+- spec:
+    name: whos_home
+    description: >-
+      Who is at home right now. Use for "is anyone home", "is JP back", "who's in".
+    parameters:
+      type: object
+      properties: {}
+  function:
+    # A template, not `get_attributes`: `person.*` is NOT in your device manifest,
+    # and `get_attributes` refuses any entity that is not exposed. Template
+    # functions read state directly, which is the only route to this data.
+    type: template
+    value_template: >-
+      {%- set ns = namespace(rows=[]) -%}
+      {%- for p in states.person | sort(attribute='entity_id') -%}
+      {%-   set where = 'home' if p.state == 'home' else ('out' if p.state == 'not_home' else p.state) -%}
+      {%-   set ns.rows = ns.rows + [(p.name | default(p.entity_id, true)) ~ '=' ~ where] -%}
+      {%- endfor -%}
+      {%- if ns.rows -%}
+      tracked_people={{ ns.rows | count }}; {{ ns.rows | join('; ') }}
+      {%- else -%}
+      tracked_people=0; nobody is set up as a person in this house.
+      {%- endif -%}
+
+- spec:
+    name: weather_now
+    description: >-
+      The weather outside now, and today's high, low and chance of rain. Use for any
+      question about the weather, the temperature outside, or whether it will rain.
+    parameters:
+      type: object
+      properties: {}
+  function:
+    type: script
+    sequence:
+      # `weather.forecast_home_2` (met.no) and NOT `weather.home`. Measured
+      # 2026-08-02 at 20:38 local: `weather.home` reported "sunny, 83F" well after
+      # dark while met.no reported "clear-night, 55F". One of those two is a
+      # sensor that will make Ember sound like it has never been outside.
+      #
+      # The forecast comes from a service call because modern HA weather entities
+      # no longer carry a `forecast` attribute — reading `state_attr(...,
+      # 'forecast')` returns nothing at all rather than failing loudly.
+      - action: weather.get_forecasts
+        target:
+          entity_id: weather.forecast_home_2
+        data:
+          type: daily
+        response_variable: fc
+        continue_on_error: true
+      - variables:
+          _function_result: >-
+            {%- set e = 'weather.forecast_home_2' -%}
+            {%- set now_state = states(e) | replace('-', ' ') -%}
+            {%- set now_temp = state_attr(e, 'temperature') -%}
+            {%- set days = ((fc | default({}, true)).get(e, {}).get('forecast', [])) if fc is defined else [] -%}
+            {%- set today = days[0] if days | count > 0 else {} -%}
+            now={{ now_state }}; temperature_now={{ now_temp | default('unknown', true) }}F
+            {%- if today %}; today_high={{ today.temperature | default('?', true) }}F; today_low={{ today.templow | default('?', true) }}F; today_condition={{ (today.condition | default('?', true)) | replace('-', ' ') }}; rain_mm={{ today.precipitation | default(0, true) }}
+            {%- else %}; forecast_unavailable=true
+            {%- endif -%}

@@ -1,0 +1,89 @@
+# Ember toolkit — the data plane behind Ember's tools.
+#
+# WHY THIS FILE EXISTS AT ALL, rather than the tools calling these APIs directly:
+#
+# Ember's tool definitions ("functions") do NOT live in this repo's YAML. They
+# live in HA's `.storage`, inside the conversation subentry, and are loaded with
+# a plain `yaml.safe_load()` (see the integration's conversation.py). Plain
+# safe_load does NOT understand `!secret` — it raises on the unknown tag. So a
+# secret-bearing tool CANNOT be expressed in the functions field.
+#
+# Anything needing a credential therefore lives here instead, in real HA YAML
+# where `!secret` works, and Ember's tool reads the *result*:
+#
+#   OctoPrint  -> `rest:` sensor below   -> tool `check_print`   (template)
+#   MemPalace  -> `rest_command:` below  -> tool `palace_recall` (script)
+#
+# Two things fall out of that, both good:
+#   1. Credentials stay in /config/secrets.yaml. Git only ever sees `!secret`.
+#   2. `check_print` does no network I/O during a conversation — it reads an
+#      already-polled sensor, so a sleeping or wedged printer host cannot stall
+#      a voice turn. Only the on-demand tools (palace, spyglass) fetch live.
+#
+# Notes for whoever touches this next:
+#   - `.lan` on every hostname. HAOS does not resolve bare `serialhub` /
+#     `familiar` / `ubox0` reliably, and never hardcode the IP: familiar moved
+#     .124 -> 10.0.6.107 and the stale literal cost a debugging session.
+#     Measured 2026-08-02: realmwatch's own /topology STILL reports familiar at
+#     10.0.6.104, which is serialhub's address. Resolve names, don't trust maps.
+#   - Reloadable without a full HA restart: `rest.reload` + `rest_command.reload`.
+#   - The two secrets this needs, in /config/secrets.yaml on the VM:
+#       octoprint_api_key       -> vault item "OctoPrint API key (serialhub)"
+#       palace_daemon_api_key   -> vault item "palace-daemon-v1"
+
+rest:
+  # OctoPrint's job endpoint, polled so that asking Ember about the printer is
+  # a state read rather than an HTTP round-trip. 30 s is fine: this answers
+  # "how's the print doing", not a control loop.
+  - resource: http://serialhub.lan:5000/api/job
+    scan_interval: 30
+    timeout: 8
+    headers:
+      X-Api-Key: !secret octoprint_api_key
+    sensor:
+      - name: Ember Print Job
+        unique_id: ember_print_job
+        # OctoPrint's own words: Printing / Operational / Paused / Offline / Error.
+        # Kept verbatim rather than prettified — the tool template does the
+        # speaking, and a sensor that editorialises is a sensor that lies later.
+        value_template: "{{ value_json.state }}"
+        # `unavailable` when serialhub or OctoPrint is unreachable, which the
+        # tool reports honestly instead of implying the printer is idle.
+        availability: "{{ value_json.state is defined }}"
+        json_attributes:
+          - job
+          - progress
+
+rest_command:
+  # MemPalace search.
+  #
+  # `/search/fast`, NOT `/search`. Measured 2026-08-02: `/search` is broken
+  # server-side and returns a JSON-RPC error rather than results —
+  # `UnboundLocalError: cannot access local variable 'lexical'` — so the
+  # reranked endpoint is not an option today regardless of its better quality.
+  # If someone fixes palace-daemon, re-measure before switching: `/search/fast`
+  # answers in ~0.02 s, which is what makes recall usable inside a voice turn.
+  #
+  # `wing` narrows to one project and is worth passing whenever it is known:
+  # unfiltered relevance is currently weak (a query about Ember's own latency
+  # returned candela release notes), while the same query scoped to a wing found
+  # the right drawer. The tool exposes `wing` for exactly this reason.
+  #
+  # `familiar` S3-sleeps; a failure here is a real "the palace is asleep", and
+  # the tool says so rather than inventing a memory.
+  palace_search:
+    url: >-
+      http://familiar.lan:8085/search/fast?q={{ query | urlencode }}&limit={{ limit | default(3) }}{%
+      if wing is defined and wing %}&wing={{ wing | urlencode }}{% endif %}
+    method: GET
+    timeout: 20
+    headers:
+      x-api-key: !secret palace_daemon_api_key
+
+  # Spyglass camera liveness — per-camera `ok`, `age` (seconds since last frame)
+  # and `error`. This is what makes `look_at_camera` able to say the frame is
+  # fresh instead of guessing.
+  spyglass_cams:
+    url: http://ubox0.lan:8300/api/cams.json
+    method: GET
+    timeout: 10
