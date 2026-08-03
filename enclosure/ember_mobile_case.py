@@ -184,7 +184,22 @@ COVER_CLR   = 1.60          # finger room past the moat before the step starts
 COVER_Y0    = CAP_KEEPOUT + COVER_CLR                               # 18.00
 
 # ---- and everything downstream of it, in one chain so nothing can drift ----
-BAY_Y0   = COVER_Y0 + COV_WALL                          # 20.20 — the leaf's seat (see 3b)
+# ⚠️ THE LEAF'S SEAT IS RECESSED INTO THE -Y END WALL, and the amount is what the wall can
+# actually spare -- MEASURED, not assumed. The commission for the no-lip round said the space
+# below BAY_Y0 was owned by the chin screw's boss and the "-" mark, both movable. The solid says
+# otherwise: a raster of the built cover across the cell lane reads 100% SOLID for eighteen
+# consecutive 0.10 bands from y 18.00 to 19.80. It is this wall. The chin screw's cover pad is
+# x 19.05..28.05 against a lane ending at CELL_X1 -- CLEAR OF THE LANE BY 0.40, so moving it
+# frees nothing; and the "-" mark went to the mating face rounds ago (see the note in
+# back_cover() where it used to be cut).
+#
+# What the wall can spare is bounded by the LEAF KERF, which has already eaten 0.35 of it: the
+# void starts at 19.85 over the kerf's x span (wall 1.85), 20.20 outside it (wall 2.20). So the
+# recess is (COV_WALL - kerf) - MIN_SOLID and no more, or the DOCKING FACE goes under the floor.
+LEAF_KERF_ASSUMED = 0.35                  # == CONTACT_KERF; asserted against it in 5g
+LEAF_SEAT_RECESS  = (COV_WALL - LEAF_KERF_ASSUMED) - 4 * 0.40           # 0.250. MIN_SOLID is
+                                                                        # named in 5g, below.
+BAY_Y0   = COVER_Y0 + COV_WALL - LEAF_SEAT_RECESS       # 19.95 — the leaf's seat (see 3b)
 # ---- KEYING REMOVED.  There is none available, and saying so is the deliverable. ----
 #
 # The previous revision recessed the +ve contact behind a d7.00 aperture so a reversed cell's
@@ -224,7 +239,13 @@ CELL_TIP_Y   = None                                     # -> BAY_Y1, solved belo
 # forces you to keep away from it.
 #
 # Take the coil out and the chain runs forward off the CELL instead of off the spring:
-LEAF_MARGIN  = 0.50                                     # how far off closed the LONGEST cell
+LEAF_MARGIN  = 0.30                                     # how far off closed the LONGEST cell
+                                                        # ⚠️ WAS 0.50. The other 0.20 went to the
+                                                        # no-lip solve (§4b): it is Y at the +Y
+                                                        # corner, which is the axis the lip is on.
+                                                        # JP-tunable by design -- he forms the
+                                                        # fold by hand -- and check [cell] still
+                                                        # proves BOTH length extremes fit.
                                                         # must still leave the fold
 CELL_TIP_Y   = BAY_Y0 + CELL_L_MAX + LEAF_SOLID + LEAF_MARGIN   # 86.95, the "+" plate's face
 # >>> ⚠️ AND THE FIRST ATTEMPT AT THIS SET MOB_OY1 = OY1 AND DECLARED THE BROW DEAD. IT WAS <<<
@@ -271,8 +292,16 @@ _ARC_DY      = math.sqrt(max(OUT_R**2 - (_MIN_SOLID + _ARC_CX - _BORE_X0)**2, 0.
 # fourth instance of the class in this file (dead SD_PLATE, dead GRILLE_SLOT_W, the 5mm ghost).
 # A wrong number in a comment is worse than none, because the next reader budgets against it.
 CELL_END_SETBACK = OUT_R - _ARC_DY                      # 3.733
-MOB_OY1      = CELL_TIP_Y + max(COV_WALL, CELL_END_SETBACK)     # 90.683
-BAY_Y1       = MOB_OY1 - COV_WALL                       # 88.483, the COMPARTMENT's void end
+# >>> FLUSH.  JP: "no litle lip in backpack figure it out pls."  MOB_OY1 IS OY1 NOW. <<<
+# CELL_END_SETBACK is retained above as the RECORD of what used to set this -- it was the case
+# buying corner clearance with LENGTH, and the no-lip solve buys it with the -X WALL instead
+# (§4b). It is no longer in the expression, and the assert below is what keeps it honest.
+MOB_OY1      = OY1                                      # 88.95 -- IDENTICAL to the desk profile
+BAY_Y1       = MOB_OY1 - COV_WALL                       # 86.75, the COMPARTMENT's void end
+assert MOB_OY1 == OY1, "the mobile is not flush with the bezel and the lip is back"
+assert CELL_TIP_Y + COV_WALL <= MOB_OY1 + 1e-9, (
+    f"the cell tip at {CELL_TIP_Y:.3f} leaves only {MOB_OY1-CELL_TIP_Y:.3f} of +Y end wall "
+    f"against COV_WALL {COV_WALL} -- the -Y end has not given back enough for flush")
 BAY_L        = CELL_TIP_Y - BAY_Y0                      # 66.75, the cell's own working length
 # ...and the cell lane is SOLID from the plate to BAY_Y1, so the fillet is filled rather than
 # dodged: back_cover() adds that bulkhead and cuts the "+" kerf into its -Y face.
@@ -434,15 +463,89 @@ CAV_Z0   = COVER_Z0 + COV_WALL                          # -29.10, baffle inner A
 # plate went stale against CHAM_Y1 (ember_case.py:1721) -- a copy that was right when it was
 # typed and wrong from a distance, with nothing able to notice.
 
+# ============================================================================
+# THE NO-LIP SOLVE.  JP: "no litle lip in backpack figure it out pls."
+# ============================================================================
+#
+# The whole problem is ONE CIRCLE. The outer plan corner is an arc of OUT_R centred
+# C = (OX0+OUT_R, top_y-OUT_R); the cell void's convex +Y/-X corner is P; the wall between them
+# is OUT_R - |P-C|. At flush (top_y = OY1) that wall was 0.296 and it needed 1.60.
+#
+# Everything that RESHAPES the corner is bounded and measured dead -- the plan-view family by a
+# shape-independent 1.299 bound, the Z-banded tail by the cradle fact (an 18650 loads straight
+# down, so the void's -X extreme does not retreat above the equator). Check 7e keeps both, with
+# the numbers, so nobody re-derives them. What was never tried is MOVING P, and P has two axes:
+#
+#   +X  thicken the -X wall, walking the bore out from under the arc  -> CELL_WALL_X
+#   -Y  recess the leaf seat + spend LEAF_MARGIN                      -> CELL_TIP_Y, -0.450
+#
+# and one shape term that is free:
+#
+#   r   round the void's own plan corner to match the cell's rolled edge
+#
+# ⚠️ r IS BOUNDED BY THE LANE CLEARANCE AND THIS IS THE WHOLE SAFETY ARGUMENT. A square-cornered
+# cell has its corner at (CELL_X0 + CELL_BORE_CLR, CELL_TIP_Y). That point is inside the rounded
+# void iff (CELL_BORE_CLR - r)^2 + r^2 <= r^2, i.e. iff r <= CELL_BORE_CLR. JP eyeballed his
+# cells at "Slightly rounded, ~0.5mm" -- A VISUAL ESTIMATE, NOT A CALIPER READING -- and a round
+# built to 0.50 would interfere with a square-cornered cell. So r is taken from the bore
+# clearance, a number this file already owns: the geometry is then correct for ANY real cell,
+# including one with no roll at all, and cell_phantom() needs no roll modelled to stay honest.
+# THE COST OF THAT INDEPENDENCE IS 0.44 OF DRIVER TRAVEL, and it is worth it -- the failure mode
+# it buys off is a cell that will not seat, discovered at the bench.
+NOLIP_ROLL   = CELL_BORE_CLR                            # 0.30. See the bound above.
+NOLIP_TARGET = 4 * 0.40 + 0.10                          # 1.70 -- MIN_SOLID plus the margin this
+                                                        # file demands (it rejects features that
+                                                        # SIT on a constraint; see LABEL_DEBOSS).
+_NL_C   = (OX0 + OUT_R, OY1 - OUT_R)                    # the outer corner arc's centre, at FLUSH
+_NL_dy  = (CELL_TIP_Y - NOLIP_ROLL) - _NL_C[1]
+_NL_disc = (OUT_R - NOLIP_TARGET - NOLIP_ROLL) ** 2 - _NL_dy ** 2
+assert _NL_disc > 0.0, (
+    f"no -X wall thickness can carry {NOLIP_TARGET:.2f} at the +Y corner: the Y term alone "
+    f"({_NL_dy:.3f}) already exceeds the {OUT_R - NOLIP_TARGET - NOLIP_ROLL:.3f} the arc allows. "
+    f"CELL_TIP_Y must come further -Y before X can finish the job")
+OX0_WALL_SOLVE = (_NL_C[0] - math.sqrt(_NL_disc) - NOLIP_ROLL) - OX0    # 3.678
+# CONTROL: the solve must REJECT the wall it replaced. At the old COV_WALL the corner has to come
+# out UNDER the floor, or this derivation is not the thing that fixed the lip and the whole block
+# is decoration bolted onto a part that was already fine.
+assert OUT_R - math.hypot(_NL_C[0] - (OX0 + COV_WALL + NOLIP_ROLL),
+                          _NL_C[1] - (CELL_TIP_Y - NOLIP_ROLL)) - NOLIP_ROLL < 4 * 0.40, (
+    "control failed: the -X wall at its ORIGINAL COV_WALL already carries MIN_SOLID at the +Y "
+    "corner with the case flush, so the lip was never bought by this wall and the solve above "
+    "is not what closed it")
+
 # ---- X LANES.  A SINGLE SHARED DIVIDER, because two walls do not fit. ----
-CELL_X0     = OX0 + COV_WALL                            # -0.75
-CELL_X1     = CELL_X0 + CELL_BORE_D                     # 18.85
-CELL_AXIS_X = (CELL_X0 + CELL_X1) / 2                   # 9.05
+#
+# >>> ⚠️ THE -X WALL IS NO LONGER COV_WALL, AND IT HAS A NAME NOW BECAUSE OF WHAT THAT COST. <<<
+#
+# JP: "no litle lip in backpack figure it out pls."  The mobile ran MOB_OY1 = 90.683 against the
+# bezel's 88.95 -- a 1.733 ledge across the whole top edge, and the only place the mobile was
+# longer than the case it shares a bezel with. Every way of removing it by RESHAPING the corner
+# is bounded and was measured dead (check 7e keeps the ledger). What was never tried is moving
+# the thing the corner is short of: the CELL BORE. Thickening this wall walks the bore +X, out
+# from under the OUT_R arc, and the lip closes with no shape tricks and no thin walls.
+#
+# The wall was spelled `OX0 + COV_WALL` in five places and `COV_WALL` was doing double duty as
+# "the shell's wall" and "the -X wall specifically". The moment those two diverge the second
+# meaning is a liar -- and it nearly took the cell bay's only pressure-relief path with it: the
+# vent labyrinth derives its band and skins from the wall it is cut in, and at the old
+# expression the two slots would have stopped meeting by 0.20 and become blind pockets. Named,
+# so it cannot happen silently again. See §5d's re-derivation.
+CELL_WALL_X = OX0_WALL_SOLVE                            # 3.678 -- solved below, not typed
+CELL_X0     = OX0 + CELL_WALL_X                         # 0.728
+CELL_X1     = CELL_X0 + CELL_BORE_D                     # 20.128
+CELL_AXIS_X = (CELL_X0 + CELL_X1) / 2                   # 10.428
 CELL_AXIS_Z = BACK_Z - CELL_BORE_D / 2                  # -19.40, HUNG from the
                                                         # mating plane: see 4c
-DIVIDER_W   = 2.00
-RIM_X0      = CELL_X1 + DIVIDER_W                       # 20.85
-RIM_X1      = OX1 - COV_WALL                            # 50.75
+DIVIDER_W   = 4 * 0.40                                  # 1.60 = MIN_SOLID (named in 5g) -- was 2.00, i.e. 0.40 OVER the
+                                                        # floor. That 0.40 is the cheapest of the
+                                                        # three X payments and the only free one.
+RIM_X0      = CELL_X1 + DIVIDER_W                       # 21.728
+# ⚠️ THE +X OUTER WALL IS RE-QUANTIZED, and it is the same argument §2 already accepted for the
+# +Y end wall: this is a wall printed as PERIMETERS, so its quantum is extrusion width, not layer
+# height. COV_WALL 2.20 is 5.5 extrusions -- half a bead that the slicer has to do something with.
+# 2.00 is FIVE EXACTLY. It is a better wall and it hands 0.20 to the driver's lane.
+WALL_X1     = 5 * 0.40                                  # 2.00, the +X outer wall
+RIM_X1      = OX1 - WALL_X1                             # 50.95
 RIM_WALL    = 8 * LH                                    # 1.60
 # ⚠️ RIM_Y0 WAS BAY_Y0 -- I.E. THE RIM'S LOW-Y SIDE WAS THE COVER'S OWN BOTTOM WALL -- AND THE
 # SEAL CHECK REJECTED IT. With the rim starting at the very bottom of the compartment there was
@@ -553,9 +656,18 @@ SEP_WALL_X1 = RIM_X0 + SEP_WALL_T                       # 22.25, the chamber's n
 _GRV_HALF = (DRIVER_H + 2 * DRIVER_CLR) / 2
 _shift_lo = (SEP_WALL_X1 + _GRV_HALF) - (RIM_X0 + RIM_X1) / 2
 _shift_hi = (RIM_X1 - _GRV_HALF) - (RIM_X0 + RIM_X1) / 2
-assert _shift_hi > _shift_lo, (
-    f"no driver shift satisfies both the wall face and the case wall: window is "
-    f"[{_shift_lo:.2f}, {_shift_hi:.2f}]. The wall cannot be {SEP_WALL_T:.2f} thick here")
+# >>> ⚠️ THAT WINDOW IS NOW EMPTY, AND IT IS A FACT TO RECORD RATHER THAN A FAILURE TO RAISE. <<<
+# The no-lip solve (§4b) spent the rim's slack walking the cell bore +X, so a MIN_SOLID wall
+# standing in the DRIVER'S lane no longer has anywhere to be. That retires the SEP_WALL option
+# permanently instead of leaving it as a tempting near-miss for the next round: the separator
+# that IS built is SEP2, and SEP2 survives this change precisely because it does NOT stand in
+# the driver's lane -- it sits between RIM_X0 and the driver, and DRV_SHIFT below is solved to
+# keep its full section. The assert is inverted: if a window ever reopens here, something gave
+# the rim its slack back and BOTH separators want re-deriving together.
+assert _shift_hi <= _shift_lo, (
+    f"the SEP_WALL shift window has REOPENED at [{_shift_lo:.2f}, {_shift_hi:.2f}] -- the rim "
+    f"has slack again, so the no-lip solve has been weakened or the driver has shrunk. "
+    f"Re-derive SEP_WALL and SEP2 together; do not just widen one of them")
 # >>> AND THE GATE KILLED THAT WALL AT 21.50 mm3. THE SHIFT IS NOT BUILT. WHY, IN NUMBERS. <<<
 #
 # The window above is real but it is not the binding one, because it never asked where the STRIP
@@ -579,7 +691,19 @@ assert _shift_hi > _shift_lo, (
 # still under MIN_SOLID. A shift would buy a thicker EXPERIMENTAL wall and move the grille
 # field, the witness outline and the acoustic centre on the part JP is printing. Asserted in
 # §4c-b so nobody re-opens it from prose.
-DRV_SHIFT = 0.0
+# ⚠️ NO LONGER ZERO, AND IT IS SOLVED RATHER THAN PICKED.  DRV_CX is derived as the rim's
+# CENTRE, so when the no-lip solve walks RIM_X0 +X the driver only follows by HALF of it -- and
+# SEP2, which is pinned between RIM_X0 and the driver's body, gets crushed by the difference.
+# Left at zero it collapses from 0.90 to 0.461, i.e. under even SEP2_T_THIN. That is the whole
+# reason DRV_SHIFT exists. Solve it so SEP2 keeps its FULL section and the driver keeps
+# SEP2_DRV_CLR; the +X side then lands on 0.42, which is DRIVER_CLR with 0.02 to spare.
+_SEP2_T_WANT = 0.90                     # SEP2_T_FULL, bound in 4c-b below; asserted against there
+DRV_SHIFT = (RIM_X0 + _SEP2_T_WANT + DRIVER_H/2 + 0.40) - (RIM_X0 + RIM_X1) / 2   # +0.439
+assert RIM_X1 - ((RIM_X0 + RIM_X1)/2 + DRV_SHIFT + DRIVER_H/2) >= DRIVER_CLR, (
+    f"the shifted driver's +X face leaves "
+    f"{RIM_X1 - ((RIM_X0+RIM_X1)/2 + DRV_SHIFT + DRIVER_H/2):.3f} to the case wall, under "
+    f"DRIVER_CLR {DRIVER_CLR}. The no-lip solve has taken more X than the rim had -- give some "
+    f"back at CELL_WALL_X, do NOT thin SEP2 to pay for it")
 DRV_CX    = (RIM_X0 + RIM_X1) / 2 + DRV_SHIFT           # 36.50
 DRV_CY    = (RIM_Y0 + RIM_Y1) / 2                       # 52.40 -- the comment said 42.60 until
                                                         # 2026-08-01, and that was never right at
@@ -750,6 +874,32 @@ SCREW_XY        = (SCREW_LANE_X, COVER_Y0 + SCREW_EDGE_MIN + 0.40)   # (23.55, 2
 TOP_SCREW_XY    = (SCREW_LANE_X,
                    MOB_OY1 - max(SCREW_EDGE_MIN, SCREW_BOSS_D/2 + 0.20))    # (23.55, 85.98)
 SCREWS          = (SCREW_XY, TOP_SCREW_XY)
+# ---- THE TOP COLUMN STEPS.  Recorded as the priced escape in f0d72a3; the no-lip solve is
+# what finally needed it, and the vent's own assert is what asked for it by name.
+#
+# SCREW_BOSS_D is THE HEAD'S ANNULUS -- (9.00 - CBORE_D)/2 = MIN_SOLID of bearing ring -- and an
+# annulus only exists where there is a counterbore. Above the counterbore's roof the column
+# carries nothing but the shank, so d9.00 up there is 1.60 of material per side bought for no
+# reason and spent somewhere expensive: the column stands IN THE DIVIDER, and the divider is
+# where the internal labyrinth vent lives. Flush moved the top screw -Y and the full-diameter
+# column crowded the vent's window to 4.659 against the 5.485 a LAT hex needs.
+#
+# So: full section while it is an annulus, shank-plus-a-printable-wall above. The full run is
+# kept COV_WALL past the seat so check 11b's seat probe (which samples 0.20 ABOVE the roof)
+# still lands on solid ring -- the step is not allowed to eat the bearing surface it protects.
+# Narrowing UPWARD is free in the cover's print orientation: the ledge faces +Z, nothing bridges.
+TOPBOSS_STEP_Z  = COVER_Z0 + CBORE_DEPTH + COV_WALL      # -26.10
+TOPBOSS_D_UP    = SCREW_D + 2 * _MIN_SOLID               # 6.50 -- shank + a printable wall
+assert TOPBOSS_STEP_Z > COVER_Z0 + CBORE_DEPTH + 0.20, (
+    f"the column steps at {TOPBOSS_STEP_Z:.2f}, inside check 11b's seat probe slab -- the "
+    f"head's bearing ring would be measured on the stepped section and read as broken out")
+assert TOPBOSS_D_UP >= SCREW_D + 2 * _MIN_SOLID, (
+    f"the stepped column is d{TOPBOSS_D_UP:.2f} around a d{SCREW_D} shank, leaving "
+    f"{(TOPBOSS_D_UP-SCREW_D)/2:.2f} of wall")
+# CONTROL: the step must actually BUY something at the divider, or it is complexity for nothing.
+assert TOPBOSS_D_UP < SCREW_BOSS_D - 0.5, (
+    "control failed: the stepped diameter is no smaller than the full one, so the step frees no "
+    "divider and the vent window it was cut for is unchanged")
 # ⚠️ LENGTH IS DERIVED FROM THE COVER'S DEPTH, NOT CHOSEN -- and JP has explicitly released it
 # as a constraint ("i don't ccare about the lendthte of the screws"). Every millimetre the
 # backpack grows comes off the thread one for one: at BAY_EXTRA 1.60 this had to be 25 because
@@ -1462,9 +1612,19 @@ VENT_W     = 2.00       # slot width in Y
 VENT_RIB   = 1.20       # material between a unit's inner and outer slot -- forces the turn
 VENT_GAP   = 1.60       # material between units
 VENT_PITCH = 2*VENT_W + VENT_RIB + VENT_GAP             # 6.80
-VENT_D     = 7 * LH                                     # 1.40 from each face
-VENT_BAND  = 2*VENT_D - COV_WALL                        # 0.60
-VENT_SKIN  = COV_WALL - VENT_D                          # 0.80 left standing at each face
+# ⚠️ DERIVED FROM CELL_WALL_X, NOT COV_WALL, AND THAT DISTINCTION IS LOAD-BEARING NOW.
+# These cuts are keyed to two different faces -- the inner slot to CELL_X0, the outer slot and
+# the band to OX0 -- so they only meet if the arithmetic uses the wall they are ACTUALLY in.
+# Against COV_WALL, with the -X wall thickened to CELL_WALL_X by the no-lip solve, the inner
+# slot and the band would stop meeting by 0.20 and this becomes TWO BLIND POCKETS: the cell
+# bay's only pressure-relief path, dead, and looking exactly like a working vent from outside.
+# Hold the BAND at the proven SLOT_W void and let the skins take the extra wall.
+VENT_BAND  = 0.60                                       # SLOT_W, the proven void -- held
+VENT_D     = (CELL_WALL_X + VENT_BAND) / 2              # 2.139 from each face
+VENT_SKIN  = CELL_WALL_X - VENT_D                       # 1.539 at each face, was 0.80
+assert 2*VENT_D - CELL_WALL_X > 0.0 and abs((2*VENT_D - CELL_WALL_X) - VENT_BAND) < 1e-9, (
+    f"the vent's two slots are {VENT_D:.3f} deep in a {CELL_WALL_X:.3f} wall and do not overlap "
+    f"by the intended {VENT_BAND:.2f} -- it is two blind pockets, not a labyrinth")
 VENT_Y0    = 30.00                                      # clear of every retention feature
 CELL_PORTS_MM2 = 3 * math.pi * (2.0/2)**2               # 9.42, the assumption above
 
@@ -1764,7 +1924,13 @@ assert EASE_WALL >= MIN_SOLID, (
 # is not an opening. The honest place for a through-vent on that end is the OTHER side of the
 # boss, over the upper compartment, which is where the LED below is going; that is a choice for
 # JP to make deliberately rather than to inherit from a hex field pointed at a battery.
-TOPMESH_D    = 3 * LH                   # 0.60 deep; COV_WALL - 0.60 = 1.60 left, the floor
+# ⚠️ DEPTH IS BOUNDED BY THE CONTACT KERF, NOT THE WALL, since the no-lip cut. The "+" plate's
+# kerf is cut CONTACT_KERF into this same end wall from the bay side, and with MOB_OY1 == OY1
+# (flush) the wall band is thin enough that the kerf's footprint governs: membrane behind the
+# deboss over the kerf = (MOB_OY1 - CELL_TIP_Y) - CONTACT_KERF - TOPMESH_D, and THAT must hold
+# MIN_SOLID. At the old 0.60 it held 1.50 -- 0.10 under -- which check 19b caught on the solid
+# (94.5% membrane). Derived and layer-quantized, not typed:
+TOPMESH_D    = math.floor(((MOB_OY1 - CELL_TIP_Y) - CONTACT_KERF - MIN_SOLID) / LH) * LH  # 0.40
 TOPMESH_EDGE = 1.60                     # material at each edge of the field
 assert COV_WALL - TOPMESH_D >= MIN_SOLID - 1e-9, (
     f"the blind top mesh is {TOPMESH_D:.2f} deep in a {COV_WALL:.2f} wall, leaving "
@@ -1830,8 +1996,12 @@ TOPVENT_Z0, TOPVENT_Z1 = TOPMESH_Z0, TOPMESH_Z1          # one band across the w
 # the band where their depths overlap. Air turns twice; a straight line finds material. The
 # divider is DIVIDER_W thick against the outer wall's COV_WALL, so the numbers differ from
 # §5d's and are re-derived rather than copied.
-IVENT_D    = 1.30                                       # from each face of the 2.00 divider
-IVENT_BAND = 2*IVENT_D - DIVIDER_W                      # 0.60 -- SLOT_W, the proven void
+# ⚠️ DERIVED, not typed -- the typed 1.30 said "from each face of the 2.00 divider" and became
+# a liar when the no-lip cut thinned the divider to 1.60: the overlap band silently grew to
+# 1.00 and the sightline check found 19% material. Hold the BAND at the proven 0.60 (SLOT_W's
+# class) and let the depth follow the wall it is actually cut into:
+IVENT_D    = (DIVIDER_W + 0.60) / 2                     # 1.10 at DIVIDER_W 1.60 (was 1.30 at 2.00)
+IVENT_BAND = 2*IVENT_D - DIVIDER_W                      # 0.60 -- SLOT_W, the proven void, by construction
 # ⚠️ THE OFFSET IS IN Z, NOT Y, AND THE BOSS IS WHY. §5d offsets its two slots along the wall's
 # length; here that length is Y, and the only Y window the divider has between the seal rim
 # (76.40) and the top screw's boss (81.48) is 5.08mm -- one cell wide, not two. The divider is
@@ -1880,8 +2050,15 @@ def _ivent_boss_floor(_x0, _x1, _cy=None, _d=None):
     return BAY_Y1 if _dx >= _d/2 else _cy - math.sqrt((_d/2)**2 - _dx**2)
 # Each notch owns its own x span, so each gets its own window; the vent must fit the WORSE one.
 IVENT_WIN_Y0 = RIM_Y1 + RIM_WALL
-IVENT_WIN_Y1 = min(_ivent_boss_floor(CELL_X1, CELL_X1 + IVENT_D),        # cell-bay-side notch
-                   _ivent_boss_floor(RIM_X0 - IVENT_D, RIM_X0))          # compartment-side notch
+# ...and the column the notches actually see is the STEPPED one: both notches sit well above
+# TOPBOSS_STEP_Z, where the column is TOPBOSS_D_UP. Asserted, not assumed -- if a notch ever
+# drops below the step it meets the full d9.00 and this window is fiction.
+assert IVENT_CZ_O - LAT_AF/2 > TOPBOSS_STEP_Z, (
+    f"the lower notch reaches z {IVENT_CZ_O-LAT_AF/2:.2f}, at or below the column's step at "
+    f"{TOPBOSS_STEP_Z:.2f} -- down there the column is d{SCREW_BOSS_D:.2f} and the window below "
+    f"is measured against the wrong cylinder")
+IVENT_WIN_Y1 = min(_ivent_boss_floor(CELL_X1, CELL_X1 + IVENT_D, None, TOPBOSS_D_UP),
+                   _ivent_boss_floor(RIM_X0 - IVENT_D, RIM_X0, None, TOPBOSS_D_UP))
 # DERIVED, NOT TYPED: centre it in the window it actually has. Typing 79.00 is what let (1) hide.
 IVENT_Y    = (IVENT_WIN_Y0 + IVENT_WIN_Y1) / 2
 assert IVENT_WIN_Y1 - IVENT_WIN_Y0 >= 2*IVENT_HALF_Y, (
@@ -2224,7 +2401,7 @@ def back_cover():
 
     # ---- ONE interior void for the whole compartment. Its floor at CAV_Z0 is simultaneously
     # the baffle's inner face and the cell bore's floor, which is why CAV_Z0 exists.
-    p -= rbox(OX0 + COV_WALL, OX1 - COV_WALL, BAY_Y0, BAY_Y1,
+    p -= rbox(CELL_X0, RIM_X1, BAY_Y0, BAY_Y1,
               CAV_Z0, BACK_Z + 1, max(OUT_R - COV_WALL, 1.0))
     # ⚠️ AND SQUARE OFF THE LOW-Y END. rbox rounds all four corners with one radius, which is
     # right at the case's real corners up at MOB_OY1 and WRONG here: the bay's low-Y boundary is
@@ -2232,14 +2409,14 @@ def back_cover():
     # the cell bore. The cell-vs-cradle boolean caught it at 13.107 mm3 -- an interference that
     # no part-vs-part or part-vs-board check could ever have seen, because the object it
     # collides with is not in any STL.
-    p -= bx(OX0 + COV_WALL, OX1 - COV_WALL, BAY_Y0, BAY_Y0 + OUT_R, CAV_Z0, BACK_Z + 1)
+    p -= bx(CELL_X0, RIM_X1, BAY_Y0, BAY_Y0 + OUT_R, CAV_Z0, BACK_Z + 1)
     # ⚠️ AND NOW THE HIGH-Y END TOO, OVER THE CELL LANE ONLY -- the same defect at the opposite
     # corner, and it cost a gate to find. The +Y fillet IS right for the compartment (that is
     # the case's real corner) and WRONG over the cell, whose bore runs to x = CELL_X0 and is
     # already only 0.10 inside the wall. It reached 4.15mm into the bore and the cell-vs-cradle
     # boolean measured 21.218 mm3 of it. Squaring it here is safe because the bulkhead below
     # then fills everything from the plate to BAY_Y1 -- so the corner ends up SOLID, not thin.
-    p -= bx(OX0 + COV_WALL, CELL_X1, BAY_Y1 - _INT_R, BAY_Y1, CAV_Z0, BACK_Z + 1)
+    p -= bx(CELL_X0, CELL_X1, BAY_Y1 - _INT_R, BAY_Y1, CAV_Z0, BACK_Z + 1)
 
     # ---- CRADLE: put the flat floor back as a half-cylinder so the cell self-centres.
     # Added material whose top surface is the bore, i.e. two lobes rising from the floor --
@@ -2255,6 +2432,15 @@ def back_cover():
     # The "+" plate's kerf is cut into this block's -Y face, so the plate is where the cell
     # reaches rather than where the case ends.
     p += bx(CELL_X0, RIM_X0, CELL_TIP_Y, BAY_Y1, CAV_Z0, BACK_Z)
+    # ---- AND THE VOID'S +Y/-X PLAN CORNER IS ROUNDED.  §4b's solve is derived against this
+    # round, so the corner is not optional geometry -- without it the wall there is short.
+    # Radius is NOLIP_ROLL = CELL_BORE_CLR, which is the largest round a SQUARE-CORNERED cell
+    # still seats in (the bound is derived in §4b). A real 18650's rolled edge is bigger than
+    # this, so the fillet lands in clearance the bore was already carrying and costs nothing.
+    p += (bx(CELL_X0, CELL_X0 + NOLIP_ROLL, CELL_TIP_Y - NOLIP_ROLL, CELL_TIP_Y,
+             CAV_Z0, BACK_Z)
+          - cyl(CELL_X0 + NOLIP_ROLL, CELL_TIP_Y - NOLIP_ROLL,
+                CAV_Z0 - 1, BACK_Z + 1, 2 * NOLIP_ROLL))
 
     # ---- THE SHARED DIVIDER. One wall doing two jobs: the cell trough's inboard wall and
     # the seal rim's inboard wall. Two separate walls do not fit in the X budget (see
@@ -2339,7 +2525,8 @@ def back_cover():
     # full 21.60 depth -- so the column is buttressed into a block rather than standing alone,
     # and no rectangular pad is needed to get it there. Vertical walls off the compartment
     # floor: self-supporting in the cover's own print orientation, nothing bridged.
-    p += cyl(TOP_SCREW_XY[0], TOP_SCREW_XY[1], CAV_Z0, BACK_Z, SCREW_BOSS_D)
+    p += cyl(TOP_SCREW_XY[0], TOP_SCREW_XY[1], CAV_Z0, TOPBOSS_STEP_Z, SCREW_BOSS_D)
+    p += cyl(TOP_SCREW_XY[0], TOP_SCREW_XY[1], TOPBOSS_STEP_Z, BACK_Z, TOPBOSS_D_UP)
 
     # ---- NEGATIVE-LEAD GROOVE, down the divider's cell-facing face at the top corner,
     # where the cell's curve has already fallen away.
@@ -2767,7 +2954,7 @@ def _check_mobile(parts):
         f"only {_slack:.2f}mm of X slack for the driver's {_pad_x:.2f}mm tape footprint inside "
         f"a {RIM_X1-RIM_X0:.2f}mm rim. The cell bore, the shared divider and the driver do not "
         f"fit across {OX1-OX0-2*COV_WALL:.2f}mm of interior")
-    assert (OX1 - COV_WALL) - (OX0 + COV_WALL) - CELL_BORE_D - DIVIDER_W - _pad_x >= 0.0, (
+    assert RIM_X1 - CELL_X0 - CELL_BORE_D - DIVIDER_W - _pad_x >= 0.0, (
         "the interior width budget is negative -- cell bore + divider + driver overruns")
     print(f"  [X budget] interior {OX1-OX0-2*COV_WALL:.2f} = bore {CELL_BORE_D:.2f} + divider "
           f"{DIVIDER_W:.2f} + rim {RIM_X1-RIM_X0:.2f}; driver slack {_slack:.2f}/2 per side")
@@ -3410,7 +3597,11 @@ def _check_mobile(parts):
     # arc, and the shortest line to it is RADIAL, not along X. §4b solves for the X clearance and
     # so reports more material than the part has.
     _oc_cx, _oc_cy = OX0 + OUT_R, MOB_OY1 - OUT_R           # the outer corner arc's centre, plan
-    _corner_wall = OUT_R - math.hypot(_oc_cx - CELL_X0, _oc_cy - CELL_TIP_Y)
+    # Measure to the ROUNDED void corner (§4b): the void's nearest point sits on the roll's arc,
+    # NOLIP_ROLL inside the sharp-corner point. The sharp-corner formula reads 1.583 for a corner
+    # this part no longer has; the rounded corner is what §4b solved for.
+    _corner_v = (CELL_X0 + NOLIP_ROLL, CELL_TIP_Y - NOLIP_ROLL)
+    _corner_wall = OUT_R - math.hypot(_oc_cx - _corner_v[0], _oc_cy - _corner_v[1]) - NOLIP_ROLL
 
     def _corner_short(_r, _t=0.20, _z=None):
         """Fraction of the must-be-solid quadrant at the void's corner that is OUTSIDE the part.
@@ -3440,10 +3631,43 @@ def _check_mobile(parts):
         _cz = _cz_lo + (_cz_hi - _cz_lo) * _k / 8
         _e = CELL_AXIS_X - math.sqrt(max((CELL_BORE_D/2)**2 - (_cz - CELL_AXIS_Z)**2, 0.0)) \
              if _cz < CELL_AXIS_Z else CELL_X0          # <- the asymmetry, stated as geometry
-        _corner_sweep.append((_cz, OUT_R - math.hypot(_oc_cx - _e, _oc_cy - CELL_TIP_Y)))
+        # ⚠️ AND WHICH SKIN IS NEAREST CHANGES WITH _e.  The corner ARC only governs while the
+        # void's -X extreme is still -X of the arc's centre; once the bore has retreated past
+        # it (which happens fast now that the no-lip solve moved the bore +X) the nearest skin
+        # is the FLAT +Y wall and the arc formula reports a wall that is not there. The old
+        # single-plane version never met this because the bore started 4.25 -X of the centre.
+        # Caught by this block's own control, which is what it was written for.
+        _ec = _e + NOLIP_ROLL
+        if _ec <= _oc_cx:
+            _corner_sweep.append((_cz, OUT_R - math.hypot(_oc_cx - _ec,
+                                                          _oc_cy - (CELL_TIP_Y - NOLIP_ROLL))
+                                       - NOLIP_ROLL))
+        else:
+            _corner_sweep.append((_cz, MOB_OY1 - CELL_TIP_Y))
     _worst_z, _worst_w = min(_corner_sweep, key=lambda _p: _p[1])
     # The analytic sweep is only worth having if the SOLID agrees with it at its worst plane.
-    _worst_meas = _corner_short(_worst_w - 0.02, 0.20, _worst_z)
+    # The void's corner is ROUNDED now (§4b), so the old sharp-corner probe point sits inside
+    # material and would read solid for free. Probe the actual nearest void point instead: the
+    # far side of the round's arc, along the line from the outer arc's centre through it.
+    _rv = (CELL_X0 + NOLIP_ROLL, CELL_TIP_Y - NOLIP_ROLL)
+    _rd = math.hypot(_rv[0] - _oc_cx, _rv[1] - _oc_cy)
+    _wp = (_rv[0] + NOLIP_ROLL * (_rv[0] - _oc_cx) / _rd,
+           _rv[1] + NOLIP_ROLL * (_rv[1] - _oc_cy) / _rd)
+    def _corner_short_at(_r, _pt, _z, _t=0.20):
+        # ⚠️ THE VOID SUBTRACTION IS THE WHOLE PROBE.  A disc centred ON a void boundary is
+        # ~half void by construction, so measuring the bare disc against the solid reports a
+        # shortfall that is just the hole it is sitting next to. What must be solid is the disc
+        # MINUS the void -- and the void here is the lane's quadrant with §4b's round taken
+        # back out of it, because that round is material.
+        _disc = Pos(_pt[0], _pt[1], _z) * Cylinder(_r, _t)
+        _quad = bx(CELL_X0, CELL_X0 + 60, CELL_TIP_Y - 60, CELL_TIP_Y, _z - 2*_t, _z + 2*_t)
+        _fil  = (bx(CELL_X0, CELL_X0 + NOLIP_ROLL, CELL_TIP_Y - NOLIP_ROLL, CELL_TIP_Y,
+                    _z - 2*_t, _z + 2*_t)
+                 - cyl(CELL_X0 + NOLIP_ROLL, CELL_TIP_Y - NOLIP_ROLL,
+                       _z - 3*_t, _z + 3*_t, 2 * NOLIP_ROLL))
+        _must = _disc - (_quad - _fil)
+        return ((_must - cov).volume) / max(_must.volume, 1e-9)
+    _worst_meas = _corner_short_at(_worst_w - 0.02, _wp, _worst_z)
     assert _worst_meas < 0.01, (
         f"the swept model says the corner's worst wall is {_worst_w:.3f} at z {_worst_z:.2f}, but "
         f"a disc that size there is {100*_worst_meas:.1f}% outside the part -- the Z model above "
@@ -3459,7 +3683,7 @@ def _check_mobile(parts):
         f"{_w_above:.3f} at z {_corner_sweep[-1][0]:.2f} -- the sweep cannot distinguish the "
         f"cradle's open bottom from its full-width top, so it adds nothing to one plane")
 
-    _corner_meas = _corner_short(_corner_wall - 0.02)
+    _corner_meas = _corner_short_at(_corner_wall - 0.02, _wp, CELL_AXIS_Z)
     assert _corner_meas < 0.01, (
         f"the analytic corner wall says {_corner_wall:.3f} but a disc that size at the void's "
         f"corner is {100*_corner_meas:.1f}% outside the part -- the plan geometry above no "
@@ -3467,18 +3691,24 @@ def _check_mobile(parts):
     # CONTROL, anchored to the FEATURE (the corner) rather than to a coordinate: a disc one
     # MIN_SOLID-step larger must POKE OUT. If the lens passes a radius the part cannot hold, it
     # cannot fail for a shortened case either, and the flush verdict below rests on nothing.
-    _corner_ctl = _corner_short(_corner_wall + 0.20)
+    _corner_ctl = _corner_short_at(_corner_wall + 0.20, _wp, CELL_AXIS_Z)
     assert _corner_ctl > 0.005, (
         f"control failed: a disc {_corner_wall+0.20:.2f} at the corner still reads fully inside "
         f"the part ({100*_corner_ctl:.2f}% out), so this probe cannot detect a thin corner")
     # ...and the flush position, priced with the same arithmetic the measurement just validated.
-    _flush_wall = OUT_R - math.hypot(_oc_cx - CELL_X0, (OY1 - OUT_R) - CELL_TIP_Y)
+    _flush_wall = _corner_wall          # MOB_OY1 IS OY1 now; one measurement, not two formulas
     _dead_wall = OUT_R - math.hypot(_oc_cx - CELL_X0,
                                     (CELL_TIP_Y + COV_WALL - OUT_R) - CELL_TIP_Y)
-    assert _flush_wall < MIN_SOLID, (
-        f"a case flush with the bezel now leaves {_flush_wall:.2f} at the cell's +Y corner, "
-        f"which CLEARS MIN_SOLID -- the blocker is genuinely dead, so pull MOB_OY1 back to OY1 "
-        f"and delete this check rather than leaving one that says it cannot be done")
+    # >>> THE BLOCKER IS DEAD AND THIS CHECK CHANGED SIDES.  It used to assert that flush
+    # could NOT be reached, and its own failure message said what to do on the day it could:
+    # "pull MOB_OY1 back to OY1 and delete this check rather than leaving one that says it
+    # cannot be done." MOB_OY1 IS OY1. So the assertion is inverted -- it now defends the fix
+    # instead of the excuse, and it is measured RADIALLY, which is the axis the old one got
+    # wrong for four rounds.
+    assert _flush_wall >= NOLIP_TARGET - 1e-6, (
+        f"the case is flush but the +Y/-X corner carries only {_flush_wall:.3f} radially, under "
+        f"the {NOLIP_TARGET:.2f} the no-lip solve was derived for. Something took X or Y back "
+        f"from §4b -- re-derive CELL_WALL_X, do not lower the target")
     print(f"  [+Y corner] ⚠️ FLUSH DOES NOT CLOSE, AND THE SHORTFALL IS THE CORNER, NOT THE "
           f"SETBACK'S ARITHMETIC. Overshoot MOB_OY1 {MOB_OY1:.2f} - OY1 {OY1:.2f} = "
           f"{MOB_OY1-OY1:.2f}.")
@@ -3504,25 +3734,31 @@ def _check_mobile(parts):
     # 7e. THE LIP, EXPLORED.  "come up with a creative way to fix this little lip pls." (JP)
     # ========================================================================
     #
-    # He rejected both accepting the 1.73 and the two bad trades, so this block records the
-    # search rather than a verdict. NOTHING HERE IS BUILT -- it is priced for his pick, and it is
-    # written down so the next round does not re-derive it from scratch (this file has paid that
-    # cost three times: the dead dovetail, the side-wall cooling field, the third screw).
+    # He then rejected the lip's EXISTENCE outright: "no litle lip in backpack figure it out
+    # pls." THE SEARCH IS CLOSED AND THE ANSWER IS BUILT: the conflict was MOVED, not reshaped
+    # around -- CELL_WALL_X 3.678 (the -X wall thickened), NOLIP_ROLL on the void's plan corner,
+    # the divider to 1.60 and the driver +1.078 -- so the plan-view family, which was
+    # impossible at the old bore, CLOSES at the as-built one. The dead ends below stay recorded:
+    # they are why THIS shape and not another.
     #
-    # >>> FIRST, THE BOUND THAT KILLS EVERY PLAN-VIEW ANSWER AT ONCE. <<<
-    # The entire constraint is ONE CIRCLE: no outer skin may come within MIN_SOLID of the void's
-    # plan corner P. At flush, with the box corner at B = (OX0, OY1), the deepest any corner
-    # treatment can cut is |B - P| - MIN_SOLID. The bezel's own arc cuts OUT_R*(sqrt2 - 1). The
-    # difference is how far proud the cover must stand, AND IT IS SHAPE-INDEPENDENT -- chamfer,
-    # arc, ellipse or freeform all sit on the same circle. So "a cleverer corner" is not a
-    # direction; the bound is the answer for all of them.
+    # >>> THE BOUND THAT USED TO KILL EVERY PLAN-VIEW ANSWER -- NOW THE FLUSH PROOF. <<<
+    # One circle: no outer skin may come within MIN_SOLID of the void's plan corner P. At flush,
+    # with the box corner at B = (OX0, OY1), the deepest any corner treatment can cut is
+    # |B - P| - MIN_SOLID; the bezel's own arc needs OUT_R*(sqrt2 - 1). At the OLD bore
+    # (CELL_X0 -0.75) that read 1.373 vs 2.672 -- >= 1.299 proud, ANY shape, which is what made
+    # the lip look unavoidable. The no-lip build moved P: the SAME bound must now read CLOSED,
+    # and that is asserted -- if it ever reads short again, the lip has come back.
     _lipB = math.hypot(CELL_X0 - OX0, OY1 - CELL_TIP_Y)     # box corner to the void's corner
     _lip_cut_max = _lipB - MIN_SOLID                        # deepest possible cut at flush
     _lip_bezel = OUT_R * (math.sqrt(2) - 1)                 # what the shared profile cuts
-    assert _lip_cut_max < _lip_bezel, (
-        f"the corner can be cut {_lip_cut_max:.3f} at flush against the bezel's {_lip_bezel:.3f} "
-        f"-- the plan-view family CLOSES, so the whole Z-banded argument below is unnecessary "
-        f"and the flush verdict in 7d is wrong")
+    assert _lip_cut_max >= _lip_bezel, (
+        f"the corner can only be cut {_lip_cut_max:.3f} at flush against the bezel's "
+        f"{_lip_bezel:.3f} -- the plan-view family NO LONGER closes and THE LIP IS BACK. "
+        f"Something moved CELL_X0/CELL_TIP_Y without re-solving the no-lip construction "
+        f"(JP: 'no litle lip in backpack figure it out pls')")
+    assert abs(MOB_OY1 - OY1) < 1e-9, (
+        f"MOB_OY1 {MOB_OY1:.3f} != OY1 {OY1:.3f} -- the cover overshoots the desk profile "
+        f"again; the lip JP ordered gone has returned")
     #
     # >>> ⚠️ THE Z-BANDED TAIL WAS THE ANSWER THIS BLOCK USED TO RECOMMEND.  IT IS DEAD, AND   <<<
     # >>> THE RETRACTION LIVES HERE RATHER THAN IN A HANDOFF, BECAUSE A HANDOFF IS NOT READ.   <<<
@@ -3578,12 +3814,13 @@ def _check_mobile(parts):
         f"control failed: the requirement never reaches OY1 going DOWN either "
         f"({_lip_lo:.3f} off the axis), so this function cannot tell an open bottom from a "
         f"full-width top and the asymmetry it reports is not evidence")
-    print(f"  [lip]     JP: \"come up with a creative way to fix this little lip pls.\" "
-          f"EXPLORED, NOT BUILT -- options priced for his pick.")
-    print(f"             PLAN-VIEW IS BOUNDED AND THE BOUND IS SHAPE-INDEPENDENT: at flush the "
-          f"corner can be cut at most {_lip_cut_max:.3f} (|B-P| {_lipB:.3f} - MIN_SOLID) against "
-          f"the bezel's {_lip_bezel:.3f}, so ANY plan treatment -- 45deg chamfer, smaller arc, "
-          f"ellipse, freeform -- stands >= {_lip_bezel-_lip_cut_max:.3f} proud at that corner.")
+    print(f"  [lip]     JP: \"no litle lip in backpack figure it out pls.\" BUILT -- THE LIP IS "
+          f"GONE: MOB_OY1 {MOB_OY1:.2f} == OY1, envelope Y identical to the desk case.")
+    print(f"             The conflict was MOVED, not reshaped around: CELL_WALL_X "
+          f"{CELL_WALL_X:.3f}, NOLIP_ROLL {NOLIP_ROLL:.2f} on the void's corner, divider "
+          f"{DIVIDER_W:.2f}, driver +{DRV_CX - 35.70:.3f}. The plan-view bound that killed every "
+          f"shape at the old bore now reads CLOSED and is asserted: cut available "
+          f"{_lip_cut_max:.3f} >= bezel's {_lip_bezel:.3f} (margin {_lip_cut_max-_lip_bezel:.3f}).")
     print(f"             ⚠️ Z-BANDED TAIL: RETRACTED, AND THE RETRACTION IS THE FINDING. It was "
           f"ranked first here and it is DEAD. Its model took the void's -X extreme as the BORE's "
           f"at every height -- symmetric in dz -- and the bore is a CRADLE, not a tube: the cell "
@@ -3706,33 +3943,12 @@ def _check_mobile(parts):
                              "than the horizontal 1.25 web JP validated on r10 ('clean, webs "
                              "crisp'), still below it. COST OF FAILURE: a floppy or absent wall, "
                              "trimmable with scissors -- nothing structural depends on it. "
-                             "EXPERIMENTAL, and the print is the verdict."),
-               # >>> AND ONE THAT IS NOT AN EXPERIMENT: A PRE-EXISTING CONDITION THE OWNER      <<<
-               # >>> LOOKED AT AND ACCEPTED.  It is in this ledger so it is re-examined every   <<<
-               # >>> build instead of living in one check's print and being forgotten.          <<<
-               (_corner_wall, "the cell bore's +Y/-X corner against the OUT_R arc (§4b, check "
-                              "7d). NOT a free-standing rib: a continuous shell, backed by "
-                              "COV_WALL both ways in Y and by the cradle below. #47's 0.90 -- "
-                              "this project's only calibration point -- was an unsupported web, "
-                              "a different animal. NOT introduced by any recent round; §4b has "
-                              "always measured this wall in X and the diagonal is shorter. "
-                              "JP, 2026-08-02, given the number and the class: \"it's fine as is "
-                              "1.41mm is pefefctly thick.\" His r10 print is the physical "
-                              "evidence. ACCEPTED BY THE OWNER, not missed by the checks. "
-                              "⚠️ ITS EXTENT WAS MISSTATED TO HIM AND THE CORRECTION IS PART OF "
-                              "THE ENTRY. This ledger used to say it 'recovers past the floor "
-                              "within ~2mm of Z either side because the bore is a CYLINDER'. "
-                              "HALF FALSE, and check 7d's new Z sweep is why: the bore is a "
-                              "CRADLE, so it recovers DOWNWARD only (1.56 at -1.9mm, 2.07 at "
-                              "-3.9mm) and holds flat going UP -- 1.404 measured on the STL at "
-                              "z -11.00 and at z -10.30, right under the mating plane. It is a "
-                              "STRIPE the full height from the cell axis to BACK_Z, ~9.7mm tall, "
-                              "not a dimple. The class stands (continuous shell, not a rib) and "
-                              "so does the acceptance; the SIZE of what was accepted is bigger "
-                              "than the sentence he was given, and he is owed that on the record. "
-                              "⚠️ RETIRE THIS ENTRY if the +Y end is ever re-cut to carry a "
-                              "radial MIN_SOLID (MOB_OY1 >= 91.06). The Z-banded tail is NO "
-                              "LONGER a route to that -- see the retraction in 7e."))
+                             "EXPERIMENTAL, and the print is the verdict."))
+    # [exempt] RETIRED 2026-08-02: the +Y/-X corner entry (JP's accepted 1.41 stripe).
+    # Its own retirement condition is met in spirit: the corner now carries a RADIAL
+    # 1.700 at flush (NOLIP round + CELL_WALL_X 3.678), not via MOB_OY1 growth. JP's
+    # verbatim acceptance lives in Sec 4b's comment and in b38d675's commit body.
+
     assert any(_v < MIN_SOLID for _v, _ in _exempt), (
         "control failed: nothing in the exempt list is actually under the floor, so the "
         "exemption is decorative and the scope line above is not being tested by anything")
@@ -4762,12 +4978,16 @@ def _check_mobile(parts):
     # A deboss that has quietly become a window into the cell bay is the failure this feature
     # was redesigned to avoid, and it is invisible from the outside -- which is the whole
     # problem. Measured as a membrane, exactly like the glow window's.
-    _tm_probe = bx(TOPMESH_X0, TOPMESH_X1, MOB_OY1 - COV_WALL, MOB_OY1 - TOPMESH_D,
-                   TOPMESH_Z0, TOPMESH_Z1)
+    # The probe demands exactly MIN_SOLID of material directly behind the deboss floor --
+    # anchored to the FEATURE, not the wall band, because the contact kerf legitimately lives
+    # deeper in the same wall (it bounds TOPMESH_D's derivation; it is not a leak).
+    _tm_probe = bx(TOPMESH_X0, TOPMESH_X1, MOB_OY1 - TOPMESH_D - MIN_SOLID,
+                   MOB_OY1 - TOPMESH_D, TOPMESH_Z0, TOPMESH_Z1)
     _tm_frac = (cov & _tm_probe).volume / _tm_probe.volume
     assert _tm_frac > 0.98, (
-        f"the blind top mesh's membrane is only {100*_tm_frac:.1f}% material -- the deboss has "
-        f"become a through-hole on the battery side, i.e. a straight path into the 18650 bay. "
+        f"the blind top mesh's membrane is only {100*_tm_frac:.1f}% material in the MIN_SOLID "
+        f"band behind the deboss floor -- the deboss has become (or nearly become) a "
+        f"through-hole on the battery side, i.e. a straight path into the 18650 bay. "
         f"That is what §5d's labyrinth exists to prevent")
     # CONTROL: the debossed band itself must read mostly OPEN, or the mesh was never cut.
     _tm_cut = bx(TOPMESH_X0, TOPMESH_X1, MOB_OY1 - TOPMESH_D, MOB_OY1, TOPMESH_Z0, TOPMESH_Z1)

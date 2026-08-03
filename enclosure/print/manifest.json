@@ -16,16 +16,16 @@
   "ember-mobile-back": {
     "printed_at": null,
     "printed_rev": 0,
-    "rev": 14,
-    "sha8": "2d71ae0b",
-    "updated": "2026-08-02T15:46"
+    "rev": 15,
+    "sha8": "5baf88b0",
+    "updated": "2026-08-02T18:24"
   },
   "ember-mobile-midframe": {
     "printed_at": null,
     "printed_rev": 0,
-    "rev": 9,
-    "sha8": "b8a19be1",
-    "updated": "2026-08-02T13:22"
+    "rev": 10,
+    "sha8": "0b118f80",
+    "updated": "2026-08-02T18:24"
   },
   "ember-stand": {
     "printed_at": "2026-07-31",
