@@ -1,0 +1,84 @@
+########################################################################
+# ember-mobile — the battery variant, issue #44
+#
+# SAME BOARD, SAME FIRMWARE, DIFFERENT IDENTITY. This file is deliberately
+# almost empty: it is a thin identity wrapper around ember-satellite.yaml,
+# which is included as a package. Every pin, every lambda, every band of the
+# display state machine is shared bit-identically with the desk unit.
+#
+# WHY A WRAPPER AND NOT A SECOND COPY:
+#   ember-satellite.yaml is ~2,600 lines and is the source of truth for the
+#   hearth. A forked copy would drift the moment either file is touched, and
+#   the drift would be invisible — two files that differ in one flame constant
+#   look identical in a diff you didn't run. The repo already argues this case
+#   about the paint body (issue #10, dragon_paint_flame.inc is gitignored for
+#   exactly this reason). A second board is not a reason to make a second copy.
+#
+# WHY THIS WORKS AT ALL: ember-satellite.yaml never hardcodes its own name —
+# the esphome: block reads `name: ${name}` / `friendly_name: ${friendly_name}`
+# from substitutions. Substitutions in THIS file take precedence over the
+# package's, so overriding the two identity keys re-skins the whole config.
+# Nothing else needs overriding, and nothing else SHOULD be: if you find
+# yourself adding hardware substitutions here, the difference belongs in the
+# shared file behind a substitution, not in this wrapper.
+#
+# ⚠️ THE NAME IS LOAD-BEARING IN THREE PLACES AT ONCE — the mDNS hostname
+# (ember-mobile.local, the OTA target), the ESPHome native-API device identity,
+# and the prefix of every Home Assistant entity ID. Renaming after adoption
+# orphans the HA entities and they come back as _2 duplicates. Decide once.
+#
+# HARDWARE DELTA vs the desk unit: exactly one bare flat-top 18650 behind the
+# board, charged by the onboard TP4054. There is NO firmware change for it —
+# the `Battery Voltage` sensor (ADC on GPIO9, x2.0 for the onboard divider) is
+# unconditional in the shared config and has always been compiled into both.
+# On the desk unit it reads an absent divider and is meaningless; here it reads
+# the cell. Same binary, different truth.
+#
+# ⛔ THE CELL HAS NO PROTECTION IC — this is a board fact, settled against the
+# vendor schematic (docs/vendor/ES3C28P_Schematic.pdf), not a guess: BAT goes
+# straight to the cell, and the only floor is the regulator's dropout around
+# 3.4 V, after which the level divider keeps draining ~9 µA until the cell is
+# at zero and will not come back. A 1S protection strip is REQUIRED EQUIPMENT,
+# not a nicety. See README "The mobile variant" and docs/enclosure-mobile.md.
+#   >>> Do not add a low-voltage cutoff here and call the problem solved.
+#       Firmware cannot protect a cell it is no longer being powered by. <<<
+#
+# FIRST FLASH MUST BE OVER USB. This board is 28:84:85:44:3E:C4 — same
+# production batch as the desk unit (28:84:85:44:59:20), which is precisely
+# why you must check the MAC and not the port number before writing flash.
+# /dev/ttyACM* renumbers on replug; the MAC does not.
+#
+#   esphome compile ember-mobile.yaml
+#   esphome run     ember-mobile.yaml --device /dev/ttyACM2
+#
+# ⚠️ `esphome config` is NOT a build check and `esphome upload` does NOT
+# compile — both documented at length in the README. Use compile, or run.
+########################################################################
+
+substitutions:
+  name: ember-mobile
+  friendly_name: Ember Mobile
+
+packages:
+  # The entire hearth. Not `!include`d for its config so much as adopted
+  # wholesale — this is the desk unit's firmware, renamed.
+  #
+  # WAKE WORD IS INHERITED AT MODE 1 (on-device microWakeWord, "Okay Nabu")
+  # because that is the shared file's default, and it is deliberately NOT
+  # overridden here.
+  #
+  # The shared file still carries a "⚠️ NEVER FLASHED" banner on this mode and
+  # that banner is STALE — JP confirmed 2026-08-03 that "Okay Nabu" has been
+  # flashed and is working on the desk unit. The I2S-arbiter risk it warns
+  # about was real when written and is now retired by observation. Kept here
+  # only as the rollback recipe: if a board ever does go silent with the log
+  # repeating "Parent bus is busy" or "Driver failed to start; retrying in
+  # 1 second", set wake_word_mode back to "0" and reflash for touch-only.
+  #
+  # ⚠️ THE ONE GENUINELY NEW RISK IS HAVING TWO OF THEM: two satellites at
+  # mode 1 in earshot of each other BOTH wake and BOTH answer. On-device
+  # detection is local to each board and each starts its own pipeline, so
+  # there is no cross-satellite arbitration to lose. This is a property of
+  # owning a second one, not a fault in either — and it is the first thing to
+  # watch when the mobile unit is set down next to the desk unit.
+  hearth: !include ember-satellite.yaml
