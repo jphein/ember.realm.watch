@@ -209,16 +209,16 @@ The order matters, and the first two steps are the ones the geometry was arrange
    wide, outline only — the tape does the work; a pocket would leave the bond bridging a step).
    That face is a printed **bed face**, the flattest plane in the project, so unlike the desk stand
    there is no proud pad.
-4. **Route the driver's leads** through the SPK relief. ⛔ **Then seal that relief** — silicone, hot
+3. **Route the driver's leads** through the SPK relief. ⛔ **Then seal that relief** — silicone, hot
    glue or putty. It opens into the sealed cavity, and it is asserted to lie *wholly inside* the rim
    rather than straddling its wall, because a straddled opening cannot be sealed at all.
    ⚠️ **And note what §7d says about that plug: it is half the seal, and it is the half the model
    cannot see.**
-5. **Fit the board and bezel** exactly as the desk build.
-6. **Drop the bare cell on top of the seated strip.** Both ends land on leaf springs. There is no
+4. **Fit the board and bezel** exactly as the desk build.
+5. **Drop the bare cell on top of the seated strip.** Both ends land on leaf springs. There is no
    plate to orient against any more, so read the debossed marks — and see §5 for why they are not
    mirror images of each other.
-7. **Seat the cover and drive both M3 screws.**
+6. **Seat the cover and drive both M3 screws.**
 
 ## 5 · Cell bay
 
@@ -915,22 +915,38 @@ the single easiest way to lose the safety content of this file**, so the reasons
 class*, and *not load-bearing at all* — and only the first is evidence. Writing "the thin features are
 exempt" would erase that.
 
-### ⚠️ One inconsistency in the build's own report, flagged rather than resolved here
+### ✅ Resolved: the 1.25 validation transfers, and the argument is span-monotonicity
 
-The exempt row for the top fields says the 1.25 web is **"still UNVALIDATED at this cell size."** The
-separator wall's row, four lines later, describes the same 1.25 as **"the horizontal 1.25 web JP
-validated on r10 ('clean, webs crisp')."**
+The build's report briefly said two things about one constant — that the 1.25 web was *"still
+UNVALIDATED at this cell size"* and, four lines later, that it was *"validated on r10."* **Both
+cannot be the operative reading of a safety exemption**, so here is the single one, with the
+reasoning attached rather than asserted:
 
-Both cannot be the operative reading of one constant. The tension is real and the resolution matters:
+> **Web collapse is governed by the unsupported SPAN each web bridges.** The web is the *printed
+> feature*; the cell size sets the *span*. JP's r10 bench verdict — **"clean — webs crisp"** —
+> validated 1.25 webs at **4.75 AF spans**. Every current field runs **the same web at shorter
+> spans**: 3.20 on the top fields, 4.00 on the dock. A shorter span is **strictly easier**.
+>
+> So: **1.25 is validated at 4.75 spans, and every field at ≤ 4.75 is covered *a fortiori*.**
+> `UNVALIDATED` now applies only to a hypothetical future field with spans **above** 4.75.
 
-- if the r10 bench verdict **transfers** — the web is the thing under test, and a *shorter* web
-  between smaller cells is an easier case — then the top-field row is stale and should retire;
-- if it **does not** transfer, then the separator row is leaning on a validation it has not earned,
-  and the 0.50 experiment loses part of its stated justification.
+**This is the same span-monotonicity argument this file already used for droop in #28**, applied in
+the favourable direction rather than the punishing one — which is the point: an argument that only
+ever gets used to reject is not being used, it is being deployed.
 
-**This is not mine to settle.** It turns on whether the r10 fields and the r11 fields are the same
-class of feature, which is a modelling judgement. *Recording it because a safety exemption that says
-two things is worse than one that says nothing — the reader picks whichever they already believed.*
+Two things worth keeping about how this resolved:
+
+- ⭐ **It is the shared-constant decision paying off a second time.** Had `HEX_WEB` been pinned
+  per-part after #47, r10's print would have validated *one obsolete cover* and nothing else.
+  Because the web was deliberately shared, one bench observation covers every field in the family —
+  including fields that did not exist when the part was printed. *Sharing is correct when the shared
+  constant is the hypothesis.*
+- **The transfer had to be argued, not assumed.** "The web is the same, so it's fine" is the right
+  answer reached by the wrong route — it would have been equally confident had the spans gone *up*.
+  The monotonicity is what makes the conclusion safe, and it is the part worth writing down.
+
+*(The build's contradictory wording is a one-line source fix, queued for a gate window rather than
+spending a full gate on a comment. This document carries the resolved reading in the meantime.)*
 
 ## 12 · Verification — what the build actually measures
 
@@ -970,7 +986,7 @@ transcribe these by hand.
 | Bed contact | cover **3078.4 mm²**, midframe **3932.1 mm²** |
 | Seal rim | 100.00 % solid; control on the open vent field 36.77 % |
 | Min feature | floor 1.60; control — #47's failed 0.90 web — **rejected** |
-| ⚠️ Exemptions | **seven**, and they are not one class. See the note below — the distinctions are the point |
+| Exemptions | **seven**, and they are **not one class** — three different justifications, only one of which is evidence (§11b). The 1.25 web reads **validated at ≤4.75 spans**, *a fortiori* from r10 |
 
 The file carries **17 numbered checks plus 3 module-level asserts and 98 assertions**, and a large
 share of them are **controls** — probes that must *fail* on deliberately broken input. That is the
@@ -1046,22 +1062,23 @@ If it comes out illegible, the label is what fails, not the part.
    failure vent.
 2. **Two experiments below the minimum-solid floor** await bench verdicts — §13b. The 0.50 band is
    the thinnest solid in the family.
-3. ⚠️ **The exemption inconsistency in §11b** — the build's own report says the 1.25 web is both
-   "still UNVALIDATED at this cell size" and "validated on r10". **One constant, two readings.** Not
-   mine to settle, and worth settling.
-4. **Protection is unbuilt electrically.** The pocket, the leaf seats and the tab runs exist; no strip
+3. **Protection is unbuilt electrically.** The pocket, the leaf seats and the tab runs exist; no strip
    has been fitted and no firmware cutoff written.
-5. **Reverse insertion is unprotected** — markings only, and §5 records that the *rationale* for their
+4. **Reverse insertion is unprotected** — markings only, and §5 records that the *rationale* for their
    asymmetry expired when both ends became leaf seats. A measurement order is open on it.
-6. **The 1.76× vent ratio** still inherits an assumption about the cell's own port area.
-7. **Front air is −11.1 %** now, a real acoustic cost inside a ±25 % check band. Passing is not
+5. **The 1.76× vent ratio** still inherits an assumption about the cell's own port area.
+6. **Front air is −11.1 %** now, a real acoustic cost inside a ±25 % check band. Passing is not
    unchanged.
-8. **~0.30 mm of cell slop**, unmeasured — there is still no cell in hand to measure the rattle.
-9. **No graceful shutdown** without a boost.
-10. **`LEAF_FREE` 3.60 is JP-tunable** — the one number in the design still set by feel rather than
+7. **~0.30 mm of cell slop**, unmeasured — there is still no cell in hand to measure the rattle.
+8. **No graceful shutdown** without a boost.
+9. **`LEAF_FREE` 3.60 is JP-tunable** — the one number in the design still set by feel rather than
     derived, and the only survivor of a long list.
 
 ### ✅ Closed since the first draft
+
+- **The 1.25 web's exemption is resolved.** It read two ways in the build's own report; it now reads
+  one, *a fortiori* from JP's r10 bench verdict by span-monotonicity (§11b). Closed by an argument
+  rather than by a new measurement — the measurement already existed and was being under-used.
 
 - **Cover top-edge gap.** The old hook scheme anchored only the bottom edge, so the top ~70 mm
   leaned on the cover's own wall stiffness and the divider, and nothing but a test print could

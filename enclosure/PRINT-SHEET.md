@@ -744,9 +744,23 @@ y 19.10**. They are deliberately **not** mirror images, and the asymmetry is the
 one. **The marks are the only protection, and they are advisory.** Making reverse insertion *safe*
 is electrical and it is not built.
 
-### ⚠️ The cooling and grille lattice is ON TRIAL — 1.25 mm web, below the 1.60 minimum
+### ✅ The 1.25 mm web is PROVEN now — below the 1.60 minimum, and validated on a real print
 
 > **JP: "we have proven two that collapse and none that survives."**
+
+> **And then one did.** JP inspected the r10 cover's through-field bores — the horizontal-bore class,
+> the #47 class, the worst case — and reported: **"Clean — webs crisp."**
+>
+> ✅ **So the 1.25 web is validated at 4.75 mm spans, and every field on these parts is at or below
+> that** (3.20 top fields, 4.00 dock). Web collapse is governed by the **span each web bridges**, and
+> a shorter span is strictly easier — so the verdict covers them *a fortiori*. The exemption stands
+> as a proven one rather than a trial. **What is still unproven is any future field with spans above
+> 4.75.**
+>
+> ⚠️ **Do not generalise it further than that.** The separator wall's **0.90 and 0.50** are a
+> different matter entirely — a supported vertical wall, not a web spanning a bore — and they are
+> still experiments awaiting this same treatment. The 0.80 blind deboss is exempt because a surface
+> relief **has no rib to lose**, which is not a strength claim at all.
 
 The +Y cooling field and the speaker grille both use **4.75 mm across flats on a 1.25 mm web** —
 the stand's own grille constants, shared **deliberately**. This is the opposite call from the glow
