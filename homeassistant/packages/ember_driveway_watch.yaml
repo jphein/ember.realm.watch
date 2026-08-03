@@ -32,25 +32,29 @@ automation:
       - condition: template
         value_template: >-
           {{ trigger.payload_json.type == 'new'
-             and trigger.payload_json.after.camera == 'driveway'
-             and trigger.payload_json.after.label in ['car', 'truck', 'motorcycle', 'person',
-                                                       'dog', 'cat', 'bear', 'horse', 'sheep', 'cow'] }}
+             and trigger.payload_json.after.camera in ['driveway', 'shed']
+             and trigger.payload_json.after.label in ['car', 'truck', 'motorcycle', 'bicycle',
+                                                       'person', 'dog', 'cat', 'bear', 'horse',
+                                                       'sheep', 'cow'] }}
       - condition: time
         after: "07:30:00"
         before: "22:30:00"
     variables:
       label: "{{ trigger.payload_json.after.label }}"
+      place: >-
+        {{ 'up the drive' if trigger.payload_json.after.camera == 'driveway'
+           else 'by the shed' }}
       vehicle_lines:
-        - "A {{ label }} approaches up the drive."
-        - "Something rolls up the driveway — a {{ label }}, by the sound of its wheels."
-        - "Visitors. A {{ label }} is coming up the drive."
-        - "The gravel speaks: a {{ label }} draws near."
+        - "A {{ label }} approaches {{ place }}."
+        - "Something rolls in {{ place }} — a {{ label }}, by the sound of its wheels."
+        - "Visitors. A {{ label }} is coming {{ place }}."
+        - "The gravel speaks: a {{ label }} draws near, {{ place }}."
       person_lines:
-        - "Someone approaches on foot, up the drive."
-        - "A walker on the driveway — two legs, no wheels."
+        - "Someone approaches on foot, {{ place }}."
+        - "A walker {{ place }} — two legs, no wheels."
         - "Footsteps on the gravel. Someone comes."
       animal_lines:
-        - "A {{ label }} wanders up the drive."
+        - "A {{ label }} wanders {{ place }}."
         - "Four legs on the gravel — a {{ label }}, if my eyes serve."
         - "A {{ label }} has found the driveway. It does not appear to have an appointment."
       bear_lines:
