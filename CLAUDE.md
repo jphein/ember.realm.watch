@@ -70,24 +70,43 @@ Three traps, all of which have already cost time here:
   MAC, never the port number. The USB-JTAG serial number *is* the MAC:
   `udevadm info -q property -n /dev/ttyACM2 | grep ID_SERIAL_SHORT`.
 
-### OTA, now that there are two
+### OTA — the iteration loop
 
-⚠️ **Nothing ties a binary to a device.** `esphome run ember-mobile.yaml --device
-ember-satellite.local` succeeds, flashes mobile firmware onto the desk unit, and the desk unit
-reboots *renamed* — two boards claiming `ember-mobile.local`, and the desk unit's 25 HA entities
-orphan. This was unreachable with one device.
+Both boards are OTA-only in practice. The desk unit is cased; the mobile unit runs off its cell.
 
-**Mitigation, zero effort: stop passing `--device` for OTA.** With it omitted, ESPHome derives the
-target from the config's own `name:`, so a mis-target is impossible by construction. `--device` is
-only needed for USB (first flash and serial logs).
+```bash
+esphome compile ember-mobile.yaml                              # ALWAYS compile first
+esphome upload  ember-mobile.yaml --device ember-mobile.local   # then push
+esphome logs    ember-mobile.yaml --device ember-mobile.local
+```
 
-Not yet done, both worth doing (ask before implementing — each costs a reflash of both boards):
+⚠️ **Pass `--device <name>.local`, and make the name match the config.** Omitting `--device` does
+*not* auto-derive the target — ESPHome prompts interactively for a choice, which EOFs in any
+non-interactive context (scripts, agents, CI). An earlier version of this file claimed omitting it
+was a safety feature; it isn't. The safety comes from the hostname matching the config filename.
 
-- **Distinct OTA passwords per device.** `ota:` currently has *no* password, so a mis-targeted push
-  fails at nothing. Per-device passwords make cross-flashing fail at auth instead of at identity.
-- **`safe_mode`** (confirmed available in 2026.7.3). Matters much more for the mobile unit: a bad
-  OTA on a board inside a screwed-shut case is a disassembly, and safe mode lets it come back for
-  another OTA instead.
+⚠️ **Nothing in ESPHome ties a binary to a device.** `esphome upload ember-mobile.yaml --device
+ember-satellite.local` would flash mobile firmware onto the desk unit, which reboots *renamed* —
+two boards claiming `ember-mobile.local` and 25 HA entities orphaned. What now prevents this is
+**per-device OTA passwords** (`ota_password_satellite` / `ota_password_mobile`, distinct 32-char
+secrets, selected by the `ota_password` substitution): a mis-targeted push fails at authentication
+instead of succeeding at renaming.
+
+> The guard is **not** verified by a live cross-flash, deliberately. The password is compiled
+> *into* the firmware, so any test that sends a wrong password from a config would also bake that
+> wrong password into whatever it flashed — manufacturing the un-OTA-able board the guard exists to
+> prevent. Verified instead: each config resolves to its own distinct secret, and a
+> password-authenticated OTA succeeds on both boards.
+
+**`safe_mode:` is enabled** (defaults: 10 attempts, `boot_is_good_after: 1min`). A boot only counts
+as good once the device has stayed up a minute, so a crash 20 s in still counts as failed. After
+repeated failures the board comes up with WiFi + OTA only — no display, no I2S — so a fixed build
+can be pushed over the air. This is what makes a cased or battery-only board recoverable without a
+disassembly, and it has never had to fire.
+
+**Rotating an OTA password costs a USB flash of that board and nothing else** — HA authenticates
+over the native API, not OTA, so there is no re-adoption and no entity loss. Rotating `api_key`
+is the expensive one.
 
 ### A fresh flash looks broken and isn't
 

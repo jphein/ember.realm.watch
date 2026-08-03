@@ -49,6 +49,19 @@
 substitutions:
   name: ember-satellite
   friendly_name: Ember Satellite
+
+  # OTA credential, PER DEVICE. ember-mobile.yaml overrides this with its own
+  # secret, and that separation is the whole point: with two boards from the same
+  # batch on the same network, the expensive mistake is not an intruder, it is
+  # pushing one board's firmware at the other. A device renamed by a mis-targeted
+  # OTA answers to the wrong hostname and orphans 25 Home Assistant entities.
+  # Distinct passwords make that fail at authentication instead of succeeding.
+  #
+  # Substitution rather than a bare `!secret` in the ota: block because !secret
+  # cannot be given a computed key — the indirection is what lets each wrapper
+  # choose its own. ESPHome tracks the provenance, so `esphome config` prints
+  # `!secret 'ota_password_satellite'` and never the value.
+  ota_password: !secret ota_password_satellite
   # Histogram width in samples; must match level_hist array size below.
   hist_len: "120"
   # dBFS window the level meter maps to 0-100%. THESE NEED CALIBRATING on
@@ -902,6 +915,27 @@ api:
 
 ota:
   - platform: esphome
+    password: ${ota_password}
+
+# ⚠️ THE RECOVERY PATH FOR A BOARD YOU CANNOT REACH WITH A CABLE.
+#
+# Added 2026-08-03 with the mobile variant (#44), and it is that board that makes
+# it necessary rather than merely tidy: the desk unit is on a bench with a USB-C
+# socket in easy reach, so a failed OTA there costs a cable. The mobile unit lives
+# behind 2 x M3x22 and a battery cover, so the same failure costs a disassembly of
+# a device with a bare 18650 in it.
+#
+# What it buys: if the firmware reboots repeatedly (num_attempts), the next boot
+# comes up with WiFi and the OTA server ONLY — no display, no I2S, none of the
+# code that might be the thing crashing — so a fixed build can be pushed over the
+# air. Without it, a boot-looping board is only recoverable over serial.
+#
+# boot_is_good_after is the important number, not num_attempts: a boot is only
+# "successful" once the device has stayed up this long, so a crash 20 s in still
+# counts as a failed boot and still counts toward safe mode. Defaults are used
+# deliberately (10 attempts / 1 min / 5 min reboot timeout) — this has never had
+# to fire, so there is no measurement here to justify tuning them.
+safe_mode:
 
 wifi:
   ssid: !secret wifi_ssid

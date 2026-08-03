@@ -58,6 +58,12 @@
 substitutions:
   name: ember-mobile
   friendly_name: Ember Mobile
+  # Its OWN OTA credential, different from the desk unit's — see the note on the
+  # substitution in ember-satellite.yaml. This is the guard that turns "I typed
+  # the wrong --device" from a renamed board with 25 orphaned HA entities into an
+  # authentication failure. It is the one substitution besides identity that this
+  # wrapper is expected to override.
+  ota_password: !secret ota_password_mobile
 
 packages:
   # The entire hearth. Not `!include`d for its config so much as adopted
