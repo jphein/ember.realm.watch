@@ -51,65 +51,60 @@ makes one-screw cell access real rather than nominal.
 
 | | Mobile | Desk |
 |---|---|---|
-| Envelope | **55.90 × 93.63 × 39.00 mm** | 55.90 × 91.90 × 17.40 mm |
+| Envelope | **55.90 × 91.90 × 39.00 mm** | 55.90 × 91.90 × 17.40 mm |
 | Thin section (y < 18.00) | 17.40 mm — unchanged | 17.40 mm |
 
-Width **cannot** move: the bezel is untouched. Length grew **1.32 mm** — and §1 is about why that
-number is not the one it used to be.
+Width **cannot** move: the bezel is untouched. **And length no longer grows at all** — §1 is about
+how that closed after three revisions of it not closing.
 
 ---
 
-## 1 · Why 93.63, and why the reason is not the one anybody expected
-
-The case is **1.32 mm longer than the desk one**, and the interesting part is what that
-millimetre and a bit is paying for — because it is not what it was paying for a week ago.
+## 1 · There is no lip. The envelope is the desk case's, to the hundredth.
 
 ```
-BOOT cap + moat ends            16.40
-  + finger clearance 1.60   ->  COVER_Y0   18.00   cover cannot start sooner
-  + COV_WALL 2.20           ->  BAY_Y0     20.20   the cell's flat face bears here
-  + BAY_L 66.75             ->  BAY_Y1     88.48   longest cell + leaf solid + margin
-  + CELL_END_SETBACK 3.73   ->  MOB_OY1    90.68   (+2.95 outer wall = 93.63)
+55.90 × 91.90 × 39.00        mobile
+55.90 × 91.90 × 17.40        desk
 ```
 
-### The forcing term used to be the spring, and it isn't any more
+**Y is identical.** `MOB_OY1 == OY1 == 88.95`, asserted exactly — the backpack is the desk slab's
+footprint with depth behind it and nothing else. Width never could move, because the bezel never
+moved. Length now doesn't either.
 
-The coil spring cost **3.50 mm** — solid height plus margin plus its tunnel — and that was the
-whole of the overshoot. Replacing it with a **folded nickel leaf**, formed from the protection
-strip's own B− tab, needs **0.50**. So the obvious conclusion was that the case could go back to
-the desk profile exactly, `MOB_OY1 = OY1 = 88.95`, and the brow would simply vanish.
+> **JP: "no litle lip in backpack figure it out pls."**
 
-**It was built that way, and the gate refused it.** The cell-vs-cradle boolean came back at
-**21.218 mm³**, at x −0.45..3.50, y 84.07..86.75 — the interior box's own **+Y corner fillet**.
-The case's `OUT_R` = 6.45 corner curves inward over its last 6.45 mm, while the bore is already
-only 0.10 inside the −X wall. **The bay cannot end where the case does, whatever the spring is.**
-`CELL_END_SETBACK` is **3.73**, derived from that arc against `MIN_SOLID` rather than chosen.
+That instruction arrived after three rounds in which the case was 3.05, then 1.32, then 1.73 mm
+longer than the desk profile, each time for a reason that was correct at the time — the coil
+spring, then the corner fillet the coil had been paying for by accident, then the strip's own
+housing.
 
-> ⭐ **So the brow had two clients, and only one of them was ever named.** The coil (3.50) and the
-> corner fillet (3.73) — and because 3.50 ≈ 3.73, **the coil had been paying the fillet's debt by
-> accident, for the entire life of the design.** Nobody wrote the second client down because
-> nothing ever asked it to: the feature that would have revealed it was being covered by the
-> feature everyone knew about.
->
-> Deleting the known client is what exposed the unknown one. **A feature can have a client nobody
-> has named, and removing the obvious one is how you find out** — which is the same lesson as the
-> `GLOW_WEB` half-fix in [`verification.md`](verification.md) §31, seen from the other side: there
-> a coupling was hidden behind the coupling that fired; here a dependency was hidden behind the
-> dependency everyone could see.
+### How it closed: the conflict was MOVED, not reshaped around
 
-The brow therefore **shrank by 1.32 mm rather than vanishing**, and what remains of it is holding
-the fillet off the cell, not the spring off the cell. *The brow did not outlive the coil by
-accident — it outlived it because its last structural client was never the coil at all.*
+Every earlier attempt had tried to *fit* something into the contested corner. This one moved the
+contest instead:
 
-The cover **deliberately stops short of the chin** so it cannot bury the two rear buttons or the
-USB-C socket. That is a *reachability* constraint — the class of fault no clearance check sees,
-and the same one filed as #31 when the desk buttons turned out to be completely buried inside
-the stand. It is asserted anyway, with a vacuity control, plus a check that the cover clears the
-USB-C plug at z −4.85..−1.60.
+| | |
+|---|---|
+| `CELL_WALL_X` | **3.678**, given its own name — it had been two separate jobs of `COV_WALL` |
+| `NOLIP_ROLL` | **0.30** on the void's plan corner |
+| Divider | **1.60** |
+| Driver | **+1.078** to `DRV_CX` 36.778 — which lands it *centred* in its usable span |
 
-Rotating the cell to avoid the growth does not work: the widest gap between the two button caps
-is 8.70 mm against a 19.40 mm bore, and along X the cell's 65.20 mm exceeds the 50.70 mm
-interior outright.
+⭐ **And one of those numbers is a derivation beating an estimate.** `NOLIP_ROLL` is 0.30 because
+that is `CELL_BORE_CLR` — the **seat guarantee**: at any radius above 0.30, a cell with no roll of
+its own cannot seat. JP's suggestion was *"~0.5mm"*, a visual estimate from the render. **The bound
+wins, and it wins by being a bound rather than a preference.** His eye had been right four times
+this week about *where* to look; this is the case where the arithmetic was right about *how far*.
+
+### The assert that makes the lip's return audible
+
+The plan-view bound that killed every earlier shape now reads closed, and it is asserted **both
+ways** — cut-available ≥ bezel-need, *and* `MOB_OY1 == OY1` exactly.
+
+> **If either fires, the failure message says "the lip is back" in those words.**
+
+That is the right shape for an assert guarding an *aesthetic* requirement the owner stated in
+plain language. A numeric tolerance failure would be true and unreadable; this one fails in the
+vocabulary the requirement was given in.
 
 ## 2 · The X budget closes exactly
 
@@ -422,47 +417,62 @@ fifth one, and he did.*
 
 ---
 
-## 7c · The divider is two stubs now, and the chamber is open to the bay
+## 7c · The wall came back — and it took six positions to get there
 
-**Recorded as a decision, not an oversight**, because it is the largest deliberate compromise in
-the design.
+The divider is whole again, plus a **separator wall JP designed himself**, and this section has been
+rewritten more times than any other in the file. That is the record, not churn:
 
-```
-KEPT   y 20.20 .. 30.00   and   74.80 .. 88.48      (9.80 and 13.68)
-GONE   y 30.00 .. 74.80                             (the chamber's span — the strip's home)
-```
+| | the wall was | why |
+|---|---|---|
+| 1 | present | one wall doing two jobs — cell trough and chamber |
+| 2 | deletion granted | "the band is empty with the strip in the bay" |
+| 3 | **held** | a tangency measurement falsified that premise; the cut was *not run on a dead premise* |
+| 4 | deleted | the corner pocket made the band genuinely empty again |
+| 5 | middle removed, two stubs | the strip needed the span, and flush would not close any other way |
+| 6 | **whole, plus a double separator** | JP's own construction, once he saw room for it |
 
-The divider was always **one wall doing two jobs**: the cell trough's inboard wall *and* the sealed
-speaker chamber's −X wall. Deleting its middle means that **over y 30.00 .. 74.80 the chamber and
-the cell bay are one volume.**
+**Every one of those six has a stated reason and a measurement behind it.** A design that moves six
+times under measurement is not indecisive — it is one where nobody was allowed to guess.
 
-**The stubs are not decoration.** A rigid 65 mm cylinder located in +X at *both ends* cannot migrate
-mid-span, so the cell keeps its lateral datum without the wall that used to provide it. They also
-keep the screw lane's derivation subject — its counterbore still stops at the divider's base — and
-give the internal labyrinth a root.
+### ⚠️ A correction to what this document said at position 5
 
-**What it costs, measured rather than asserted:** the opening is **584 mm²** against the grille's
-**562.7 mm²** — so it is **a second mouth roughly the same size as the intended one, not a leak** —
-and the front chamber goes **15438 → 19199 mm³, +24 %**, which the acoustic check still passes with
-2.1 % to spare. Residual costs on the record: the strip's 0.15 mm tabs now sit in the driver's front
-chamber, grille-borne dust can reach them, and the chamber is L-shaped in a way the box-mode
-arithmetic does not model.
+The previous version of this section reported **one** opening, 584 mm², and called it *"a second
+mouth roughly the size of the intended one."* **That was incomplete, and the reason is worth more
+than the correction.**
 
-> **Check 7b now REPORTS two deliberately-open sides with their areas, instead of asserting walls
-> that are deliberately gone.** That is the honest form for a check whose subject has been removed
-> by choice: an assert would have to be deleted or weakened, and either reads as an oversight later.
-> A report cannot rot into a false guarantee.
+Check 7b was printing the divider's **cross-section** — 2.00 × 19.40 = 39 mm² — as the opening the
+wall left behind. But the opening is the face the wall **vacated**: its Y span by its height,
+**869 mm²**. *Off by 22×, in the one number the owner judges the acoustic trade by.*
 
-### The owner was told twice, and reaffirmed twice
+> ⭐ **A wrong area is worse than no area, because it gets trusted.**
 
-> **"no strip and nickel lay besid ethe batteyr like i toild you"** ·
-> **"you can delete that inner wall it's fine"** · **"or modify it"**
+With the right figure the trade read differently: **869 against the grille's 562.7 — half again the
+chamber's intended mouth — on top of the low-Y wall's 584.** The intended mouth was the *minority*
+of the aperture, and the cell and the BMS were inside the acoustic volume. **That is a materially
+different decision from the one this document described**, and it described it in good faith from
+the number the build printed.
 
-The sequence matters. The deletion was first granted on the premise that *the band would be empty*
-with the strip in the bay. A tangency measurement then briefly falsified that premise — and the cut
-was **held rather than run on a dead premise**. When the corner-solid pocket made the band genuinely
-empty, the premise was true again and the cut went in. *A standing instruction was not treated as
-standing authority while its reason was in doubt.*
+*It is corrected here rather than quietly overwritten, because a document that silently starts
+saying something else is the same hazard one layer up from the check that misreported.*
+
+### The separator wall, and the thinnest solid in the family
+
+The −X opening now measures **0.000**. JP's construction is a **double wall**: a partial wall, plus
+a stepped full wall at **0.90** that thins to **0.50** in the band beside the strip.
+
+**Both are below the 1.60 minimum-solid floor and both are recorded as experimental**, with the
+distinction stated rather than blurred:
+
+- **0.90 (2.25 extrusions)** — under the floor, but a **vertical wall supported along its whole
+  44.80 mm bottom edge** is a different class from #47, whose collapsed 0.90 was an *unsupported web
+  spanning a bore*.
+- **0.50 (1.25 extrusions)** — **the thinnest solid in this family**, thinner than an already-flagged
+  label groove is *wide*. ⭐ **Its thickness is set by the strip, not chosen:** 0.50 is the entire
+  lane between the strip's +X drift and the driver's locating groove. There was no number to pick.
+
+> **Cost of failure, stated because it is what makes the experiment acceptable:** a floppy or absent
+> wall, trimmable with scissors. **Nothing structural depends on it.** That is the difference between
+> an experiment and a gamble — and *the print is the verdict*, exactly as the 1.25 web was.
 
 ## 7d · ⚠️ A retraction: the wall was never the boundary
 
@@ -542,8 +552,8 @@ there is no sealed-vs-ported decision to make and what matters is the **front**.
 
 | | Mobile | Desk stand |
 |---|---|---|
-| Front air, **box-mode** | **15437.8 mm³** | 15621.3 mm³ |
-| Δ | **−1.2 %** | — |
+| Front air, **box-mode** | **13718.5 mm³** | 15426.1 mm³ |
+| Δ | **−11.1 %** | — |
 | Cavity | 30.10 × 44.80 × 19.40 | 54.00 × 15.30 × 33.00 |
 | Governing first mode | **3828 Hz** | 3176 Hz |
 | Grille field | 946.6 mm² (identical by construction) | 946.6 mm² |
@@ -551,20 +561,19 @@ there is no sealed-vs-ported decision to make and what matters is the **front**.
 | vs driver radiating area | **80 %** of ~700 mm² | — |
 | Port length | 2.20 = the cover's own wall | 2.20, by thinning a 4.0 wall |
 
-> ⚠️ **THE FRONT-AIR FIGURE IS NOW A BOX-MODE NUMBER AND NO LONGER DESCRIBES THE REAL CHAMBER.**
-> Read it as a *comparison against the desk stand on identical arithmetic*, which is what it was
-> always for — not as the volume of air actually in front of the diaphragm.
+> ⚠️ **The chamber is closed again, so this figure describes a real box once more — but it moved a
+> long way, and the movement is the news.** It was −1.2 % for three revisions. It is now **−11.1 %**,
+> because the separator wall and the driver's re-measured 27.5 width both take volume out of the
+> front chamber.
 >
-> The chamber's −X wall is deliberately gone over y 30.00 .. 74.80 (§7c), so the build now reports
-> `[chamber] closed on 2 sides` — high-Y and the case wall. With the wall out, the real front volume
-> is **≈19199 mm³, +24 %**, and the chamber is **L-shaped**, which the `c/2L` box modes above do not
-> model at all. The check still passes with 2.1 % to spare, and passing is not the same as
-> describing.
+> **That is a real acoustic cost, not a bookkeeping change**, and it is worth separating from the
+> period when this number was merely *wrong*: at position 5 the wall was gone, the chamber was
+> L-shaped and open on two sides, and the box-mode arithmetic did not describe it at all. Now the
+> box exists, the arithmetic applies, and the answer is simply worse than it used to be.
 >
-> **This is the honest state, not a gap waiting to be filled.** A closed-form mode figure for an
-> L-shaped volume with two open sides is not something to invent; measuring it needs a different
-> instrument than arithmetic. What the numbers above *do* still support is the comparison they were
-> built for, so they stay — labelled as what they are.
+> The check still passes — its tolerance is ±25 % — and **passing is not the same as unchanged.** An
+> 11 % loss inside a 25 % band is exactly the kind of drift a threshold hides, which is why the
+> figure is quoted rather than the verdict.
 
 Front air is **measured by boolean on the finished solid**, not by the arithmetic above it. The
 mode figures use the same `c/2L` on both so the comparison is honest, and the assert requires the
@@ -584,6 +593,81 @@ crescent is 5 mm² and unprintable. Filtering on area would keep exactly the wro
 > wants it otherwise.
 
 ---
+
+## 9b · Cooling the chip, which is not the same as cooling the cell
+
+New in this round, and it starts with a measurement rather than an assumption: **the ESP32-S3 was
+located in the vendor solid, not guessed at.** It is the only 7.01 × 7.01 × 0.90 back-side solid in
+the STEP — a QFN56 at x 20.51..27.52, y 61.11..68.12, z −2.50..−1.60.
+
+The desk case vents that footprint through its hex field. **The mobile cannot**, and the reason is
+exact rather than approximate: **the speaker's bond plateau refills precisely that footprint**, and
+the sealed cavity sits behind it. Venting the back face would open the acoustic cavity. So
+back-face cooling is not a trade-off here, it is **forbidden**.
+
+That leaves one viable field — **bores through the +Y end face into the board cavity** — and it
+comes with an orientation constraint the project has already paid for once: the cells are
+**flat-top in Z** (60° shoulders, 2.74 crown), because vertex-up would put a 30° face on them,
+which is issue #28's droop exactly.
+
+A side-wall field was evaluated and **fails on 0.05 mm**: the cavity band `CAV_FLOOR..PCB_BOT` is
+5.50, and a 4.75 AF cell under this file's own 0.80-margin rule needs ≤ 4.70. Recorded because
+"we could put vents in the side wall" is the obvious next suggestion and the arithmetic has
+already answered it.
+
+> ⚠️ **This does not close the thermal item in §14, and should not be read as doing so.** It cools
+> **the processor**. The cell bay's heat path is a separate problem with a separate answer, and
+> blocking the flank openings made that one *tighter*, not looser.
+
+---
+
+## 9c · Light out the top — and a vent that could not be a hole
+
+Three more openings landed with the strip work, and one of them is the most interesting geometry
+argument in the file.
+
+**The LED-side through field** — 5 real bores on the +X side of the boss, into the upper
+compartment. This is JP's alternative to the glow window's dim membrane: take the light out of the
+*top* instead. The compartment has been empty of electronics since the strip moved out of it, so the
+chain is atmosphere → compartment → board cavity via the wire pass, and **no volume with a rule is
+crossed.**
+
+**A blind field on the battery side**, cells only, no bores. Its cell count carries a trap worth
+naming: **`TOPMESH_N_MIN` exists because a field of one is a valid field.** A count assert that only
+checks for "some" cells passes on a lattice that has collapsed to a single hole, which is the same
+vacuity that has bitten this project's grille counter before.
+
+### ⭐ The internal vent could not be a hole, and the angle is why
+
+With the top field bored, the upper compartment is **open to the sky**. So a plain hex through the
+divider would put outside air **one straight line** from a lithium bay. That is not hypothetical and
+it was not argued — it was traced:
+
+> a ray from a top cell at **x 30** to a divider hole at **x 20.65** leaves the top bore at
+> **41°**, against a bore that only collimates to **65°**.
+
+The ray gets out. So the internal vent is §8's labyrinth moved into the divider — 1.30 from each
+face of the 2.00 wall, 0.60 band — and **check 19c proves the no-sightline on the artifact, with a
+drilled-through control.**
+
+⚠️ **And it is offset in Z, not Y**, which is a packaging consequence rather than a preference: the
+divider's free Y window between the seal rim and the top boss is **5.08 mm — one cell wide, not
+two.** It is **19.40 tall**. So the pair stacks vertically. *When a feature will not fit along the
+axis you reach for, check whether the other axis is 19 mm deep.*
+
+### The microphone bore is deleted — and its label went with it
+
+On the desk case the back face is the exposed one and that bore is how the microphone hears. On the
+mobile it is buried under the backpack, where it is just a **7.07 mm²** hole from the board cavity
+into the upper compartment. So it is gone on this variant only.
+
+**The label went in the same change, under one condition rather than two.** A back face reading
+`MIC` over no bore is this project's founding hazard — *the same lie told in ink* — and the two are
+now cut from one decision so they cannot drift apart.
+
+It also corrected a claim made an hour earlier: the LED wire pass was **not** the first aperture
+between those two volumes. *The mic bore had been there the whole time.* A new opening was described
+as unprecedented by someone who had not looked for precedent.
 
 ## 10 · WS2812 glow window
 
@@ -671,81 +755,6 @@ stale.
 
 ---
 
-## 9b · Cooling the chip, which is not the same as cooling the cell
-
-New in this round, and it starts with a measurement rather than an assumption: **the ESP32-S3 was
-located in the vendor solid, not guessed at.** It is the only 7.01 × 7.01 × 0.90 back-side solid in
-the STEP — a QFN56 at x 20.51..27.52, y 61.11..68.12, z −2.50..−1.60.
-
-The desk case vents that footprint through its hex field. **The mobile cannot**, and the reason is
-exact rather than approximate: **the speaker's bond plateau refills precisely that footprint**, and
-the sealed cavity sits behind it. Venting the back face would open the acoustic cavity. So
-back-face cooling is not a trade-off here, it is **forbidden**.
-
-That leaves one viable field — **bores through the +Y end face into the board cavity** — and it
-comes with an orientation constraint the project has already paid for once: the cells are
-**flat-top in Z** (60° shoulders, 2.74 crown), because vertex-up would put a 30° face on them,
-which is issue #28's droop exactly.
-
-A side-wall field was evaluated and **fails on 0.05 mm**: the cavity band `CAV_FLOOR..PCB_BOT` is
-5.50, and a 4.75 AF cell under this file's own 0.80-margin rule needs ≤ 4.70. Recorded because
-"we could put vents in the side wall" is the obvious next suggestion and the arithmetic has
-already answered it.
-
-> ⚠️ **This does not close the thermal item in §14, and should not be read as doing so.** It cools
-> **the processor**. The cell bay's heat path is a separate problem with a separate answer, and
-> blocking the flank openings made that one *tighter*, not looser.
-
----
-
-## 9c · Light out the top — and a vent that could not be a hole
-
-Three more openings landed with the strip work, and one of them is the most interesting geometry
-argument in the file.
-
-**The LED-side through field** — 5 real bores on the +X side of the boss, into the upper
-compartment. This is JP's alternative to the glow window's dim membrane: take the light out of the
-*top* instead. The compartment has been empty of electronics since the strip moved out of it, so the
-chain is atmosphere → compartment → board cavity via the wire pass, and **no volume with a rule is
-crossed.**
-
-**A blind field on the battery side**, cells only, no bores. Its cell count carries a trap worth
-naming: **`TOPMESH_N_MIN` exists because a field of one is a valid field.** A count assert that only
-checks for "some" cells passes on a lattice that has collapsed to a single hole, which is the same
-vacuity that has bitten this project's grille counter before.
-
-### ⭐ The internal vent could not be a hole, and the angle is why
-
-With the top field bored, the upper compartment is **open to the sky**. So a plain hex through the
-divider would put outside air **one straight line** from a lithium bay. That is not hypothetical and
-it was not argued — it was traced:
-
-> a ray from a top cell at **x 30** to a divider hole at **x 20.65** leaves the top bore at
-> **41°**, against a bore that only collimates to **65°**.
-
-The ray gets out. So the internal vent is §8's labyrinth moved into the divider — 1.30 from each
-face of the 2.00 wall, 0.60 band — and **check 19c proves the no-sightline on the artifact, with a
-drilled-through control.**
-
-⚠️ **And it is offset in Z, not Y**, which is a packaging consequence rather than a preference: the
-divider's free Y window between the seal rim and the top boss is **5.08 mm — one cell wide, not
-two.** It is **19.40 tall**. So the pair stacks vertically. *When a feature will not fit along the
-axis you reach for, check whether the other axis is 19 mm deep.*
-
-### The microphone bore is deleted — and its label went with it
-
-On the desk case the back face is the exposed one and that bore is how the microphone hears. On the
-mobile it is buried under the backpack, where it is just a **7.07 mm²** hole from the board cavity
-into the upper compartment. So it is gone on this variant only.
-
-**The label went in the same change, under one condition rather than two.** A back face reading
-`MIC` over no bore is this project's founding hazard — *the same lie told in ink* — and the two are
-now cut from one decision so they cannot drift apart.
-
-It also corrected a claim made an hour earlier: the LED wire pass was **not** the first aperture
-between those two volumes. *The mic bore had been there the whole time.* A new opening was described
-as unprecedented by someone who had not looked for precedent.
-
 ## 10b · It did not dock, and the stand is what had to give
 
 The backpack is meant to sit in the desk stand when it is at a desk. **It did not fit**, and
@@ -791,6 +800,76 @@ build is unaffected by the geometry but will still show the rev bump.
 
 ---
 
+## 10c · ⛔ The near-miss that outranks everything else in this project
+
+A "Z-tail" was ranked first among the no-lip options and briefed as five verified edits needing only
+a new home for the internal vent. **It needed no new home. It was dead, and the already-exported
+part said so.**
+
+`_lip_ytop()` took the void's −X extreme to be the *bore's* at every height, symmetric in dz.
+Slicing the **shipped** STL says otherwise:
+
+```
+z −25.70   wall 3.121   void x  1.58   ┐
+z −23.30   wall 2.074   void x  0.07   ├ retreats going DOWN, as modelled
+z −21.30   wall 1.563   void x −0.56   ┘
+z −19.40   wall 1.405   void x −0.75     the cell axis
+z −11.00   wall 1.404   void x −0.75   ┐ DOES NOT retreat going UP
+z −10.30   wall 1.404   void x −0.75   ┘ flat to the mating plane
+```
+
+**The bore is a cradle, not a tube.** An 18650 loads straight down, so the lane stays full bore
+width from the axis to the mating plane. Had the tail been cut, the profile would have left
+
+> ### 0.296 mm of shell over a lithium cell.
+
+⭐ **And the only thing that stopped it was an assert aimed at something else entirely** — the vent's
+module-level check, which fires *before any solid exists*. **No check in this file was ever going to
+see it.** The geometry that would have shipped was caught by accident, by a guard for a different
+feature, at a stage where the part it would have ruined had not been built yet.
+
+*Every other defect in this document was found by a check doing its job. This one was found by a
+check doing someone else's.*
+
+### Two real defects in the shipping part, found on the way
+
+**The vent assert measured across the FLATS of a shape presenting its CORNERS.** The notch is drawn
+flats-on-Z deliberately — it is a horizontal bore, and vertex-up is issue #28 — so it is the
+**vertices** that lead in Y: `2 × LAT_R` = **5.485**, not `LAT_AF` = 4.75. At y 79.00 the notch ran
+76.258..81.742 against a 76.40 rim line and **broke 0.142 into the sealed chamber's rim wall**,
+thinning a 1.60 seal wall to 1.458.
+
+> ⭐ **An invariant insensitive to its own failure.** It was not silent because nobody looked. It was
+> silent because it was measuring the wrong extent of the right feature — and the number it returned
+> was correct for the extent it measured. *This is the flats-and-corners twin of the corner-solids
+> lesson: same shape, opposite direction.*
+
+**And the same assert bounded a cylinder by its bounding box** — a d9.00 column on a lane nowhere
+near the divider, reported as adjacent because a box is not a circle.
+
+The fix is the lens rather than the number: **check 7d now sweeps nine planes instead of one**, the
+worst plane is cross-checked against the solid, and the control fails if the sweep cannot tell the
+cradle's open bottom from its full-width top. In morpheus's own words — **that is the lens that was
+missing.**
+
+### The same round: a typed constant quietly degraded a safety property
+
+`IVENT_D` was typed as *"1.30 from each face of the 2.00 divider."* **The divider became 1.60.** The
+band silently grew to 1.00 and **the no-sightline figure fell to 19 %** against a 25 % floor — on the
+labyrinth whose entire purpose is that outside air has no straight path to a lithium bay.
+
+It is derived now — `(DIVIDER_W + 0.60)/2` — so the proven 0.60 band holds by construction. Two
+siblings were converted with it: `TOPMESH_D` (typed 0.60, assumed a wall band the contact kerf had
+since bounded; derived to **0.40**) and its membrane probe, re-anchored to the *feature* rather than
+the coordinate.
+
+> ⭐ morpheus-final's parting line, and this round is its proof:
+> **"a threshold you typed is a guess wearing an assert's clothes."**
+>
+> Its companion belongs beside §7d: **"constants describe intent; booleans describe the part."** The
+> constant said *wall*. The boolean said *one volume, including the outside*. The constant said
+> *1.30 of each face*. The solid said *19 %*.
+
 ## 11 · Print notes
 
 Everything in `PRINT-SHEET.md`'s shell column applies: 0.20 mm layers, 3 perimeters, 15 % gyroid,
@@ -816,6 +895,43 @@ inherited by layer height.
 
 ---
 
+## 11b · Seven exemptions, and they are not one class
+
+The minimum-solid floor is 1.60 and seven features sit below it. **Lumping them together would be
+the single easiest way to lose the safety content of this file**, so the reasons are kept separate:
+
+| thickness | feature | why it is exempt |
+|---|---|---|
+| **1.25** | top fields, horizontal bores | clear of #47's *measured* 0.90 collapse — but see the note below |
+| **1.25** | LED wire pass · internal labyrinth | **functional apertures**, sized to pass a 3-wire pigtail and to collimate — not decorative fields |
+| **0.90** | separator wall, full section | a **vertical wall supported along its whole 44.80 bottom edge** — a different class from an unsupported web spanning a bore. **Experimental** |
+| **0.80** | blind deboss web | the back grille's own, and **that field printed on JP's r1** — but proven only for *vertical prisms in a bed face*; exempt here because a 0.60 surface relief **has no rib to lose** |
+| **0.80** | glow window membrane | a face **backed by wall on all four edges** — not a standing rib |
+| **1.54** | vent labyrinth skin | same class as the membrane |
+| **0.50** | separator wall, thinned band | **the thinnest solid in the family.** Set by the strip, not chosen. **Experimental** |
+| **0.15** | contact detent bar | it is *meant* to deform past the plate |
+
+**Three different justifications are doing work there** — *proven by print*, *structurally a different
+class*, and *not load-bearing at all* — and only the first is evidence. Writing "the thin features are
+exempt" would erase that.
+
+### ⚠️ One inconsistency in the build's own report, flagged rather than resolved here
+
+The exempt row for the top fields says the 1.25 web is **"still UNVALIDATED at this cell size."** The
+separator wall's row, four lines later, describes the same 1.25 as **"the horizontal 1.25 web JP
+validated on r10 ('clean, webs crisp')."**
+
+Both cannot be the operative reading of one constant. The tension is real and the resolution matters:
+
+- if the r10 bench verdict **transfers** — the web is the thing under test, and a *shorter* web
+  between smaller cells is an easier case — then the top-field row is stale and should retire;
+- if it **does not** transfer, then the separator row is leaning on a validation it has not earned,
+  and the 0.50 experiment loses part of its stated justification.
+
+**This is not mine to settle.** It turns on whether the r10 fields and the r11 fields are the same
+class of feature, which is a modelling judgement. *Recording it because a safety exemption that says
+two things is worse than one that says nothing — the reader picks whichever they already believed.*
+
 ## 12 · Verification — what the build actually measures
 
 Printed by `ember_mobile_case.py` on every run. Regenerate with the command in §13; do not
@@ -823,36 +939,38 @@ transcribe these by hand.
 
 | Check | Result |
 |---|---|
-| Envelope | **55.90 × 93.63 × 39.00** (desk 55.90 × 91.90 × 17.40) — **flush, and it held** |
-| Volumes | midframe **20.96 cm³**, cover **23.43 cm³** |
-| Mesh | midframe **24 510** tris, cover **6 390** — both **0 boundary, 0 non-manifold, watertight** |
+| Envelope | **55.90 × 91.90 × 39.00** — **Y identical to the desk case**, asserted exactly |
+| Volumes | midframe **19.69 cm³**, cover **24.82 cm³** |
+| Mesh | midframe **33 352** tris, cover **8 020** — both **0 boundary, 0 non-manifold, watertight** |
 | Board interference | midframe **0.000**, cover **0.000**, cell phantom **0.000** mm³ |
-| Interference controls | cover +22 mm → 1261.0 · midframe +2 mm → 199.1 · cell +12 mm → 1884.8 mm³ |
+| Interference controls | cover +22 mm → 1843.9 · midframe +2 mm → 205.4 · cell +12 mm → 1858.6 mm³ |
 | Dock | mobile stack vs the stand **0.000 mm³ CLEAR**; control sunk 2 mm → 1332.9 mm³ |
-| **Strip** | 1S PCB **21.50 × 4.50 × 2.50 — all JP-measured**, plus the 90.0 flat assembly. **No placeholders left** |
-| **Tabs** | **34.25 per side.** −Y: 22.62 run + 11.63 fold · +Y: 22.62 + 11.62 — **3.2 limbs each end** |
-| Cell + leaf | bay **66.75** on a folded leaf: shortest 64.9 → fold at 1.85 (preload **1.75**), longest 65.5 → 1.25 (**0.50 off closed**). Both fit |
-| **Chamber** | **closed on 2 sides** (high-Y and the case wall) — *reported, not asserted*; control inside the cavity 0.0 % |
-| Seal rim | 100.00 % solid; control on the open vent field 37.21 % |
-| Front air (box-mode) | 15621.3 → **15437.8 mm³ (−1.2 %)** — ⚠️ see the caveat in §9; the real chamber is L-shaped and ≈19199 mm³ |
-| Grille | **31 openings, 562.7 mm² throat** over a 946.6 field (59 %, ceiling 63 %); 80 % of driver area |
-| Retention | 2 × **M3×22**, lane x 23.55, y 22.60 and 85.98 (**63.38 baseline**); both bosses on solid floor |
-| Screw | under-head at both sites; head z −28.30, **3.40 mm engaged in a 6.60 mm pilot** |
-| Counterbores | chin annulus 1.60, seat 100.0 %, control outside the boss 48.3 % · top 1.60, 100.0 %, control 38.2 % |
-| Collar | both pilots have a full **1.60 mm collar**; control in the open hex field **35 %, rejected** |
-| **Ease** | battery edge **R 3.00** — 1.76 across the bed face, 3.00 up the side, **1.87 mm of wall at the diagonal** (floor 1.60, ceiling R 3.65) |
-| **LED wire pass** | one 4.75 hex at (32.0, 80.5) through the midframe floor, **100 % open** (control on solid floor 0 %), 0.60 edge break at the cavity mouth |
-| **Top mesh (blind)** | **5 blind cells**, 0.60 deep in the +Y end face over x 5.10..17.45, z −27.90..−10.90; **100.0 % membrane behind it** (1.60 mm) |
-| **Top vent (through)** | **5 real bores** on the LED side of the boss, x 29.65..44.90 — the LED's window as much as a vent |
-| **Internal vent** | cell bay ↔ LED compartment, 1.30 from each face of the 2.00 divider, 0.60 band; **notches at z −22.50 and −16.55, both at y 79.00** — stacked in Z, not Y |
-| Cell-bay vent | 4 units, **16.56 mm² throat vs 9.42 assumed (1.76×)**; band 0.60 × 6.90, skin 0.80 each face |
-| Min feature | floor 1.60, 10 sections; control — #47's failed 0.90 web — **rejected** |
-| ⚠️ Exempt | **1.25 lattice web — UNVALIDATED, deliberately shared with the stand's grille** · 0.80 glow membrane · 0.80 vent skin · 0.15 detent (meant to deform) |
-| Print frame | as-printed = model frame (pure Z lift); end-vent shoulder **60.0°**, control (#28's vertex-up) **30.0° rejected** |
-| Marks | `+` on the +Y bulkhead's bay face (y 86.95); `−` on the cover's **mating face** (y 19.10) |
-| Glow | 2 cells, hi wall, `GLOW_CY` 36.99 (y 31.35..42.64), `GLOW_DIST` 23.02 |
-| BAT lead pass | open (0.0000 mm³ blocked); control on solid floor blocks 51.5 mm³ |
-| Bed contact | cover **3178.1 mm²**, midframe **4057.6 mm²** |
+| X budget | interior 51.50 = bore 19.40 + **divider 1.60** + rim 29.22; driver slack **0.92** |
+| Cell + leaf | bay **66.55**: shortest 64.9 → fold 1.65 (**preload 1.95**), longest 65.5 → 1.05 (**0.30 off closed**) |
+| Strip | 21.50 × 4.50 × 2.50 + the 90.0 flat — **all JP-measured, no placeholders** |
+| Tabs | **34.25 per side**; each end 22.52 run + 11.73 fold = **3.3 limbs** |
+| Chamber | **closed on 2 sides** (high-Y, case wall); **−X opening 0.000** with the separator in |
+| Front air (box-mode) | 15426.1 → **13718.5 mm³ (−11.1 %)** — a real cost; see §9 |
+| Grille | **31 openings, 569.8 mm² throat** over a 965.6 field (59 %, ceiling 63 %); **81 %** of driver area |
+| **Driver outline** | witness ring **151.3 mm², cut 100 %, 0.40 deep on a 96 % solid baffle** (floor 83 %); control over the open field 32 %, rejected |
+| **Side labels** | 3 on the flanks, h 3.90 / stroke 0.80 / depth 0.80, band z −0.80..3.90 |
+| **Deboss depths** | **every depth derived** (JP: *as deep as we can*). Quantum is layer height 0.20 on horizontal faces, **extrusion width 0.40 on vertical walls** — *layer height does not govern a vertical wall* |
+| Retention | 2 × M3×22, lane **x 24.63**, y 22.60 and 84.25 (**61.65 baseline**) |
+| Screw | head z −28.30, **3.40 mm engaged in a 6.60 mm pilot** |
+| Counterbores | chin annulus 1.60, seat 100.0 %, control 45.7 % · top 1.60, 100.0 %, control 38.2 % |
+| Collar | full 1.60 mm collar at both pilots; control in the open field **53 %, rejected** |
+| Ease | battery edge **R 3.00** — 1.76 across the bed face, 3.00 up the side, **1.87 mm of wall at the diagonal** |
+| Top mesh (blind) | **7 blind cells** (100 % of the field), **0.40 deep** — derived, not typed — x 5.10..18.53; **99.5 % membrane** behind it (1.80 mm) |
+| Top vent (through) | **7 real bores** on the LED side, x 30.73..44.90 |
+| Internal vent | **1.10 from each face of a 1.60 divider**, 0.60 band; notches at z −22.50 and −16.55, both at y **79.47** |
+| Cell-bay vent | 4 units, **16.56 mm² vs 9.42 assumed (1.76×)**; band 0.60 × 6.90, **skin 1.54** each face |
+| LED wire pass | one 4.75 hex at (32.0, 80.5), **100 % open**; control on solid floor 0 % |
+| Marks | `+` at y 86.50 (bay face); `−` at y **18.98** on the cover's mating face |
+| Glow | 2 cells, hi wall, `GLOW_CY` 36.99, `GLOW_DIST` 23.02 |
+| Bed contact | cover **3078.4 mm²**, midframe **3932.1 mm²** |
+| Seal rim | 100.00 % solid; control on the open vent field 36.77 % |
+| Min feature | floor 1.60; control — #47's failed 0.90 web — **rejected** |
+| ⚠️ Exemptions | **seven**, and they are not one class. See the note below — the distinctions are the point |
 
 The file carries **17 numbered checks plus 3 module-level asserts and 98 assertions**, and a large
 share of them are **controls** — probes that must *fail* on deliberately broken input. That is the
@@ -875,6 +993,24 @@ and projects the same model, so **no figure carries hand-drawn geometry and ever
 is measured off the outline it sits under** — a number typed into a figure is a rumour about the
 part.
 
+> ⚠️ **BYTE-IDENTITY PROVES THE FIGURE DID NOT CHANGE. IT DOES NOT PROVE THE PART DID NOT.**
+>
+> This release taught the distinction the hard way. The desk stand genuinely changed — `DRIVER_H`
+> 27.0 → 27.5 measured off the physical driver, `DRIVER_CLR` 0.60 → 0.40 bench-corroborated — and it
+> was *predicted* that all three stand-bearing figures would move. Two did. **`case-docked-rear.svg`
+> came back byte-identical.**
+>
+> The reason is sound: that view looks at the stand from behind, the driver-derived changes are the
+> chamber interior, the tape pad and the grille field, and hidden-line projection emits only *visible*
+> edges. **Nothing the figure can see changed.** The front three-quarter hero and the flat print
+> layout both moved, because they can see it.
+>
+> But it means an identical figure carries two possible meanings — *the part is unaffected*, or *the
+> part changed somewhere this view cannot look* — and they are not the same claim. Byte-identity is
+> still a good control for detecting **spurious** movement. It is **not** evidence that geometry is
+> untouched. *Use it to catch the figures that shouldn't have moved, never to conclude the model
+> didn't.*
+
 ⚠️ Both need the 17.7 MB vendor STEP, which is deliberately not committed and will never be in a
 `git archive`/`clone` extract. See [`../enclosure/README.md`](../enclosure/README.md).
 
@@ -883,33 +1019,47 @@ mobile queue entries are only as current as the last `ember_case.py` run.
 
 ---
 
+## 13b · ⏳ Two experiments awaiting a bench verdict
+
+Both are printed or printing. **Neither has a result yet, and neither is written as though it does.**
+
+| experiment | what a verdict would settle | status |
+|---|---|---|
+| **The separator wall, 0.90 / 0.50** | whether a *supported vertical* wall survives below the 1.60 floor — and specifically whether 0.50, the thinnest solid in the family, prints as a wall or as a suggestion | ⏳ back r15 printing overnight |
+| **The flank labels, the SD label and the driver witness outline** | whether debosses driven to *"as deep as we can"* read at arm's length, whether the below-floor SD groove forms at all, and whether the witness ring actually delivers tolerance-at-a-glance | ⏳ midframe r10 printed tonight; **inspection pending JP's morning** |
+
+**Placeholders on purpose.** The temptation with a printed part sitting on the bench is to write the
+result you expect — and the 1.25 web is the reason not to: that trial's outcome arrived as *"clean —
+webs crisp"* from the owner's own eye, and it could as easily have gone the other way. **A predicted
+verdict in a document reads exactly like a recorded one**, which is the whole failure family this
+file catalogues.
+
+⚠️ **The SD label is the one to watch.** It is deliberately *below* the printable floor —
+authorised as an experiment — so "it did not form" is a **valid and expected outcome**, not a defect.
+If it comes out illegible, the label is what fails, not the part.
+
 ## 14 · Open items, in rough order of how much they should worry you
 
-1. **Thermal path out of the cell bay** — the largest unresolved risk, and it is not mechanical.
-   Most of the rear vent field is refilled by the speaker bond plateau, and what survives vents
-   into a **closed** compartment: compartment → remaining hexes → board cavity → side channels →
-   outside. The desk case vents straight to the room. Deliberately *not* "fixed" with invented
-   vent geometry.
-
-   ⚠️ **And it just got tighter.** Blocking the `BAT` and `SPK` flank openings removes side
-   channels from the *last leg* of exactly that path. The blocks are right for wire routing and
-   for ingress, and neither reason is thermal — so this item is now carrying a cost it did not
-   carry when it was written, and the cell-bay vent (§8) is doing correspondingly more of the work.
-2. **Protection is unbuilt electrically.** The pocket exists and the schematic proves the need.
-   No strip has been fitted, no firmware cutoff written.
-3. **Reverse insertion is unprotected** — markings only (§5).
-4. ✅ **Closed: the strip is fully measured.** All three body dimensions plus the flat assembly are
-   JP-calipered (21.50 × 4.50 × 2.50, flat 90.00). This was the longest-standing soft number in the
-   design and it is gone — see §7b for the four days it took, and for the two correct measurements
-   that pointed at wrong conclusions on the way.
-5. **The 1.76× vent ratio** inherits an assumption about the cell's own port area (§8).
-6. **The front-gap redistribution** is a declared belief (§9).
-7. **Glow brightness in charcoal** (§10) — though the window's relocation shortened the light path
-   by 23 %, which can only help.
-8. **~0.30 mm of cell slop**, unmeasured because there is no cell in hand (§5).
-9. **No graceful shutdown** without a boost (§6).
-10. **Nothing has been printed to completion and nothing wired.** Both parts show
-    `printed_at: null`; one cover print was cancelled at 2 % (see the banner at the top).
+1. **Thermal path out of the cell bay** — still the largest unresolved risk, and still not mechanical.
+   The flank blocks tightened it; the top fields and the internal labyrinth now give the compartment
+   a route to atmosphere, which helps the *chip* rather than the bay. The bay's own answer remains its
+   failure vent.
+2. **Two experiments below the minimum-solid floor** await bench verdicts — §13b. The 0.50 band is
+   the thinnest solid in the family.
+3. ⚠️ **The exemption inconsistency in §11b** — the build's own report says the 1.25 web is both
+   "still UNVALIDATED at this cell size" and "validated on r10". **One constant, two readings.** Not
+   mine to settle, and worth settling.
+4. **Protection is unbuilt electrically.** The pocket, the leaf seats and the tab runs exist; no strip
+   has been fitted and no firmware cutoff written.
+5. **Reverse insertion is unprotected** — markings only, and §5 records that the *rationale* for their
+   asymmetry expired when both ends became leaf seats. A measurement order is open on it.
+6. **The 1.76× vent ratio** still inherits an assumption about the cell's own port area.
+7. **Front air is −11.1 %** now, a real acoustic cost inside a ±25 % check band. Passing is not
+   unchanged.
+8. **~0.30 mm of cell slop**, unmeasured — there is still no cell in hand to measure the rattle.
+9. **No graceful shutdown** without a boost.
+10. **`LEAF_FREE` 3.60 is JP-tunable** — the one number in the design still set by feel rather than
+    derived, and the only survivor of a long list.
 
 ### ✅ Closed since the first draft
 

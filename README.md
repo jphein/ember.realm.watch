@@ -453,26 +453,26 @@ unmodified — same STL, same four M3×12, same 5.34 mm of thread — and the bo
 
 | | Mobile | Desk |
 |---|---|---|
-| Envelope | **55.90 × 93.63 × 39.00 mm** | 55.90 × 91.90 × 17.40 mm |
+| Envelope | **55.90 × 91.90 × 39.00 mm** — *Y identical to the desk case* | 55.90 × 91.90 × 17.40 mm |
 | Cell | 1 × **bare flat-top 18650**, user-swappable | — |
 | Charge | onboard TP4054, 290 mA → **15.8 h** | — |
 | Access | **2 × M3×22** on one lane + the cover's box section | — |
 
-**Width cannot move** (the bezel didn't) and length grew only **1.32 mm** — and what that
-millimetre pays for is the best story in the design. It used to be the coil spring: 3.50 mm of
-solid height, margin and tunnel. Replacing the coil with a **folded nickel leaf** formed from the
-protection strip's own tab costs 0.50, so the case should have gone back to the desk profile
-exactly and the brow should have vanished.
+**Width cannot move** (the bezel didn't) — and after three revisions of *not* closing, **length no
+longer grows either.** `MOB_OY1 == OY1 == 88.95`, asserted exactly: the backpack is the desk slab's
+footprint with depth behind it and nothing else.
 
-**It was built that way and the gate refused it** — the cell-vs-cradle boolean returned
-**21.218 mm³** against the case's own `OUT_R` corner fillet, which curves inward over its last
-6.45 mm while the bore sits 0.10 from the wall. The bay cannot end where the case does, whatever
-the spring is. The setback is **3.73 mm**, derived from that arc.
+> **JP: "no litle lip in backpack figure it out pls."**
 
-> ⭐ **So the brow had two clients and only one was ever written down.** The coil (3.50) and the
-> corner fillet (3.73) — and because those are nearly equal, **the coil had been paying the
-> fillet's debt by accident for the whole life of the design.** Deleting the known client is what
-> revealed the unknown one. *A feature can have a client nobody has named.*
+It had been 3.05 mm longer, then 1.32, then 1.73 — each for a reason that was correct at the time
+(the coil spring; then the corner fillet the coil had been paying for by accident; then the strip's
+own housing). What closed it was **moving the conflict instead of reshaping around it**: `CELL_WALL_X`
+given its own name, the divider to 1.60, the driver nudged 1.078 to land *centred*, and a plan-corner
+roll of **0.30** — which is not a chosen radius but the **seat guarantee**, since above 0.30 a cell
+with no roll of its own cannot seat. JP suggested ~0.5 from the render; **the bound won.**
+
+The assert guarding it fails in the vocabulary the requirement was given in: if either half breaks,
+the message says **"the lip is back"** in those words.
 
 The cover **deliberately stops short of the chin** so a battery door cannot bury the only usable
 button or the USB-C socket — a *reachability* constraint, which is the class of fault no
@@ -482,17 +482,19 @@ The interior closes exactly: **51.50 = 19.40 bore + 2.00 divider + 30.10 rim**, 
 divider was **one wall doing two jobs** — the cell trough's inboard wall *and* the sealed speaker
 chamber's −X wall — because two walls do not fit.
 
-> ⚠️ **And that wall is now two stubs.** Its middle is deliberately gone over y 30.00..74.80, so
-> over that span **the speaker chamber and the cell bay are one volume** — which is where the
-> protection strip lives. The opening measures **584 mm²** against the grille's 562.7, so it is a
-> second mouth of roughly the intended size rather than a leak. **JP's call, made against a
-> measured map and reaffirmed twice.** The stubs that remain are load-bearing rather than
-> decorative: a rigid 65 mm cylinder located in +X at *both ends* cannot migrate mid-span, so the
-> cell keeps its lateral datum without the wall that used to give it.
+> ⚠️ **That wall has now held six different positions**, ending whole again plus a **double separator
+> wall JP designed himself** — a partial wall plus a stepped full wall, 0.90 thinning to 0.50 beside
+> the strip. Each of the six has a stated reason and a measurement behind it; a design that moves six
+> times under measurement is not indecisive, it is one where nobody was allowed to guess.
 >
-> One consequence to carry: the front-air figure below is a **box-mode** comparison and no longer
-> describes the real chamber, which is L-shaped and ≈19199 mm³. It stays because the like-for-like
-> comparison is still valid; it is labelled because the volume is not.
+> ⚠️ **And a correction this README carried:** it reported one opening at 584 mm². There were two —
+> the check was printing the divider's *cross-section* (39 mm²) where the opening is the face the wall
+> *vacated* (869 mm²), **off by 22× in the one number the owner judges the trade by.** *A wrong area is
+> worse than no area, because it gets trusted.* Both are closed again now; the −X opening measures
+> 0.000. Details in [`docs/enclosure-mobile.md`](docs/enclosure-mobile.md) §7c.
+>
+> The front-air cost is real and it moved: **−11.1 %**, not the −1.2 % this file quoted for three
+> revisions — the separator wall and the driver's re-measured 27.5 width both take volume out.
 
 ### Three findings worth reading even if you never print it
 
