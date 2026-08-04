@@ -1,0 +1,153 @@
+# ember_house_watch — "what is still awake in the house", shaped for one 240px row.
+#
+# Answers one question at a glance: is anything still running, and where. Lights,
+# minisplits, radiant floors, radiators and the towel warmer, folded into a single
+# list of ROOMS rather than a list of devices — because the rooms overlap (the
+# Laundry has both a bulb and a minisplit) and because "go to the Laundry" is the
+# action, not "go to entity climate.laundry_minisplit".
+#
+# Named to match ember_driveway_watch. It was briefly ember_house_lights, which
+# stopped being true the moment heating joined the scope.
+#
+# THE SHAPING LIVES HERE, NOT IN THE DISPLAY LAMBDA. All of this is string and set
+# work, and Jinja can be pasted into HA's template editor and watched live; the
+# display lambda is the hardest place in this project to test anything. The device
+# reads five ready-made values and only draws.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# FOUR TRAPS, ALL FOUND ON THE BENCH 2026-08-03. Every one of them would have
+# produced a confident wrong number rather than an error.
+#
+# 1. LIGHTS: a naive count of `light.*` with state == 'on' returns TEN here,
+#    because it sweeps up light.ember_satellite_backlight,
+#    light.ember_mobile_backlight, both status LEDs, three BLE-proxy Bluetooth
+#    LEDs and two minisplit display LEDs. Ember would have counted ITS OWN SCREEN
+#    as a light left on and never once read zero. sensor.lights_on (house-wide,
+#    packages/lights_overview.yaml) already excludes all of it and reports 2.
+#    >>> That file, not this one, is the source of truth for what counts as a
+#        house light. Fix miscounts THERE, for the whole house. <<<
+#
+# 2. THE MINISPLITS ARE EXPOSED TWICE. climate.air_conditioner has
+#    friendly_name 'laundry minisplit' and climate.air_conditioner_2 is
+#    'luna minisplit' — the same two physical units as
+#    climate.laundry_minisplit / climate.luna_minisplit, via a second
+#    integration. Matching on a name pattern counts each of them twice, so one
+#    running minisplit reads as two. They are excluded by entity_id below.
+#
+# 3. `state` IS THE MODE, `hvac_action` IS WHETHER IT IS ACTUALLY RUNNING.
+#    climate.kitchen_thermostat ("Kitchen Floor") sits at state='cool' with
+#    hvac_action='idle' — set, but not running. Counting `state != 'off'` reports
+#    the floor as going when it is doing nothing, which is the failure that would
+#    have shipped, because it looks right whenever something IS running.
+#
+# 4. THE FLOORS AND RADIATORS ARE NAMED `*_thermostat`. Searching entity_ids for
+#    "radiant", "radiator" or "floor" finds NOTHING — only the friendly names say
+#    what they are: Kitchen Floor, Bedroom Floor, Pumphouse Floor, Laundry
+#    Radiators, Towel Warmer. A search that proves absence by entity_id here is a
+#    search with no control (docs/verification.md §13).
+# ─────────────────────────────────────────────────────────────────────────────
+
+template:
+  - sensor:
+      - name: "Ember house watch"
+        unique_id: ember_house_watch
+        unit_of_measurement: "rooms"
+        icon: mdi:home-thermometer
+        # ---------------------------------------------------------------------
+        # `climate_running` is built once here and reused by every attribute, so
+        # the running-rule exists in exactly one place. Two families, two rules,
+        # because the minisplits do not publish hvac_action at all (it reads
+        # None) while the floors and radiators do:
+        #
+        #   has hvac_action  -> running iff action is heating/cooling/drying/fan
+        #   no hvac_action   -> running iff mode is not off/unavailable/unknown
+        #
+        # Getting this backwards is trap 3 above.
+        # ---------------------------------------------------------------------
+        state: >-
+          {% set ns = namespace(rooms=[]) %}
+          {% set lights = state_attr('sensor.lights_on', 'areas') or [] %}
+          {% set dupes = ['climate.air_conditioner', 'climate.air_conditioner_2'] %}
+          {% for e in states.climate if e.entity_id not in dupes %}
+            {% set act = e.attributes.get('hvac_action') %}
+            {% if (act is not none and act in ['heating','cooling','drying','fan'])
+                  or (act is none and e.state not in ['off','unavailable','unknown']) %}
+              {% set ns.rooms = ns.rooms + [area_name(e.entity_id) or e.name] %}
+            {% endif %}
+          {% endfor %}
+          {{ (lights + ns.rooms) | reject('none') | unique | list | count }}
+        # ⚠️ THE ONLY REASON THE DEVICE CAN TELL "the house is quiet" APART FROM
+        # "I have no idea". Without this the sensor reports 0 whenever the
+        # upstream lights sensor is missing, and 0 is indistinguishable from a
+        # genuinely quiet house — a lie in the one direction that costs money,
+        # because it says everything is off when nothing is known. Unavailable
+        # propagates to the device as unknown; zero does not.
+        availability: >-
+          {{ states('sensor.lights_on') not in
+             ['unknown', 'unavailable', 'none', ''] }}
+        attributes:
+          # Union of rooms, sorted for stability so the row does not reshuffle
+          # between frames. Capped at 4 names then "+N": the row is 240px at
+          # font_sm 12, and past four rooms the NAMES are what stay readable
+          # while the drawn coals become a "+N" marker (JP's call, 2026-08-03).
+          names: >-
+            {% set ns = namespace(rooms=[]) %}
+            {% set lights = state_attr('sensor.lights_on', 'areas') or [] %}
+            {% set dupes = ['climate.air_conditioner', 'climate.air_conditioner_2'] %}
+            {% for e in states.climate if e.entity_id not in dupes %}
+              {% set act = e.attributes.get('hvac_action') %}
+              {% if (act is not none and act in ['heating','cooling','drying','fan'])
+                    or (act is none and e.state not in ['off','unavailable','unknown']) %}
+                {% set ns.rooms = ns.rooms + [area_name(e.entity_id) or e.name] %}
+              {% endif %}
+            {% endfor %}
+            {% set r = (lights + ns.rooms) | reject('none') | unique | list | sort %}
+            {% if r | count == 0 %}
+            {% elif r | count <= 4 %}
+              {{ r | join(' . ') }}
+            {% else %}
+              {{ (r[:4] | join(' . ')) ~ ' . +' ~ (r | count - 4) }}
+            {% endif %}
+          # Rooms with a light on. Drives the coal glyphs.
+          lights: >-
+            {{ (state_attr('sensor.lights_on', 'areas') or [])
+               | unique | list | count }}
+          # Climate zones actually moving air/heat, split so the device can draw a
+          # different mark for each. `drying` and `fan` count as cooling: the point
+          # is "something is running", and they are not heat.
+          cooling: >-
+            {% set ns = namespace(n=0) %}
+            {% set dupes = ['climate.air_conditioner', 'climate.air_conditioner_2'] %}
+            {% for e in states.climate if e.entity_id not in dupes %}
+              {% set act = e.attributes.get('hvac_action') %}
+              {% if (act is not none and act in ['cooling','drying','fan'])
+                    or (act is none and e.state in ['cool','dry','fan_only']) %}
+                {% set ns.n = ns.n + 1 %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.n }}
+          heating: >-
+            {% set ns = namespace(n=0) %}
+            {% set dupes = ['climate.air_conditioner', 'climate.air_conditioner_2'] %}
+            {% for e in states.climate if e.entity_id not in dupes %}
+              {% set act = e.attributes.get('hvac_action') %}
+              {% if (act is not none and act == 'heating')
+                    or (act is none and e.state in ['heat','heat_cool']) %}
+                {% set ns.n = ns.n + 1 %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.n }}
+          # Human-readable "why", for the HA dashboard and for debugging a number
+          # that looks wrong. Never rendered on the device.
+          detail: >-
+            {% set ns = namespace(d=[]) %}
+            {% set dupes = ['climate.air_conditioner', 'climate.air_conditioner_2'] %}
+            {% for e in states.climate if e.entity_id not in dupes %}
+              {% set act = e.attributes.get('hvac_action') %}
+              {% if (act is not none and act in ['heating','cooling','drying','fan'])
+                    or (act is none and e.state not in ['off','unavailable','unknown']) %}
+                {% set ns.d = ns.d + [(area_name(e.entity_id) or '?') ~ ' — ' ~ e.name
+                                      ~ ' (' ~ (act if act is not none else e.state) ~ ')'] %}
+              {% endif %}
+            {% endfor %}
+            {{ (state_attr('sensor.lights_on', 'detail') or []) + ns.d }}
