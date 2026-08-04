@@ -2599,6 +2599,54 @@ sensor:
     accuracy_decimals: 0
     entity_category: diagnostic
 
+  # ---------------- THE HOUSE, SEEN FROM THE HEARTH ----------------
+  #
+  # THE FIRST STATE THIS DEVICE HAS EVER IMPORTED FROM HOME ASSISTANT. Everything
+  # else here flows outward — sensors Ember publishes, a voice pipeline it feeds.
+  # These four (plus the text_sensor below) flow inward, which has one consequence
+  # worth stating plainly: they are NaN until HA connects and says otherwise. That
+  # is not an error path, it is the normal first second of every boot, and the
+  # display must render it as "I don't know" rather than as zero.
+  #
+  # All five read ONE entity, sensor.ember_house_watch, whose Jinja does every
+  # set-union, dedupe and truncation this display needs. See
+  # homeassistant/packages/ember_house_watch.yaml for the four traps that shaping
+  # avoids — most importantly that a naive count of light.* would include Ember's
+  # OWN backlight and never read zero.
+  #
+  # `internal: true` on all of them: they came FROM Home Assistant, so publishing
+  # them back would create a second, staler copy of the same truth in the same
+  # system, plus five entities nobody asked for.
+  - platform: homeassistant
+    id: house_rooms
+    entity_id: sensor.ember_house_watch
+    internal: true
+  - platform: homeassistant
+    id: house_lights
+    entity_id: sensor.ember_house_watch
+    attribute: lights
+    internal: true
+  - platform: homeassistant
+    id: house_cooling
+    entity_id: sensor.ember_house_watch
+    attribute: cooling
+    internal: true
+  - platform: homeassistant
+    id: house_heating
+    entity_id: sensor.ember_house_watch
+    attribute: heating
+    internal: true
+
+# The room names, already joined with " . " and already capped at four with a
+# "+N" tail by the template sensor. The device does no string work beyond
+# printing this.
+text_sensor:
+  - platform: homeassistant
+    id: house_names
+    entity_id: sensor.ember_house_watch
+    attribute: names
+    internal: true
+
 ########################  visualiser state  ########################
 
 globals:
@@ -3610,6 +3658,134 @@ display:
                    "hush - listening, silent, on screen");
         } else {
           it.print(6, TELE_Y + 24, id(font_sm), c_ash, "ember - hearth spirit");
+        }
+
+        // ============ THE HOUSE ROW — what is still awake ============
+        //
+        // ROW 3 OF THIS BAND, AND IT HAS TO BE ROW 3. TELE is 264..319; rows sit
+        // at +6, +24 and +40, and +40 with a 12px font ends at 316 — inside the
+        // band by 3px. A FOURTH row at +58 would end at 334 and draw into
+        // nothing, which on this display is not a clipped glyph but a violation
+        // of the one invariant the banded redraw rests on (nothing may draw
+        // outside its own band, and the framebuffer PERSISTS, so the litter
+        // would be permanent and would look like ghosting rather than like an
+        // overflow). There is no room 4. Anything more goes in an overlay.
+        //
+        // WHY NOT SHARE +24 with the mode line above: at op_mode 1 or 2 that row
+        // is taken, and losing the house indicator exactly when Ember is quiet is
+        // backwards — quiet is when you glance at it.
+        //
+        // FREE, on the same grounds as the line above: this band is chrome, it
+        // erases and overdraws by design, and it is outside the flame band's
+        // write-once invariant and its 18,240 px/frame budget. Four coals is
+        // ~256 px. It also needs NO band of its own, which is the expensive
+        // mistake here — see the fuse note in the band geometry block: a 4-row
+        // band still consumes a whole frame slot and cost the fire 5fps.
+        {
+          // Shape, not colour, carries the kind. The palette is one
+          // fire-temperature ramp by deliberate design and `alarm` is its only
+          // exception, so a cool blue for "cooling" is not available — and the
+          // band's own accessibility rule is that no state is ever carried by
+          // colour alone. A coal is round, heat rises to a point, a draught is
+          // flat. Those read differently in greyscale.
+          const int HY = TELE_Y + 40;
+          const float rooms_f = id(house_rooms).state;
+
+          if (std::isnan(rooms_f)) {
+            // NOT "banked", and the distinction is the whole point: a stale
+            // "every hearth banked" claims the house is dark when nothing is
+            // known, which is a lie in the one direction that costs money. NaN
+            // is also simply the first second of every boot, before HA connects.
+            //
+            // NaN is reached for the cases that matter: HomeassistantSensor
+            // publish_state(NAN)s whatever it cannot parse as a number
+            // (homeassistant_sensor.cpp:14-18, verified by reading it), so HA
+            // reporting `unavailable` — upstream sensor missing, template
+            // reloading, entity renamed — lands here. Observed live on the
+            // 2026-08-03 bring-up during a template.reload.
+            //
+            // ⚠️ KNOWN GAP, DELIBERATELY NOT PAPERED OVER: a full API
+            // disconnection pushes nothing at all, so the last value simply
+            // persists and this row keeps showing a count that may be minutes
+            // stale. It is NOT detectable from here without lying: the obvious
+            // guard is "is an API client connected", and this file already
+            // records that on_client_connected fires for ANY client including
+            // the esphome CLI (see the api: block), so `esphome logs` alone
+            // would satisfy it with HA absent. A guard that reads as a
+            // freshness check while actually testing something else is worse
+            // than the staleness it hides. If this ever needs closing, the
+            // honest signal is a heartbeat FROM HA — a value that changes on a
+            // timer, so absence of change is absence of HA — not a local
+            // connection flag.
+            it.print(6, HY, id(font_sm), c_dim, "hearths unknown");
+          } else if ((int) rooms_f <= 0) {
+            it.print(6, HY, id(font_sm), c_ash, "~ every hearth banked ~");
+          } else {
+            // ---- a coal per lit room, at most four, then "+N" ----
+            const int lit  = std::isnan(id(house_lights).state)
+                             ? 0 : (int) id(house_lights).state;
+            const int cool = std::isnan(id(house_cooling).state)
+                             ? 0 : (int) id(house_cooling).state;
+            const int heat = std::isnan(id(house_heating).state)
+                             ? 0 : (int) id(house_heating).state;
+            const int shown = lit > 4 ? 4 : lit;
+            int x = 8;
+
+            for (int i = 0; i < shown; i++) {
+              // BREATHING PERIOD IS SET BY THE BAND ROTATION, NOT BY TASTE. One
+              // band repaints per frame at 50ms, so this row is redrawn about
+              // every 200ms — 5fps. A short pulse would read as a stutter; at
+              // 3500ms it reads as a breath. The 800ms per-coal offset keeps
+              // them out of phase so they look like separate fires rather than
+              // one blinking row.
+              const float ph = (float) ((now + (uint32_t) i * 800u) % 3500u)
+                               / 3500.0f;
+              const float br = 0.58f + 0.42f * (0.5f + 0.5f * sinf(ph * 6.28319f));
+              Color coal = Color(
+                (uint8_t) (c_ember.r + (c_gold.r - c_ember.r) * br),
+                (uint8_t) (c_ember.g + (c_gold.g - c_ember.g) * br),
+                (uint8_t) (c_ember.b + (c_gold.b - c_ember.b) * br));
+              it.filled_circle(x + 3, HY + 6, 3, coal);
+              x += 10;
+            }
+            if (lit > 4) {
+              it.printf(x, HY, id(font_sm), c_dim, "+%d", lit - 4);
+              x += 18;
+            }
+
+            // ---- heat rises to a point: a 5px flame, one per heating zone ----
+            for (int i = 0; i < (heat > 2 ? 2 : heat); i++) {
+              it.horizontal_line(x,     HY + 10, 5, c_amber);
+              it.horizontal_line(x + 1, HY + 8,  3, c_amber);
+              it.horizontal_line(x + 2, HY + 6,  1, c_gold);
+              x += 8;
+            }
+            // ---- a draught is flat: three stacked bars per cooling zone ----
+            for (int i = 0; i < (cool > 2 ? 2 : cool); i++) {
+              it.horizontal_line(x,     HY + 4,  5, c_dim);
+              it.horizontal_line(x + 1, HY + 7,  4, c_ash);
+              it.horizontal_line(x,     HY + 10, 5, c_dim);
+              x += 8;
+            }
+
+            // ---- the room names, measured rather than guessed ----
+            // get_text_bounds so a long list is dropped instead of running off
+            // the panel. The template sensor has already capped it at four names
+            // plus "+N", so this is the belt to that braces: a room called
+            // something very long can still overrun, and silently printing off
+            // the right edge is how you get litter in a persistent framebuffer.
+            const std::string &nm = id(house_names).state;
+            if (!nm.empty()) {
+              int tx = 0, ty = 0, tw = 0, th = 0;
+              it.get_text_bounds(0, 0, nm.c_str(), id(font_sm),
+                                 TextAlign::TOP_LEFT, &tx, &ty, &tw, &th);
+              if (x + 4 + tw <= W - 4) {
+                it.print(x + 4, HY, id(font_sm), c_dim, nm.c_str());
+              } else {
+                it.printf(x + 4, HY, id(font_sm), c_dim, "%d rooms", (int) rooms_f);
+              }
+            }
+          }
         }
       };
 
