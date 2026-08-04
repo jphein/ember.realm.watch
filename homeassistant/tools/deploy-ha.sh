@@ -7,10 +7,18 @@
 # for anything this repo ships (see the caveat on template sensors below).
 #
 # Usage:
-#   ./deploy-ha.sh                 # deploy all three packages + reload
+#   ./deploy-ha.sh                 # deploy every package + reload changed domains
 #   ./deploy-ha.sh --check         # validate only, change nothing
-#   ./deploy-ha.sh --dry-run       # show what would be copied
-#   ./deploy-ha.sh ember_persona   # deploy one package by stem
+#   ./deploy-ha.sh --dry-run       # show what would be copied, and WHICH WAY
+#   ./deploy-ha.sh ember_persona   # deploy one package by stem (prefer this)
+#   ./deploy-ha.sh --force         # overwrite even a VM copy that is newer
+#
+# ⚠️ THE VM IS OFTEN AHEAD OF THIS REPO. Packages get edited live on the HA host,
+# so "the files differ" does NOT mean "the repo is ahead". This script now
+# compares timestamps and REFUSES to overwrite a VM copy newer than what the repo
+# has authored, exiting 2. Reconcile repo <- VM, re-apply your change on that
+# base, then deploy. --force discards the VM copy and is almost never what you
+# want. See docs/verification.md §33 for the run that made this necessary.
 #
 # Auth: env HA_TOKEN -> ~/.cache/ha-token-tmp -> `bw get password ha-llat`.
 set -euo pipefail
@@ -79,15 +87,46 @@ declare -A RELOADS=(
   [ember_house_watch]="template"
 )
 
-DRY=0; CHECK_ONLY=0; ONLY=""
+DRY=0; CHECK_ONLY=0; ONLY=""; FORCE=0
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY=1 ;;
     --check)   CHECK_ONLY=1 ;;
-    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+    --force)   FORCE=1 ;;
+    -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
     *)         ONLY="$arg" ;;
   esac
 done
+
+# ─────────────────────── WHICH SIDE IS NEWER ───────────────────────
+# THE BUG THIS EXISTS TO KILL: this script's only report about a divergent file
+# used to be "remote differs or absent". That is SYMMETRIC language for an
+# ASYMMETRIC action — it overwrites the VM — and a reader naturally completes it
+# as "my repo is ahead". On 2026-08-03 the VM was ahead: it held a wake-on-LAN
+# retry in ember_announce added that morning, plus two packages this repo did
+# not have at all, and a routine deploy would have reverted the lot. Nothing in
+# the output hinted at the direction.
+#
+# So the script now answers the question it was silently begging, and REFUSES to
+# overwrite a VM copy that looks newer than what this repo has authored.
+#
+# repo_authored_at() deliberately does NOT use the working file's mtime as its
+# first choice: mtime is reset by every checkout, branch switch and clone, so a
+# fresh clone would claim every file was authored seconds ago and this guard
+# would never fire. The last COMMIT that touched the file is when its content
+# was actually authored. The exception is a file with uncommitted local edits,
+# where mtime IS a real authoring time and the commit date is stale — so dirty
+# files fall back to mtime, which also means "I just edited this" correctly wins
+# over an older VM copy.
+repo_authored_at() {  # repo_authored_at <path> -> unix seconds
+  local f="$1"
+  if ! git -C "$(dirname "$f")" diff --quiet -- "$f" 2>/dev/null; then
+    stat -c %Y "$f"; return          # locally modified: mtime is genuine
+  fi
+  local t
+  t="$(git -C "$(dirname "$f")" log -1 --format=%ct -- "$f" 2>/dev/null || true)"
+  [ -n "$t" ] && printf '%s' "$t" || stat -c %Y "$f"
+}
 
 token() {
   [ -n "${HA_TOKEN:-}" ] && { printf '%s' "$HA_TOKEN"; return; }
@@ -148,8 +187,32 @@ for p in "${PACKAGES[@]}"; do
     continue
   fi
 
+  # They differ. Say WHICH WAY, because the old message did not and that is how a
+  # deploy nearly reverted a morning's work. An absent remote is unambiguous —
+  # nothing to lose — so it is reported as new rather than as a conflict.
+  if [ -z "$remote_sum" ]; then
+    if [ "$DRY" = 1 ]; then echo "++  would create $p.yaml (absent on VM)"; continue; fi
+  else
+    remote_mtime="$(ssh "$HA_SSH_HOST" "stat -c %Y $PKG_DIR/$p.yaml 2>/dev/null" || echo 0)"
+    repo_mtime="$(repo_authored_at "$src")"
+    if [ "${remote_mtime:-0}" -gt "${repo_mtime:-0}" ]; then
+      echo "!!  $p.yaml — THE VM COPY IS NEWER. Not overwriting."
+      echo "      VM   modified $(date -d "@$remote_mtime" '+%Y-%m-%d %H:%M:%S')"
+      echo "      repo authored $(date -d "@$repo_mtime" '+%Y-%m-%d %H:%M:%S')"
+      echo "      The VM may hold work this repo has never seen. Diff it first:"
+      echo "        ssh $HA_SSH_HOST \"cat $PKG_DIR/$p.yaml\" | diff - $src"
+      echo "      Then reconcile repo <- VM, re-apply your change on that base, and"
+      echo "      deploy again. Use --force ONLY if you mean to discard the VM copy."
+      if [ "$FORCE" != 1 ]; then BLOCKED=$((${BLOCKED:-0} + 1)); continue; fi
+      echo "      --force given: overwriting anyway."
+    elif [ "$DRY" = 1 ]; then
+      echo "++  would copy $p.yaml (repo is newer)"
+      continue
+    fi
+  fi
+
   if [ "$DRY" = 1 ]; then
-    echo "++  would copy $p.yaml (remote differs or absent)"
+    echo "++  would copy $p.yaml"
     continue
   fi
 
@@ -161,6 +224,17 @@ for p in "${PACKAGES[@]}"; do
   echo "->  copied $p.yaml"
   changed+=("$p")
 done
+
+# A skipped VM-newer file is a FAILURE, not a note. Exiting 0 here would let a
+# caller (or a person skimming) read a run that deployed nothing as a success,
+# which is the same class of mistake as the symmetric "differs" message: the
+# output has to make the dangerous case impossible to miss.
+if [ "${BLOCKED:-0}" -gt 0 ]; then
+  echo
+  echo "!! ${BLOCKED} package(s) NOT deployed because the VM copy is newer (see above)."
+  echo "   Nothing was reloaded. Reconcile first; --force discards the VM copy."
+  exit 2
+fi
 
 [ "$DRY" = 1 ] && exit 0
 [ "${#changed[@]}" -eq 0 ] && { echo "nothing changed; skipping reload"; exit 0; }

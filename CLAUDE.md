@@ -131,18 +131,39 @@ homeassistant/tools/deploy-ha.sh               # all packages + reload changed d
 python3 homeassistant/tools/build_ember_dashboard.py --dry
 ```
 
-> 🔴 **`--dry-run`, then `diff` the VM, before every deploy. The VM is frequently
-> AHEAD of the repo.** JP edits packages live on the HA host; `deploy-ha.sh` pushes
-> repo→VM and will happily revert work that only exists there. On 2026-08-03 a deploy
-> would have reverted that morning's wake-on-LAN retry in `ember_announce`, and
-> `ember_slack`/`ember_wake_backend` existed *only* on the VM. Reconcile repo ← VM
-> first, re-apply your change on that base, then deploy **one package by stem**.
-> Precedent: commit `404da12`. The script does back up remotely (`.bak-<date>`).
+> 🔴 **The VM is frequently AHEAD of this repo.** JP edits packages live on the HA
+> host, so *"the files differ"* never means *"the repo is ahead"*. `deploy-ha.sh`
+> now answers that question itself: it compares the VM's mtime against what the
+> repo last **authored** (last commit touching the file, or its mtime if locally
+> dirty) and **refuses to overwrite a newer VM copy, exiting 2**. `--force`
+> discards the VM copy and is almost never what you want.
 >
-> ⚠️ **`PACKAGES=(...)` in `deploy-ha.sh` is the drift mechanism.** A package not named
+> This is a guard, not a substitute for looking: on 2026-08-03, before it existed,
+> a deploy would have reverted that morning's wake-on-LAN retry in
+> `ember_announce`. Reconcile repo ← VM, re-apply your change on that base, then
+> deploy **one package by stem**. Precedent: `404da12`; the reasoning is
+> `docs/verification.md` §33. The script also backs up remotely (`.bak-<date>`).
+>
+> ⚠️ **`PACKAGES=(...)` in `deploy-ha.sh` is a drift mechanism.** A package not named
 > there is never deployed, never compared, and **never reported by `--dry-run`** — so it
 > can live on the VM forever and nothing complains. Add new packages to that array *in
 > the same commit that creates them*.
+
+**This repo owns every `ember_*.yaml`, and it is the only owner.** All ten live in
+`homeassistant/packages/` and deploy only through `deploy-ha.sh`.
+
+> ⛔ **Do not let them reappear in `~/Projects/ha/packages/`.** Five of them used to
+> live in both repos, each with its own deploy path to the same VM paths and nothing
+> keeping them in step — whichever ran last won. That is the *actual* cause of the
+> 2026-08-03 drift; the `PACKAGES` gap above was a symptom. The ha repo's copies are
+> deleted and its CLAUDE.md now says why (ha commit `ca8b06f`).
+>
+> The boundary that remains, and it is the right one: `lights_overview.yaml` is
+> **house-wide and owned by `~/Projects/ha`**. `ember_house_watch` consumes
+> `sensor.lights_on` from it without owning it. To stop a fixture being counted as a
+> house light, label it `indicator` in HA — never by editing Ember. That curation
+> lives in HA's entity registry (`.storage`), so it is in neither repo; it travels
+> with HA backups.
 
 - ⚠️ **The API host and the SSH host are different machines.** The public name resolves to the
   reverse proxy, not the HA VM; `sudo tee` there writes to the *proxy* and reports success while

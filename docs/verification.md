@@ -2363,5 +2363,58 @@ Two lessons, and the second is the one this file keeps relearning:
 
 The generalisation for this repo, which comments heavily on purpose and gains a lot from it: **the
 cost of a comment is not zero at the moment it goes stale, it is paid later and by someone else.**
+
+### 33. Symmetric words for an asymmetric action, and a root cause found one layer too shallow
+
+2026-08-03, and it very nearly cost a morning's work rather than a comment.
+
+`deploy-ha.sh --dry-run` reported a divergent package as:
+
+```
+++  would copy ember_announce.yaml (remote differs or absent)
+```
+
+Every word true. **"Differs" is symmetric and the action is not** — it overwrites the VM — and a
+reader completes the sentence in the direction of the action: *my repo is ahead, this pushes my
+change*. The VM was ahead. It held a wake-on-LAN retry added that morning, and the deploy would
+have reverted it silently, with a remote backup nobody would think to look for because the run
+reported success.
+
+What caught it was not the tool. It was noticing that **two files I had not touched** were also
+listed as differing, which is not what "my change is ready to push" looks like. A near-miss whose
+detection depended on someone being curious about an unrelated line is not a control.
+
+**The first fix was aimed one layer too shallow.** The diagnosis was: `PACKAGES=(...)` is an
+allowlist, and unlisted packages are invisible to `--dry-run`, so they drift onto the VM unseen.
+True, and worth fixing, and it produced a confident wrong claim in a commit message — that
+`ember_slack` and `ember_wake_backend` "existed only on the VM". They did not. They were
+byte-identical in `~/Projects/ha/packages/`, version-controlled the whole time, merely absent
+*here*. The real cause was one layer down: **two repositories both claimed to own the same five
+files, each with its own deploy path, and whichever ran last won.** The allowlist gap was a
+symptom of the duplication, not its cause.
+
+Three lessons, and the middle one is the one this file exists for:
+
+- **A tool that reports a difference must report its direction.** The fix is not documentation, it
+  is arithmetic the tool can do itself: compare the VM's mtime against when the repo last
+  *authored* the file — last commit touching it, or its mtime when locally dirty, because a bare
+  mtime is reset by every checkout and would make a fresh clone claim it authored everything
+  seconds ago. VM newer → refuse, print both timestamps and the diff command, exit non-zero.
+  Verified against a scratch `PKG_DIR` in all four directions (VM-newer blocks and exits 2;
+  repo-newer copies; `--force` overrides; absent reads as *create*, not conflict) rather than
+  assumed — the affordance for that test was already in the script, left by whoever wrote the
+  `PKG_DIR` override.
+- **"Nothing was deployed" must not exit 0.** A blocked run that returns success is the same defect
+  as the symmetric message: output that lets the dangerous case read as the safe one. It exits 2.
+- **When a fix lands and the symptom recurs, suspect the diagnosis, not the discipline.** The
+  duplication announced itself later the same day — `ember_slack` went from in-sync to divergent in
+  about twenty minutes — and the reflex was to call that "the hazard reproducing" and reconcile
+  again. Reconciling twice in one session is evidence about the *model*, not about the operator.
+  The question that resolved it was cheap and asked late: **who else has a copy of this file?**
+
+The generalisation: **before hardening the path you were on, check whether anything else writes to
+the same destination.** A single-writer assumption is invisible until a second writer contradicts
+it, and every guard built on it inherits the flaw. See also §31 — fixing the instance that fired is
+not the same as fixing the coupling.
 A file whose comments are its docs needs the ⚠️ ones dated and grounded in an observation, because
 those are exactly the ones a future reader will act on without re-deriving.
