@@ -42,16 +42,20 @@ automation:
           - event.ember_satellite_intercom
           - event.ember_mobile_intercom
     conditions:
-      # Event entities pass through unavailable/unknown on every device boot,
-      # OTA, and HA restart, and each of those transitions is a state change.
-      # Without BOTH halves of this guard, every reboot presses the horn — a
-      # phantom "Send word." at 3am is exactly the class of bug this repo
-      # documents. A real press is always timestamp -> timestamp.
+      # Event entities flap through unavailable/unknown on every device boot,
+      # OTA, and HA restart, and HA ALSO RESTORES the previous fire-time after a
+      # restart — so both "to a non-state" and "to a stale timestamp" arrive as
+      # state changes that are not presses. A from-state guard is the obvious
+      # shape and it is WRONG: a never-fired entity rests at `unknown`, so it
+      # would swallow the first real press after every reboot (caught on the
+      # 2026-08-05 bring-up, before it shipped... barely). The discriminator
+      # that actually separates a press from every boot artefact is FRESHNESS:
+      # a real press stamps now, a restore replays the past.
       - condition: template
         value_template: >-
-          {{ trigger.from_state is not none and trigger.to_state is not none
-             and trigger.from_state.state not in ['unavailable', 'unknown']
-             and trigger.to_state.state not in ['unavailable', 'unknown'] }}
+          {{ trigger.to_state is not none
+             and trigger.to_state.state not in ['unavailable', 'unknown']
+             and (now() - trigger.to_state.state | as_datetime).total_seconds() < 10 }}
     actions:
       - variables:
           from_desk: "{{ trigger.entity_id == 'event.ember_satellite_intercom' }}"
