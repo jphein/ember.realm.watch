@@ -522,6 +522,58 @@ contradicting code beside it, and a stale *message* has nothing. The thing capab
 gain the chip does not hold is a dashboard card, so the verdict is published where the false
 claim would be read.
 
+### 6.7 The intercom — sending word between hearths
+
+Two ways to speak through the *other* Ember, layered deliberately
+(design: `docs/superpowers/specs/2026-08-05-intercom-relay-design.md`):
+
+**"Broadcast …" — the built-in path.** `prefer_local_intents` is on
+([§6.4](#64-prefer_local_intents--why-its-on)), so HA's own `HassBroadcast`
+intent catches *"broadcast [that] {message}"* before the LLM and announces on
+**every other announce-capable satellite in the house** — not just the other
+Ember. Measured 2026-08-05 on HA 2026.7.4, spoken from the desk unit: it
+targeted the mobile Ember, the Wyoming `assist_microphone`, and the M5Stack
+Atom Echo, and excluded the desk itself. Delivery confirmed on the instrument
+(`sensor.ember_mobile_speaker_frames` 0 → 15040), **with `familiar` asleep the
+whole time** — no LLM in the path means this is both the quickest intercom and
+the one of last resort. Two measured caveats:
+
+- It is house-wide by design. For a message aimed at one hearth, use
+  `send_word` — "broadcast" is the fire bell, not the intercom.
+- The intent blocks until every target reports playback done: with the Atom
+  Echo `unavailable` in the target list, the turn took **29 s** to come back.
+  The satellite that heard you sits busy for that long.
+
+⚠️ The built-in path double-heralds, and that is accepted, not forgotten:
+core's broadcast handler passes no `preannounce`, so a receiving Ember plays
+HA's generic blip *and* its own chime. (Expected from the handler's defaults;
+confirm by ear when next beside a receiving unit.) Fixing it means shadowing a
+built-in intent — custom sentences + `intent_script`, a new deploy surface, no
+source-device exclusion — for a cosmetic gain. Declined; the polished path is
+`send_word`.
+
+**"Tell the desk …" — the `send_word` tool.** Natural phrasings fall through
+to the LLM, which calls `send_word(target, message)` — `desk`, `mobile` or
+`both`. It rides `script.ember_announce`, so `preannounce: false` is pinned
+and the single F-pentatonic herald plays. Dispatch is **fire-and-forget**
+(`script.turn_on`): `assist_satellite.announce` blocks until playback
+completes and has a 2.5-minute wedge precedent
+([the header of `ember_announce.yaml`](../homeassistant/packages/ember_announce.yaml)),
+and a hung delivery must not hold a voice turn hostage — so `sent=` claims
+dispatch, never delivery. An `unavailable` target is caught before sending
+(`hearth_unreachable=mobile`): the portable unit being off, flat, or in a
+drawer is a normal state, not an error. There is no `other` target — EOC v3's
+script executor passes only the model's arguments into the templates
+(`functions/script.py:42`), so the tool cannot know which hearth is speaking.
+
+**Quiet hours are deliberately bypassed on both paths.** A person speaking
+through Ember *is* the editorial decision; `script.ember_broadcast`'s
+quiet-hours → Slack routing exists for automated events, not the intercom.
+
+Live two-way audio (walkie-talkie / drop-in) is **not** this feature — the
+research and the reasons it is a firmware project live in
+[#57](https://github.com/jphein/ember.realm.watch/issues/57).
+
 ---
 
 ## 7 · Troubleshooting
@@ -818,7 +870,7 @@ tool reads the *result*. Two things fall out of it, both worth keeping:
 
 ### 9.2 The tools
 
-Ten total: the integration's stock four, plus six from this repo. The field is
+Twelve total: the integration's stock four, plus eight from this repo. The field is
 replaced **wholesale** on deploy, so `ember-functions.yaml` always carries the
 complete list — `ember-toolkit.py` refuses to submit one missing
 `execute_services`, because that is how Ember controls the house.
@@ -835,6 +887,8 @@ complete list — `ember-toolkit.py` refuses to submit one missing
 | `weather_now` | script | `weather.forecast_home_2` + `weather.get_forecasts` | now, today's high/low/rain |
 | `palace_recall` | script | `rest_command.palace_search` | MemPalace; takes an optional `wing` |
 | `look_at_camera` | script | `rest_command.spyglass_cams` | posts a snapshot, reports frame age |
+| `realm_query` | rest | realmwatch `:80` on `katana.lan` | the realm's lore and game layer: overview, power, events, quests, personas |
+| `send_word` | script | `assist_satellite.*` states | the intercom — speaks a message on the desk, the mobile, or both hearths ([§6.7](#67-the-intercom--sending-word-between-hearths)) |
 
 **Tools return facts, not sentences.** Every one answers in `key=value` form —
 `state=Printing; file=ember mobile midframe r10; percent=68`. Ember's voice is

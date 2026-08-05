@@ -538,3 +538,97 @@
       node={{ n | default('(none given)', true) }}; not_on_the_map=true; realmwatch has no node by that name.
       {%-   endif -%}
       {%- endif -%}
+
+- spec:
+    name: send_word
+    description: >-
+      Speak a message aloud on another hearth — the desk unit, the mobile unit,
+      or both. Use when JP asks to tell, relay, pass on, let someone know, or
+      send word to the desk, the mobile, the other hearth, or the whole house.
+      The message is spoken there in your own voice.
+    parameters:
+      type: object
+      properties:
+        target:
+          type: string
+          description: >-
+            Which hearth speaks. desk is the cased, mains-powered unit; mobile
+            is the portable battery one; both speaks on every hearth at once.
+          enum:
+            - desk
+            - mobile
+            - both
+        message:
+          type: string
+          description: What to say, short and plain.
+      required:
+        - target
+        - message
+  function:
+    # Fire-and-forget by design: `assist_satellite.announce` blocks until the
+    # device reports playback complete, and the desk unit has a documented
+    # 2.5-minute wedge precedent (packages/ember_announce.yaml header). A hung
+    # delivery must not hold a voice turn hostage, so this dispatches via
+    # `script.turn_on` and reports sent= (dispatch), never delivered=.
+    #
+    # Deliberately NOT routed through script.ember_broadcast: its quiet-hours →
+    # Slack routing exists for automated events. A person speaking through
+    # Ember IS the editorial decision, so this goes straight to the terminal
+    # speaker scripts, which pin preannounce: false (the single herald).
+    #
+    # No `other` target: EOC v3's script executor passes only the model's
+    # arguments as run_variables (functions/script.py:42) — the source
+    # device_id never reaches these templates, so "the other one" is not
+    # resolvable here. Explicit targets only.
+    type: script
+    sequence:
+      - variables:
+          t: "{{ (target | default('', true)) | lower | trim }}"
+          sat: >-
+            {%- if t == 'desk' -%}assist_satellite.ember_satellite_assist_satellite
+            {%- elif t == 'mobile' -%}assist_satellite.ember_mobile_assist_satellite
+            {%- endif -%}
+          # Which hearths are known dark right now. The mobile unit is portable:
+          # off, flat, or in a drawer are all normal states for it.
+          down: >-
+            {%- set ns = namespace(out=[]) -%}
+            {%- for pair in [('desk', 'assist_satellite.ember_satellite_assist_satellite'),
+                             ('mobile', 'assist_satellite.ember_mobile_assist_satellite')] -%}
+            {%-   if states(pair[1]) in ['unavailable', 'unknown'] -%}
+            {%-     set ns.out = ns.out + [pair[0]] -%}
+            {%-   endif -%}
+            {%- endfor -%}
+            {{ ns.out | join(',') }}
+      - choose:
+          # A single target that is down gets no dispatch at all — the final
+          # result names it unreachable instead of failing mid-turn.
+          - conditions: "{{ sat != '' and t not in down.split(',') }}"
+            sequence:
+              - action: script.turn_on
+                target:
+                  entity_id: script.ember_announce
+                data:
+                  variables:
+                    message: "{{ message }}"
+                    satellite: "{{ sat }}"
+          # both: always dispatch — ember_announce_all is parallel: with
+          # continue_on_error per branch, so one dark hearth costs only itself.
+          - conditions: "{{ t == 'both' }}"
+            sequence:
+              - action: script.turn_on
+                target:
+                  entity_id: script.ember_announce_all
+                data:
+                  variables:
+                    message: "{{ message }}"
+      - variables:
+          _function_result: >-
+            {%- if t == 'both' -%}
+            sent=both{% if down %}; hearth_unreachable={{ down }}{% endif %}
+            {%- elif sat == '' -%}
+            unknown_target={{ target }}; the hearths are desk, mobile, or both.
+            {%- elif t in down.split(',') -%}
+            hearth_unreachable={{ t }}; it may be off, flat, or out of the house; nothing was sent.
+            {%- else -%}
+            sent={{ t }}; note=dispatched, playback not awaited
+            {%- endif -%}
