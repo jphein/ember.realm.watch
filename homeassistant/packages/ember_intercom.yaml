@@ -1,0 +1,120 @@
+# ember_intercom — the horn. Press the glyph in a hearth's bottom-right corner,
+# speak, and your words come out of the OTHER hearth.
+#
+# THE WHOLE CHAIN
+#
+#   horn tap (firmware) -> event.ember_<name>_intercom fires "pressed"
+#     -> this automation
+#          -> assist_satellite.ask_question on the hearth you pressed
+#             ("Send word." + listen; vosk transcribes)
+#          -> script.ember_announce on the peer hearth
+#             ("Word from the desk hearth: <what you said>")
+#
+# No LLM anywhere in it: STT is vosk, TTS is piper, so THE INTERCOM WORKS WHILE
+# familiar SLEEPS. That is a feature, not an accident — do not "upgrade" the
+# relay to pass through the conversation agent.
+#
+# ask_question is the load-bearing primitive: with `answers` omitted it returns
+# {id: null, sentence: <raw STT text>} — probed live 2026-08-05 on the desk unit
+# (HA 2026.7.4, ESPHome 2026.7.3) before anything was built on it. It drives the
+# satellite's own listen machinery, which is what lets the firmware stay a dumb
+# button and keeps this file out of the device's I2S/VA state machine.
+#
+# QUIET HOURS ARE DELIBERATELY BYPASSED, same as the whole intercom family
+# (docs/home-assistant.md §6.7): a person pressing the horn IS the editorial
+# decision. script.ember_broadcast's quiet-hours -> Slack routing is for
+# automated events.
+
+automation:
+  - id: ember_intercom_relay
+    alias: Ember - the horn (intercom relay)
+    description: >-
+      Press the horn on one hearth, speak, and the other hearth says it.
+    # restart, not single: a new press supersedes a stuck capture instead of
+    # being silently swallowed by it — "press again to retry" is the intuitive
+    # recovery. Safe because every announce below is dispatched fire-and-forget
+    # via script.turn_on (a restart cannot kill a delivery already in flight),
+    # and the announce scripts themselves are mode: queued.
+    mode: restart
+    triggers:
+      - trigger: state
+        entity_id:
+          - event.ember_satellite_intercom
+          - event.ember_mobile_intercom
+    conditions:
+      # Event entities pass through unavailable/unknown on every device boot,
+      # OTA, and HA restart, and each of those transitions is a state change.
+      # Without BOTH halves of this guard, every reboot presses the horn — a
+      # phantom "Send word." at 3am is exactly the class of bug this repo
+      # documents. A real press is always timestamp -> timestamp.
+      - condition: template
+        value_template: >-
+          {{ trigger.from_state is not none and trigger.to_state is not none
+             and trigger.from_state.state not in ['unavailable', 'unknown']
+             and trigger.to_state.state not in ['unavailable', 'unknown'] }}
+    actions:
+      - variables:
+          from_desk: "{{ trigger.entity_id == 'event.ember_satellite_intercom' }}"
+          source_sat: >-
+            {{ 'assist_satellite.ember_satellite_assist_satellite' if from_desk
+               else 'assist_satellite.ember_mobile_assist_satellite' }}
+          peer_sat: >-
+            {{ 'assist_satellite.ember_mobile_assist_satellite' if from_desk
+               else 'assist_satellite.ember_satellite_assist_satellite' }}
+          source_name: "{{ 'desk' if from_desk else 'mobile' }}"
+          peer_name: "{{ 'mobile' if from_desk else 'desk' }}"
+      # Fail BEFORE capture, not after: taking the user's speech and then losing
+      # it is the worst order. The portable hearth being off, flat, or in a
+      # drawer is a normal state, and the answer is spoken where the press
+      # happened.
+      - if:
+          - condition: template
+            value_template: "{{ states(peer_sat) in ['unavailable', 'unknown'] }}"
+        then:
+          - action: script.turn_on
+            target:
+              entity_id: script.ember_announce
+            data:
+              variables:
+                message: "The {{ peer_name }} hearth is dark."
+                satellite: "{{ source_sat }}"
+          - stop: peer hearth unavailable
+      # The capture. preannounce: false for the same reason as every announce in
+      # this repo: the device plays its own herald, and HA's blip on top of it
+      # reads as a firmware bug. continue_on_error because a busy or wedged
+      # satellite must produce the "nothing to carry" branch below, never an
+      # automation error that dies unheard.
+      - action: assist_satellite.ask_question
+        continue_on_error: true
+        data:
+          entity_id: "{{ source_sat }}"
+          question: "Send word."
+          preannounce: false
+        response_variable: reply
+      - variables:
+          sentence: >-
+            {{ (reply.sentence if reply is defined and reply.sentence is not none
+                else '') | trim }}
+      - if:
+          - condition: template
+            value_template: "{{ sentence != '' }}"
+        then:
+          # Fire-and-forget, like send_word: assist_satellite.announce blocks
+          # until playback completes and has a 2.5-minute wedge precedent
+          # (ember_announce.yaml header). The horn must come back to idle the
+          # moment the words are on their way.
+          - action: script.turn_on
+            target:
+              entity_id: script.ember_announce
+            data:
+              variables:
+                message: "Word from the {{ source_name }} hearth: {{ sentence }}"
+                satellite: "{{ peer_sat }}"
+        else:
+          - action: script.turn_on
+            target:
+              entity_id: script.ember_announce
+            data:
+              variables:
+                message: "I heard nothing to carry."
+                satellite: "{{ source_sat }}"
