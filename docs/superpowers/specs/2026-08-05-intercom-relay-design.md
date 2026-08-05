@@ -6,8 +6,8 @@ Speak into either Ember and have the other hearth (or both) say the message alou
 Firmware untouched; everything rides the existing announce chain
 (`script.ember_announce` / `script.ember_announce_all`, `preannounce: false` pinned).
 
-Live two-way audio (walkie-talkie / drop-in) is **out of scope** and deferred to a
-GitHub issue capturing the research: community projects stream raw PCM over UDP
+Live two-way audio (walkie-talkie / drop-in) is **out of scope** and deferred to
+[#57](https://github.com/jphein/ember.realm.watch/issues/57), which captures the research: community projects stream raw PCM over UDP
 (fallingaway24/esphome-2Way-INTERCOM, samuelthng/intercom-api, n-IA-hane/esphome-intercom),
 none document coexistence with `voice_assistant` + `micro_wake_word` on a shared I2S
 bus, AEC costs ~22% CPU via ESP-SR, and Ember's I2S arbiter is a known do-not-touch
