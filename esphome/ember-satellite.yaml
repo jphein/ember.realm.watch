@@ -242,6 +242,13 @@ substitutions:
   # Auto-dismiss after this long without interaction.
   ui_vol_timeout: "8000"   # was 5000; two controls take longer to set
   ui_pm_timeout: "12000"
+  # The horn — the intercom button (2026-08-05). Bottom-right block of the
+  # telemetry band: 47px wide (~8.7mm) by the band's full 56px (~10.3mm). Shared
+  # by the on_touch hit-test and the display lambda for the same reason as every
+  # other pair in this block: drawn and tappable must not drift apart. ui_ic_y
+  # must equal TELE_Y in the band geometry.
+  ui_ic_x: "192"
+  ui_ic_y: "264"
 
 esphome:
   name: ${name}
@@ -2460,6 +2467,24 @@ script:
                   # something would feel broken in a way that waiting to start does not.
                   - voice_assistant.stop:
 
+      # The horn — the intercom corner (action 16). Idle-gated exactly like the
+      # talk start: mid-conversation the satellite cannot run ask_question
+      # anyway, and a press that QUEUED one would fire seconds later, after the
+      # moment has passed — a late summon is worse than a dropped one. The event
+      # is the entire firmware-side job; packages/ember_intercom.yaml on the HA
+      # side does the listening and the relaying, which is what keeps this path
+      # out of the I2S/VA state machine entirely.
+      - if:
+          condition: { lambda: 'return id(ui_action) == 16;' }
+          then:
+            - if:
+                condition:
+                  - lambda: 'return id(va_state) == 0 || id(va_state) == 4;'
+                then:
+                  - event.trigger:
+                      id: intercom_evt
+                      event_type: pressed
+
       # Row 0 opened a submenu rather than toggling, because the mode is a three-way
       # choice and a toggle cannot express it. The Hush entity still toggles for
       # anything that automates it (it is a view onto mode == 2).
@@ -2647,6 +2672,24 @@ text_sensor:
     attribute: names
     internal: true
 
+########################  the horn — intercom event  ########################
+#
+# The intercom button's whole firmware-side output: one event entity. HA sees
+# `event.<name>_intercom` fire and runs the relay (ask_question -> announce on
+# the peer hearth) from packages/ember_intercom.yaml. An EVENT entity rather
+# than a device-side `homeassistant.action` call, for two reasons: it needs no
+# "allow the device to perform Home Assistant actions" permission, and the
+# entity id itself carries which hearth pressed it — the automation derives
+# source and peer from that, so the shared firmware stays identical on both
+# boards (the wrapper pattern, issue #44).
+event:
+  - platform: template
+    id: intercom_evt
+    name: Intercom
+    icon: mdi:bugle
+    event_types:
+      - pressed
+
 ########################  visualiser state  ########################
 
 globals:
@@ -2763,6 +2806,14 @@ globals:
     initial_value: '-1'
 
   - id: spark_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+
+  # When the horn (the intercom corner) was last pressed. The glyph brightens for
+  # ~400ms after this — feedback comes from the thing you touched, same rule that
+  # keeps overlay taps from striking coals. 0 = never.
+  - id: ic_ms
     type: uint32_t
     restore_value: false
     initial_value: '0'
@@ -3785,6 +3836,45 @@ display:
                 it.printf(x + 4, HY, id(font_sm), c_dim, "%d rooms", (int) rooms_f);
               }
             }
+          }
+        }
+
+        // ============ THE HORN — the intercom button ============
+        //
+        // Bottom-right block of this band (the ui_ic_* pair; the hit-test in
+        // on_touch uses the same substitutions, which is the whole point).
+        // Normal mode ONLY: in overlays the corner is tap-away-dismiss, and a
+        // control that is not tappable must not be drawn.
+        //
+        // Free for the same reason as every row above: this band is chrome, it
+        // erases and overdraws by design. ~40 small primitives, well inside the
+        // band's budget.
+        //
+        // Press feedback: the curl brightens ember->gold for 400ms after ic_ms
+        // (stamped by the hit-test) — feedback comes from the thing you
+        // touched, the rule that keeps this branch from striking a coal.
+        if (id(ui_mode) == 0) {
+          const bool horn_lit = id(ic_ms) != 0 &&
+                                (uint32_t) (now - id(ic_ms)) < 400u;
+          const Color h_body = horn_lit ? c_gold  : c_ember;
+          const Color h_rim  = horn_lit ? c_amber : c_dim;
+          const int hcx = ${ui_ic_x} + 24;   // curl centre
+          const int hcy = ${ui_ic_y} + 28;
+          // The curl: mouthpiece upper-left, sweeping under and up to the bell
+          // at upper-right, thickening as it goes — a hunting horn, not a snake.
+          for (int i = 0; i <= 10; i++) {
+            const float t = (float) i / 10.0f;
+            const float a = (200.0f - 180.0f * t) * 0.0174533f;
+            const int px = hcx + (int) (13.0f * cosf(a));
+            const int py = hcy + (int) (10.0f * sinf(a));
+            it.filled_circle(px, py, 1 + (int) (2.2f * t + 0.5f), h_body);
+          }
+          // The bell: an open ring past the curl's end, where the sound leaves.
+          {
+            const float ab = 20.0f * 0.0174533f;
+            const int bx = hcx + (int) (13.0f * cosf(ab));
+            const int by = hcy + (int) (10.0f * sinf(ab));
+            it.circle(bx, by, 5, h_rim);
           }
         }
       };
@@ -5459,6 +5549,15 @@ touchscreen:
       # modal overlay is open, and an overlay can only be opened from the hardware
       # button, so the two input meanings are never live at the same time.
       #
+      # AMENDED 2026-08-05, deliberately (JP's call — the intercom horn): there
+      # is now exactly ONE exception on the bare screen, the horn glyph in the
+      # telemetry band's bottom-right corner (geometry: the ui_ic_* pair). The
+      # original rule guarded against zones that SILENTLY do the wrong thing;
+      # the horn is a visible, drawn control whose press flashes the thing you
+      # touched. Everywhere else remains byte-for-byte the talk gesture, and in
+      # overlay modes the corner stays tap-away-dismiss (the glyph is not drawn
+      # there, so nothing invisible is tappable).
+      #
       # Geometry comes from ${ui_*} substitutions shared with the display lambda,
       # so "where it's drawn" and "where it's tappable" cannot drift apart.
       - lambda: |-
@@ -5541,6 +5640,17 @@ touchscreen:
 
           // Any touch clears the unread marker: you are demonstrably in the room.
           if (id(unread)) { id(unread) = false; id(ui_gen)++; }
+
+          // The horn — the one drawn control on the bare screen (see the header
+          // amendment above). Deliberately NO coal strike on this branch:
+          // feedback comes from the thing you touched, and that is the glyph,
+          // which brightens via ic_ms on the same clock the spark uses.
+          if (tx >= ${ui_ic_x} && ty >= ${ui_ic_y}) {
+            id(ui_action) = 16;
+            id(ic_ms) = millis();
+            id(ui_gen)++;
+            return;
+          }
 
           // normal: touch-to-talk, exactly as before — AND IN EVERY MODE. The three
           // modes differ only in what leaves the speaker, so there is no mode in which
