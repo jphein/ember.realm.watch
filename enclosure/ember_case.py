@@ -320,6 +320,45 @@ CBORE_DEPTH     = 15 * LAYER_H_SHELL                    # 3.00 — exactly the h
 # the naive x-extent overstates the conflict. 8.40 clears the tighter one by 1.09mm.
 BOSS_FLARE_D    = 8.40   # boss diameter at CAV_FLOOR, tapering to BOSS_D at the PCB face
 BOSS_MIN_ANN    = 1.00   # minimum annular bearing width under the head, at the bore floor
+
+# ---- BEZEL BOSS FLARE. THE SHIPPED BOSSES SNAP OFF. (JP, bench, 2026-08-06) ----
+#
+# The bezel's four mounting bosses were a STRAIGHT d5.40 tube, 4.70mm tall
+# (PCB_TOP 0.00 -> SEAM_Z 4.70) with a d2.50 pilot through it — a 1.45mm annular
+# wall, which is 3.6 extrusions at a 0.40 nozzle — meeting the bezel slab at a
+# sharp 90 degree corner. Three things compound there and all three point the
+# same way:
+#
+#   * A cylinder into a plane is a stress riser with no radius to spread load.
+#   * The bezel prints FRONT FACE DOWN, so the boss axis is the BUILD axis and
+#     every layer line runs perpendicular to it. Prying a boss loads the root in
+#     pure layer adhesion, which is the weakest direction FDM has.
+#   * It is a cantilever whose whole job is to be torqued by an M3 self-tapper.
+#
+# The shell's bosses have had a flare since the head-height work and the note
+# above says DO NOT REMOVE IT. The bezel simply never got the equivalent. This is
+# that, mirrored: widest where it joins the slab, tapering to BOSS_D exactly at
+# the PCB face so the d5.60 vendor pad keepout still governs the contact end.
+#
+# 8.40 IS NOT A NEW MAGIC NUMBER — it is BOSS_FLARE_D, reused deliberately so the
+# two halves of the same joint flare to the same diameter. Clearances at all four
+# holes, derived not eyeballed: 2.75mm of wall to the outer silhouette
+# (OX0/OY0 -2.95, OX1 52.95, OY1 88.95) and 2.54mm to the screen window at the
+# brow pair, whose y-gap of 6.74mm (82.00 -> win y1 75.26) is the tightest of the
+# four. The chin pair has 8.21mm.
+#
+# ⚠️ IT IS A SEPARATE CONSTANT FROM BOSS_D ON PURPOSE, AND THAT IS LOAD-BEARING.
+# The front-face hex keepout tests `hypot(...) < BOSS_D/2 + BEZ_MARGIN + R`
+# (_bezel_cells), so widening BOSS_D would shrink the cell field and could trip
+# the chin>=50 / rails>=20 asserts — which this file warns must never be lowered
+# to make a build pass. The flare lives entirely on the CAVITY side, below the
+# slab, so it adds material under the debossed face and changes no cell count.
+#
+# It is also strictly BETTER to print than what it replaces: front-face-down puts
+# the root at 3.00mm of build height and the tip at 7.70mm, so the cone is wide at
+# the bottom and narrows going up — a tapering tower, 17.7 degrees off vertical,
+# no overhang anywhere.
+BEZEL_BOSS_FLARE_D = BOSS_FLARE_D   # 8.40 at SEAM_Z, tapering to BOSS_D at PCB_TOP
 # ⚠️ AND THE BINDING CONSTRAINT IS NO LONGER THE ONE EVERYONE REACHES FOR. The wall from a screw
 # hole to the outer corner arc was 2.533mm with the old d6.42 cone mouth and is 2.843mm with this
 # d5.80 bore — the counterbore is LESS binding there, because a socket cap head (5.50) is smaller
@@ -975,10 +1014,31 @@ def front_bezel():
     w  = (VA[0]-WIN_MARGIN, VA[1]+WIN_MARGIN, VA[2]-WIN_MARGIN, VA[3]+WIN_MARGIN)
     sk = RectangleRounded(w[1]-w[0], w[3]-w[2], 1.5)
     p -= Pos((w[0]+w[1])/2,(w[2]+w[3])/2, SEAM_Z-1) * extrude(sk, BEZEL_T+2)
-    # mounting bosses: PCB top face up into the bezel body
+    # mounting bosses: PCB top face up into the bezel body.
+    # FLARED, not straight — the straight ones snapped off. See BEZEL_BOSS_FLARE_D
+    # for why the root is the failure plane and why this taper is also the easier
+    # thing to print. BOSS_D still governs the PCB-face end, so the d5.60 vendor
+    # pad keepout is unchanged and so is the front-face hex keepout.
     for (hx,hy) in HOLES:
-        p += cyl(hx,hy, PCB_TOP, SEAM_Z, BOSS_D)
+        p += cone(hx,hy, PCB_TOP, SEAM_Z, BOSS_D, BEZEL_BOSS_FLARE_D)
         p -= cyl(hx,hy, PCB_TOP-0.01, SEAM_Z+1.5, PILOT_D)
+    # The flare is only safe because it fits; assert that rather than trusting the
+    # derivation above to stay true if a hole, the window or the silhouette moves.
+    # A boss that quietly breaches the window is a hole over the LCD.
+    _fr = BEZEL_BOSS_FLARE_D / 2.0
+    _win = (VA[0]-WIN_MARGIN, VA[1]+WIN_MARGIN, VA[2]-WIN_MARGIN, VA[3]+WIN_MARGIN)
+    for (hx, hy) in HOLES:
+        _edge = min(hx - OX0, OX1 - hx, hy - OY0, OY1 - hy) - _fr
+        assert _edge >= 1.20, (
+            f"bezel boss flare at ({hx},{hy}) leaves {_edge:.2f}mm to the outer "
+            f"silhouette — under one 1.20mm wall")
+        # The bosses sit outside the window in y; the gap that matters is to the
+        # nearer y edge. If a boss ever lands inside the window's x-span AND its
+        # y-span this goes negative, which is the breach worth failing on.
+        _wy = min(abs(hy - _win[2]), abs(hy - _win[3])) - _fr
+        assert _wy >= 1.20, (
+            f"bezel boss flare at ({hx},{hy}) comes within {_wy:.2f}mm of the "
+            f"screen window — it would open a hole over the glass")
     # ---- MIC: defined acoustic port + collar down to just above the PCB ----
     mx,my = MIC
     p += cyl(mx,my, PCB_TOP+0.30, SEAM_Z, 5.0)          # collar (tube wall)
