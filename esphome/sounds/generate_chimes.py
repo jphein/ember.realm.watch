@@ -152,6 +152,22 @@ def main():
           render([(F3, 0.0, 1.00, 0.012), (F3 * 2.0, 0.0, 0.35, 0.008)],
                  tail=0.012), 0.55)
 
+    # guttering — the mobile hearth's cell is low (~20%). A falling figure that
+    # keeps falling: C5 -> A4 -> F4 walks DOWN the pentatonic and comes to rest
+    # on the lowest sung note in the set, which is the shape of something dying
+    # down rather than resolving. Distinct from `done` (a two-note fall that
+    # RESOLVES, closure) by the third step — this one sinks past where done
+    # lands. Stays on the pentatonic on purpose: a low cell is a normal part of
+    # a portable object's day, not an error, and the off-scale dissonance is
+    # reserved for exactly one meaning (chime_error).
+    #
+    # Fires at most once per discharge (latched in firmware, reset on charge),
+    # so unlike `thinking` it can afford to be full voice.
+    write("chime_guttering.wav",
+          render([(C5, 0.000, 0.85, 0.40),
+                  (A4, 0.140, 0.80, 0.50),
+                  (F4, 0.300, 0.90, 1.00)]), 0.36)
+
 
 if __name__ == "__main__":
     main()

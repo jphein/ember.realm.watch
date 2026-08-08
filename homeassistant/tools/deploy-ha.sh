@@ -61,7 +61,7 @@ SRC_DIR="$(dirname "$SCRIPT_DIR")/packages"
 # what happened to ember_slack and ember_wake_backend, which lived only on the VM
 # from 2026-08-03 until the second board's bring-up went looking for them.
 # ADD NEW PACKAGES HERE IN THE SAME COMMIT THAT CREATES THEM.
-PACKAGES=(ember_backend_health ember_persona ember_announce ember_laundry_herald ember_driveway_watch ember_toolkit ember_print_context ember_slack ember_wake_backend ember_house_watch ember_intercom)
+PACKAGES=(ember_backend_health ember_persona ember_announce ember_laundry_herald ember_driveway_watch ember_toolkit ember_print_context ember_slack ember_wake_backend ember_house_watch ember_intercom ember_battery_watch)
 
 # Which reload service each package needs. A package that declares several
 # domains needs each of them reloaded.
@@ -83,6 +83,9 @@ declare -A RELOADS=(
   # ember_intercom is the horn's relay: event entity press -> ask_question ->
   # announce on the peer hearth.
   [ember_intercom]="automation"
+  # ember_battery_watch: the mobile cell's critical alarm (speak + broadcast).
+  # The 20% chime is firmware-side; only the 8% escalation lives in HA.
+  [ember_battery_watch]="automation"
   # ⚠️ `template` here, and mind the caveat printed at the end of a run: on this
   # instance a NEW template entity appears on reload, but EDITS to an existing
   # one have historically needed a full restart. Changing the Jinja in

@@ -1,0 +1,68 @@
+# ember_battery_watch — the mobile hearth must never die unseen again.
+#
+# On 2026-08-06/07 the mobile unit's bare 18650 ran from 3.76V to a recorded
+# LOW OF 2.508V with nobody watching. That cell has no protection IC (board
+# fact, docs/vendor/ES3C28P_Schematic.pdf): below the regulator's ~3.4V floor
+# the board dies but the level divider keeps draining ~9µA, and a cell left
+# there goes to zero and does not come back. This package is the loud half of
+# the answer; the candle glyph on the device is the quiet half; the 1S
+# protection strip remains the actual safety net (firmware cannot protect a
+# cell it is no longer powered by).
+#
+# DIVISION OF LABOUR, matching the announce chain:
+#   device (has_battery builds)   candle glyph · guttering chime at 20% (latched,
+#                                 once per discharge) · exports sensor.
+#                                 ember_mobile_battery_soc (NAN until sampled)
+#   THIS PACKAGE                  the CRITICAL act at ${8}%: the mobile speaks
+#                                 for itself once, and ember_broadcast tells
+#                                 everyone else — which routes to Slack in quiet
+#                                 hours and to the DESK hearth otherwise, i.e.
+#                                 the person, wherever they are, not the room
+#                                 the dying unit happens to be in.
+#
+# `for: 10min` is the HA-side hysteresis: the device already medians out speaker
+# sag, but a cell hovering at the threshold must not re-fire on every bounce —
+# and `mode: single` + the trigger's edge semantics mean one alert per descent
+# through 8%, not one per minute below it.
+#
+# The trigger deliberately does NOT fire on `unknown`/`unavailable`: numeric_state
+# ignores non-numeric states, so a rebooting board (SOC is NAN until the first
+# 60s sample) cannot false-alarm. The board being OFFLINE entirely is not this
+# package's job — that is ember_backend_health's shape of problem, and a battery
+# alarm that also means "wifi hiccup" would train everyone to ignore it.
+
+automation:
+  - id: ember_mobile_cell_critical
+    alias: "Ember - mobile cell critical"
+    description: >-
+      The portable hearth is nearly out. Speak once from the unit itself (if it
+      can still hear anything, it should hear this from its own mouth), then
+      broadcast so the desk unit / Slack catch the case where nobody is in the
+      room with it — which is exactly how the 2.5V night happened.
+    mode: single
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.ember_mobile_battery_soc
+        below: 8
+        for: "00:10:00"
+    action:
+      # The unit's own last word — direct to the mobile satellite, NOT through
+      # broadcast (which targets the desk). continue_on_error because a unit at
+      # 8% may already be failing, and its failure must not swallow the relay
+      # that follows — same reasoning as ember_announce_all's parallel block.
+      - action: script.ember_announce
+        continue_on_error: true
+        data:
+          satellite: assist_satellite.ember_mobile_assist_satellite
+          message: >-
+            My candle is guttering — {{ states('sensor.ember_mobile_battery_soc') }}
+            percent remains. Bring me to the charger, or bid me goodnight.
+      - action: script.ember_broadcast
+        data:
+          category: battery
+          importance: high
+          message: >-
+            The mobile hearth is guttering —
+            {{ states('sensor.ember_mobile_battery_soc') }}% and falling. It goes
+            dark near 3.4 volts, and the cell beneath it has no protection strip
+            fitted yet.
