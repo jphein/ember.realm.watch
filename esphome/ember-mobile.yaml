@@ -65,6 +65,32 @@ substitutions:
   # wrapper is expected to override.
   ota_password: !secret ota_password_mobile
 
+  # THIS BOARD HAS THE CELL. Turns on the whole battery ladder in the shared
+  # config: the candle in the sigil band, the SOC computation, the guttering
+  # chime at ${batt_low_pct}. The desk build keeps the default 0 and all of it
+  # compiles out. See "the cell" block in ember-satellite.yaml's substitutions.
+  has_battery: "1"
+
+# The SOC entity lives in the WRAPPER, not the shared config, and that placement
+# is the point: the shared file computes SOC into a global (cheap, harmless on
+# the desk where it's never read), but only a board with a real cell may EXPOSE
+# it — a desk-unit "Battery SOC" would be a confident number derived from a
+# floating pin, which is exactly the class of lie the house row's `unavailable`
+# work exists to prevent. This is also what the HA-side ember_battery_watch
+# automation triggers on, so the desk can never trip a battery alarm.
+sensor:
+  - platform: template
+    name: Battery SOC
+    id: batt_soc_sensor
+    unit_of_measurement: "%"
+    device_class: battery
+    state_class: measurement
+    accuracy_decimals: 0
+    update_interval: 60s
+    # NAN until the first ADC sample lands -> HA shows unknown, not 0%. Same
+    # unknown-vs-empty rule as the candle's cold wick.
+    lambda: 'return id(batt_soc) < 0 ? NAN : (float) id(batt_soc);'
+
 packages:
   # The entire hearth. Not `!include`d for its config so much as adopted
   # wholesale — this is the desk unit's firmware, renamed.
