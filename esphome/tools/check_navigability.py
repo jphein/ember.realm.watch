@@ -99,7 +99,7 @@ MODES = (0, 1, 2, 3, 4)
 # recovery property there. Button-EXITABILITY is: the walk seeds (5, -1) as if a
 # touch had opened it and asserts the button path out. Everything else keeps the
 # full contract.
-TOUCH_SEEDED = (5, 6)
+TOUCH_SEEDED = (5, 6, 7)
 
 
 # See check_restore_resync.py for why this SafeLoader subclass is safe: it swallows
@@ -335,7 +335,13 @@ static bool screen_banked_v = false, force_full_repaint_v = false;
 // the chronicle's state (2026-08-09). Six dummy entries so index arithmetic in
 // the dispatch lambdas runs against a populated ring, as it would in life.
 static std::vector<std::string> chron_v = {"ha","sb","hc","sd","ae","sf"};
+static std::vector<std::string> chron_chan_v = {"","","","","",""};
 static int chron_page_v = 0, chron_sel_v = -1, chron_play_idx_v = -1;
+// the horn's picker
+static struct { std::string state; bool has_state() { return true; } }
+    ic_targets_v = {std::string("Ember Dad|Ember Mobile|Shed speaker")};
+static int ic_page_v = 0;
+static std::string ic_pick_v;
 static int help_page_v = 0;
 static uint32_t chron_play_ms_v = 0;
 static uint32_t clock_ms = 1000;
@@ -372,6 +378,10 @@ struct SelPtr { SelStub *operator->() { return &sel_mode_v; } };
 #define chron_play_idx chron_play_idx_v
 #define chron_play_ms  chron_play_ms_v
 #define help_page      help_page_v
+#define chron_chan     chron_chan_v
+#define ic_targets     ic_targets_v
+#define ic_page        ic_page_v
+#define ic_pick        ic_pick_v
 #define id(x) x
 
 static void ui_dispatch() {
@@ -437,7 +447,7 @@ int main() {
   q.push(start);
   // ui_mode 5 is touch-entered by design; seed it so its BUTTON EXIT is walked
   // even though no button path leads in.
-  for (int tm : {5, 6}) {          // touch-entered modes: chronicle detail, help
+  for (int tm : {5, 6, 7}) {       // touch-entered: chronicle detail, help, picker
     const St ts{tm, -1};
     seen.insert(ts);
     q.push(ts);
