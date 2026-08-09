@@ -270,8 +270,26 @@ print(sorted(i.replace('<new>','X') for i in e if '<new>' in i))"
    is a bug, not a scope decision.
 5. Add its `sensor.*_mic_rms` / `_mic_peak` / `_speaker_frames` to the Diagnostics
    ear-and-frames graphs, and a `Speak · <place>` button to **Announce path**.
-6. Update the Fleet banner count (it counts the M5Stack and the assist microphone too),
+6. **Add a `Speak · <place>` button to the Fleet composer** (*Say something, on any
+   hearth*), calling `script.ember_say` with
+   `data: {satellite: assist_satellite.<name>_assist_satellite}`. Pass the satellite
+   **explicitly**, even though an empty one already means the desk unit — in a row whose
+   whole job is choosing a hearth, the button that relies on a default is the one that
+   breaks silently when the default moves. If the board is **in this house**, it also
+   needs its own branch in `script.ember_announce_all`, or *"every hearth in the house"*
+   will quietly skip it (that script is package-side — `deploy-ha.sh ember_announce`).
+7. Update the Fleet banner count (it counts the M5Stack and the assist microphone too),
    then `build_ember_dashboard.py` and `check_dashboard_deployed.py`.
+
+> ⚠️ **Ghost-check after an HA restart, not just after an edit.** A replaced entity keeps
+> existing in the state machine until the core restarts, so a check run against a live HA
+> can pass on an id that is already dead. `tts.piper` survived the piper-moves-to-familiar
+> migration (`eccf8c7`) that had *already* repointed the pipeline at `tts.piper_2`, and
+> every check up to `318daf2` passed on it. A restart on 2026-08-09 cleared the state
+> machine and the ghost appeared. Conversely, an **offline device is not a ghost** —
+> during that same restart the M5Stack was down and its `assist_satellite` entity was
+> absent; deleting its card would have been the DORMANT-≠-retired mistake. Distinguish
+> *replaced* (fix the reference) from *unplugged* (leave it wired).
 
 > ⛔ **Battery tiles are for boards that have a battery.** The `Battery Voltage` ADC on
 > GPIO9 is unconditional in the shared firmware, so *every* board has the entity — and on

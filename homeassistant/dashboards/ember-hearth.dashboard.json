@@ -279,7 +279,7 @@
       },
       {
        "type": "markdown",
-       "content": "**Speak it** runs `script.ember_say`, which reads the field above and hands it to `script.ember_announce` \u2014 never `assist_satellite.announce` directly, because the script pins `preannounce: false` and without it HA prepends its own generic blip so you hear two heralds back to back.\n\nThe field-plus-button pairing exists because Lovelace `perform_action` data is **not** templated: a button cannot carry a text field's contents, only call something that reads it. 255 characters, `input_text`'s hard cap.",
+       "content": "**Speak it** runs `script.ember_say`, which reads the field above and hands it to `script.ember_announce` \u2014 never `assist_satellite.announce` directly, because the script pins `preannounce: false` and without it HA prepends its own generic blip so you hear two heralds back to back.\n\nThe field-plus-button pairing exists because Lovelace `perform_action` data is **not** templated: a button cannot carry a text field's contents, only call something that reads it. 255 characters, `input_text`'s hard cap.\n\n**This box is shared with the Fleet view's composer** \u2014 one `input_text.ember_say`, so text typed there appears here. **Speak it** always speaks on the desk unit; to choose a hearth, or to reach every hearth in the house, use Fleet.",
        "grid_options": {
         "columns": "full"
        },
@@ -805,7 +805,7 @@
       },
       {
        "type": "tile",
-       "entity": "tts.piper",
+       "entity": "tts.piper_2",
        "name": "piper \u00b7 TTS (Ember's voice)",
        "icon": "mdi:account-voice",
        "color": "orange"
@@ -1613,6 +1613,128 @@
        "grid_options": {
         "columns": "full"
        }
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 3,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Say something, on any hearth",
+       "heading_style": "title",
+       "icon": "mdi:bullhorn"
+      },
+      {
+       "type": "entities",
+       "show_header_toggle": false,
+       "grid_options": {
+        "columns": "full"
+       },
+       "entities": [
+        {
+         "entity": "input_text.ember_say",
+         "name": "Type, then pick a hearth"
+        }
+       ]
+      },
+      {
+       "type": "button",
+       "name": "Speak \u00b7 desk",
+       "icon": "mdi:send",
+       "show_state": false,
+       "tap_action": {
+        "action": "perform-action",
+        "perform_action": "script.ember_say",
+        "data": {
+         "satellite": "assist_satellite.ember_satellite_assist_satellite"
+        }
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-gold); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-gold) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-gold); --state-icon-color:var(--em-gold);\n  --paper-item-icon-color:var(--em-gold); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-gold) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-gold); }\n"
+       }
+      },
+      {
+       "type": "button",
+       "name": "Speak \u00b7 mobile",
+       "icon": "mdi:send",
+       "show_state": false,
+       "tap_action": {
+        "action": "perform-action",
+        "perform_action": "script.ember_say",
+        "data": {
+         "satellite": "assist_satellite.ember_mobile_assist_satellite"
+        }
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-gold); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-gold) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-gold); --state-icon-color:var(--em-gold);\n  --paper-item-icon-color:var(--em-gold); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-gold) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-gold); }\n"
+       }
+      },
+      {
+       "type": "button",
+       "name": "Speak \u00b7 Dad's house",
+       "icon": "mdi:send",
+       "show_state": false,
+       "tap_action": {
+        "action": "perform-action",
+        "perform_action": "script.ember_say",
+        "data": {
+         "satellite": "assist_satellite.ember_dad_assist_satellite"
+        }
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-gold); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-gold) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-gold); --state-icon-color:var(--em-gold);\n  --paper-item-icon-color:var(--em-gold); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-gold) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-gold); }\n"
+       }
+      },
+      {
+       "type": "button",
+       "name": "Every hearth in the house",
+       "icon": "mdi:bullhorn-variant",
+       "show_state": false,
+       "tap_action": {
+        "action": "perform-action",
+        "perform_action": "script.ember_say",
+        "data": {
+         "satellite": "all"
+        }
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-gold); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-gold) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-gold); --state-icon-color:var(--em-gold);\n  --paper-item-icon-color:var(--em-gold); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-gold) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-gold); }\n"
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "number.ember_satellite_speaker_volume",
+         "state": [
+          "unavailable",
+          "unknown"
+         ]
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "\u26a0 **Speaker Volume is not reporting.** The DAC-volume control arrives with the firmware that adds `number: spk_volume` \u2014 flash the device config and this tile self-heals. Until then the es8311 boots at `set_volume(0.75)` = 0 dB, which is the *too loud* default.",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-alarm); border-radius:10px;\n  background:color-mix(in srgb, var(--em-alarm) 8%, var(--card-background-color)); }\n",
+          "ha-markdown$": "p { margin:0 0 6px; font-size:12.5px; line-height:1.65; }\np:last-child { margin-bottom:0; }\nstrong { color:var(--em-alarm); }\nem { color:var(--em-gold); font-style:normal; }\ncode { color:var(--em-glow); background:none; font-size:11.5px; }\n"
+         }
+        }
+       }
+      },
+      {
+       "type": "markdown",
+       "grid_options": {
+        "columns": "full"
+       },
+       "content": "**\u201cEvery hearth in the house\u201d does not reach Dad's** \u2014 and that is deliberate, not staleness. It fans out through `script.ember_announce_all`, whose callers are *house* automations (driveway herald, laundry watch); a 2 a.m. driveway alert has no business speaking in another household. Use **Speak \u00b7 Dad's house** to reach that hearth on purpose. *A fourth in-house board would belong in the fan-out; a second remote one would not.*\n\nThis is the **same `input_text.ember_say`** as the box on the Hearth view \u2014 one field, two places to use it, so text typed here appears there. The field-plus-button pairing exists because Lovelace `perform_action` data is **not** templated: a button cannot carry a text field's contents, only call something that reads it. 255 characters, `input_text`'s hard cap."
       }
      ]
     },
@@ -2877,7 +2999,7 @@
       },
       {
        "type": "tile",
-       "entity": "tts.piper",
+       "entity": "tts.piper_2",
        "name": "piper",
        "icon": "mdi:account-voice",
        "color": "orange"
