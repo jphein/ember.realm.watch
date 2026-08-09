@@ -1,0 +1,53 @@
+########################################################################
+# ember-dad — the hearth at Dad's house, 2026-08-09
+#
+# SAME BOARD, SAME FIRMWARE, DIFFERENT IDENTITY — the third body of the one
+# persona, and the second proof that ember-mobile.yaml's wrapper argument was
+# right: nothing here but identity and its own OTA credential. Every pin,
+# lambda, and flame constant is ember-satellite.yaml, included as a package.
+# If you are about to add a hardware substitution to this file, the difference
+# belongs in the shared config behind a substitution — read the sermon at the
+# top of ember-mobile.yaml first.
+#
+# ⚠️ THE NAME IS LOAD-BEARING IN THREE PLACES AT ONCE — mDNS hostname
+# (ember-dad.local), native-API identity, and the prefix of every HA entity
+# (assist_satellite.ember_dad_assist_satellite is what the Slack bridge's
+# `dads_ember` alias points at — see ~/Projects/ha/docs/slack-bridge.md).
+# Renaming after adoption orphans the entities. Decided once: ember-dad.
+#
+# MAINS-POWERED like the desk unit: no cell, so no `has_battery` override and
+# no SOC sensor here. The shared config's Battery Voltage ADC still compiles
+# in and reads a floating divider — meaningless on this board, same as the
+# desk unit. Do not expose SOC on a board without a cell (see the mobile
+# wrapper for why that number would be a lie).
+#
+# DEPLOYMENT TARGET is Dad's house behind the south-dads realm AP, on the
+# same `jplovescl` SSID baked in via secrets. Until it ships it lives on the
+# bench — ⚠️ in earshot of the desk unit, and BOTH run on-device "Okay Nabu"
+# at wake_word_mode 1, so both will wake and both will answer. That is a
+# property of two satellites in one room, not a fault (mobile wrapper,
+# same warning).
+#
+# FIRST FLASH MUST BE OVER USB. This board is 28:84:85:44:3E:A4 — same
+# production batch as desk (…44:59:20) and mobile (…44:3E:C4), so check the
+# MAC, never the port number: the USB-JTAG serial *is* the MAC.
+#
+#   udevadm info -q property -n /dev/ttyACMx | grep ID_SERIAL_SHORT
+#   esphome compile ember-dad.yaml
+#   esphome run     ember-dad.yaml --device \
+#     /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_28:84:85:44:3E:A4-if00
+########################################################################
+
+substitutions:
+  name: ember-dad
+  friendly_name: Ember Dad
+  # Its OWN OTA credential — the guard that turns "I typed the wrong --device"
+  # into an authentication failure instead of a renamed board with orphaned
+  # HA entities. Vault mirror: bw item `ember-ota-dad`.
+  ota_password: !secret ota_password_dad
+
+packages:
+  # The entire hearth, adopted wholesale — the desk unit's firmware, renamed.
+  # Wake word inherited at mode 1 (on-device microWakeWord, "Okay Nabu"),
+  # deliberately not overridden; rollback recipe lives in the mobile wrapper.
+  hearth: !include ember-satellite.yaml
