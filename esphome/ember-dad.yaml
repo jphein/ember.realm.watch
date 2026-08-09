@@ -46,6 +46,13 @@ substitutions:
   # HA entities. Vault mirror: bw item `ember-ota-dad`.
   ota_password: !secret ota_password_dad
 
+  # The chronicle's SPEAK replays through THIS hearth. Without this override the
+  # shared default aims at the desk unit — which lives in a DIFFERENT HOUSE from
+  # this board. A replay tapped at Dad's would have spoken at JP's desk: the
+  # cross-household variant of exactly what the ember_announce_all exclusion
+  # note warns about, caught here before first flash with the chronicle aboard.
+  satellite_entity: assist_satellite.ember_dad_assist_satellite
+
 packages:
   # The entire hearth, adopted wholesale — the desk unit's firmware, renamed.
   # Wake word inherited at mode 1 (on-device microWakeWord, "Okay Nabu"),
