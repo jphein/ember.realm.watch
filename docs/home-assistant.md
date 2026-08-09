@@ -237,6 +237,63 @@ If you ever regenerate that JSON programmatically, keep
 `json.dump(d, f, indent=1, ensure_ascii=True)`. The file is dense with non-ASCII glyphs;
 any other setting re-encodes every one and buries a one-tile change in a 300-line diff.
 
+#### Adding a board to this dashboard
+
+The **Fleet** view carries one column per hearth, and that column is the board's
+*complete* management surface — every entity the shared firmware exposes, grouped
+**Assist → Voice out → Ear → The glass → Levers**. A new board is a new column and
+nothing else. Work from the entity list, not from memory:
+
+```bash
+# 1. Wait for adoption. Do NOT author tiles against entities that don't exist yet —
+#    a slot reference to a missing entity renders the red "Entity not found".
+curl -sf -H "Authorization: Bearer $HA_TOKEN" \
+  https://ha.jphe.in:8123/api/states/assist_satellite.<name>_assist_satellite >/dev/null \
+  && echo adopted
+
+# 2. Diff the new board against a known-good one. Expect an exact match except
+#    `sensor.*_battery_soc`, which only a board with a real cell may have.
+curl -s -H "Authorization: Bearer $HA_TOKEN" https://ha.jphe.in:8123/api/states \
+  | python3 -c "import json,sys;e=[x['entity_id'] for x in json.load(sys.stdin)];\
+print(sorted(i.replace('<new>','X') for i in e if '<new>' in i))"
+```
+
+3. **Stamp the column.** Copy an existing board's Fleet section and rewrite the slug,
+   anchored on the trailing underscore (`ember_satellite_` → `ember_<new>_`). Anchoring
+   matters: an unanchored replace corrupts any id that merely *starts* with another's
+   name. Leave `binary_sensor.ember_reachable` alone — it is shared, carries no board
+   prefix, and is repeated per column on purpose, because *"can this hearth think?"* is
+   a per-column question even though the answer is one sensor.
+4. Add the board to the **Voice Pipeline** view's mind-swap buttons
+   (`select.select_option` takes a list) and give it a `Pipeline · <place>` tile. Ember
+   is one persona with N bodies — a mind-swap that moves one body and leaves the rest
+   is a bug, not a scope decision.
+5. Add its `sensor.*_mic_rms` / `_mic_peak` / `_speaker_frames` to the Diagnostics
+   ear-and-frames graphs, and a `Speak · <place>` button to **Announce path**.
+6. Update the Fleet banner count (it counts the M5Stack and the assist microphone too),
+   then `build_ember_dashboard.py` and `check_dashboard_deployed.py`.
+
+> ⛔ **Battery tiles are for boards that have a battery.** The `Battery Voltage` ADC on
+> GPIO9 is unconditional in the shared firmware, so *every* board has the entity — and on
+> a mains board it reads an absent divider, sitting around **4.1 V**, which looks exactly
+> like a healthy lithium cell. `esphome/ember-mobile.yaml` keeps the SOC sensor out of the
+> shared config for precisely this reason; the dashboard must agree with it. Only the
+> mobile column has a **Cell** group. There is a note card in Diagnostics → *Cell level*
+> saying so and naming the forbidden entities — **do not delete it as redundant.** It is
+> the only visible evidence that the absence is deliberate, and without it the next person
+> "restores" the missing tiles. (Fixed 2026-08-09; before that, three cards including a
+> gauge headed *"Cell level"* charted the desk unit's floating pin.)
+
+Name columns for the **place**, not the device slug — `Ember · Dad's house`, not
+`Ember Dad`. There is one Ember; the boards are where it is standing.
+
+> **Six boards is roughly where this stops being hand-authorable.** Three columns is
+> ~100 cards of the 217 on this dashboard, and the per-board block is already produced by
+> a stamp rather than by typing. If the fleet keeps growing, the honest move is to
+> generate the Fleet view from the entity registry the way `~/Projects/ha` generates its
+> `lights-tags` board — but that converts this file from hand-authored source of truth to
+> build output, which is **JP's call, not a refactor to slip in.**
+
 ---
 
 ## 4 · Secrets

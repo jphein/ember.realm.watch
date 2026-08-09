@@ -46,6 +46,22 @@
 # that MUST be heard should target the desk unit (the default) or use
 # ember_announce_all, never the mobile unit alone.
 
+# The Hearth-view composer's target chooser (JP, 2026-08-09). ember_say
+# consults it ONLY when no explicit `satellite` field is passed — dashboard
+# buttons that name a hearth (the Fleet composer) are unaffected by it.
+# Options are friendly names; the mapping to entities lives in ember_say,
+# next to the code that uses it. Adding hearth #4: new option here, one line
+# in ember_say's map, and the chooser covers it everywhere at once.
+input_select:
+  ember_say_target:
+    name: Ember - who speaks the text field
+    icon: mdi:bullhorn-variant
+    options:
+      - Desk
+      - Mobile
+      - Dad's house
+      - Every hearth (house)
+
 script:
   ember_announce:
     alias: Ember - announce
@@ -63,8 +79,10 @@ script:
         name: Satellite
         description: >
           Which Ember speaks. Defaults to the desk unit, which is what every
-          pre-existing caller expects — omit it unless you specifically mean
-          the portable one.
+          pre-existing caller expects. Name a satellite entity to mean another
+          hearth — the portable (assist_satellite.ember_mobile_assist_satellite)
+          or Dad's house (assist_satellite.ember_dad_assist_satellite,
+          commissioned 2026-08-09).
         required: false
         selector:
           entity:
@@ -80,8 +98,18 @@ script:
           #     JP hears two heralds. See the header. <<<
           preannounce: false
 
-  # Both hearths at once. Deliberately NOT the default for ember_announce — see
-  # the header.
+  # Every hearth IN THIS HOUSE at once. Deliberately NOT the default for
+  # ember_announce — see the header.
+  #
+  # ⚠️ ember-dad (commissioned 2026-08-09) is EXCLUDED on purpose, not by
+  # staleness: that hearth lives at Dad's house, and this script's callers are
+  # house automations (driveway herald, laundry watch). "Every hearth" means
+  # every hearth under this roof — a 2 a.m. driveway alert has no business
+  # speaking in another household. Reach Dad's hearth explicitly via the
+  # `satellite:` field on ember_announce, or the Slack bridge's `dad` route
+  # (~/Projects/ha/docs/slack-bridge.md). A fourth IN-HOUSE board, when it
+  # arrives, DOES belong in the parallel block below — add its own branch
+  # (parallel is load-bearing, see the warning that follows).
   #
   # ⚠️ `parallel:` IS LOAD-BEARING, AND THE SEQUENTIAL VERSION WAS A REAL BUG
   # (found and fixed during the mobile unit's bring-up, 2026-08-03). Written as
@@ -98,7 +126,7 @@ script:
   #
   # Do not "tidy" this back into a sequence. It looks equivalent and is not.
   ember_announce_all:
-    alias: Ember - announce on every hearth
+    alias: Ember - announce on every hearth in the house
     mode: queued
     max: 10
     fields:
@@ -186,13 +214,54 @@ script:
   # Speak whatever is in input_text.ember_say. Exists because Lovelace's
   # perform_action data is not templated, so a dashboard button cannot pass a
   # text field's value — it can only call a script that reads it.
+  #
+  # 2026-08-09: grew a `satellite` field for the Fleet composer (three hearths
+  # now, three more coming). No caller passed one before, and the default is
+  # unchanged (empty -> ember_announce's own desk default), so pre-existing
+  # buttons behave identically. The one special value: satellite = "all"
+  # fans out via ember_announce_all — which is EVERY HEARTH IN THIS HOUSE,
+  # deliberately excluding Dad's (see that script's comment for the why).
   ember_say:
     alias: Ember - say the text field
     mode: queued
     max: 5
+    fields:
+      satellite:
+        name: Satellite
+        description: >
+          Which hearth speaks the text field. Empty = the desk unit (what
+          every pre-existing caller expects). "all" = every hearth in the
+          house via ember_announce_all (Dad's is deliberately not included).
+        required: false
+        selector:
+          entity:
+            domain: assist_satellite
     sequence:
       - condition: template
         value_template: "{{ states('input_text.ember_say') | trim not in ['', 'unknown', 'unavailable'] }}"
-      - action: script.ember_announce
-        data:
-          message: "{{ states('input_text.ember_say') }}"
+      # Resolution order: explicit field > the Hearth-view chooser > desk.
+      # The chooser branch is what makes the front page's ONE speak button
+      # target any hearth; buttons that pass `satellite` explicitly (Fleet
+      # composer) ignore the chooser on purpose — a per-hearth button that
+      # obeyed a dropdown somewhere else would be lying about its label.
+      - variables:
+          resolved: >-
+            {% set explicit = satellite | default('', true) %}
+            {% if explicit %}{{ explicit }}
+            {% else %}{{ {'Desk': '',
+                          'Mobile': 'assist_satellite.ember_mobile_assist_satellite',
+                          "Dad's house": 'assist_satellite.ember_dad_assist_satellite',
+                          'Every hearth (house)': 'all'}.get(states('input_select.ember_say_target'), '') }}
+            {% endif %}
+      - if:
+          - condition: template
+            value_template: "{{ resolved | trim == 'all' }}"
+        then:
+          - action: script.ember_announce_all
+            data:
+              message: "{{ states('input_text.ember_say') }}"
+        else:
+          - action: script.ember_announce
+            data:
+              message: "{{ states('input_text.ember_say') }}"
+              satellite: "{{ resolved | trim }}"

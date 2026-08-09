@@ -1,0 +1,26 @@
+--- /tmp/base.orig.py	2026-08-09 09:48:26.486694421 -0700
++++ /homeassistant/custom_components/extended_openai_conversation/functions/base.py	2026-08-09 09:48:26.689925036 -0700
+@@ -43,6 +43,23 @@
+         ]
+         if not_found:
+             raise EntityNotFound(", ".join(not_found))
++        # ember patch (entity-availability guard, 2026-08-09): a service call on
++        # an entity that exists but is unavailable/unknown is a SILENT NO-OP in
++        # HA — it returns success while doing nothing, which manufactured
++        # confident false "Done" replies. Refuse loudly instead, in words the
++        # model is meant to relay. See ember.realm.watch
++        # homeassistant/patches/eoc-availability-guard.patch
++        unreachable = [
++            entity_id
++            for entity_id in entity_ids
++            if hass.states.get(entity_id) is not None
++            and hass.states.get(entity_id).state in ("unavailable", "unknown")
++        ]
++        if unreachable:
++            raise EntityNotFound(
++                ", ".join(unreachable)
++                + " — this device exists but is UNREACHABLE right now (powered off or offline). NOTHING WAS DONE. Tell the person exactly this."
++            )
+         exposed_entity_ids = {e["entity_id"] for e in exposed_entities}
+         not_exposed = [
+             entity_id for entity_id in entity_ids if entity_id not in exposed_entity_ids
