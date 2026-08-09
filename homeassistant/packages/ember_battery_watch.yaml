@@ -66,3 +66,34 @@ automation:
             {{ states('sensor.ember_mobile_battery_soc') }}% and falling. It goes
             dark near 3.4 volts, and the cell beneath it has no protection strip
             fitted yet.
+
+  # Dad's hearth (2026-08-09: "his is mobile too and has a battery already").
+  # Same ladder, two deliberate differences: the self-announcement happens in
+  # HIS house on HIS hearth, and the broadcast still lands HERE — Dad is not
+  # on the Slack bridge, and the person who will act on "Dad's ember is dying"
+  # by picking up the phone is JP. The mobile alarm's 10-minute hysteresis and
+  # single-shot semantics carry over unchanged.
+  - id: ember_dad_cell_critical
+    alias: "Ember - dad's cell critical"
+    mode: single
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.ember_dad_battery_soc
+        below: 8
+        for: "00:10:00"
+    action:
+      - action: script.ember_announce
+        continue_on_error: true
+        data:
+          satellite: assist_satellite.ember_dad_assist_satellite
+          message: >-
+            My candle is guttering — {{ states('sensor.ember_dad_battery_soc') }}
+            percent remains. Bring me to the charger, or bid me goodnight.
+      - action: script.ember_broadcast
+        data:
+          category: battery
+          importance: high
+          message: >-
+            Dad's hearth is guttering —
+            {{ states('sensor.ember_dad_battery_soc') }}% and falling. It cannot
+            call for help in his house; someone may want to ring him.
