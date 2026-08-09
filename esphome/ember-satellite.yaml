@@ -265,8 +265,31 @@ substitutions:
   # by the on_touch hit-test and the display lambda for the same reason as every
   # other pair in this block: drawn and tappable must not drift apart. ui_ic_y
   # must equal TELE_Y in the band geometry.
-  ui_ic_x: "192"
+  # 2026-08-09: x 192 -> 172. JP's bench verdict: "hard to tap in the corner
+  # there." The block was already 47px (~8.7mm) — above the 8.4mm floor — so
+  # size was never the problem; the CORNER was. The case bezel overhangs the
+  # glass edge, so the outer ~2mm of any edge-flush target is under plastic a
+  # fingertip cannot reach. The fix is REACH, not size: extend the active block
+  # inward to 68px (~12.6mm) so the tappable meat sits clear of the lip. Same
+  # substitution drives drawing and hit-test, so both move together.
+  ui_ic_x: "172"
   ui_ic_y: "264"
+
+  # Compile-time identity for the face (2026-08-09, JP: each ember shows its
+  # lexicon name "plus the sigil version so i know it's teh latest"). Injected
+  # per build:  esphome compile ember-mobile.yaml -s sigil_version $(git
+  # rev-parse --short HEAD)  — the default below is what a build that FORGOT
+  # the flag shows, and it is deliberately loud about being nobody: a face
+  # reading "unsigiled" tells JP the build is untraceable, where a stale hash
+  # would tell him a lie with confidence (verification.md §32's whole genre).
+  sigil_version: "unsigiled"
+
+  # This device's own assist_satellite entity in HA — what the chronicle's
+  # SPEAK button hands to script.ember_announce so a replay comes out of THIS
+  # hearth. A substitution because the entity id is the device name with
+  # underscores, and ESPHome substitutions cannot transform strings; each
+  # wrapper states its own. (ember-mobile.yaml overrides this.)
+  satellite_entity: assist_satellite.ember_satellite_assist_satellite
 
 esphome:
   name: ${name}
@@ -1670,10 +1693,51 @@ binary_sensor:
         pullup: true
       inverted: true
       ignore_strapping_warning: true
-    on_click:
-      # ---- SHORT: summon / step volume, or move the power-menu cursor ----
-      - min_length: 30ms
-        max_length: 800ms
+    # ---- SHORT AND DOUBLE LIVE IN on_multi_click; LONG STAYS AN on_click ----
+    #
+    # 2026-08-09, the chronicle's doorway. GPIO0/BOOT is the entire hardware
+    # input budget, single and long were both spoken for, and the power menu
+    # CANNOT grow a fifth row (its own static_assert: 72 + 5*46 - 3 = 299 is
+    # past the overlay's floor at 263 — the same wall the mode submenu's
+    # fourth row hit, one screenful up). A double-click is the only gesture
+    # left in the budget.
+    #
+    # WHY THE SINGLE MOVED: on_click filters by press LENGTH alone, so each
+    # half of a double-click IS a valid single — the two handlers cannot
+    # coexist for sub-800ms presses without the single firing twice per
+    # double. on_multi_click disambiguates by the gap: a lone short press is
+    # only confirmed single after 410ms of silence. That buys the double at
+    # the price of +410ms latency on opening the volume overlay — felt, and
+    # judged worth it; every OTHER single-press meaning (cursor moves, menu
+    # steps) happens with an overlay already up, where two quick presses were
+    # already two distinct actions and remain exactly that.
+    # ⚠️ The LONG press (900-6000ms) stays a plain on_click below: no multi
+    # pattern here matches a press ≥900ms, so recovery-by-button — the reason
+    # this button carries menus at all — does not depend on multi-click
+    # disambiguation working.
+    on_multi_click:
+      # DOUBLE — open the chronicle, newest page first. From ANY mode: the
+      # gesture is rare enough that stealing it from overlay contexts costs
+      # nothing (a double inside the volume overlay used to mean two volume
+      # steps; it now means "show me the chronicle", which is at worst one
+      # surprise, not a trap — the overlay it replaces auto-dismisses anyway).
+      - timing:
+          - ON for 30ms to 800ms
+          - OFF for 40ms to 400ms
+          - ON for 30ms to 800ms
+        then:
+          - lambda: |-
+              id(ui_last_ms) = millis();
+              id(chron_page) = 0;                 // page 0 = the newest entries
+              id(chron_sel) = -1;
+              id(ui_mode) = 4;
+              id(ui_action) = 0;
+              id(ui_gen)++;
+      # SINGLE — byte-for-byte the old short-press semantics, plus the two
+      # chronicle modes dismissing back to the hearth.
+      - timing:
+          - ON for 30ms to 800ms
+          - OFF for at least 410ms
         then:
           - lambda: |-
               id(ui_last_ms) = millis();
@@ -1682,6 +1746,18 @@ binary_sensor:
                 id(ui_action) = 0;
               } else if (id(ui_mode) == 1) {
                 id(ui_action) = 2;            // step up (wraps — see below)
+              } else if (id(ui_mode) >= 4) {
+                // chronicle list or detail: the button backs out. Detail steps
+                // back to the list; the list closes to the hearth. Two presses
+                // from anywhere in the chronicle to a clean screen, no touch
+                // required — the recovery property the menus were built on.
+                if (id(ui_mode) == 5) {
+                  id(ui_mode) = 4;
+                } else {
+                  id(ui_mode) = 0;
+                  id(force_full_repaint) = true;
+                }
+                id(ui_action) = 0;
               } else if (id(ui_mode) == 3) {
                 // ---- FOUR CURSOR POSITIONS IN A THREE-ROW MENU: THE CANCEL ----
                 //
@@ -1734,6 +1810,7 @@ binary_sensor:
                     cycle: true
                 - lambda: 'id(ui_gen)++;'
 
+    on_click:
       # ---- LONG: open the power menu, or activate the highlighted item ----
       - min_length: 900ms
         max_length: 6000ms
@@ -1741,7 +1818,14 @@ binary_sensor:
           - lambda: |-
               id(ui_last_ms) = millis();
               id(ui_action) = 0;
-              if (id(ui_mode) == 3) {
+              if (id(ui_mode) >= 4) {
+                // A long press inside the chronicle closes it outright — the
+                // long press means "power menu" everywhere else, and opening a
+                // menu ON TOP of the chronicle would need an overlay stack this
+                // UI deliberately does not have. Close first, press again.
+                id(ui_mode) = 0;
+                id(force_full_repaint) = true;
+              } else if (id(ui_mode) == 3) {
                 // ⚠️ WITHOUT THIS BRANCH THE MODE SUBMENU IS UNREACHABLE FROM HARDWARE.
                 // A long press with ui_mode == 3 fell through to the `else` below and
                 // re-opened the POWER menu instead of picking a mode — so the mode
@@ -1979,6 +2063,33 @@ script:
           condition: { lambda: 'return id(op_mode) < 2;' }
           then:
             - script.execute: { id: chime_play, which: !lambda 'return which;' }
+
+  # ---- the chronicle's one writer ----
+  # Every utterance enters the ring through here, so the cap and the dedupe
+  # live in exactly one place. Dedupe matters because on_tts_start can fire
+  # for a retry of the same announcement, and a chronicle that shows the same
+  # line twice reads as a stutter in Ember's memory rather than as plumbing.
+  - id: chron_push
+    mode: queued
+    max_runs: 10
+    parameters:
+      kind: string
+      text: string
+    then:
+      - lambda: |-
+          if (text.empty()) return;
+          // A replay must not re-log: the chronicle is what happened, and a
+          // playback of memory is not a new event. Matched against the entry
+          // being played rather than "any entry" so a genuine re-utterance of
+          // an old line (Ember says the same thing tomorrow) still records.
+          if (id(chron_play_idx) >= 0 && id(chron_play_idx) < (int) id(chron).size() &&
+              id(chron)[(size_t) id(chron_play_idx)].substr(1) == text) {
+            return;
+          }
+          std::string e = kind + text;
+          if (!id(chron).empty() && id(chron).back() == e) return;
+          id(chron).push_back(e);
+          if (id(chron).size() > 100) id(chron).erase(id(chron).begin());
 
   - id: chime_play
     mode: restart
@@ -2512,6 +2623,74 @@ script:
                   # something would feel broken in a way that waiting to start does not.
                   - voice_assistant.stop:
 
+      # The mode chip tap (action 17) — cycle Normal -> No talking -> Hush.
+      # Routed through the SELECT, exactly like the mode submenu's action 10:
+      # the select's own on_value carries every side effect (op_mode global,
+      # the Hush switch view, HA state), so a tap and an automation write are
+      # indistinguishable downstream. The haptic is fired BEFORE the mode
+      # changes so that leaving-hush and entering-hush feel the same at the
+      # fingertip; entering hush, it is the last sound until hush lifts, which
+      # reads as the door closing rather than as a dropped tap.
+      - if:
+          condition: { lambda: 'return id(ui_action) == 17;' }
+          then:
+            - script.execute: { id: chime, which: 6 }
+            - lambda: |-
+                id(sel_mode)->make_call()
+                    .set_index((size_t) ((id(op_mode) + 1) % 3))
+                    .perform();
+                id(ui_action) = 0;
+
+      # ---- the chronicle's actions (18, 20-23) ----
+      # 18 open an entry · 20/21 page older/newer · 22 back to list · 23 SPEAK.
+      - if:
+          condition: { lambda: 'return id(ui_action) == 18;' }
+          then:
+            - lambda: |-
+                // Row -> ring index. Page 0 shows the NEWEST four, rows top-down
+                // newest-first, so the mapping runs from the back of the vector.
+                const int n = (int) id(chron).size();
+                const int idx = n - 1 - (id(chron_page) * 4 + id(ui_sel));
+                if (idx >= 0 && idx < n) {
+                  id(chron_sel) = idx;
+                  id(ui_mode) = 5;
+                }
+                id(ui_action) = 0;
+      - if:
+          condition: { lambda: 'return id(ui_action) == 20 || id(ui_action) == 21;' }
+          then:
+            - lambda: |-
+                const int n = (int) id(chron).size();
+                const int pages = n == 0 ? 1 : (n + 3) / 4;
+                int p = id(chron_page) + (id(ui_action) == 20 ? 1 : -1);
+                if (p < 0) p = 0;
+                if (p > pages - 1) p = pages - 1;
+                id(chron_page) = p;
+                id(ui_action) = 0;
+      - if:
+          condition: { lambda: 'return id(ui_action) == 22;' }
+          then:
+            - lambda: |-
+                id(ui_mode) = 4;
+                id(ui_action) = 0;
+      # SPEAK — replay through the house's one sanctioned announce path, aimed
+      # back at this same hearth. The chime herald plays first (that is the
+      # announce contract) and the highlight clock re-anchors when the TTS
+      # actually starts (see on_tts_start), so HA round-trip latency cannot
+      # drift the karaoke.
+      - if:
+          condition: { lambda: 'return id(ui_action) == 23 && id(chron_sel) >= 0 && id(chron_sel) < (int) id(chron).size();' }
+          then:
+            - homeassistant.service:
+                service: script.ember_announce
+                data:
+                  satellite: ${satellite_entity}
+                  message: !lambda 'return id(chron)[(size_t) id(chron_sel)].substr(1);'
+            - lambda: |-
+                id(chron_play_idx) = id(chron_sel);
+                id(chron_play_ms) = millis();   // provisional; re-anchored at tts start
+                id(ui_action) = 0;
+
       # The horn — the intercom corner (action 16). Idle-gated exactly like the
       # talk start: mid-conversation the satellite cannot run ask_question
       # anyway, and a press that QUEUED one would fire seconds later, after the
@@ -2848,6 +3027,46 @@ globals:
     type: float
     restore_value: false
     initial_value: '${db_floor}f'
+
+  # ---- THE CHRONICLE (2026-08-09, JP: "each ember should store the latest
+  # maybe 100 messages where they can be scrolled fullscreen and played back
+  # with word or sentence highlighting") ----
+  #
+  # A ring of the last 100 utterances this hearth heard, said, or relayed.
+  # Each entry is one std::string whose FIRST BYTE is the kind — 'h' heard,
+  # 's' said, 'a' announced — and the rest is the text. One vector instead of
+  # parallel arrays because the invariant "kind and text belong together"
+  # should be unbreakable by construction, not by discipline.
+  #
+  # VOLATILE ON PURPOSE (v1): ~24KB lives in heap and dies at reboot. Flash
+  # persistence was considered and deferred — it needs a filesystem this
+  # config doesn't carry, and "history since last wake" is honest as long as
+  # the face never claims otherwise (an empty chronicle says "nothing yet
+  # this waking"). If reboots prove frequent enough to hurt, that's the v2.
+  - id: chron
+    type: std::vector<std::string>
+    restore_value: no
+  - id: chron_page
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: chron_sel
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  # Playback highlight clock: which entry is being re-spoken and when it was
+  # asked for. The highlighter runs on the SAME calibrated estimator as the
+  # progress fuse (tts_lead_ms + chars * tts_ms_per_char) — word timings do
+  # not exist anywhere in the pipeline, but the estimator is bench-calibrated
+  # and the fuse has already proven it lands within a beat of real speech.
+  - id: chron_play_idx
+    type: int
+    restore_value: no
+    initial_value: '-1'
+  - id: chron_play_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
 
   # false while sound_level publishes NAN (mic not running, e.g. during TTS)
   - id: mic_live
@@ -3902,7 +4121,13 @@ display:
           it.print(6, TELE_Y + 24, id(font_sm), c_gold,
                    "hush - listening, silent, on screen");
         } else {
-          it.print(6, TELE_Y + 24, id(font_sm), c_ash, "ember - hearth spirit");
+          // Identity, not poetry (2026-08-09): "ember - hearth spirit" told JP
+          // nothing he didn't know, while three hearths on one shelf are
+          // indistinguishable at a glance. Name + build sigil answers both
+          // "which one are you" and "are you running the latest" from across
+          // the room. ${sigil_version} is compile-time — see its substitution.
+          it.print(6, TELE_Y + 24, id(font_sm), c_ash,
+                   "${name} \xC2\xB7 ${sigil_version}");
         }
 
         // ============ THE HOUSE ROW — what is still awake ============
@@ -4228,7 +4453,10 @@ display:
                        display::TextAlign::TOP_RIGHT, "NOW");
             }
           }
-        } else {
+        } else if (id(ui_mode) == 2) {
+          // Was the chain's bare `else` until the chronicle (modes 4/5) joined
+          // the chain below — a fallback can't be chained past, so the power
+          // menu now names its mode like every other branch.
           it.print(6, OY + 4, id(font_hdr), c_gold, "THE HEARTH");
           it.print(W - 6, OY + 9, id(font_sm), c_dim,
                    display::TextAlign::TOP_RIGHT, "tap away to leave");
@@ -4264,6 +4492,133 @@ display:
               it.print(W - 8, iy + 8, id(font_sm), c_dim,
                        display::TextAlign::TOP_RIGHT, ">");
             }
+          }
+        } else if (id(ui_mode) == 4) {
+          // ---- THE CHRONICLE, the list ----
+          // Newest first: page 0 row 0 is the last thing that happened, which
+          // is the thing you opened this to find. Four rows at the same 46px
+          // floor every menu row uses; page bar across the bottom; the title
+          // strip is tap-away. Full-height background like every overlay
+          // since #39 — no strip of frozen fire behind the pages.
+          it.filled_rectangle(0, OY, W, SCRL_H + FLAM_H, c_bg);
+          const int n = (int) id(chron).size();
+          const int pages = n == 0 ? 1 : (n + 3) / 4;
+          if (id(chron_page) > pages - 1) id(chron_page) = pages - 1;
+          it.print(6, OY + 2, id(font_sm), c_gold, "the chronicle");
+          it.printf(W - 6, OY + 2, id(font_sm), c_dim,
+                    display::TextAlign::TOP_RIGHT, "%d held", n);
+          if (n == 0) {
+            // Volatile ring, honest face: an empty chronicle after a reboot
+            // must say "nothing YET", never imply the house has been silent.
+            it.print(6, OY + 34, id(font_body), c_dim, "nothing yet this waking");
+          }
+          for (int row = 0; row < 4; row++) {
+            const int idx = n - 1 - (id(chron_page) * 4 + row);
+            if (idx < 0) break;
+            const int iy = 50 + row * 46;
+            const std::string &e = id(chron)[(size_t) idx];
+            const char k = e[0];
+            // The kind is DRAWN, not labelled: a flame said it, an open ear
+            // heard it, a horn pushed it. Same shape-not-colour rule as the
+            // bands, and the same glyph family the house row speaks.
+            if (k == 's') {
+              it.horizontal_line(8, iy + 18, 9, c_amber);
+              it.horizontal_line(10, iy + 14, 6, c_amber);
+              it.horizontal_line(12, iy + 10, 2, c_gold);
+            } else if (k == 'h') {
+              it.circle(12, iy + 14, 6, c_dim);
+              it.filled_rectangle(13, iy + 7, 8, 15, c_bg);
+              it.filled_rectangle(12, iy + 12, 2, 5, c_dim);
+            } else {
+              it.horizontal_line(7, iy + 14, 4, c_dim);
+              it.horizontal_line(11, iy + 12, 3, c_dim);
+              it.horizontal_line(11, iy + 16, 3, c_dim);
+              it.horizontal_line(14, iy + 10, 2, c_gold);
+              it.horizontal_line(14, iy + 18, 2, c_gold);
+            }
+            // Two preview lines, clipped by CHARACTER COUNT rather than
+            // measured — a preview may tear mid-word, and that is fine in a
+            // list whose whole job is "tap to read properly". Measuring both
+            // lines of four rows every repaint is cost with no reader.
+            const std::string t = e.substr(1);
+            it.print(26, iy + 3, id(font_sm), c_ink, t.substr(0, 30).c_str());
+            if (t.size() > 30) {
+              std::string l2 = t.substr(30, 30);
+              if (t.size() > 60) { l2.resize(27); l2 += "..."; }
+              it.print(26, iy + 21, id(font_sm), c_dim, l2.c_str());
+            }
+            it.filled_rectangle(0, iy + 44, W, 1, c_ash);
+          }
+          // The page bar. "older" sits LEFT deliberately: the list reads
+          // newest-down, so older is where your eye already ended up.
+          it.filled_rectangle(0, 233, W, 1, c_ash);
+          if (id(chron_page) < pages - 1)
+            it.print(6, 240, id(font_body), c_dim, "< older");
+          if (id(chron_page) > 0)
+            it.print(W - 6, 240, id(font_body), c_dim,
+                     display::TextAlign::TOP_RIGHT, "newer >");
+          it.printf(W / 2, 242, id(font_sm), c_ash,
+                    display::TextAlign::TOP_CENTER, "%d/%d",
+                    id(chron_page) + 1, pages);
+        } else if (id(ui_mode) == 5) {
+          // ---- THE CHRONICLE, one entry, with the voice following along ----
+          it.filled_rectangle(0, OY, W, SCRL_H + FLAM_H, c_bg);
+          const int n = (int) id(chron).size();
+          if (id(chron_sel) < 0 || id(chron_sel) >= n) {
+            it.print(6, OY + 2, id(font_sm), c_gold, "the chronicle");
+            it.print(6, OY + 34, id(font_body), c_dim, "that page has burned away");
+          } else {
+            const std::string &e = id(chron)[(size_t) id(chron_sel)];
+            const char k = e[0];
+            it.print(6, OY + 2, id(font_sm), c_gold,
+                     k == 'h' ? "heard" : (k == 'a' ? "a word from the house"
+                                                    : "ember said"));
+            const std::string t = e.substr(1);
+            // KARAOKE BY THE FUSE'S OWN ESTIMATOR. Word timings do not exist
+            // in this pipeline; what does exist is the bench-calibrated
+            // tts_lead_ms + chars * tts_ms_per_char model the progress fuse
+            // has been landing within a beat of real speech for weeks. The
+            // clock is re-anchored at actual TTS start (see on_tts_start), so
+            // the estimate only has to hold across one utterance, which is
+            // exactly the span it was calibrated on.
+            const bool playing = (id(chron_play_idx) == id(chron_sel));
+            const uint32_t el = playing ? (uint32_t)(millis() - id(chron_play_ms)) : 0u;
+            const uint32_t total = ${tts_lead_ms}u
+                                   + (uint32_t) t.size() * ${tts_ms_per_char}u;
+            if (playing && el > total + 1200u) id(chron_play_idx) = -1;
+            const long lit = (playing && el > ${tts_lead_ms}u)
+                ? (long) ((el - ${tts_lead_ms}u) / ${tts_ms_per_char}u) : -1L;
+            // Words laid greedily, each measured — this is the one screen
+            // where per-word cost is fine, because the overlay suspends the
+            // fire and owns every frame slot it takes.
+            int x = 6, y = OY + 22;
+            size_t pos = 0;
+            while (pos < t.size() && y < 224) {
+              size_t sp = t.find(' ', pos);
+              if (sp == std::string::npos) sp = t.size();
+              const std::string w = t.substr(pos, sp - pos);
+              int bx, by, bw, bh;
+              it.get_text_bounds(0, 0, (w + " ").c_str(), id(font_body),
+                                 display::TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
+              if (x + bw > W - 6) { x = 6; y += 20; if (y >= 224) break; }
+              // Spoken words settle to ink, the word under the voice burns
+              // gold, the unspoken wait in dim — read order is fire order.
+              Color wc = c_ink;
+              if (playing) {
+                if (lit < (long) pos) wc = c_dim;
+                else if (lit < (long) sp) wc = c_gold;
+              }
+              it.print(x, y, id(font_body), wc, w.c_str());
+              x += bw;
+              pos = sp + 1;
+            }
+            if (pos < t.size())
+              it.print(6, 224, id(font_sm), c_ash, "...");
+            it.filled_rectangle(0, 233, W, 1, c_ash);
+            it.print(6, 240, id(font_body), c_dim, "< back");
+            it.print(W - 6, 240, id(font_body), playing ? c_gold : c_amber,
+                     display::TextAlign::TOP_RIGHT,
+                     playing ? "speaking..." : "speak >");
           }
         }
       };
@@ -5669,6 +6024,17 @@ display:
         pend |= 0x04;
       }
       if (now >= t_tele)              { pend |= 0x08; t_tele = now + 500u; }
+      // ---- the karaoke tick ----
+      // Only while a chronicle entry is being spoken with its page open: the
+      // highlight must advance without any state changing, so it needs a
+      // timer, and 200ms (a multiple of the 50ms frame — see the !! above) is
+      // four repaints a second, plenty for a word-rate cursor. Free against
+      // the fire: an open overlay suspends it anyway.
+      static uint32_t t_chron = 0;
+      if (id(ui_mode) == 5 && id(chron_play_idx) >= 0 && now >= t_chron) {
+        pend |= 0x20;
+        t_chron = now + 200u;
+      }
       // ---- the candle's two repaint reasons (battery builds only; folds out) ----
       // 1. Its DRAWN state changed: wax height, low/crit banding, rich flame, or
       //    first-sample arrival. A signature int catches all of them in one compare
@@ -5857,8 +6223,61 @@ touchscreen:
             return;
           }
 
+          if (id(ui_mode) == 4) {
+            // The chronicle list: four rows of 46px starting at y50 (46 = the
+            // same touch floor every menu row uses), a page bar across the
+            // bottom (prev left half, next right half), anything else — the
+            // title strip — dismisses. Same dead-zone arithmetic as the power
+            // menu: the 2px separators must not hit-test as rows.
+            const int rel = ty - 50;
+            const int row = rel / 46;
+            if (ty >= 234) {
+              id(ui_action) = (tx < 120) ? 20 : 21;      // older | newer
+            } else if (rel >= 0 && row < 4 && (rel % 46) < 44) {
+              id(ui_sel) = row;
+              id(ui_action) = 18;                        // open entry
+            } else {
+              id(ui_action) = 4;
+            }
+            id(ui_gen)++;
+            return;
+          }
+
+          if (id(ui_mode) == 5) {
+            // The chronicle detail: bottom bar is back (left third) and SPEAK
+            // (right two thirds — the control you came for gets the bigger
+            // target, and it sits away from the bezel lip corners). Anywhere
+            // else dismisses to the hearth.
+            if (ty >= 234) {
+              id(ui_action) = (tx < 80) ? 22 : 23;       // back | speak
+            } else {
+              id(ui_action) = 4;
+            }
+            id(ui_gen)++;
+            return;
+          }
+
           // Any touch clears the unread marker: you are demonstrably in the room.
           if (id(unread)) { id(unread) = false; id(ui_gen)++; }
+
+          // The mode chip — bare-screen exception #2 (2026-08-09, JP: "we need
+          // a hush sigil on front screen"). Same licence as the horn: a VISIBLE
+          // drawn control (the hex chip has sat in this corner since the mode
+          // work) whose tap changes the thing you touched — the fill level is
+          // the mode, and the tap cycles it Normal -> No talking -> Hush ->
+          // Normal. Top-left corner block, 46x32px: the y is capped by the
+          // band, but a corner target is edge-anchored — the finger has two
+          // walls to aim against, which is why 46px wide is comfortable here
+          // while the same height would be mean in open field.
+          // Monotonic cycle on purpose: three states, one gesture, and the
+          // worst mis-tap is one extra tap to come home. The select entity does
+          // the actual mode change, so HA automations and the mode submenu see
+          // taps and their own writes identically.
+          if (tx < 46 && ty < 32) {
+            id(ui_action) = 17;
+            id(ui_gen)++;
+            return;
+          }
 
           // The horn — the one drawn control on the bare screen (see the header
           // amendment above). Deliberately NO coal strike on this branch:
@@ -6038,6 +6457,7 @@ voice_assistant:
   on_stt_end:
     - lambda: |-
         id(heard_text) = x;
+        id(chron_push)->execute(std::string("h"), x);   // the chronicle hears too
         id(scroll_gen)++;
 
   on_stt_vad_end:
@@ -6064,6 +6484,19 @@ voice_assistant:
         id(is_announce) = (id(va_state) == 0);
         id(had_tts) = true;
         id(said_text) = x;
+        // The chronicle records what left the mouth, tagged by provenance —
+        // 's' for a conversational reply, 'a' for a pushed announcement. One
+        // capture point for both because is_announce is decided on this exact
+        // line; a second tap elsewhere would eventually disagree with it.
+        id(chron_push)->execute(std::string(id(is_announce) ? "a" : "s"), x);
+        // A chronicle REPLAY re-anchors the highlight clock here — the moment
+        // TTS actually begins — so the HA round-trip and the herald chime
+        // cannot drift the karaoke. Matched on text because that is the only
+        // identity a replay carries through the announce path.
+        if (id(chron_play_idx) >= 0 && id(chron_play_idx) < (int) id(chron).size() &&
+            id(chron)[(size_t) id(chron_play_idx)].substr(1) == x) {
+          id(chron_play_ms) = millis();
+        }
         id(tts_est_ms) = ${tts_lead_ms}u + (uint32_t) x.size() * ${tts_ms_per_char}u;
         if (id(is_announce)) id(heard_text).clear();
         // A pushed announcement in a speech-muted mode is delivered ONLY by the

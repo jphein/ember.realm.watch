@@ -11,37 +11,235 @@
      "type": "entity",
      "entity": "assist_satellite.ember_satellite_assist_satellite",
      "name": "Ember",
-     "color": "amber"
+     "color": "amber",
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Desk"
+      }
+     ]
     },
     {
      "type": "entity",
      "entity": "switch.ember_satellite_hush",
      "name": "Hush",
-     "color": "red"
+     "color": "red",
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Desk"
+      }
+     ]
     },
     {
      "type": "entity",
      "entity": "binary_sensor.ember_reachable",
      "name": "Mind",
-     "color": "orange"
+     "color": "orange",
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Desk"
+      }
+     ]
     },
     {
      "type": "entity",
      "entity": "select.ember_satellite_assistant",
      "name": "Pipeline",
-     "color": "orange"
+     "color": "orange",
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Desk"
+      }
+     ]
     },
     {
      "type": "entity",
      "entity": "number.ember_satellite_speaker_volume",
      "name": "Volume",
-     "color": "deep-orange"
+     "color": "deep-orange",
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Desk"
+      }
+     ]
     },
     {
      "type": "entity",
      "entity": "switch.ember_satellite_speaker_amplifier",
      "name": "Amp",
-     "color": "red"
+     "color": "red",
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Desk"
+      }
+     ]
+    },
+    {
+     "type": "entity",
+     "entity": "assist_satellite.ember_mobile_assist_satellite",
+     "name": "Ember",
+     "color": "amber",
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Mobile"
+      }
+     ]
+    },
+    {
+     "type": "entity",
+     "entity": "switch.ember_mobile_hush",
+     "name": "Hush",
+     "color": "red",
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Mobile"
+      }
+     ]
+    },
+    {
+     "type": "entity",
+     "entity": "binary_sensor.ember_reachable",
+     "name": "Mind",
+     "color": "orange",
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Mobile"
+      }
+     ]
+    },
+    {
+     "type": "entity",
+     "entity": "select.ember_mobile_assistant",
+     "name": "Pipeline",
+     "color": "orange",
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Mobile"
+      }
+     ]
+    },
+    {
+     "type": "entity",
+     "entity": "number.ember_mobile_speaker_volume",
+     "name": "Volume",
+     "color": "deep-orange",
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Mobile"
+      }
+     ]
+    },
+    {
+     "type": "entity",
+     "entity": "switch.ember_mobile_speaker_amplifier",
+     "name": "Amp",
+     "color": "red",
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Mobile"
+      }
+     ]
+    },
+    {
+     "type": "entity",
+     "entity": "assist_satellite.ember_dad_assist_satellite",
+     "name": "Ember",
+     "color": "amber",
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Dad's house"
+      }
+     ]
+    },
+    {
+     "type": "entity",
+     "entity": "switch.ember_dad_hush",
+     "name": "Hush",
+     "color": "red",
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Dad's house"
+      }
+     ]
+    },
+    {
+     "type": "entity",
+     "entity": "binary_sensor.ember_reachable",
+     "name": "Mind",
+     "color": "orange",
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Dad's house"
+      }
+     ]
+    },
+    {
+     "type": "entity",
+     "entity": "select.ember_dad_assistant",
+     "name": "Pipeline",
+     "color": "orange",
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Dad's house"
+      }
+     ]
+    },
+    {
+     "type": "entity",
+     "entity": "number.ember_dad_speaker_volume",
+     "name": "Volume",
+     "color": "deep-orange",
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Dad's house"
+      }
+     ]
+    },
+    {
+     "type": "entity",
+     "entity": "switch.ember_dad_speaker_amplifier",
+     "name": "Amp",
+     "color": "red",
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Dad's house"
+      }
+     ]
     }
    ],
    "sections": [
@@ -50,11 +248,26 @@
      "column_span": 3,
      "cards": [
       {
+       "type": "tile",
+       "entity": "input_select.ember_say_target",
+       "name": "Which hearth",
+       "icon": "mdi:fireplace",
+       "color": "amber",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
        "type": "markdown",
        "grid_options": {
         "columns": "full"
        },
-       "content": "{% set na = ['unknown','unavailable','none',''] %}\n{% set local = states('select.ember_satellite_assistant') == 'familiar-ember' %}{% set up = is_state('binary_sensor.ember_reachable', 'on') %}{% set det = (state_attr('binary_sensor.ember_reachable', 'detail') or '\u2014') | trim %}{% set hushed = is_state('switch.ember_satellite_hush', 'on') %}\n{% set st = states('assist_satellite.ember_satellite_assist_satellite') %}\n{% set pl = states('select.ember_satellite_assistant') %}\n{% set chain = {\n  'familiar-ember': ['Ember \u00b7 local Qwen3.6-35B on familiar','vosk','piper','en_GB-cori-medium'],\n  'claude-donkee': ['Claude Opus 4.7 \u00b7 Bedrock','vosk','piper','en_US-hfc_female-medium'],\n  'Chatgpt': ['ChatGPT','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Gemini-vosk-piper-donkee': ['Google Gemini','vosk','piper','en_US-hfc_female-medium'],\n  'yurt-butler': ['Home Assistant','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Home Assistant': ['Home Assistant','\u2014','HA Cloud','JennyNeural'],\n  'preferred': ['Google Gemini \u00b7 HA preferred','vosk','piper','en_US-hfc_female-medium']\n} %}\n{% set glyph = {'idle':'\u25cb','listening':'\u25c9','processing':'\u25d0','responding':'\u25c6','responding_speaking':'\u25c6'}.get(st,'\u00b7') %}\n{% set p = chain.get(pl, ['\u2014','\u2014','\u2014','\u2014']) %}\n# Ember\nthe hearth-spirit \u00b7 **{{ glyph }} {{ st }}**{% if hushed %} \u00b7 `hushed`{% endif %}\n\nlistening as **{{ pl }}** \u2192 {{ p[0] }}{% if local %} \u00b7 mind {{ '**' ~ det ~ '**' if up else '`' ~ det ~ '`' }}{% endif %}\n{{ p[1] }} \u27f6 {{ p[2] }} \u00b7 *{{ p[3] }}*\n\nhearth **{% set v = states('number.ember_satellite_speaker_volume') %}{{ (v | float | int) ~ '%' if v not in na else '\u2014' }}** \u00b7 amp **{{ states('switch.ember_satellite_speaker_amplifier') }}** \u00b7 ear **{% set v = states('sensor.ember_satellite_mic_rms') %}{{ (v | float | round(1)) ~ ' dB' if v not in na else '\u2014' }}** \u00b7 coals **{% set v = states('sensor.ember_satellite_battery_voltage') %}{{ (v | float | round(2)) ~ ' V' if v not in na else '\u2014' }}**\n",
+       "content": "{% set na = ['unknown','unavailable','none',''] %}\n{% set tgt = states('input_select.ember_say_target') %}\n{% set map = {'Desk': ['ember_satellite','desk',false],\n              'Mobile': ['ember_mobile','mobile',true],\n              \"Dad's house\": ['ember_dad',\"Dad's house\",false]} %}\n{% set glyph = {'idle':'\u25cb','listening':'\u25c9','processing':'\u25d0','responding':'\u25c6','responding_speaking':'\u25c6'} %}\n{% set chain = {\n  'familiar-ember': ['Ember \u00b7 local Qwen3.6-35B on familiar','parakeet','piper \u00b7 familiar','en_GB-cori-high'],\n  'claude-donkee': ['Claude Opus 4.7 \u00b7 Bedrock','parakeet','piper \u00b7 familiar','en_US-hfc_female-medium'],\n  'Chatgpt': ['ChatGPT','parakeet','piper \u00b7 familiar','en_US-hfc_female-medium'],\n  'Gemini-vosk-piper-donkee': ['Google Gemini','parakeet','piper \u00b7 familiar','en_US-hfc_female-medium'],\n  'yurt-butler': ['Home Assistant','parakeet','piper \u00b7 familiar','en_US-hfc_female-medium'],\n  'Home Assistant': ['Home Assistant','\u2014','HA Cloud','JennyNeural'],\n  'preferred': ['\u2192 familiar-ember \u00b7 HA preferred','parakeet','piper \u00b7 familiar','en_GB-cori-high']\n} %}\n{% set up = is_state('binary_sensor.ember_reachable','on') %}\n{% set det = (state_attr('binary_sensor.ember_reachable','detail') or '\u2014') | trim %}\n# Ember\n{% if tgt in map %}{% set s = map[tgt][0] %}{% set where = map[tgt][1] %}{% set cell = map[tgt][2] %}{% set st = states('assist_satellite.' ~ s ~ '_assist_satellite') %}{% set pl = states('select.' ~ s ~ '_assistant') %}{% set p = chain.get(pl, ['\u2014','\u2014','\u2014','\u2014']) %}{% set hushed = is_state('switch.' ~ s ~ '_hush','on') %}the hearth-spirit at **{{ where }}** \u00b7 **{{ glyph.get(st,'\u00b7') }} {{ st }}**{% if hushed %} \u00b7 `hushed`{% endif %}\n\nlistening as **{{ pl }}** \u2192 {{ p[0] }}{% if pl == 'familiar-ember' %} \u00b7 mind {{ '**' ~ det ~ '**' if up else '`' ~ det ~ '`' }}{% endif %}\n{{ p[1] }} \u27f6 {{ p[2] }} \u00b7 *{{ p[3] }}*\n\nhearth **{% set v = states('number.' ~ s ~ '_speaker_volume') %}{{ (v | float | int) ~ '%' if v not in na else '\u2014' }}** \u00b7 amp **{{ states('switch.' ~ s ~ '_speaker_amplifier') }}** \u00b7 ear **{% set v = states('sensor.' ~ s ~ '_mic_rms') %}{{ (v | float | round(1)) ~ ' dB' if v not in na else '\u2014' }}**{% if cell %} \u00b7 coals **{% set v = states('sensor.' ~ s ~ '_battery_soc') %}{{ (v | float | int) ~ '%' if v not in na else '\u2014' }}**{% endif %}\n{% else %}\nevery hearth in the house \u00b7 **fan-out**\n\n{% for k, m in map.items() %}{% set st = states('assist_satellite.' ~ m[0] ~ '_assist_satellite') %}**{{ glyph.get(st,'\u00b7') }} {{ m[1] }}** {{ st }}{% if is_state('switch.' ~ m[0] ~ '_hush','on') %} \u00b7 `hushed`{% endif %}{% if not loop.last %} \u2003 {% endif %}{% endfor %}\n\n*Typing below speaks on the two hearths under this roof. Dad's is reached on purpose, not by broadcast \u2014 pick it above, or use Fleet.*\n{% endif %}",
        "card_mod": {
         "style": {
          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:none; box-shadow:none; padding:2px 6px 8px;\n  background:radial-gradient(120% 160% at 8% 118%,\n    color-mix(in srgb, var(--em-coal) 30%, transparent) 0%,\n    color-mix(in srgb, var(--em-bed) 16%, transparent) 42%, transparent 74%); }\n",
@@ -83,7 +296,14 @@
           "ha-markdown$": "p { margin:0 0 6px; font-size:12.5px; line-height:1.65; }\np:last-child { margin-bottom:0; }\nstrong { color:var(--em-alarm); }\nem { color:var(--em-gold); font-style:normal; }\ncode { color:var(--em-glow); background:none; font-size:11.5px; }\n"
          }
         }
-       }
+       },
+       "visibility": [
+        {
+         "condition": "state",
+         "entity": "input_select.ember_say_target",
+         "state": "Desk"
+        }
+       ]
       },
       {
        "type": "conditional",
@@ -111,7 +331,144 @@
           "ha-markdown$": "p { margin:0 0 6px; font-size:12.5px; line-height:1.65; }\np:last-child { margin-bottom:0; }\nstrong { color:var(--em-alarm); }\nem { color:var(--em-gold); font-style:normal; }\ncode { color:var(--em-glow); background:none; font-size:11.5px; }\n"
          }
         }
-       }
+       },
+       "visibility": [
+        {
+         "condition": "state",
+         "entity": "input_select.ember_say_target",
+         "state": "Desk"
+        }
+       ]
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "switch.ember_mobile_hush",
+         "state": "on"
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "\ud83e\udd2b **Ember is hushed.** Hush is the quietest of three modes \u2014 it stops *sound*, not listening. Tap the screen and Ember still hears you, still thinks, and still answers; the reply arrives **on screen**, headed `UNSPOKEN`, with the sub-line *the reply is on screen*. Chimes are silent too.\n\nIt does **not** mute the microphone and does **not** gate the talk gesture \u2014 that was the old meaning of this switch and it changed on 2026-07-30. Pushed announcements still arrive as text and leave an unread pip until you touch the screen.\n\nSet **Mode** to `Normal` to give Ember its voice back, or `No talking` to keep chimes without speech.",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-alarm); border-radius:10px;\n  background:color-mix(in srgb, var(--em-alarm) 8%, var(--card-background-color)); }\n",
+          "ha-markdown$": "p { margin:0 0 6px; font-size:12.5px; line-height:1.65; }\np:last-child { margin-bottom:0; }\nstrong { color:var(--em-alarm); }\nem { color:var(--em-gold); font-style:normal; }\ncode { color:var(--em-glow); background:none; font-size:11.5px; }\n"
+         }
+        }
+       },
+       "visibility": [
+        {
+         "condition": "state",
+         "entity": "input_select.ember_say_target",
+         "state": "Mobile"
+        }
+       ]
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "select.ember_mobile_assistant",
+         "state": "familiar-ember"
+        },
+        {
+         "condition": "state",
+         "entity": "binary_sensor.ember_reachable",
+         "state_not": "on"
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "{% set local = states('select.ember_mobile_assistant') == 'familiar-ember' %}{% set up = is_state('binary_sensor.ember_reachable', 'on') %}{% set det = (state_attr('binary_sensor.ember_reachable', 'detail') or '\u2014') | trim %}{% set hushed = is_state('switch.ember_mobile_hush', 'on') %}\n\u26a0 **Ember's mind is not answering.** `familiar-ember` is the selected pipeline, but the local Qwen lane on `familiar:8091` reports *{{ det }}*. The satellite will hear you and then fall silent \u2014 the failure looks identical to *idle* from the outside.\n\nWake the host with `familiar-wake`, or swap to **Claude Opus \u00b7 Bedrock** on the Voice Pipeline view to keep talking now.",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-alarm); border-radius:10px;\n  background:color-mix(in srgb, var(--em-alarm) 8%, var(--card-background-color)); }\n",
+          "ha-markdown$": "p { margin:0 0 6px; font-size:12.5px; line-height:1.65; }\np:last-child { margin-bottom:0; }\nstrong { color:var(--em-alarm); }\nem { color:var(--em-gold); font-style:normal; }\ncode { color:var(--em-glow); background:none; font-size:11.5px; }\n"
+         }
+        }
+       },
+       "visibility": [
+        {
+         "condition": "state",
+         "entity": "input_select.ember_say_target",
+         "state": "Mobile"
+        }
+       ]
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "switch.ember_dad_hush",
+         "state": "on"
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "\ud83e\udd2b **Ember is hushed.** Hush is the quietest of three modes \u2014 it stops *sound*, not listening. Tap the screen and Ember still hears you, still thinks, and still answers; the reply arrives **on screen**, headed `UNSPOKEN`, with the sub-line *the reply is on screen*. Chimes are silent too.\n\nIt does **not** mute the microphone and does **not** gate the talk gesture \u2014 that was the old meaning of this switch and it changed on 2026-07-30. Pushed announcements still arrive as text and leave an unread pip until you touch the screen.\n\nSet **Mode** to `Normal` to give Ember its voice back, or `No talking` to keep chimes without speech.",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-alarm); border-radius:10px;\n  background:color-mix(in srgb, var(--em-alarm) 8%, var(--card-background-color)); }\n",
+          "ha-markdown$": "p { margin:0 0 6px; font-size:12.5px; line-height:1.65; }\np:last-child { margin-bottom:0; }\nstrong { color:var(--em-alarm); }\nem { color:var(--em-gold); font-style:normal; }\ncode { color:var(--em-glow); background:none; font-size:11.5px; }\n"
+         }
+        }
+       },
+       "visibility": [
+        {
+         "condition": "state",
+         "entity": "input_select.ember_say_target",
+         "state": "Dad's house"
+        }
+       ]
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "select.ember_dad_assistant",
+         "state": "familiar-ember"
+        },
+        {
+         "condition": "state",
+         "entity": "binary_sensor.ember_reachable",
+         "state_not": "on"
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "{% set local = states('select.ember_dad_assistant') == 'familiar-ember' %}{% set up = is_state('binary_sensor.ember_reachable', 'on') %}{% set det = (state_attr('binary_sensor.ember_reachable', 'detail') or '\u2014') | trim %}{% set hushed = is_state('switch.ember_dad_hush', 'on') %}\n\u26a0 **Ember's mind is not answering.** `familiar-ember` is the selected pipeline, but the local Qwen lane on `familiar:8091` reports *{{ det }}*. The satellite will hear you and then fall silent \u2014 the failure looks identical to *idle* from the outside.\n\nWake the host with `familiar-wake`, or swap to **Claude Opus \u00b7 Bedrock** on the Voice Pipeline view to keep talking now.",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-alarm); border-radius:10px;\n  background:color-mix(in srgb, var(--em-alarm) 8%, var(--card-background-color)); }\n",
+          "ha-markdown$": "p { margin:0 0 6px; font-size:12.5px; line-height:1.65; }\np:last-child { margin-bottom:0; }\nstrong { color:var(--em-alarm); }\nem { color:var(--em-gold); font-style:normal; }\ncode { color:var(--em-glow); background:none; font-size:11.5px; }\n"
+         }
+        }
+       },
+       "visibility": [
+        {
+         "condition": "state",
+         "entity": "input_select.ember_say_target",
+         "state": "Dad's house"
+        }
+       ]
       },
       {
        "type": "markdown",
@@ -122,6 +479,96 @@
        },
        "card_mod": {
         "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { height:100%; padding:0; border:none; box-shadow:none;\n  overflow:hidden; border-radius:6px;\n  background:linear-gradient(90deg, var(--em-bed) 0%, var(--em-coal) 20%,\n    var(--em-glow) 46%, var(--em-gold) 74%, var(--em-tip) 100%); }\nha-card > * { display:none; }\n"
+       }
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 2,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Make Ember speak",
+       "heading_style": "subtitle",
+       "icon": "mdi:bullhorn"
+      },
+      {
+       "type": "entities",
+       "show_header_toggle": false,
+       "grid_options": {
+        "columns": "full"
+       },
+       "entities": [
+        {
+         "entity": "input_text.ember_say",
+         "name": "Type, then Speak it"
+        }
+       ]
+      },
+      {
+       "type": "button",
+       "name": "Speak it",
+       "icon": "mdi:send",
+       "show_state": false,
+       "tap_action": {
+        "action": "perform-action",
+        "perform_action": "script.ember_say"
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-gold); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-gold) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-gold); --state-icon-color:var(--em-gold);\n  --paper-item-icon-color:var(--em-gold); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-gold) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-gold); }\n"
+       }
+      },
+      {
+       "type": "button",
+       "name": "Speech test",
+       "icon": "mdi:bullhorn-outline",
+       "show_state": false,
+       "tap_action": {
+        "action": "perform-action",
+        "perform_action": "script.ember_announce",
+        "data": {
+         "message": "The hearth is lit."
+        }
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-coal); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-coal) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-coal); --state-icon-color:var(--em-coal);\n  --paper-item-icon-color:var(--em-coal); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-coal) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-coal); }\n"
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "input_text.ember_say",
+         "state": ""
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "*The box is empty, so **Speak it** will do nothing* \u2014 `script.ember_say` conditions on there being text and aborts quietly rather than announcing silence. Type something first.",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
+          "ha-markdown$": "p { margin:0; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\ncode { color:var(--em-glow); background:none; font-size:11px; }\nstrong { color:var(--em-glow); }\nem { color:var(--em-gold); font-style:normal; }\n"
+         }
+        }
+       }
+      },
+      {
+       "type": "markdown",
+       "content": "**Speak it** runs `script.ember_say`, which reads the field above and hands it to `script.ember_announce` \u2014 never `assist_satellite.announce` directly, because the script pins `preannounce: false` and without it HA prepends its own generic blip so you hear two heralds back to back.\n\nThe field-plus-button pairing exists because Lovelace `perform_action` data is **not** templated: a button cannot carry a text field's contents, only call something that reads it. 255 characters, `input_text`'s hard cap.\n\n**Speak it follows the chooser at the top of this page** \u2014 the same `input_select.ember_say_target` that decides which hearth's tiles you are looking at, so the hearth you can see is the hearth that answers. It is also the same `input_text.ember_say` as the Fleet composer: one field, two places to use it. Fleet's per-hearth buttons name a satellite outright and therefore ignore the chooser \u2014 explicit beats implicit, deliberately.",
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": {
+         ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
+         "ha-markdown$": "p { margin:0; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\ncode { color:var(--em-glow); background:none; font-size:11px; }\nstrong { color:var(--em-glow); }\nem { color:var(--em-gold); font-style:normal; }\n"
+        }
        }
       }
      ]
@@ -205,90 +652,13 @@
        "name": "Announce stage",
        "icon": "mdi:bullhorn-outline",
        "color": "brown"
-      },
+      }
+     ],
+     "visibility": [
       {
-       "type": "heading",
-       "heading": "Make Ember speak",
-       "heading_style": "subtitle",
-       "icon": "mdi:bullhorn"
-      },
-      {
-       "type": "entities",
-       "show_header_toggle": false,
-       "grid_options": {
-        "columns": "full"
-       },
-       "entities": [
-        {
-         "entity": "input_text.ember_say",
-         "name": "Type, then Speak it"
-        }
-       ]
-      },
-      {
-       "type": "button",
-       "name": "Speak it",
-       "icon": "mdi:send",
-       "show_state": false,
-       "tap_action": {
-        "action": "perform-action",
-        "perform_action": "script.ember_say"
-       },
-       "card_mod": {
-        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-gold); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-gold) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-gold); --state-icon-color:var(--em-gold);\n  --paper-item-icon-color:var(--em-gold); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-gold) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-gold); }\n"
-       }
-      },
-      {
-       "type": "button",
-       "name": "Speech test",
-       "icon": "mdi:bullhorn-outline",
-       "show_state": false,
-       "tap_action": {
-        "action": "perform-action",
-        "perform_action": "script.ember_announce",
-        "data": {
-         "message": "The hearth is lit."
-        }
-       },
-       "card_mod": {
-        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-coal); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-coal) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-coal); --state-icon-color:var(--em-coal);\n  --paper-item-icon-color:var(--em-coal); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-coal) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-coal); }\n"
-       }
-      },
-      {
-       "type": "conditional",
-       "conditions": [
-        {
-         "condition": "state",
-         "entity": "input_text.ember_say",
-         "state": ""
-        }
-       ],
-       "card": {
-        "type": "markdown",
-        "content": "*The box is empty, so **Speak it** will do nothing* \u2014 `script.ember_say` conditions on there being text and aborts quietly rather than announcing silence. Type something first.",
-        "grid_options": {
-         "columns": "full"
-        },
-        "card_mod": {
-         "style": {
-          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
-          "ha-markdown$": "p { margin:0; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\ncode { color:var(--em-glow); background:none; font-size:11px; }\nstrong { color:var(--em-glow); }\nem { color:var(--em-gold); font-style:normal; }\n"
-         }
-        }
-       }
-      },
-      {
-       "type": "markdown",
-       "content": "**Speak it** runs `script.ember_say`, which reads the field above and hands it to `script.ember_announce` \u2014 never `assist_satellite.announce` directly, because the script pins `preannounce: false` and without it HA prepends its own generic blip so you hear two heralds back to back.\n\nThe field-plus-button pairing exists because Lovelace `perform_action` data is **not** templated: a button cannot carry a text field's contents, only call something that reads it. 255 characters, `input_text`'s hard cap.",
-       "grid_options": {
-        "columns": "full"
-       },
-       "card_mod": {
-        "style": {
-         ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
-         "ha-markdown$": "p { margin:0; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\ncode { color:var(--em-glow); background:none; font-size:11px; }\nstrong { color:var(--em-glow); }\nem { color:var(--em-gold); font-style:normal; }\n"
-        }
-       }
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Desk"
       }
      ]
     },
@@ -481,6 +851,13 @@
         }
        }
       }
+     ],
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Desk"
+      }
      ]
     },
     {
@@ -579,6 +956,879 @@
        "name": "Wake Word (none on-device)",
        "icon": "mdi:sleep-off",
        "color": "grey"
+      }
+     ],
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Desk"
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 2,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Output \u00b7 the speaking flame",
+       "heading_style": "subtitle",
+       "icon": "mdi:volume-high"
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "number.ember_mobile_speaker_volume",
+         "state": [
+          "unavailable",
+          "unknown"
+         ]
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "\u26a0 **Speaker Volume is not reporting.** The DAC-volume control arrives with the firmware that adds `number: spk_volume` \u2014 flash the device config and this tile self-heals. Until then the es8311 boots at `set_volume(0.75)` = 0 dB, which is the *too loud* default.",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-alarm); border-radius:10px;\n  background:color-mix(in srgb, var(--em-alarm) 8%, var(--card-background-color)); }\n",
+          "ha-markdown$": "p { margin:0 0 6px; font-size:12.5px; line-height:1.65; }\np:last-child { margin-bottom:0; }\nstrong { color:var(--em-alarm); }\nem { color:var(--em-gold); font-style:normal; }\ncode { color:var(--em-glow); background:none; font-size:11.5px; }\n"
+         }
+        }
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "number.ember_mobile_speaker_volume",
+       "name": "Hearth Voice \u00b7 Output Level",
+       "icon": "mdi:volume-high",
+       "features": [
+        {
+         "type": "numeric-input",
+         "style": "slider"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\n/* The slider lives in hui-card-features, which sets --control-slider-color from\n   its OWN --tile-color \u2014 so setting the vars only on ha-card loses and the track\n   stays HA default blue. Set them on the feature element too. */\nha-card, hui-card-features, hui-numeric-input-tile-feature {\n  --tile-color: var(--em-gold);\n  --control-slider-color: var(--em-glow);\n  --control-slider-background: var(--em-coal);\n  --control-slider-background-opacity: .35; }\nha-card { border:1px solid color-mix(in srgb, var(--em-glow) 45%, transparent);\n  border-radius:12px;\n  background:linear-gradient(100deg,\n    color-mix(in srgb, var(--em-bed) 22%, var(--card-background-color)) 0%,\n    var(--card-background-color) 55%);\n  box-shadow:0 0 22px color-mix(in srgb, var(--em-coal) 28%, transparent); }\n"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "switch.ember_mobile_speaker_amplifier",
+       "name": "Speaker Amplifier",
+       "icon": "mdi:audio-input-stereo-minijack",
+       "color": "deep-orange",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ]
+      },
+      {
+       "type": "tile",
+       "entity": "sensor.ember_mobile_speaker_frames",
+       "name": "Frames Spoken",
+       "icon": "mdi:waveform",
+       "color": "amber"
+      },
+      {
+       "type": "tile",
+       "entity": "media_player.ember_mobile_ember_speaker",
+       "name": "Announce stage",
+       "icon": "mdi:bullhorn-outline",
+       "color": "brown"
+      }
+     ],
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Mobile"
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 1,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Input \u00b7 the listening ear",
+       "heading_style": "subtitle",
+       "icon": "mdi:microphone"
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "number.ember_mobile_mic_gain",
+         "state": [
+          "unavailable",
+          "unknown"
+         ]
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "\u26a0 **Mic Gain is not reporting.** The ADC-PGA control arrives with the firmware that adds `number: mic_gain_num` \u2014 flash the device config and this tile self-heals. Until then the es8311 runs the compile-time `mic_gain: 36db` from its `audio_dac` block, which is the same value, just not adjustable.",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-alarm); border-radius:10px;\n  background:color-mix(in srgb, var(--em-alarm) 8%, var(--card-background-color)); }\n",
+          "ha-markdown$": "p { margin:0 0 6px; font-size:12.5px; line-height:1.65; }\np:last-child { margin-bottom:0; }\nstrong { color:var(--em-alarm); }\nem { color:var(--em-gold); font-style:normal; }\ncode { color:var(--em-glow); background:none; font-size:11.5px; }\n"
+         }
+        }
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "binary_sensor.ember_mobile_mic_gain_desync",
+         "state": "on"
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "\u26a0 **The control below is showing a value the codec does not hold.** `Mic Gain` reads **{{ states('number.ember_mobile_mic_gain') | float(0) | round(0) | int }} dB**, while the es8311's REG16 reads **{{ states('sensor.ember_mobile_mic_gain_codec') | float(0) | round(0) | int }} dB**.\n\nBelieve the codec figure \u2014 it is read back off the chip, not reported by the entity. Either something wrote REG16 without going through the number, or a restore did not reach it. The firmware re-checks every 60 s, so this clears itself once they agree.",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-alarm); border-radius:10px;\n  background:color-mix(in srgb, var(--em-alarm) 8%, var(--card-background-color)); }\n",
+          "ha-markdown$": "p { margin:0 0 6px; font-size:12.5px; line-height:1.65; }\np:last-child { margin-bottom:0; }\nstrong { color:var(--em-alarm); }\nem { color:var(--em-gold); font-style:normal; }\ncode { color:var(--em-glow); background:none; font-size:11.5px; }\n"
+         }
+        }
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "number.ember_mobile_mic_gain",
+       "name": "Hearth Ear \u00b7 Input Sensitivity",
+       "icon": "mdi:microphone-settings",
+       "features": [
+        {
+         "type": "numeric-input",
+         "style": "buttons"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\n/* MEASURED IN THE LIVE PAGE rather than copied from the slider next door, and the\n   copy would have been wrong. The stepper is `ha-control-number-buttons` inside\n   `hui-numeric-input-card-feature` -- note \"card\", not \"tile\". HA renamed that element,\n   so the volume tile's `hui-numeric-input-tile-feature` selector matches nothing; its\n   slider is ember only because --control-slider-color INHERITS down from ha-card.\n   Confirmed live: --em-bed resolves to #4A1002 and --control-slider-color to #E05A08\n   on that card, with zero elements matching the third selector.\n\n   THE STEPPER IS LEFT DELIBERATELY NATIVE, for two reasons.\n   1. It cannot be recoloured from here. It declares\n      --control-number-buttons-background-color on its OWN :host (falling back to\n      --disabled-color), so a value inherited from ha-card loses the cascade. Reaching\n      it needs a four-level shadow-DOM chain -- the same kind of chain HA has already\n      invalidated once above, and it fails silently when it goes stale.\n   2. It should not be. The slider's gold is a FILL encoding 65%; a stepper has no\n      fill, so gilding eight discrete stops would imply a level they do not carry.\n   Ember identity is carried here by the card border and by the lit stop in the ladder\n   below -- both verified rendering. */\nha-card { border:1px solid color-mix(in srgb, var(--em-glow) 45%, transparent);\n  border-radius:12px;\n  background:linear-gradient(100deg,\n    color-mix(in srgb, var(--em-bed) 22%, var(--card-background-color)) 0%,\n    var(--card-background-color) 55%);\n  box-shadow:0 0 22px color-mix(in srgb, var(--em-coal) 28%, transparent); }\n"
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "number.ember_mobile_mic_gain",
+         "state_not": "unavailable"
+        },
+        {
+         "condition": "state",
+         "entity": "number.ember_mobile_mic_gain",
+         "state_not": "unknown"
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "{% set e = 'number.ember_mobile_mic_gain' %}{% set mn = state_attr(e,'min') | float(0) %}{% set mx = state_attr(e,'max') | float(42) %}{% set st = state_attr(e,'step') | float(6) %}{% set n = ((((mx - mn) / st) | round(0) | int) + 1) if st > 0 else 0 %}{% set g = (states(e) | float(-1)) | round(0) | int %}\n{% for k in range(n) %}{% set s = (mn + k * st) | round(0) | int %}{{ '**' ~ s ~ '**' if s == g else '`' ~ s ~ '`' }}{{ ' \u00b7 ' if not loop.last else ' dB' }}{% endfor %}\n\n{% set cd = states('sensor.ember_mobile_mic_gain_codec') %}{% set ds = states('binary_sensor.ember_mobile_mic_gain_desync') %}{% set na = ['unknown','unavailable','none',''] %}{% if ds == 'on' %}\u26a0 **The row above is not what the chip holds** \u2014 REG16 reads **{{ cd | float(0) | round(0) | int }} dB**.{% elif ds == 'off' and cd not in na %}Codec holds **{{ cd | float(0) | round(0) | int }} dB** \u2014 *the last successful read-back agreed.*{% else %}Codec read-back **unavailable**, so agreement is *not confirmed*. A failed I2C read leaves these sensors untouched rather than reporting a false mismatch \u2014 this is silence, not assent.{% endif %}\n\n{% if n != 8 %}\u26a0 **This control now reports {{ n }} stops, not eight.** The es8311's ADC PGA is a 3-bit field with exactly eight legal values, so either the firmware's range has drifted from the hardware or the driver changed. The row above is drawn from the entity's own `min`/`max`/`step`, so it is right; the note below assumes eight and should be treated as stale until someone checks.\n\n{% endif %}*Eight stops, and only eight.* The es8311's ADC PGA is a 3-bit field, so nothing between these is representable \u2014 the control steps 6 dB because the hardware does. The device's own gain row draws eight stones where volume draws twenty, for the same reason.\n\n**36** is deliberately below the top. ESPHome's own default is **42**, the maximum, and stacked on the pipeline's auto-gain it clips and pins the level gauges. Higher is *more sensitive*, not better.\n\nTune it against **Mic RMS** and **Peak** in this column \u2014 but only *mid-conversation*: `sound_level` is passive, so it reads while something else holds the microphone open and parks the rest of the time. A Peak pinned at the top of its scale is the symptom at 42.\n",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
+          "ha-markdown$": "p { margin:0 0 6px; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\np:first-child { font-size:12.5px; line-height:2.1; margin-bottom:9px; }\np:last-child { margin-bottom:0; }\n/* the active stop, as a lit pill; every other stop stays unlit */\nstrong { color:var(--em-tip); background:color-mix(in srgb, var(--em-glow) 32%, transparent);\n  border:1px solid color-mix(in srgb, var(--em-gold) 55%, transparent);\n  border-radius:5px; padding:1px 6px; }\np:not(:first-child) strong { color:var(--em-glow); background:none; border:none; padding:0; }\ncode { color:var(--em-dim); background:none; font-size:12px; }\nem { color:var(--em-gold); font-style:normal; }\n"
+         }
+        }
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "sensor.ember_mobile_mic_rms",
+         "state_not": "unknown"
+        },
+        {
+         "condition": "state",
+         "entity": "sensor.ember_mobile_mic_rms",
+         "state_not": "unavailable"
+        }
+       ],
+       "card": {
+        "type": "gauge",
+        "entity": "sensor.ember_mobile_mic_rms",
+        "name": "Mic RMS",
+        "unit": "dB",
+        "min": -72,
+        "max": -30,
+        "needle": true,
+        "severity": {
+         "green": -72,
+         "yellow": -52,
+         "red": -36
+        }
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "sensor.ember_mobile_mic_peak",
+         "state_not": "unknown"
+        },
+        {
+         "condition": "state",
+         "entity": "sensor.ember_mobile_mic_peak",
+         "state_not": "unavailable"
+        }
+       ],
+       "card": {
+        "type": "gauge",
+        "entity": "sensor.ember_mobile_mic_peak",
+        "name": "Mic Peak (hold)",
+        "unit": "dB",
+        "min": -72,
+        "max": -30,
+        "needle": true,
+        "severity": {
+         "green": -72,
+         "yellow": -52,
+         "red": -36
+        }
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "sensor.ember_mobile_mic_rms",
+         "state": [
+          "unknown",
+          "unavailable"
+         ]
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "*Mic parked.* `sound_level` publishes NAN whenever the microphone isn't running \u2014 during TTS, and any time Ember isn't listening \u2014 so the gauges hide rather than render a non-numeric error. They return the moment a level arrives.",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
+          "ha-markdown$": "p { margin:0; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\ncode { color:var(--em-glow); background:none; font-size:11px; }\nstrong { color:var(--em-glow); }\nem { color:var(--em-gold); font-style:normal; }\n"
+         }
+        }
+       }
+      }
+     ],
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Mobile"
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 3,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Assist \u00b7 how Ember hears you",
+       "heading_style": "subtitle",
+       "icon": "mdi:account-voice"
+      },
+      {
+       "type": "tile",
+       "entity": "assist_satellite.ember_mobile_assist_satellite",
+       "name": "Assist Satellite",
+       "icon": "mdi:fireplace",
+       "color": "amber"
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_mobile_ember_mode",
+       "name": "Mode \u00b7 how much noise Ember may make",
+       "icon": "mdi:hexagon-multiple",
+       "color": "amber",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ]
+      },
+      {
+       "type": "tile",
+       "entity": "switch.ember_mobile_hush",
+       "name": "Hush \u00b7 no speech, no chimes",
+       "icon": "mdi:volume-off",
+       "color": "red",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_mobile_assistant",
+       "name": "Pipeline",
+       "icon": "mdi:transit-connection-variant",
+       "color": "orange",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "binary_sensor.ember_reachable",
+       "name": "Local lane \u00b7 familiar:8091",
+       "icon": "mdi:heart-pulse",
+       "color": "amber",
+       "state_content": [
+        "detail"
+       ],
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card {\n  --tile-color: {{ 'var(--em-gold)' if is_state('binary_sensor.ember_reachable', 'on')\n    else 'var(--em-alarm)' }};\n  border:1px solid {{ 'transparent' if is_state('binary_sensor.ember_reachable', 'on')\n    else 'var(--em-alarm)' }}; }\n"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_mobile_finished_speaking_detection",
+       "name": "Finished-speaking Detection",
+       "icon": "mdi:ear-hearing",
+       "color": "brown",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_mobile_wake_word",
+       "name": "Wake Word (none on-device)",
+       "icon": "mdi:sleep-off",
+       "color": "grey"
+      }
+     ],
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Mobile"
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 1,
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Mobile"
+      }
+     ],
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Coals \u00b7 the cell",
+       "heading_style": "subtitle",
+       "icon": "mdi:battery-heart-variant"
+      },
+      {
+       "type": "tile",
+       "entity": "sensor.ember_mobile_battery_soc",
+       "name": "Charge",
+       "icon": "mdi:battery-heart-variant",
+       "color": "yellow",
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "sensor.ember_mobile_battery_voltage",
+       "name": "Cell voltage",
+       "icon": "mdi:flash-outline",
+       "color": "yellow",
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "automation.ember_mobile_cell_critical",
+       "name": "Cell-critical alarm",
+       "icon": "mdi:battery-alert-variant-outline",
+       "color": "red",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 2,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Output \u00b7 the speaking flame",
+       "heading_style": "subtitle",
+       "icon": "mdi:volume-high"
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "number.ember_dad_speaker_volume",
+         "state": [
+          "unavailable",
+          "unknown"
+         ]
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "\u26a0 **Speaker Volume is not reporting.** The DAC-volume control arrives with the firmware that adds `number: spk_volume` \u2014 flash the device config and this tile self-heals. Until then the es8311 boots at `set_volume(0.75)` = 0 dB, which is the *too loud* default.",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-alarm); border-radius:10px;\n  background:color-mix(in srgb, var(--em-alarm) 8%, var(--card-background-color)); }\n",
+          "ha-markdown$": "p { margin:0 0 6px; font-size:12.5px; line-height:1.65; }\np:last-child { margin-bottom:0; }\nstrong { color:var(--em-alarm); }\nem { color:var(--em-gold); font-style:normal; }\ncode { color:var(--em-glow); background:none; font-size:11.5px; }\n"
+         }
+        }
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "number.ember_dad_speaker_volume",
+       "name": "Hearth Voice \u00b7 Output Level",
+       "icon": "mdi:volume-high",
+       "features": [
+        {
+         "type": "numeric-input",
+         "style": "slider"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\n/* The slider lives in hui-card-features, which sets --control-slider-color from\n   its OWN --tile-color \u2014 so setting the vars only on ha-card loses and the track\n   stays HA default blue. Set them on the feature element too. */\nha-card, hui-card-features, hui-numeric-input-tile-feature {\n  --tile-color: var(--em-gold);\n  --control-slider-color: var(--em-glow);\n  --control-slider-background: var(--em-coal);\n  --control-slider-background-opacity: .35; }\nha-card { border:1px solid color-mix(in srgb, var(--em-glow) 45%, transparent);\n  border-radius:12px;\n  background:linear-gradient(100deg,\n    color-mix(in srgb, var(--em-bed) 22%, var(--card-background-color)) 0%,\n    var(--card-background-color) 55%);\n  box-shadow:0 0 22px color-mix(in srgb, var(--em-coal) 28%, transparent); }\n"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "switch.ember_dad_speaker_amplifier",
+       "name": "Speaker Amplifier",
+       "icon": "mdi:audio-input-stereo-minijack",
+       "color": "deep-orange",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ]
+      },
+      {
+       "type": "tile",
+       "entity": "sensor.ember_dad_speaker_frames",
+       "name": "Frames Spoken",
+       "icon": "mdi:waveform",
+       "color": "amber"
+      },
+      {
+       "type": "tile",
+       "entity": "media_player.ember_dad_ember_speaker",
+       "name": "Announce stage",
+       "icon": "mdi:bullhorn-outline",
+       "color": "brown"
+      }
+     ],
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Dad's house"
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 1,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Input \u00b7 the listening ear",
+       "heading_style": "subtitle",
+       "icon": "mdi:microphone"
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "number.ember_dad_mic_gain",
+         "state": [
+          "unavailable",
+          "unknown"
+         ]
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "\u26a0 **Mic Gain is not reporting.** The ADC-PGA control arrives with the firmware that adds `number: mic_gain_num` \u2014 flash the device config and this tile self-heals. Until then the es8311 runs the compile-time `mic_gain: 36db` from its `audio_dac` block, which is the same value, just not adjustable.",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-alarm); border-radius:10px;\n  background:color-mix(in srgb, var(--em-alarm) 8%, var(--card-background-color)); }\n",
+          "ha-markdown$": "p { margin:0 0 6px; font-size:12.5px; line-height:1.65; }\np:last-child { margin-bottom:0; }\nstrong { color:var(--em-alarm); }\nem { color:var(--em-gold); font-style:normal; }\ncode { color:var(--em-glow); background:none; font-size:11.5px; }\n"
+         }
+        }
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "binary_sensor.ember_dad_mic_gain_desync",
+         "state": "on"
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "\u26a0 **The control below is showing a value the codec does not hold.** `Mic Gain` reads **{{ states('number.ember_dad_mic_gain') | float(0) | round(0) | int }} dB**, while the es8311's REG16 reads **{{ states('sensor.ember_dad_mic_gain_codec') | float(0) | round(0) | int }} dB**.\n\nBelieve the codec figure \u2014 it is read back off the chip, not reported by the entity. Either something wrote REG16 without going through the number, or a restore did not reach it. The firmware re-checks every 60 s, so this clears itself once they agree.",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-alarm); border-radius:10px;\n  background:color-mix(in srgb, var(--em-alarm) 8%, var(--card-background-color)); }\n",
+          "ha-markdown$": "p { margin:0 0 6px; font-size:12.5px; line-height:1.65; }\np:last-child { margin-bottom:0; }\nstrong { color:var(--em-alarm); }\nem { color:var(--em-gold); font-style:normal; }\ncode { color:var(--em-glow); background:none; font-size:11.5px; }\n"
+         }
+        }
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "number.ember_dad_mic_gain",
+       "name": "Hearth Ear \u00b7 Input Sensitivity",
+       "icon": "mdi:microphone-settings",
+       "features": [
+        {
+         "type": "numeric-input",
+         "style": "buttons"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\n/* MEASURED IN THE LIVE PAGE rather than copied from the slider next door, and the\n   copy would have been wrong. The stepper is `ha-control-number-buttons` inside\n   `hui-numeric-input-card-feature` -- note \"card\", not \"tile\". HA renamed that element,\n   so the volume tile's `hui-numeric-input-tile-feature` selector matches nothing; its\n   slider is ember only because --control-slider-color INHERITS down from ha-card.\n   Confirmed live: --em-bed resolves to #4A1002 and --control-slider-color to #E05A08\n   on that card, with zero elements matching the third selector.\n\n   THE STEPPER IS LEFT DELIBERATELY NATIVE, for two reasons.\n   1. It cannot be recoloured from here. It declares\n      --control-number-buttons-background-color on its OWN :host (falling back to\n      --disabled-color), so a value inherited from ha-card loses the cascade. Reaching\n      it needs a four-level shadow-DOM chain -- the same kind of chain HA has already\n      invalidated once above, and it fails silently when it goes stale.\n   2. It should not be. The slider's gold is a FILL encoding 65%; a stepper has no\n      fill, so gilding eight discrete stops would imply a level they do not carry.\n   Ember identity is carried here by the card border and by the lit stop in the ladder\n   below -- both verified rendering. */\nha-card { border:1px solid color-mix(in srgb, var(--em-glow) 45%, transparent);\n  border-radius:12px;\n  background:linear-gradient(100deg,\n    color-mix(in srgb, var(--em-bed) 22%, var(--card-background-color)) 0%,\n    var(--card-background-color) 55%);\n  box-shadow:0 0 22px color-mix(in srgb, var(--em-coal) 28%, transparent); }\n"
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "number.ember_dad_mic_gain",
+         "state_not": "unavailable"
+        },
+        {
+         "condition": "state",
+         "entity": "number.ember_dad_mic_gain",
+         "state_not": "unknown"
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "{% set e = 'number.ember_dad_mic_gain' %}{% set mn = state_attr(e,'min') | float(0) %}{% set mx = state_attr(e,'max') | float(42) %}{% set st = state_attr(e,'step') | float(6) %}{% set n = ((((mx - mn) / st) | round(0) | int) + 1) if st > 0 else 0 %}{% set g = (states(e) | float(-1)) | round(0) | int %}\n{% for k in range(n) %}{% set s = (mn + k * st) | round(0) | int %}{{ '**' ~ s ~ '**' if s == g else '`' ~ s ~ '`' }}{{ ' \u00b7 ' if not loop.last else ' dB' }}{% endfor %}\n\n{% set cd = states('sensor.ember_dad_mic_gain_codec') %}{% set ds = states('binary_sensor.ember_dad_mic_gain_desync') %}{% set na = ['unknown','unavailable','none',''] %}{% if ds == 'on' %}\u26a0 **The row above is not what the chip holds** \u2014 REG16 reads **{{ cd | float(0) | round(0) | int }} dB**.{% elif ds == 'off' and cd not in na %}Codec holds **{{ cd | float(0) | round(0) | int }} dB** \u2014 *the last successful read-back agreed.*{% else %}Codec read-back **unavailable**, so agreement is *not confirmed*. A failed I2C read leaves these sensors untouched rather than reporting a false mismatch \u2014 this is silence, not assent.{% endif %}\n\n{% if n != 8 %}\u26a0 **This control now reports {{ n }} stops, not eight.** The es8311's ADC PGA is a 3-bit field with exactly eight legal values, so either the firmware's range has drifted from the hardware or the driver changed. The row above is drawn from the entity's own `min`/`max`/`step`, so it is right; the note below assumes eight and should be treated as stale until someone checks.\n\n{% endif %}*Eight stops, and only eight.* The es8311's ADC PGA is a 3-bit field, so nothing between these is representable \u2014 the control steps 6 dB because the hardware does. The device's own gain row draws eight stones where volume draws twenty, for the same reason.\n\n**36** is deliberately below the top. ESPHome's own default is **42**, the maximum, and stacked on the pipeline's auto-gain it clips and pins the level gauges. Higher is *more sensitive*, not better.\n\nTune it against **Mic RMS** and **Peak** in this column \u2014 but only *mid-conversation*: `sound_level` is passive, so it reads while something else holds the microphone open and parks the rest of the time. A Peak pinned at the top of its scale is the symptom at 42.\n",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
+          "ha-markdown$": "p { margin:0 0 6px; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\np:first-child { font-size:12.5px; line-height:2.1; margin-bottom:9px; }\np:last-child { margin-bottom:0; }\n/* the active stop, as a lit pill; every other stop stays unlit */\nstrong { color:var(--em-tip); background:color-mix(in srgb, var(--em-glow) 32%, transparent);\n  border:1px solid color-mix(in srgb, var(--em-gold) 55%, transparent);\n  border-radius:5px; padding:1px 6px; }\np:not(:first-child) strong { color:var(--em-glow); background:none; border:none; padding:0; }\ncode { color:var(--em-dim); background:none; font-size:12px; }\nem { color:var(--em-gold); font-style:normal; }\n"
+         }
+        }
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "sensor.ember_dad_mic_rms",
+         "state_not": "unknown"
+        },
+        {
+         "condition": "state",
+         "entity": "sensor.ember_dad_mic_rms",
+         "state_not": "unavailable"
+        }
+       ],
+       "card": {
+        "type": "gauge",
+        "entity": "sensor.ember_dad_mic_rms",
+        "name": "Mic RMS",
+        "unit": "dB",
+        "min": -72,
+        "max": -30,
+        "needle": true,
+        "severity": {
+         "green": -72,
+         "yellow": -52,
+         "red": -36
+        }
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "sensor.ember_dad_mic_peak",
+         "state_not": "unknown"
+        },
+        {
+         "condition": "state",
+         "entity": "sensor.ember_dad_mic_peak",
+         "state_not": "unavailable"
+        }
+       ],
+       "card": {
+        "type": "gauge",
+        "entity": "sensor.ember_dad_mic_peak",
+        "name": "Mic Peak (hold)",
+        "unit": "dB",
+        "min": -72,
+        "max": -30,
+        "needle": true,
+        "severity": {
+         "green": -72,
+         "yellow": -52,
+         "red": -36
+        }
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "sensor.ember_dad_mic_rms",
+         "state": [
+          "unknown",
+          "unavailable"
+         ]
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "*Mic parked.* `sound_level` publishes NAN whenever the microphone isn't running \u2014 during TTS, and any time Ember isn't listening \u2014 so the gauges hide rather than render a non-numeric error. They return the moment a level arrives.",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
+          "ha-markdown$": "p { margin:0; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\ncode { color:var(--em-glow); background:none; font-size:11px; }\nstrong { color:var(--em-glow); }\nem { color:var(--em-gold); font-style:normal; }\n"
+         }
+        }
+       }
+      }
+     ],
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Dad's house"
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 3,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Assist \u00b7 how Ember hears you",
+       "heading_style": "subtitle",
+       "icon": "mdi:account-voice"
+      },
+      {
+       "type": "tile",
+       "entity": "assist_satellite.ember_dad_assist_satellite",
+       "name": "Assist Satellite",
+       "icon": "mdi:fireplace",
+       "color": "amber"
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_dad_ember_mode",
+       "name": "Mode \u00b7 how much noise Ember may make",
+       "icon": "mdi:hexagon-multiple",
+       "color": "amber",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ]
+      },
+      {
+       "type": "tile",
+       "entity": "switch.ember_dad_hush",
+       "name": "Hush \u00b7 no speech, no chimes",
+       "icon": "mdi:volume-off",
+       "color": "red",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_dad_assistant",
+       "name": "Pipeline",
+       "icon": "mdi:transit-connection-variant",
+       "color": "orange",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "binary_sensor.ember_reachable",
+       "name": "Local lane \u00b7 familiar:8091",
+       "icon": "mdi:heart-pulse",
+       "color": "amber",
+       "state_content": [
+        "detail"
+       ],
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card {\n  --tile-color: {{ 'var(--em-gold)' if is_state('binary_sensor.ember_reachable', 'on')\n    else 'var(--em-alarm)' }};\n  border:1px solid {{ 'transparent' if is_state('binary_sensor.ember_reachable', 'on')\n    else 'var(--em-alarm)' }}; }\n"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_dad_finished_speaking_detection",
+       "name": "Finished-speaking Detection",
+       "icon": "mdi:ear-hearing",
+       "color": "brown",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_dad_wake_word",
+       "name": "Wake Word (none on-device)",
+       "icon": "mdi:sleep-off",
+       "color": "grey"
+      }
+     ],
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Dad's house"
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 3,
+     "visibility": [
+      {
+       "condition": "state",
+       "entity": "input_select.ember_say_target",
+       "state": "Every hearth (house)"
+      }
+     ],
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Every hearth in the house",
+       "heading_style": "title",
+       "icon": "mdi:bullhorn-variant"
+      },
+      {
+       "type": "markdown",
+       "grid_options": {
+        "columns": "full"
+       },
+       "content": "**This is a speak-target, not a hearth.** Anything typed above goes to the two hearths under this roof at once, so there is no single board whose tiles belong here \u2014 pick **Desk**, **Mobile** or **Dad's house** above to inspect one.\n\n\u26a0 **It does not reach Dad's**, deliberately: the fan-out is `script.ember_announce_all`, whose callers are house automations, and a 2 a.m. driveway alert has no business speaking in another household. Reach that hearth on purpose \u2014 choose it above, or use the Fleet composer's own button.\n\n*All three side by side, with every control, is what the [Fleet](/ember-hearth/fleet) view is for.*"
       }
      ]
     }
@@ -791,21 +2041,31 @@
       },
       {
        "type": "tile",
-       "entity": "stt.vosk",
-       "name": "vosk \u00b7 STT (Ember's ear)",
+       "entity": "stt.onnx_asr",
+       "name": "parakeet \u00b7 the live ear",
        "icon": "mdi:ear-hearing",
-       "color": "amber"
+       "color": "amber",
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "stt.vosk",
+       "name": "vosk \u00b7 parked",
+       "icon": "mdi:ear-hearing-off",
+       "color": "brown"
       },
       {
        "type": "tile",
        "entity": "stt.faster_whisper",
-       "name": "faster-whisper \u00b7 STT",
+       "name": "faster-whisper \u00b7 parked",
        "icon": "mdi:ear-hearing-off",
-       "color": "grey"
+       "color": "brown"
       },
       {
        "type": "tile",
-       "entity": "tts.piper",
+       "entity": "tts.piper_2",
        "name": "piper \u00b7 TTS (Ember's voice)",
        "icon": "mdi:account-voice",
        "color": "orange"
@@ -1613,6 +2873,125 @@
        "grid_options": {
         "columns": "full"
        }
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 3,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Say something, on any hearth",
+       "heading_style": "title",
+       "icon": "mdi:bullhorn"
+      },
+      {
+       "type": "entities",
+       "show_header_toggle": false,
+       "grid_options": {
+        "columns": "full"
+       },
+       "entities": [
+        {
+         "entity": "input_text.ember_say",
+         "name": "Type, then pick a hearth"
+        }
+       ]
+      },
+      {
+       "type": "button",
+       "name": "Speak \u00b7 desk",
+       "icon": "mdi:send",
+       "show_state": false,
+       "tap_action": {
+        "action": "perform-action",
+        "perform_action": "script.ember_say",
+        "data": {
+         "satellite": "assist_satellite.ember_satellite_assist_satellite"
+        }
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-gold); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-gold) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-gold); --state-icon-color:var(--em-gold);\n  --paper-item-icon-color:var(--em-gold); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-gold) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-gold); }\n"
+       }
+      },
+      {
+       "type": "button",
+       "name": "Speak \u00b7 mobile",
+       "icon": "mdi:send",
+       "show_state": false,
+       "tap_action": {
+        "action": "perform-action",
+        "perform_action": "script.ember_say",
+        "data": {
+         "satellite": "assist_satellite.ember_mobile_assist_satellite"
+        }
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-gold); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-gold) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-gold); --state-icon-color:var(--em-gold);\n  --paper-item-icon-color:var(--em-gold); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-gold) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-gold); }\n"
+       }
+      },
+      {
+       "type": "button",
+       "name": "Speak \u00b7 Dad's house",
+       "icon": "mdi:send",
+       "show_state": false,
+       "tap_action": {
+        "action": "perform-action",
+        "perform_action": "script.ember_say",
+        "data": {
+         "satellite": "assist_satellite.ember_dad_assist_satellite"
+        }
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-gold); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-gold) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-gold); --state-icon-color:var(--em-gold);\n  --paper-item-icon-color:var(--em-gold); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-gold) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-gold); }\n"
+       }
+      },
+      {
+       "type": "button",
+       "name": "Every hearth in the house",
+       "icon": "mdi:bullhorn-variant",
+       "show_state": false,
+       "tap_action": {
+        "action": "perform-action",
+        "perform_action": "script.ember_say",
+        "data": {
+         "satellite": "all"
+        }
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-gold); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-gold) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-gold); --state-icon-color:var(--em-gold);\n  --paper-item-icon-color:var(--em-gold); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-gold) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-gold); }\n"
+       }
+      },
+      {
+       "type": "conditional",
+       "conditions": [
+        {
+         "condition": "state",
+         "entity": "input_text.ember_say",
+         "state": ""
+        }
+       ],
+       "card": {
+        "type": "markdown",
+        "content": "*The box is empty, so **Speak it** will do nothing* \u2014 `script.ember_say` conditions on there being text and aborts quietly rather than announcing silence. Type something first.",
+        "grid_options": {
+         "columns": "full"
+        },
+        "card_mod": {
+         "style": {
+          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\nha-card { background:none; border:none; box-shadow:none; padding:0 6px; }\n",
+          "ha-markdown$": "p { margin:0; font-size:11.5px; line-height:1.7; color:var(--em-dim); }\ncode { color:var(--em-glow); background:none; font-size:11px; }\nstrong { color:var(--em-glow); }\nem { color:var(--em-gold); font-style:normal; }\n"
+         }
+        }
+       }
+      },
+      {
+       "type": "markdown",
+       "grid_options": {
+        "columns": "full"
+       },
+       "content": "**\u201cEvery hearth in the house\u201d does not reach Dad's** \u2014 and that is deliberate, not staleness. It fans out through `script.ember_announce_all`, whose callers are *house* automations (driveway herald, laundry watch); a 2 a.m. driveway alert has no business speaking in another household. Use **Speak \u00b7 Dad's house** to reach that hearth on purpose. *A fourth in-house board would belong in the fan-out; a second remote one would not.*\n\nThis is the **same `input_text.ember_say`** as the box on the Hearth view \u2014 one field, two places to use it, so text typed here appears there. The field-plus-button pairing exists because Lovelace `perform_action` data is **not** templated: a button cannot carry a text field's contents, only call something that reads it. 255 characters, `input_text`'s hard cap."
       }
      ]
     },
@@ -2863,21 +4242,31 @@
       },
       {
        "type": "tile",
-       "entity": "stt.vosk",
-       "name": "vosk",
+       "entity": "stt.onnx_asr",
+       "name": "parakeet \u00b7 the live ear",
        "icon": "mdi:ear-hearing",
-       "color": "amber"
+       "color": "amber",
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "stt.vosk",
+       "name": "vosk \u00b7 parked",
+       "icon": "mdi:ear-hearing-off",
+       "color": "brown"
       },
       {
        "type": "tile",
        "entity": "stt.faster_whisper",
-       "name": "faster-whisper",
-       "icon": "mdi:ear-hearing",
-       "color": "grey"
+       "name": "faster-whisper \u00b7 parked",
+       "icon": "mdi:ear-hearing-off",
+       "color": "brown"
       },
       {
        "type": "tile",
-       "entity": "tts.piper",
+       "entity": "tts.piper_2",
        "name": "piper",
        "icon": "mdi:account-voice",
        "color": "orange"

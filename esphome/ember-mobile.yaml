@@ -65,6 +65,9 @@ substitutions:
   # wrapper is expected to override.
   ota_password: !secret ota_password_mobile
 
+  # The chronicle's SPEAK button replays through THIS hearth, not the desk.
+  satellite_entity: assist_satellite.ember_mobile_assist_satellite
+
   # THIS BOARD HAS THE CELL. Turns on the whole battery ladder in the shared
   # config: the candle in the sigil band, the SOC computation, the guttering
   # chime at ${batt_low_pct}. The desk build keeps the default 0 and all of it
