@@ -41,10 +41,12 @@ package's. Keep it that way:
 > differ in hardware, put the difference behind a substitution in the shared file — not in a copy.
 > The repo already argues this about the paint body (issue #10).
 
-⛔ **The mobile cell has no protection IC.** Board fact, settled against
-`docs/vendor/ES3C28P_Schematic.pdf`: `BAT` goes straight to the cell, the regulator quits near
-3.4 V, and the level divider keeps draining ~9 µA to zero after that. A 1S protection strip is
-required equipment. Firmware cannot fix this — do not add a low-voltage cutoff and call it solved.
+⛔ **The board has no protection IC** (fact, per `docs/vendor/ES3C28P_Schematic.pdf`: `BAT`
+straight to the cell, regulator floor ~3.4 V, ~9 µA divider drain below it). ✅ **1S protection
+strips are FITTED on both battery boards** (mobile + dad, 2026-08-09). The strip is the floor;
+the on-screen candle + battery ladder are the early warning. Still binding: do not add a firmware
+low-voltage cutoff and call anything solved — firmware cannot protect a cell it is no longer
+powered by.
 
 ## Build and flash
 

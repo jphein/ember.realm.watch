@@ -34,14 +34,16 @@
 # On the desk unit it reads an absent divider and is meaningless; here it reads
 # the cell. Same binary, different truth.
 #
-# ⛔ THE CELL HAS NO PROTECTION IC — this is a board fact, settled against the
-# vendor schematic (docs/vendor/ES3C28P_Schematic.pdf), not a guess: BAT goes
-# straight to the cell, and the only floor is the regulator's dropout around
-# 3.4 V, after which the level divider keeps draining ~9 µA until the cell is
-# at zero and will not come back. A 1S protection strip is REQUIRED EQUIPMENT,
-# not a nicety. See README "The mobile variant" and docs/enclosure-mobile.md.
-#   >>> Do not add a low-voltage cutoff here and call the problem solved.
-#       Firmware cannot protect a cell it is no longer being powered by. <<<
+# THE BOARD HAS NO PROTECTION IC — board fact, settled against the vendor
+# schematic (docs/vendor/ES3C28P_Schematic.pdf): BAT goes straight to the cell,
+# the regulator's floor is ~3.4V, and the level divider drains ~9µA below it.
+# ✅ A 1S PROTECTION STRIP IS FITTED (JP, 2026-08-09 — both this board and
+# ember-dad's in the same session), which is the hardware answer that firmware
+# never could be. The candle + battery ladder remain the EARLY warning; the
+# strip is the floor under everything.
+#   >>> Still true and still binding: do not add a low-voltage cutoff here and
+#       call anything solved. Firmware cannot protect a cell it is no longer
+#       being powered by — the strip does that now. <<<
 #
 # FIRST FLASH MUST BE OVER USB. This board is 28:84:85:44:3E:C4 — same
 # production batch as the desk unit (28:84:85:44:59:20), which is precisely
