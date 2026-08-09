@@ -3067,6 +3067,11 @@ globals:
     type: uint32_t
     restore_value: no
     initial_value: '0'
+  # the help book's page (ui_mode 6)
+  - id: help_page
+    type: int
+    restore_value: no
+    initial_value: '0'
 
   # false while sound_level publishes NAN (mic not running, e.g. during TTS)
   - id: mic_live
@@ -3979,6 +3984,27 @@ display:
         const int MAXW = W - 12;
         const int SAID_LINES = ${said_lines};
         it.filled_rectangle(0, SCRL_Y, W, SCRL_H, c_bg);
+        // ---- the tome — the chronicle's door, drawn (2026-08-09) ----
+        // JP: "i need a touch target magical icon for the chronicle". A little
+        // closed book, top-right of the transcript band — the transcript IS one
+        // page of the chronicle, so its corner is where the whole book lives.
+        // Bare-screen exception #3, same licence as the horn and the chip: a
+        // visible drawn control, hit zone in on_touch shares these coordinates.
+        // Drawn AFTER the band erase and BEFORE the text so a long heard-line
+        // slides under it rather than through it.
+        {
+          const int bx = 214, by = SCRL_Y + 6;      // book: 18x22
+          it.filled_rectangle(bx, by, 18, 22, c_bed);          // cover
+          it.filled_rectangle(bx + 2, by + 2, 14, 18, c_bg);   // page block
+          it.filled_rectangle(bx + 8, by, 2, 22, c_bed);       // the spine
+          it.horizontal_line(bx + 3, by + 6, 4, c_dim);        // script lines
+          it.horizontal_line(bx + 3, by + 10, 4, c_dim);
+          it.horizontal_line(bx + 11, by + 6, 4, c_dim);
+          it.horizontal_line(bx + 11, by + 10, 4, c_dim);
+          it.draw_pixel_at(bx + 16, by - 2, c_gold);           // the magic: a
+          it.draw_pixel_at(bx + 19, by + 1, c_gold);           // scatter of
+          it.draw_pixel_at(bx + 21, by - 1, c_tip);            // sparks rising
+        }
         // A pushed announcement answers nothing, so captioning it "heard: -" would
         // be a small lie. Label the provenance instead.
         if (id(is_announce)) {
@@ -4458,8 +4484,15 @@ display:
           // the chain below — a fallback can't be chained past, so the power
           // menu now names its mode like every other branch.
           it.print(6, OY + 4, id(font_hdr), c_gold, "THE HEARTH");
-          it.print(W - 6, OY + 9, id(font_sm), c_dim,
+          it.print(W - 34, OY + 9, id(font_sm), c_dim,
                    display::TextAlign::TOP_RIGHT, "tap away to leave");
+          // The help badge (2026-08-09, JP: "a help screen in the boot menu").
+          // A drawn, tappable ? in the title strip — the one place every user
+          // already visits. Hit zone in the mode-2 touch test, same pairing
+          // rule as every drawn control.
+          it.circle(W - 17, OY + 14, 11, c_gold);
+          it.print(W - 17, OY + 6, id(font_body), c_gold,
+                   display::TextAlign::TOP_CENTER, "?");
 
           // Order is least-destructive-first, deliberately: the BOOT-only path
           // advances a cursor through these in order, so "Rekindle" is last and
@@ -4620,6 +4653,112 @@ display:
                      display::TextAlign::TOP_RIGHT,
                      playing ? "speaking..." : "speak >");
           }
+        } else if (id(ui_mode) == 6) {
+          // ---- THE HELP BOOK (JP: "all teh sweet features and guides iwth
+          // little screenshoits and stuff") ----
+          // The "screenshots" are drawn miniatures — the device cannot capture
+          // its own framebuffer, but every feature's glyph can be redrawn small
+          // and true, which beats a bitmap that goes stale the day the real
+          // screen changes. Five pages, corner-paged like the chronicle,
+          // tap-away returns to the power menu it came from.
+          it.filled_rectangle(0, OY, W, SCRL_H + FLAM_H, c_bg);
+          const int hp = id(help_page);
+          it.printf(W - 6, OY + 2, id(font_sm), c_ash,
+                    display::TextAlign::TOP_RIGHT, "%d/5", hp + 1);
+          if (hp == 0) {
+            it.print(6, OY + 2, id(font_sm), c_gold, "speaking with ember");
+            it.print(6, OY + 24, id(font_body), c_ink, "tap anywhere on the fire");
+            it.print(6, OY + 44, id(font_body), c_ink, "or say \"okay nabu\"");
+            // a mini hearth: coals and two flames
+            it.filled_rectangle(60, OY + 96, 120, 8, c_bed);
+            it.filled_rectangle(88, OY + 78, 10, 18, c_ember);
+            it.filled_rectangle(120, OY + 70, 12, 26, c_amber);
+            it.draw_pixel_at(125, OY + 66, c_gold);
+            it.print(120, OY + 116, id(font_sm), c_dim,
+                     display::TextAlign::TOP_CENTER, "the fire is her face:");
+            it.print(120, OY + 132, id(font_sm), c_dim,
+                     display::TextAlign::TOP_CENTER, "amber listens, gold speaks,");
+            it.print(120, OY + 148, id(font_sm), c_dim,
+                     display::TextAlign::TOP_CENTER, "banked means asleep");
+          } else if (hp == 1) {
+            it.print(6, OY + 2, id(font_sm), c_gold, "the mode chip");
+            it.print(6, OY + 24, id(font_body), c_ink, "tap the hex, top-left,");
+            it.print(6, OY + 44, id(font_body), c_ink, "to cycle her voice:");
+            // three mini flat-top hexes: full / half / empty
+            const char *lbl[3] = {"speaks", "screen only", "hush"};
+            for (int m = 0; m < 3; m++) {
+              const int cx2 = 50 + m * 70, cy2 = OY + 96, R2 = 12;
+              const int H2 = (R2 * 866) / 1000;
+              for (int dy = -H2; dy <= H2; dy++) {
+                const int a = dy < 0 ? -dy : dy;
+                const int hw = R2 - (a * 1000) / 1732;
+                if (hw <= 0) continue;
+                const bool fill = (m == 0) || (m == 1 && dy >= 0);
+                if (fill) it.horizontal_line(cx2 - hw, cy2 + dy, hw * 2 + 1, c_gold);
+                else if (a >= R2 - 1 || hw <= 2)
+                  it.horizontal_line(cx2 - hw, cy2 + dy, hw * 2 + 1, c_dim);
+              }
+              it.print(cx2, cy2 + 22, id(font_sm), c_dim,
+                       display::TextAlign::TOP_CENTER, lbl[m]);
+            }
+            it.print(120, OY + 150, id(font_sm), c_ash,
+                     display::TextAlign::TOP_CENTER, "she always listens; the fill");
+            it.print(120, OY + 166, id(font_sm), c_ash,
+                     display::TextAlign::TOP_CENTER, "is what leaves the speaker");
+          } else if (hp == 2) {
+            it.print(6, OY + 2, id(font_sm), c_gold, "the chronicle");
+            it.print(6, OY + 24, id(font_body), c_ink, "double-click the button, or");
+            it.print(6, OY + 44, id(font_body), c_ink, "tap the little book, top-right");
+            // legend: the three glyphs, exactly as the list draws them
+            it.circle(16, OY + 84, 6, c_dim);
+            it.filled_rectangle(17, OY + 77, 8, 15, c_bg);
+            it.filled_rectangle(16, OY + 82, 2, 5, c_dim);
+            it.print(34, OY + 76, id(font_sm), c_ink, "heard - your words");
+            it.horizontal_line(12, OY + 112, 9, c_amber);
+            it.horizontal_line(14, OY + 108, 6, c_amber);
+            it.horizontal_line(16, OY + 104, 2, c_gold);
+            it.print(34, OY + 100, id(font_sm), c_ink, "said - her words");
+            it.horizontal_line(11, OY + 132, 4, c_dim);
+            it.horizontal_line(15, OY + 130, 3, c_dim);
+            it.horizontal_line(15, OY + 134, 3, c_dim);
+            it.print(34, OY + 124, id(font_sm), c_ink, "horn - the house spoke");
+            it.print(6, OY + 156, id(font_sm), c_ash, "open one and tap speak: she");
+            it.print(6, OY + 172, id(font_sm), c_ash, "says it again, lighting each");
+            it.print(6, OY + 188, id(font_sm), c_ash, "word gold as she passes");
+          } else if (hp == 3) {
+            it.print(6, OY + 2, id(font_sm), c_gold, "the horn & the candle");
+            it.print(6, OY + 24, id(font_body), c_ink, "horn, bottom-right corner:");
+            it.print(6, OY + 44, id(font_body), c_ink, "call the other hearths");
+            it.horizontal_line(30, OY + 78, 6, c_dim);
+            it.horizontal_line(36, OY + 75, 4, c_dim);
+            it.horizontal_line(36, OY + 81, 4, c_dim);
+            it.horizontal_line(40, OY + 72, 3, c_gold);
+            it.horizontal_line(40, OY + 84, 3, c_gold);
+            it.print(6, OY + 108, id(font_body), c_ink, "candle, top-right (mobile):");
+            it.print(6, OY + 128, id(font_body), c_ink, "the wax is the battery");
+            it.filled_rectangle(34, OY + 158, 7, 12, c_dim);
+            it.horizontal_line(34, OY + 158, 7, c_ash);
+            it.filled_rectangle(37, OY + 152, 1, 4, c_ink);
+            it.filled_rectangle(36, OY + 146, 3, 4, c_amber);
+            it.draw_pixel_at(37, OY + 143, c_gold);
+            it.print(60, OY + 150, id(font_sm), c_dim, "guttering flame = low;");
+            it.print(60, OY + 166, id(font_sm), c_dim, "she'll chime, then call out");
+          } else {
+            it.print(6, OY + 2, id(font_sm), c_gold, "the button");
+            it.print(6, OY + 28, id(font_body), c_ink, "click: volume overlay");
+            it.print(6, OY + 52, id(font_body), c_ink, "click click: the chronicle");
+            it.print(6, OY + 76, id(font_body), c_ink, "hold: this menu");
+            it.print(6, OY + 108, id(font_sm), c_dim, "inside any page, a click steps");
+            it.print(6, OY + 124, id(font_sm), c_dim, "back and a hold leaves outright");
+            it.print(6, OY + 156, id(font_sm), c_ash, "everything here works with the");
+            it.print(6, OY + 172, id(font_sm), c_ash, "button alone - if the glass ever");
+            it.print(6, OY + 188, id(font_sm), c_ash, "stops hearing your finger, the");
+            it.print(6, OY + 204, id(font_sm), c_ash, "button is the way home");
+          }
+          it.filled_rectangle(0, 233, W, 1, c_ash);
+          if (hp > 0) it.print(6, 240, id(font_body), c_dim, "< prev");
+          if (hp < 4) it.print(W - 6, 240, id(font_body), c_dim,
+                               display::TextAlign::TOP_RIGHT, "next >");
         }
       };
 
@@ -6177,6 +6316,15 @@ touchscreen:
           }
 
           if (id(ui_mode) == 2) {
+            // The ? badge in the title strip opens the help book (ui_mode 6).
+            // Corner-anchored top-right, 44x40 zone around the drawn circle.
+            if (tx >= 196 && ty < ${ui_pm_iy}) {
+              id(help_page) = 0;
+              id(ui_mode) = 6;
+              id(ui_action) = 0;
+              id(ui_gen)++;
+              return;
+            }
             // power menu: rows activate directly on tap (the ui_sel cursor is only
             // for the button-only path), else tap-away to dismiss.
             //
@@ -6243,6 +6391,22 @@ touchscreen:
             return;
           }
 
+          if (id(ui_mode) == 6) {
+            // The help book: bottom corners page, anywhere else closes back to
+            // the power menu (you came from its title, you land back on it).
+            if (ty >= 234) {
+              id(help_page) += (tx < 120) ? -1 : 1;
+              if (id(help_page) < 0) id(help_page) = 0;
+              if (id(help_page) > 4) id(help_page) = 4;
+            } else {
+              id(ui_mode) = 2;
+              id(ui_sel) = -1;
+            }
+            id(ui_action) = 0;
+            id(ui_gen)++;
+            return;
+          }
+
           if (id(ui_mode) == 5) {
             // The chronicle detail: bottom bar is back (left third) and SPEAK
             // (right two thirds — the control you came for gets the bigger
@@ -6259,6 +6423,20 @@ touchscreen:
 
           // Any touch clears the unread marker: you are demonstrably in the room.
           if (id(unread)) { id(unread) = false; id(ui_gen)++; }
+
+          // The tome — bare-screen exception #3: the chronicle's drawn door,
+          // top-right of the transcript. Zone is wider than the glyph (44x40,
+          // corner-anchored top-right) for the same bezel-lip reason the horn
+          // grew leftward. Same open as the double-click, one finger instead
+          // of two presses.
+          if (tx >= 196 && ty >= 32 && ty < 72) {
+            id(chron_page) = 0;
+            id(chron_sel) = -1;
+            id(ui_mode) = 4;
+            id(ui_action) = 0;
+            id(ui_gen)++;
+            return;
+          }
 
           // The mode chip — bare-screen exception #2 (2026-08-09, JP: "we need
           // a hush sigil on front screen"). Same licence as the horn: a VISIBLE
