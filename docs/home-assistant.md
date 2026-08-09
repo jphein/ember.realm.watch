@@ -278,8 +278,23 @@ print(sorted(i.replace('<new>','X') for i in e if '<new>' in i))"
    breaks silently when the default moves. If the board is **in this house**, it also
    needs its own branch in `script.ember_announce_all`, or *"every hearth in the house"*
    will quietly skip it (that script is package-side — `deploy-ha.sh ember_announce`).
-7. Update the Fleet banner count (it counts the M5Stack and the assist microphone too),
+7. **Add it to the Hearth chooser.** That page follows `input_select.ember_say_target`,
+   which is also what `script.ember_say` resolves against — one selector, so the hearth
+   you are looking at is the hearth that answers. A new board needs **one option** on the
+   input_select (package-side) and **one line in the hero's `map`**; then stamp its
+   Output / Input / Assist sections with `visibility` keyed on the new option. Tiles
+   cannot be templated, so they must be stamped — **markdown can**, so the hero and all
+   prose stay a single copy that resolves the chooser itself. Do not triplicate prose.
+8. Update the Fleet banner count (it counts the M5Stack and the assist microphone too),
    then `build_ember_dashboard.py` and `check_dashboard_deployed.py`.
+
+> **The hero's pipeline table is a SNAPSHOT — re-measure it, don't copy it forward.**
+> `assist_pipeline/pipeline/list` over the WebSocket API is the source. It has gone stale
+> twice: once when vosk gave way to `stt.onnx_asr` (`8ec2aea`) and again when piper moved
+> to `familiar` (`eccf8c7`). As of 2026-08-09 every pipeline except the stock
+> *Home Assistant* one runs `stt.onnx_asr` + `tts.piper_2`, and `preferred` resolves to
+> `familiar-ember`. Note that **`Gemini-vosk-piper-donkee` has not used vosk for weeks** —
+> the name is identity and keeps it, so read the row and not the label.
 
 > ⚠️ **Ghost-check after an HA restart, not just after an edit.** A replaced entity keeps
 > existing in the state machine until the core restarts, so a check run against a live HA
