@@ -399,6 +399,15 @@ at each stage.
 | Conversation agent | `conversation.extended_openai_conversation_2` — *Ember* |
 | Language / conversation language | `en` |
 | STT | `stt.onnx_asr` (`en`) — Parakeet via Wyoming at `familiar.lan:10300` |
+
+> **A second pipeline exists: `jp-ember`** (2026-08-09) — identical to `familiar-ember` in
+> every stage except the voice: **`en_GB-jp-medium`**, JP's own cloned voice (tonemask
+> Phase-1 dataset, piper fine-tune from the cori-medium checkpoint; ~6.7 min of training
+> audio, interim quality by JP's own verdict — "much better, still a bit to go"). The
+> voice file lives on `familiar` at `/opt/wyoming-piper/data/en_GB-jp-medium.onnx*`;
+> the training lane and export patches are documented in the tonemask repo. Flip any
+> hearth between voices with its `select.ember_*_assistant` — announcements follow the
+> selected pipeline's voice, including the chronicle's SPEAK replays.
 | TTS | `tts.piper_2` (familiar via Wyoming), language `en_GB`, voice **`en_GB-cori-high`** |
 | Wake word entity | `wake_word.openwakeword` (`wake_word_id: null`) |
 | **`prefer_local_intents`** | **`true`** |
