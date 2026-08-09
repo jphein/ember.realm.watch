@@ -198,13 +198,40 @@ script:
   # Speak whatever is in input_text.ember_say. Exists because Lovelace's
   # perform_action data is not templated, so a dashboard button cannot pass a
   # text field's value — it can only call a script that reads it.
+  #
+  # 2026-08-09: grew a `satellite` field for the Fleet composer (three hearths
+  # now, three more coming). No caller passed one before, and the default is
+  # unchanged (empty -> ember_announce's own desk default), so pre-existing
+  # buttons behave identically. The one special value: satellite = "all"
+  # fans out via ember_announce_all — which is EVERY HEARTH IN THIS HOUSE,
+  # deliberately excluding Dad's (see that script's comment for the why).
   ember_say:
     alias: Ember - say the text field
     mode: queued
     max: 5
+    fields:
+      satellite:
+        name: Satellite
+        description: >
+          Which hearth speaks the text field. Empty = the desk unit (what
+          every pre-existing caller expects). "all" = every hearth in the
+          house via ember_announce_all (Dad's is deliberately not included).
+        required: false
+        selector:
+          entity:
+            domain: assist_satellite
     sequence:
       - condition: template
         value_template: "{{ states('input_text.ember_say') | trim not in ['', 'unknown', 'unavailable'] }}"
-      - action: script.ember_announce
-        data:
-          message: "{{ states('input_text.ember_say') }}"
+      - if:
+          - condition: template
+            value_template: "{{ satellite | default('', true) == 'all' }}"
+        then:
+          - action: script.ember_announce_all
+            data:
+              message: "{{ states('input_text.ember_say') }}"
+        else:
+          - action: script.ember_announce
+            data:
+              message: "{{ states('input_text.ember_say') }}"
+              satellite: "{{ satellite | default('', true) }}"
