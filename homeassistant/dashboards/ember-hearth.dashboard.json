@@ -42,12 +42,6 @@
      "entity": "switch.ember_satellite_speaker_amplifier",
      "name": "Amp",
      "color": "red"
-    },
-    {
-     "type": "entity",
-     "entity": "sensor.ember_satellite_battery_voltage",
-     "name": "Cell",
-     "color": "yellow"
     }
    ],
    "sections": [
@@ -652,7 +646,11 @@
         "action": "perform-action",
         "perform_action": "select.select_option",
         "target": {
-         "entity_id": "select.ember_satellite_assistant"
+         "entity_id": [
+          "select.ember_satellite_assistant",
+          "select.ember_mobile_assistant",
+          "select.ember_dad_assistant"
+         ]
         },
         "data": {
          "option": "familiar-ember"
@@ -671,7 +669,11 @@
         "action": "perform-action",
         "perform_action": "select.select_option",
         "target": {
-         "entity_id": "select.ember_satellite_assistant"
+         "entity_id": [
+          "select.ember_satellite_assistant",
+          "select.ember_mobile_assistant",
+          "select.ember_dad_assistant"
+         ]
         },
         "data": {
          "option": "claude-donkee"
@@ -684,7 +686,37 @@
       {
        "type": "tile",
        "entity": "select.ember_satellite_assistant",
-       "name": "Active Pipeline",
+       "name": "Pipeline \u00b7 desk",
+       "icon": "mdi:transit-connection-variant",
+       "color": "orange",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_mobile_assistant",
+       "name": "Pipeline \u00b7 mobile",
+       "icon": "mdi:transit-connection-variant",
+       "color": "orange",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_dad_assistant",
+       "name": "Pipeline \u00b7 Dad's house",
        "icon": "mdi:transit-connection-variant",
        "color": "orange",
        "features": [
@@ -865,7 +897,7 @@
      "cards": [
       {
        "type": "heading",
-       "heading": "Ear \u00b7 sound level, last hour",
+       "heading": "Ear \u00b7 sound level, last hour \u00b7 all hearths",
        "heading_style": "title",
        "icon": "mdi:waveform"
       },
@@ -879,11 +911,27 @@
        "entities": [
         {
          "entity": "sensor.ember_satellite_mic_rms",
-         "name": "RMS"
+         "name": "RMS \u00b7 desk"
         },
         {
          "entity": "sensor.ember_satellite_mic_peak",
-         "name": "Peak"
+         "name": "Peak \u00b7 desk"
+        },
+        {
+         "entity": "sensor.ember_mobile_mic_rms",
+         "name": "RMS \u00b7 mobile"
+        },
+        {
+         "entity": "sensor.ember_mobile_mic_peak",
+         "name": "Peak \u00b7 mobile"
+        },
+        {
+         "entity": "sensor.ember_dad_mic_rms",
+         "name": "RMS \u00b7 Dad's house"
+        },
+        {
+         "entity": "sensor.ember_dad_mic_peak",
+         "name": "Peak \u00b7 Dad's house"
         }
        ]
       },
@@ -908,7 +956,7 @@
      "cards": [
       {
        "type": "heading",
-       "heading": "Coals \u00b7 battery",
+       "heading": "Coals \u00b7 the mobile cell",
        "heading_style": "subtitle",
        "icon": "mdi:battery-charging-medium"
       },
@@ -921,15 +969,19 @@
        },
        "entities": [
         {
-         "entity": "sensor.ember_satellite_battery_voltage",
+         "entity": "sensor.ember_mobile_battery_soc",
+         "name": "Cell charge"
+        },
+        {
+         "entity": "sensor.ember_mobile_battery_voltage",
          "name": "Cell voltage"
         }
        ]
       },
       {
        "type": "tile",
-       "entity": "sensor.ember_satellite_battery_voltage",
-       "name": "Battery Voltage",
+       "entity": "sensor.ember_mobile_battery_voltage",
+       "name": "Cell voltage \u00b7 mobile",
        "icon": "mdi:battery-charging-medium",
        "color": "yellow",
        "grid_options": {
@@ -944,18 +996,30 @@
      "cards": [
       {
        "type": "heading",
-       "heading": "Cell level",
+       "heading": "Cell level \u00b7 mobile",
        "heading_style": "subtitle",
        "icon": "mdi:battery-heart-variant"
       },
       {
        "type": "gauge",
-       "entity": "sensor.ember_satellite_battery_voltage",
-       "name": "LiPo",
-       "unit": "V",
-       "min": 3.2,
-       "max": 4.25,
-       "needle": true
+       "entity": "sensor.ember_mobile_battery_soc",
+       "name": "18650",
+       "unit": "%",
+       "min": 0,
+       "max": 100,
+       "needle": true,
+       "severity": {
+        "green": 40,
+        "yellow": 20,
+        "red": 0
+       }
+      },
+      {
+       "type": "markdown",
+       "content": "**Only the mobile board has a cell.** `sensor.ember_satellite_battery_voltage` and `sensor.ember_dad_battery_voltage` exist \u2014 the GPIO9 ADC is unconditional in the shared firmware \u2014 but on a mains board they read an *absent divider*. They sit around **4.1 V**, which looks exactly like a healthy lithium cell and is not one.\n\n\u26a0 *They are deliberately not charted here, and were removed from this view on 2026-08-09.* The firmware already refuses to expose SOC on a cell-less board for this reason (see `esphome/ember-mobile.yaml`); this view now agrees with it. **Do not \u201crestore\u201d them.**",
+       "grid_options": {
+        "columns": "full"
+       }
       }
      ]
     },
@@ -965,7 +1029,7 @@
      "cards": [
       {
        "type": "heading",
-       "heading": "Speech liveness \u00b7 frames pushed to the DAC",
+       "heading": "Speech liveness \u00b7 frames pushed to the DAC \u00b7 all hearths",
        "heading_style": "subtitle",
        "icon": "mdi:waveform"
       },
@@ -979,7 +1043,15 @@
        "entities": [
         {
          "entity": "sensor.ember_satellite_speaker_frames",
-         "name": "Speaker frames"
+         "name": "Frames \u00b7 desk"
+        },
+        {
+         "entity": "sensor.ember_mobile_speaker_frames",
+         "name": "Frames \u00b7 mobile"
+        },
+        {
+         "entity": "sensor.ember_dad_speaker_frames",
+         "name": "Frames \u00b7 Dad's house"
         }
        ]
       },
@@ -1259,6 +1331,40 @@
        }
       },
       {
+       "type": "button",
+       "name": "Speak \u00b7 mobile",
+       "icon": "mdi:bullhorn-outline",
+       "show_state": false,
+       "tap_action": {
+        "action": "perform-action",
+        "perform_action": "script.ember_announce",
+        "data": {
+         "message": "This is the portable hearth, and I am lit.",
+         "satellite": "assist_satellite.ember_mobile_assist_satellite"
+        }
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-coal); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-coal) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-coal); --state-icon-color:var(--em-coal);\n  --paper-item-icon-color:var(--em-coal); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-coal) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-coal); }\n"
+       }
+      },
+      {
+       "type": "button",
+       "name": "Speak \u00b7 Dad's house",
+       "icon": "mdi:bullhorn-outline",
+       "show_state": false,
+       "tap_action": {
+        "action": "perform-action",
+        "perform_action": "script.ember_announce",
+        "data": {
+         "message": "This is the hearth at Dad's house, and I am lit.",
+         "satellite": "assist_satellite.ember_dad_assist_satellite"
+        }
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--em-coal); border-radius:10px;\n  background:linear-gradient(160deg,\n    color-mix(in srgb, var(--em-coal) 12%, var(--card-background-color)) 0%,\n    var(--card-background-color) 70%);\n  --card-mod-icon-color:var(--em-coal); --state-icon-color:var(--em-coal);\n  --paper-item-icon-color:var(--em-coal); }\nha-card:hover { box-shadow:0 0 18px color-mix(in srgb, var(--em-coal) 45%, transparent); }\nha-icon, ha-svg-icon, ha-state-icon { color:var(--em-coal); }\n"
+       }
+      },
+      {
        "type": "markdown",
        "content": "`ember_announce_if_awake` speaks only when the local lane is reachable, and otherwise logs the skip rather than announcing into a void. Pressing this while `Reachability` above reads *serving* should speak; with familiar asleep it should stay silent and leave a warning in the log.",
        "grid_options": {
@@ -1446,7 +1552,7 @@
         },
         {
          "entity": "sensor.ember_satellite_battery_voltage",
-         "name": "Battery voltage"
+         "name": "Battery voltage (no cell on this board \u2014 floating pin)"
         }
        ]
       },
@@ -1486,7 +1592,7 @@
      "cards": [
       {
        "type": "heading",
-       "heading": "Three ears in the house",
+       "heading": "Five ears in the house",
        "heading_style": "title",
        "icon": "mdi:account-group"
       },
@@ -1509,9 +1615,15 @@
      "cards": [
       {
        "type": "heading",
-       "heading": "Ember \u00b7 Hosyond S3",
-       "heading_style": "subtitle",
+       "heading": "Ember \u00b7 desk \u00b7 Hosyond S3",
+       "heading_style": "title",
        "icon": "mdi:fireplace"
+      },
+      {
+       "type": "heading",
+       "heading": "Assist",
+       "heading_style": "subtitle",
+       "icon": "mdi:message-processing-outline"
       },
       {
        "type": "tile",
@@ -1552,8 +1664,88 @@
       },
       {
        "type": "tile",
+       "entity": "select.ember_satellite_ember_mode",
+       "name": "Mode \u00b7 how much noise it may make",
+       "icon": "mdi:hexagon-multiple",
+       "color": "amber",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "switch.ember_satellite_hush",
+       "name": "Hush",
+       "icon": "mdi:volume-off",
+       "color": "red",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_satellite_wake_word",
+       "name": "Wake word",
+       "icon": "mdi:account-voice",
+       "color": "amber",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_satellite_wake_word_2",
+       "name": "Wake word \u00b7 slot 2",
+       "icon": "mdi:account-voice",
+       "color": "brown",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_satellite_finished_speaking_detection",
+       "name": "Finished-speaking",
+       "color": "brown",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "heading",
+       "heading": "Voice out",
+       "heading_style": "subtitle",
+       "icon": "mdi:volume-high"
+      },
+      {
+       "type": "tile",
        "entity": "number.ember_satellite_speaker_volume",
-       "name": "Volume",
+       "name": "Output level \u00b7 es8311 DAC",
        "icon": "mdi:volume-high",
        "color": "deep-orange",
        "features": [
@@ -1579,19 +1771,253 @@
       },
       {
        "type": "tile",
-       "entity": "select.ember_satellite_ember_mode",
-       "name": "Mode \u00b7 how much noise Ember may make",
+       "entity": "sensor.ember_satellite_speaker_frames",
+       "name": "Frames",
+       "icon": "mdi:waveform",
+       "color": "brown"
+      },
+      {
+       "type": "tile",
+       "entity": "media_player.ember_satellite_ember_speaker",
+       "name": "Announce pipeline",
+       "icon": "mdi:bullhorn-outline",
+       "color": "brown",
+       "features": [
+        {
+         "type": "media-player-volume-slider"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "number.ember_satellite_amp_blank_width",
+       "name": "Amp blank width",
+       "icon": "mdi:timer-sand",
+       "color": "brown",
+       "features": [
+        {
+         "type": "numeric-input",
+         "style": "box"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "heading",
+       "heading": "Ear",
+       "heading_style": "subtitle",
+       "icon": "mdi:microphone"
+      },
+      {
+       "type": "tile",
+       "entity": "number.ember_satellite_mic_gain",
+       "name": "Mic gain",
+       "icon": "mdi:microphone-settings",
+       "color": "amber",
+       "features": [
+        {
+         "type": "numeric-input",
+         "style": "slider"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "sensor.ember_satellite_mic_gain_codec",
+       "name": "Gain \u00b7 codec readback",
+       "icon": "mdi:chip",
+       "color": "brown"
+      },
+      {
+       "type": "tile",
+       "entity": "binary_sensor.ember_satellite_mic_gain_desync",
+       "name": "Gain desync",
+       "icon": "mdi:alert-outline",
+       "color": "red"
+      },
+      {
+       "type": "tile",
+       "entity": "sensor.ember_satellite_mic_rms",
+       "name": "RMS",
+       "icon": "mdi:waveform",
+       "color": "amber"
+      },
+      {
+       "type": "tile",
+       "entity": "sensor.ember_satellite_mic_peak",
+       "name": "Peak",
+       "icon": "mdi:pulse",
+       "color": "amber"
+      },
+      {
+       "type": "heading",
+       "heading": "The glass",
+       "heading_style": "subtitle",
+       "icon": "mdi:television-shimmer"
+      },
+      {
+       "type": "tile",
+       "entity": "light.ember_satellite_backlight",
+       "name": "Backlight",
+       "icon": "mdi:brightness-6",
+       "color": "amber",
+       "features": [
+        {
+         "type": "light-brightness"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "light.ember_satellite_status_led",
+       "name": "Status LED",
+       "icon": "mdi:led-on",
+       "color": "orange",
+       "features": [
+        {
+         "type": "light-brightness"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "switch.ember_satellite_daylight_hearth",
+       "name": "Daylight hearth",
+       "icon": "mdi:white-balance-sunny",
+       "color": "amber",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "heading",
+       "heading": "Levers",
+       "heading_style": "subtitle",
+       "icon": "mdi:wrench-outline"
+      },
+      {
+       "type": "tile",
+       "entity": "button.ember_satellite_rouse_touch_sensor",
+       "name": "Rouse touch",
+       "icon": "mdi:gesture-tap",
+       "color": "brown"
+      },
+      {
+       "type": "tile",
+       "entity": "button.ember_satellite_restart",
+       "name": "Restart",
+       "icon": "mdi:restart",
+       "color": "red"
+      },
+      {
+       "type": "tile",
+       "entity": "binary_sensor.ember_satellite_boot_button",
+       "name": "BOOT button",
+       "icon": "mdi:gesture-tap-button",
+       "color": "brown"
+      },
+      {
+       "type": "tile",
+       "entity": "event.ember_satellite_intercom",
+       "name": "Intercom",
+       "icon": "mdi:bullhorn-variant-outline",
+       "color": "brown",
+       "grid_options": {
+        "columns": "full"
+       }
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 1,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Ember \u00b7 mobile \u00b7 Hosyond S3 + 18650",
+       "heading_style": "title",
+       "icon": "mdi:fire"
+      },
+      {
+       "type": "heading",
+       "heading": "Assist",
+       "heading_style": "subtitle",
+       "icon": "mdi:message-processing-outline"
+      },
+      {
+       "type": "tile",
+       "entity": "assist_satellite.ember_mobile_assist_satellite",
+       "name": "State",
+       "icon": "mdi:fireplace",
+       "color": "amber"
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_mobile_assistant",
+       "name": "Pipeline",
+       "color": "orange",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "binary_sensor.ember_reachable",
+       "name": "Local lane",
+       "icon": "mdi:heart-pulse",
+       "color": "amber",
+       "state_content": [
+        "detail"
+       ],
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card {\n  --tile-color: {{ 'var(--em-gold)' if is_state('binary_sensor.ember_reachable', 'on')\n    else 'var(--em-alarm)' }};\n  border:1px solid {{ 'transparent' if is_state('binary_sensor.ember_reachable', 'on')\n    else 'var(--em-alarm)' }}; }\n"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_mobile_ember_mode",
+       "name": "Mode \u00b7 how much noise it may make",
        "icon": "mdi:hexagon-multiple",
        "color": "amber",
        "features": [
         {
          "type": "select-options"
         }
-       ]
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
       },
       {
        "type": "tile",
-       "entity": "switch.ember_satellite_hush",
+       "entity": "switch.ember_mobile_hush",
        "name": "Hush",
        "icon": "mdi:volume-off",
        "color": "red",
@@ -1606,7 +2032,37 @@
       },
       {
        "type": "tile",
-       "entity": "select.ember_satellite_finished_speaking_detection",
+       "entity": "select.ember_mobile_wake_word",
+       "name": "Wake word",
+       "icon": "mdi:account-voice",
+       "color": "amber",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_mobile_wake_word_2",
+       "name": "Wake word \u00b7 slot 2",
+       "icon": "mdi:account-voice",
+       "color": "brown",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_mobile_finished_speaking_detection",
        "name": "Finished-speaking",
        "color": "brown",
        "features": [
@@ -1614,6 +2070,579 @@
          "type": "select-options"
         }
        ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "heading",
+       "heading": "Cell",
+       "heading_style": "subtitle",
+       "icon": "mdi:battery-heart-variant"
+      },
+      {
+       "type": "tile",
+       "entity": "sensor.ember_mobile_battery_soc",
+       "name": "Charge",
+       "icon": "mdi:battery-heart-variant",
+       "color": "yellow",
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "sensor.ember_mobile_battery_voltage",
+       "name": "Cell voltage",
+       "icon": "mdi:flash-outline",
+       "color": "yellow",
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "heading",
+       "heading": "Voice out",
+       "heading_style": "subtitle",
+       "icon": "mdi:volume-high"
+      },
+      {
+       "type": "tile",
+       "entity": "number.ember_mobile_speaker_volume",
+       "name": "Output level \u00b7 es8311 DAC",
+       "icon": "mdi:volume-high",
+       "color": "deep-orange",
+       "features": [
+        {
+         "type": "numeric-input",
+         "style": "slider"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "switch.ember_mobile_speaker_amplifier",
+       "name": "Amplifier",
+       "color": "red",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ]
+      },
+      {
+       "type": "tile",
+       "entity": "sensor.ember_mobile_speaker_frames",
+       "name": "Frames",
+       "icon": "mdi:waveform",
+       "color": "brown"
+      },
+      {
+       "type": "tile",
+       "entity": "media_player.ember_mobile_ember_speaker",
+       "name": "Announce pipeline",
+       "icon": "mdi:bullhorn-outline",
+       "color": "brown",
+       "features": [
+        {
+         "type": "media-player-volume-slider"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "number.ember_mobile_amp_blank_width",
+       "name": "Amp blank width",
+       "icon": "mdi:timer-sand",
+       "color": "brown",
+       "features": [
+        {
+         "type": "numeric-input",
+         "style": "box"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "heading",
+       "heading": "Ear",
+       "heading_style": "subtitle",
+       "icon": "mdi:microphone"
+      },
+      {
+       "type": "tile",
+       "entity": "number.ember_mobile_mic_gain",
+       "name": "Mic gain",
+       "icon": "mdi:microphone-settings",
+       "color": "amber",
+       "features": [
+        {
+         "type": "numeric-input",
+         "style": "slider"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "sensor.ember_mobile_mic_gain_codec",
+       "name": "Gain \u00b7 codec readback",
+       "icon": "mdi:chip",
+       "color": "brown"
+      },
+      {
+       "type": "tile",
+       "entity": "binary_sensor.ember_mobile_mic_gain_desync",
+       "name": "Gain desync",
+       "icon": "mdi:alert-outline",
+       "color": "red"
+      },
+      {
+       "type": "tile",
+       "entity": "sensor.ember_mobile_mic_rms",
+       "name": "RMS",
+       "icon": "mdi:waveform",
+       "color": "amber"
+      },
+      {
+       "type": "tile",
+       "entity": "sensor.ember_mobile_mic_peak",
+       "name": "Peak",
+       "icon": "mdi:pulse",
+       "color": "amber"
+      },
+      {
+       "type": "heading",
+       "heading": "The glass",
+       "heading_style": "subtitle",
+       "icon": "mdi:television-shimmer"
+      },
+      {
+       "type": "tile",
+       "entity": "light.ember_mobile_backlight",
+       "name": "Backlight",
+       "icon": "mdi:brightness-6",
+       "color": "amber",
+       "features": [
+        {
+         "type": "light-brightness"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "light.ember_mobile_status_led",
+       "name": "Status LED",
+       "icon": "mdi:led-on",
+       "color": "orange",
+       "features": [
+        {
+         "type": "light-brightness"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "switch.ember_mobile_daylight_hearth",
+       "name": "Daylight hearth",
+       "icon": "mdi:white-balance-sunny",
+       "color": "amber",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "heading",
+       "heading": "Levers",
+       "heading_style": "subtitle",
+       "icon": "mdi:wrench-outline"
+      },
+      {
+       "type": "tile",
+       "entity": "button.ember_mobile_rouse_touch_sensor",
+       "name": "Rouse touch",
+       "icon": "mdi:gesture-tap",
+       "color": "brown"
+      },
+      {
+       "type": "tile",
+       "entity": "button.ember_mobile_restart",
+       "name": "Restart",
+       "icon": "mdi:restart",
+       "color": "red"
+      },
+      {
+       "type": "tile",
+       "entity": "binary_sensor.ember_mobile_boot_button",
+       "name": "BOOT button",
+       "icon": "mdi:gesture-tap-button",
+       "color": "brown"
+      },
+      {
+       "type": "tile",
+       "entity": "event.ember_mobile_intercom",
+       "name": "Intercom",
+       "icon": "mdi:bullhorn-variant-outline",
+       "color": "brown",
+       "grid_options": {
+        "columns": "full"
+       }
+      }
+     ]
+    },
+    {
+     "type": "grid",
+     "column_span": 1,
+     "cards": [
+      {
+       "type": "heading",
+       "heading": "Ember \u00b7 Dad's house \u00b7 Hosyond S3",
+       "heading_style": "title",
+       "icon": "mdi:home-heart"
+      },
+      {
+       "type": "heading",
+       "heading": "Assist",
+       "heading_style": "subtitle",
+       "icon": "mdi:message-processing-outline"
+      },
+      {
+       "type": "tile",
+       "entity": "assist_satellite.ember_dad_assist_satellite",
+       "name": "State",
+       "icon": "mdi:fireplace",
+       "color": "amber"
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_dad_assistant",
+       "name": "Pipeline",
+       "color": "orange",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "binary_sensor.ember_reachable",
+       "name": "Local lane",
+       "icon": "mdi:heart-pulse",
+       "color": "amber",
+       "state_content": [
+        "detail"
+       ],
+       "grid_options": {
+        "columns": "full"
+       },
+       "card_mod": {
+        "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card {\n  --tile-color: {{ 'var(--em-gold)' if is_state('binary_sensor.ember_reachable', 'on')\n    else 'var(--em-alarm)' }};\n  border:1px solid {{ 'transparent' if is_state('binary_sensor.ember_reachable', 'on')\n    else 'var(--em-alarm)' }}; }\n"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_dad_ember_mode",
+       "name": "Mode \u00b7 how much noise it may make",
+       "icon": "mdi:hexagon-multiple",
+       "color": "amber",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "switch.ember_dad_hush",
+       "name": "Hush",
+       "icon": "mdi:volume-off",
+       "color": "red",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_dad_wake_word",
+       "name": "Wake word",
+       "icon": "mdi:account-voice",
+       "color": "amber",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_dad_wake_word_2",
+       "name": "Wake word \u00b7 slot 2",
+       "icon": "mdi:account-voice",
+       "color": "brown",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "select.ember_dad_finished_speaking_detection",
+       "name": "Finished-speaking",
+       "color": "brown",
+       "features": [
+        {
+         "type": "select-options"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "heading",
+       "heading": "Voice out",
+       "heading_style": "subtitle",
+       "icon": "mdi:volume-high"
+      },
+      {
+       "type": "tile",
+       "entity": "number.ember_dad_speaker_volume",
+       "name": "Output level \u00b7 es8311 DAC",
+       "icon": "mdi:volume-high",
+       "color": "deep-orange",
+       "features": [
+        {
+         "type": "numeric-input",
+         "style": "slider"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "switch.ember_dad_speaker_amplifier",
+       "name": "Amplifier",
+       "color": "red",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ]
+      },
+      {
+       "type": "tile",
+       "entity": "sensor.ember_dad_speaker_frames",
+       "name": "Frames",
+       "icon": "mdi:waveform",
+       "color": "brown"
+      },
+      {
+       "type": "tile",
+       "entity": "media_player.ember_dad_ember_speaker",
+       "name": "Announce pipeline",
+       "icon": "mdi:bullhorn-outline",
+       "color": "brown",
+       "features": [
+        {
+         "type": "media-player-volume-slider"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "number.ember_dad_amp_blank_width",
+       "name": "Amp blank width",
+       "icon": "mdi:timer-sand",
+       "color": "brown",
+       "features": [
+        {
+         "type": "numeric-input",
+         "style": "box"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "heading",
+       "heading": "Ear",
+       "heading_style": "subtitle",
+       "icon": "mdi:microphone"
+      },
+      {
+       "type": "tile",
+       "entity": "number.ember_dad_mic_gain",
+       "name": "Mic gain",
+       "icon": "mdi:microphone-settings",
+       "color": "amber",
+       "features": [
+        {
+         "type": "numeric-input",
+         "style": "slider"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "sensor.ember_dad_mic_gain_codec",
+       "name": "Gain \u00b7 codec readback",
+       "icon": "mdi:chip",
+       "color": "brown"
+      },
+      {
+       "type": "tile",
+       "entity": "binary_sensor.ember_dad_mic_gain_desync",
+       "name": "Gain desync",
+       "icon": "mdi:alert-outline",
+       "color": "red"
+      },
+      {
+       "type": "tile",
+       "entity": "sensor.ember_dad_mic_rms",
+       "name": "RMS",
+       "icon": "mdi:waveform",
+       "color": "amber"
+      },
+      {
+       "type": "tile",
+       "entity": "sensor.ember_dad_mic_peak",
+       "name": "Peak",
+       "icon": "mdi:pulse",
+       "color": "amber"
+      },
+      {
+       "type": "heading",
+       "heading": "The glass",
+       "heading_style": "subtitle",
+       "icon": "mdi:television-shimmer"
+      },
+      {
+       "type": "tile",
+       "entity": "light.ember_dad_backlight",
+       "name": "Backlight",
+       "icon": "mdi:brightness-6",
+       "color": "amber",
+       "features": [
+        {
+         "type": "light-brightness"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "light.ember_dad_status_led",
+       "name": "Status LED",
+       "icon": "mdi:led-on",
+       "color": "orange",
+       "features": [
+        {
+         "type": "light-brightness"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "switch.ember_dad_daylight_hearth",
+       "name": "Daylight hearth",
+       "icon": "mdi:white-balance-sunny",
+       "color": "amber",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ],
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "heading",
+       "heading": "Levers",
+       "heading_style": "subtitle",
+       "icon": "mdi:wrench-outline"
+      },
+      {
+       "type": "tile",
+       "entity": "button.ember_dad_rouse_touch_sensor",
+       "name": "Rouse touch",
+       "icon": "mdi:gesture-tap",
+       "color": "brown"
+      },
+      {
+       "type": "tile",
+       "entity": "button.ember_dad_restart",
+       "name": "Restart",
+       "icon": "mdi:restart",
+       "color": "red"
+      },
+      {
+       "type": "tile",
+       "entity": "binary_sensor.ember_dad_boot_button",
+       "name": "BOOT button",
+       "icon": "mdi:gesture-tap-button",
+       "color": "brown"
+      },
+      {
+       "type": "tile",
+       "entity": "event.ember_dad_intercom",
+       "name": "Intercom",
+       "icon": "mdi:bullhorn-variant-outline",
+       "color": "brown",
        "grid_options": {
         "columns": "full"
        }
@@ -1627,7 +2656,7 @@
       {
        "type": "heading",
        "heading": "voice-satellite \u00b7 M5Stack Atom Echo",
-       "heading_style": "subtitle",
+       "heading_style": "title",
        "icon": "mdi:microphone-variant"
       },
       {
@@ -1713,7 +2742,7 @@
       {
        "type": "heading",
        "heading": "assist microphone \u00b7 ATOM Echo dev",
-       "heading_style": "subtitle",
+       "heading_style": "title",
        "icon": "mdi:microphone"
       },
       {
@@ -1807,7 +2836,7 @@
       {
        "type": "heading",
        "heading": "Shared backend",
-       "heading_style": "subtitle",
+       "heading_style": "title",
        "icon": "mdi:server"
       },
       {
