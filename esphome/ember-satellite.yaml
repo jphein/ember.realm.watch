@@ -2713,7 +2713,7 @@ script:
             - lambda: |-
                 id(ic_pick).clear();
                 const std::string &all = id(ic_targets).state;
-                const int want = id(ic_page) * 4 + id(ui_sel);
+                const int want = id(ic_page) * 6 + id(ui_sel);
                 int vis = 0;
                 size_t pos = 0;
                 while (pos <= all.size()) {
@@ -2779,6 +2779,38 @@ script:
                 id(ui_gen)++;
                 id(ui_action) = 0;
 
+      # ---- openers that must run on RELEASE (19 tome, 24 help) ----
+      # These change ui_mode, and a mode change inside on_touch hands the rest
+      # of the same finger's report stream to the new mode's hit-test — the
+      # open-then-instantly-dismiss bug the tome shipped with.
+      - if:
+          condition: { lambda: 'return id(ui_action) == 19;' }
+          then:
+            - lambda: |-
+                id(chron_page) = 0;
+                id(chron_sel) = -1;
+                id(ui_mode) = 4;
+                id(ui_gen)++;
+                id(ui_action) = 0;
+      - if:
+          condition: { lambda: 'return id(ui_action) == 24;' }
+          then:
+            - lambda: |-
+                id(help_page) = 0;
+                id(ui_mode) = 6;
+                id(ui_gen)++;
+                id(ui_action) = 0;
+      - if:
+          condition: { lambda: 'return id(ui_action) == 31 || id(ui_action) == 32;' }
+          then:
+            - lambda: |-
+                int hp = id(help_page) + (id(ui_action) == 32 ? 1 : -1);
+                if (hp < 0) hp = 0;
+                if (hp > 4) hp = 4;
+                id(help_page) = hp;
+                id(ui_gen)++;
+                id(ui_action) = 0;
+
       # ---- the chronicle's actions (18, 20-23) ----
       # 18 open an entry · 20/21 page older/newer · 22 back to list · 23 SPEAK.
       - if:
@@ -2788,7 +2820,7 @@ script:
                 // Row -> ring index. Page 0 shows the NEWEST four, rows top-down
                 // newest-first, so the mapping runs from the back of the vector.
                 const int n = (int) id(chron).size();
-                const int idx = n - 1 - (id(chron_page) * 4 + id(ui_sel));
+                const int idx = n - 1 - (id(chron_page) * 3 + id(ui_sel));
                 if (idx >= 0 && idx < n) {
                   id(chron_sel) = idx;
                   id(ui_mode) = 5;
@@ -2799,7 +2831,7 @@ script:
           then:
             - lambda: |-
                 const int n = (int) id(chron).size();
-                const int pages = n == 0 ? 1 : (n + 3) / 4;
+                const int pages = n == 0 ? 1 : (n + 2) / 3;
                 int p = id(chron_page) + (id(ui_action) == 20 ? 1 : -1);
                 if (p < 0) p = 0;
                 if (p > pages - 1) p = pages - 1;
@@ -4767,7 +4799,7 @@ display:
           // since #39 — no strip of frozen fire behind the pages.
           it.filled_rectangle(0, OY, W, SCRL_H + FLAM_H, c_bg);
           const int n = (int) id(chron).size();
-          const int pages = n == 0 ? 1 : (n + 3) / 4;
+          const int pages = n == 0 ? 1 : (n + 2) / 3;
           if (id(chron_page) > pages - 1) id(chron_page) = pages - 1;
           it.print(6, OY + 2, id(font_sm), c_gold, "the chronicle");
           it.printf(W - 6, OY + 2, id(font_sm), c_dim,
@@ -4777,10 +4809,10 @@ display:
             // must say "nothing YET", never imply the house has been silent.
             it.print(6, OY + 34, id(font_body), c_dim, "nothing yet this waking");
           }
-          for (int row = 0; row < 4; row++) {
-            const int idx = n - 1 - (id(chron_page) * 4 + row);
+          for (int row = 0; row < 3; row++) {
+            const int idx = n - 1 - (id(chron_page) * 3 + row);
             if (idx < 0) break;
-            const int iy = 50 + row * 46;
+            const int iy = 50 + row * 56;
             const std::string &e = id(chron)[(size_t) idx];
             const char k = e[0];
             // The kind is DRAWN, not labelled: a flame said it, an open ear
@@ -4806,23 +4838,29 @@ display:
             // list whose whole job is "tap to read properly". Measuring both
             // lines of four rows every repaint is cost with no reader.
             const std::string t = e.substr(1);
-            it.print(26, iy + 3, id(font_sm), c_ink, t.substr(0, 30).c_str());
+            it.print(26, iy + 5, id(font_sm), c_ink, t.substr(0, 30).c_str());
             if (t.size() > 30) {
               std::string l2 = t.substr(30, 30);
               if (t.size() > 60) { l2.resize(27); l2 += "..."; }
-              it.print(26, iy + 21, id(font_sm), c_dim, l2.c_str());
+              it.print(26, iy + 25, id(font_sm), c_dim, l2.c_str());
             }
-            it.filled_rectangle(0, iy + 44, W, 1, c_ash);
+            it.filled_rectangle(0, iy + 54, W, 1, c_ash);
           }
-          // The page bar. "older" sits LEFT deliberately: the list reads
-          // newest-down, so older is where your eye already ended up.
-          it.filled_rectangle(0, 233, W, 1, c_ash);
-          if (id(chron_page) < pages - 1)
-            it.print(6, 240, id(font_body), c_dim, "< older");
-          if (id(chron_page) > 0)
-            it.print(W - 6, 240, id(font_body), c_dim,
-                     display::TextAlign::TOP_RIGHT, "newer >");
-          it.printf(W / 2, 242, id(font_sm), c_ash,
+          // The page bar, grown to the 46px touch floor (JP). "older" sits
+          // LEFT deliberately: the list reads newest-down, so older is where
+          // your eye already ended up.
+          it.filled_rectangle(0, 216, W, 1, c_ash);
+          if (id(chron_page) < pages - 1) {
+            it.rectangle(4, 220, 112, 40, c_dim);
+            it.print(60, 232, id(font_body), c_ink,
+                     display::TextAlign::TOP_CENTER, "< older");
+          }
+          if (id(chron_page) > 0) {
+            it.rectangle(124, 220, 112, 40, c_dim);
+            it.print(180, 232, id(font_body), c_ink,
+                     display::TextAlign::TOP_CENTER, "newer >");
+          }
+          it.printf(W / 2, 219, id(font_sm), c_ash,
                     display::TextAlign::TOP_CENTER, "%d/%d",
                     id(chron_page) + 1, pages);
         } else if (id(ui_mode) == 5) {
@@ -5016,32 +5054,57 @@ display:
             }
           }
           const int n = (int) names.size();
-          const int pages = n == 0 ? 1 : (n + 3) / 4;
+          const int pages = n == 0 ? 1 : (n + 5) / 6;
           if (id(ic_page) > pages - 1) id(ic_page) = pages - 1;
           it.printf(W - 6, OY + 2, id(font_sm), c_dim,
                     display::TextAlign::TOP_RIGHT, "%d listening", n);
           if (n == 0)
             it.print(6, OY + 34, id(font_body), c_dim, "no other hearths answer");
-          for (int row = 0; row < 4; row++) {
-            const int idx = id(ic_page) * 4 + row;
+          // THE GRID (JP: "a full screen grid with buttons"): 2x3 tiles, each
+          // 118x54 — real buttons with rims, a curl in the corner, the name
+          // wrapped to two lines. Ember hearths arrive first from the sensor,
+          // so the top row is family.
+          for (int tile = 0; tile < 6; tile++) {
+            const int idx = id(ic_page) * 6 + tile;
             if (idx >= n) break;
-            const int iy = 50 + row * 46;
-            // the horn's own curl, miniature, as each row's glyph
-            it.filled_circle(13, iy + 20, 3, c_ember);
-            it.filled_circle(17, iy + 16, 2, c_ember);
-            it.draw_pixel_at(20, iy + 12, c_gold);
-            it.draw_pixel_at(21, iy + 11, c_gold);
-            it.print(30, iy + 10, id(font_body), c_ink, names[(size_t) idx].c_str());
-            it.filled_rectangle(0, iy + 44, W, 1, c_ash);
+            const int gx = (tile % 2) * 120 + 1;
+            const int gy = 50 + (tile / 2) * 54;
+            it.rectangle(gx, gy, 118, 52, c_dim);
+            it.rectangle(gx + 1, gy + 1, 116, 50, c_ash);
+            // the curl, tucked in the tile's corner
+            it.filled_circle(gx + 10, gy + 44, 3, c_ember);
+            it.filled_circle(gx + 14, gy + 40, 2, c_ember);
+            it.draw_pixel_at(gx + 17, gy + 36, c_gold);
+            // name, split at the nearest space to fit two centred lines
+            const std::string &nm = names[(size_t) idx];
+            std::string l1 = nm, l2;
+            if (nm.size() > 15) {
+              size_t cut = nm.rfind(' ', 15);
+              if (cut == std::string::npos || cut < 4) cut = 15;
+              l1 = nm.substr(0, cut);
+              l2 = nm.substr(cut + (nm[cut] == ' ' ? 1 : 0), 15);
+            }
+            it.print(gx + 59, gy + (l2.empty() ? 18 : 8), id(font_sm), c_ink,
+                     display::TextAlign::TOP_CENTER, l1.c_str());
+            if (!l2.empty())
+              it.print(gx + 59, gy + 26, id(font_sm), c_ink,
+                       display::TextAlign::TOP_CENTER, l2.c_str());
           }
-          it.filled_rectangle(0, 233, W, 1, c_ash);
-          if (id(ic_page) < pages - 1)
-            it.print(6, 240, id(font_body), c_dim, "< more");
-          if (id(ic_page) > 0)
-            it.print(W - 6, 240, id(font_body), c_dim,
-                     display::TextAlign::TOP_RIGHT, "back >");
-          it.print(W / 2, 242, id(font_sm), c_ash,
-                   display::TextAlign::TOP_CENTER, "tap away to hush the horn");
+          // the page bar, at the same 46px floor as everything tappable
+          it.filled_rectangle(0, 216, W, 1, c_ash);
+          if (id(ic_page) < pages - 1) {
+            it.rectangle(4, 220, 112, 40, c_dim);
+            it.print(60, 232, id(font_body), c_ink,
+                     display::TextAlign::TOP_CENTER, "< more");
+          }
+          if (id(ic_page) > 0) {
+            it.rectangle(124, 220, 112, 40, c_dim);
+            it.print(180, 232, id(font_body), c_ink,
+                     display::TextAlign::TOP_CENTER, "back >");
+          }
+          it.printf(W / 2, 219, id(font_sm), c_ash,
+                    display::TextAlign::TOP_CENTER, "%d/%d",
+                    id(ic_page) + 1, pages);
         }
       };
 
@@ -6604,9 +6667,7 @@ touchscreen:
             // The ? badge in the title strip opens the help book (ui_mode 6).
             // Corner-anchored top-right, 44x40 zone around the drawn circle.
             if (tx >= 196 && ty < ${ui_pm_iy}) {
-              id(help_page) = 0;
-              id(ui_mode) = 6;
-              id(ui_action) = 0;
+              id(ui_action) = 24;      // open the help book (dispatch does it)
               id(ui_gen)++;
               return;
             }
@@ -6662,11 +6723,13 @@ touchscreen:
             // bottom (prev left half, next right half), anything else — the
             // title strip — dismisses. Same dead-zone arithmetic as the power
             // menu: the 2px separators must not hit-test as rows.
+            // Three 56px rows now (was four 46s) so the page bar could grow
+            // to the 46px floor (JP: "the next page to be bigger").
             const int rel = ty - 50;
-            const int row = rel / 46;
-            if (ty >= 234) {
+            const int row = rel / 56;
+            if (ty >= 217) {
               id(ui_action) = (tx < 120) ? 20 : 21;      // older | newer
-            } else if (rel >= 0 && row < 4 && (rel % 46) < 44) {
+            } else if (rel >= 0 && row < 3 && (rel % 56) < 54) {
               id(ui_sel) = row;
               id(ui_action) = 18;                        // open entry
             } else {
@@ -6677,15 +6740,20 @@ touchscreen:
           }
 
           if (id(ui_mode) == 7) {
-            // The horn's speaker picker: same 46px rows as every list, page
-            // bar at the bottom, tap-away cancels the summons entirely.
-            const int rel = ty - 50;
-            const int row = rel / 46;
-            if (ty >= 234) {
-              id(ui_action) = (tx < 120) ? 28 : 29;      // page down | up
-            } else if (rel >= 0 && row < 4 && (rel % 46) < 44) {
-              id(ui_sel) = row;
-              id(ui_action) = 27;                        // send word HERE
+            // The horn's speaker picker: a 2x3 GRID of tiles (JP: "a full
+            // screen grid with buttons"), each 118x54 (~21x10mm), page bar
+            // full-height at 46px. Tap in the title strip cancels.
+            if (ty >= 217) {
+              id(ui_action) = (tx < 120) ? 28 : 29;      // older page | newer
+            } else if (ty >= 50 && ty < 212) {
+              const int col = (tx < 120) ? 0 : 1;
+              const int row = (ty - 50) / 54;
+              if (row < 3 && ((ty - 50) % 54) < 52) {
+                id(ui_sel) = row * 2 + col;              // tile index 0..5
+                id(ui_action) = 27;
+              } else {
+                id(ui_action) = 4;
+              }
             } else {
               id(ui_action) = 4;
             }
@@ -6694,17 +6762,14 @@ touchscreen:
           }
 
           if (id(ui_mode) == 6) {
-            // The help book: bottom corners page, anywhere else closes back to
-            // the power menu (you came from its title, you land back on it).
-            if (ty >= 234) {
-              id(help_page) += (tx < 120) ? -1 : 1;
-              if (id(help_page) < 0) id(help_page) = 0;
-              if (id(help_page) > 4) id(help_page) = 4;
+            // The help book: a full-height page bar (46px — the touch floor,
+            // JP: "the next page to be bigger"), anywhere else dismisses.
+            // Actions only; paging inline here stepped once PER TOUCH REPORT.
+            if (ty >= 217) {
+              id(ui_action) = (tx < 120) ? 31 : 32;
             } else {
-              id(ui_mode) = 2;
-              id(ui_sel) = -1;
+              id(ui_action) = 4;
             }
-            id(ui_action) = 0;
             id(ui_gen)++;
             return;
           }
@@ -6730,11 +6795,14 @@ touchscreen:
           // corner-anchored top-right) for the same bezel-lip reason the horn
           // grew leftward. Same open as the double-click, one finger instead
           // of two presses.
+          // ⚠️ ACTION ONLY — the first shipped version changed ui_mode right
+          // here, and the chronicle "didn't see the tap": on_touch fires per
+          // REPORT, so the same finger's next report hit-tested against the
+          // NEWLY opened mode and dismissed it before release. Open-and-close
+          // inside one tap, invisible. The hit-test/dispatch split exists for
+          // exactly this; violating it is self-punishing but quietly.
           if (tx >= 196 && ty >= 32 && ty < 72) {
-            id(chron_page) = 0;
-            id(chron_sel) = -1;
-            id(ui_mode) = 4;
-            id(ui_action) = 0;
+            id(ui_action) = 19;
             id(ui_gen)++;
             return;
           }
