@@ -93,7 +93,13 @@ import yaml
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT = os.path.join(HERE, "..", "ember-satellite.yaml")
 
-MODES = (0, 1, 2, 3)
+MODES = (0, 1, 2, 3, 4)
+# ui_mode 5 (a chronicle entry) is TOUCH-ONLY BY DESIGN and that is not a trap:
+# a wedged touch controller cannot get INTO it, so button-reachability is not a
+# recovery property there. Button-EXITABILITY is: the walk seeds (5, -1) as if a
+# touch had opened it and asserts the button path out. Everything else keeps the
+# full contract.
+TOUCH_SEEDED = (5,)
 
 
 # See check_restore_resync.py for why this SafeLoader subclass is safe: it swallows
@@ -139,20 +145,37 @@ def load(path):
     btn = _find(doc.get("binary_sensor"), lambda b: isinstance(b, dict)
                 and b.get("id") == "btn_boot", "the btn_boot binary_sensor")
     clicks = btn.get("on_click") or []
-    if len(clicks) != 2:
-        raise Blind(f"btn_boot has {len(clicks)} on_click blocks, expected 2 "
-                    "(short and long)")
-    # Order by min_length rather than by position, so a reordering of the YAML cannot
-    # silently swap which handler this walk calls "short".
-    def ms(c):
-        return int(re.sub(r"[^0-9]", "", str(c.get("min_length", "0"))) or 0)
-    short, long_ = sorted(clicks, key=ms)
+    multi = btn.get("on_multi_click") or []
+    dbl_then = []
+    if len(clicks) == 2 and not multi:
+        # the pre-chronicle shape: short and long both plain on_click
+        def ms(c):
+            return int(re.sub(r"[^0-9]", "", str(c.get("min_length", "0"))) or 0)
+        short, long_ = sorted(clicks, key=ms)
+    elif len(clicks) == 1 and len(multi) == 2:
+        # the chronicle shape (2026-08-09): long stays an on_click; single and
+        # double live in on_multi_click, told apart by their timing pattern —
+        # the double has two ON phases, the single has one. Identified by
+        # STRUCTURE, not list order, so reordering the YAML cannot swap them.
+        long_ = clicks[0]
+        def ons(m):
+            return sum(1 for t in (m.get("timing") or []) if str(t).strip().upper().startswith("ON"))
+        multi_sorted = sorted(multi, key=ons)
+        if ons(multi_sorted[0]) != 1 or ons(multi_sorted[1]) != 2:
+            raise Blind("on_multi_click entries are not one single-ON and one "
+                        "double-ON pattern — the walk cannot tell single from double")
+        short, dbl = multi_sorted
+        dbl_then = dbl.get("then") or []
+    else:
+        raise Blind(f"btn_boot has {len(clicks)} on_click and {len(multi)} "
+                    "on_multi_click blocks — expected (2,0) legacy or (1,2) "
+                    "chronicle shape")
 
     dispatch = _find(doc.get("script"), lambda s: isinstance(s, dict)
                      and s.get("id") == "ui_dispatch", "the ui_dispatch script")
 
     return raw, subs, short.get("then") or [], long_.get("then") or [], \
-        dispatch.get("then") or []
+        dispatch.get("then") or [], dbl_then
 
 
 def row_counts(raw, subs):
@@ -309,6 +332,11 @@ static int ui_mode_v = 0, ui_sel_v = -1, ui_action_v = 0, ui_gen_v = 0;
 static uint32_t ui_last_ms_v = 0;
 static int va_state_v = 0, op_mode_v = 0;
 static bool screen_banked_v = false, force_full_repaint_v = false;
+// the chronicle's state (2026-08-09). Six dummy entries so index arithmetic in
+// the dispatch lambdas runs against a populated ring, as it would in life.
+static std::vector<std::string> chron_v = {"ha","sb","hc","sd","ae","sf"};
+static int chron_page_v = 0, chron_sel_v = -1, chron_play_idx_v = -1;
+static uint32_t chron_play_ms_v = 0;
 static uint32_t clock_ms = 1000;
 static uint32_t millis() { return clock_ms += 10; }
 
@@ -337,6 +365,11 @@ struct SelPtr { SelStub *operator->() { return &sel_mode_v; } };
 #define screen_banked        screen_banked_v
 #define force_full_repaint   force_full_repaint_v
 #define sel_mode     SelPtr()
+#define chron          chron_v
+#define chron_page     chron_page_v
+#define chron_sel      chron_sel_v
+#define chron_play_idx chron_play_idx_v
+#define chron_play_ms  chron_play_ms_v
 #define id(x) x
 
 static void ui_dispatch() {
@@ -349,6 +382,10 @@ __SHORT__
 
 static void press_long() {
 __LONG__
+}
+
+static void press_dbl() {
+__DBL__
 }
 
 // ---------------------------------------------------------------- the walk
@@ -377,7 +414,7 @@ static bool is_ack(const std::string &f) {
 
 static Edge step(St from, int which) {
   set_state(from);
-  if (which == 0) press_short(); else press_long();
+  if (which == 0) press_short(); else if (which == 1) press_long(); else press_dbl();
   Edge e;
   e.to = St{ui_mode_v, ui_sel_v};
   e.fx = effects;
@@ -396,9 +433,14 @@ int main() {
   std::map<St, std::vector<Edge>> g;
   std::queue<St> q;
   q.push(start);
+  // ui_mode 5 is touch-entered by design; seed it so its BUTTON EXIT is walked
+  // even though no button path leads in.
+  const St touch_seed{5, -1};
+  seen.insert(touch_seed);
+  q.push(touch_seed);
   while (!q.empty()) {
     St s = q.front(); q.pop();
-    for (int w = 0; w < 2; w++) {
+    for (int w = 0; w < 3; w++) {
       Edge e = step(s, w);
       g[s].push_back(e);
       if (!seen.count(e.to)) { seen.insert(e.to); q.push(e.to); }
@@ -450,11 +492,12 @@ int main() {
 
 
 def build_source(path):
-    raw, subs, short, long_, dispatch = load(path)
+    raw, subs, short, long_, dispatch, dbl = load(path)
     src = (HARNESS
            .replace("__DISPATCH__", translate(dispatch, subs))
            .replace("__SHORT__", translate(short, subs))
-           .replace("__LONG__", translate(long_, subs)))
+           .replace("__LONG__", translate(long_, subs))
+           .replace("__DBL__", translate(dbl, subs)))
     return src, raw, subs
 
 
