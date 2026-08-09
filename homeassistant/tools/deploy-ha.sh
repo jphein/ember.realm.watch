@@ -78,11 +78,11 @@ declare -A RELOADS=(
   [ember_print_context]="automation"
   # ember_slack owns script.ember_broadcast — the hook point every herald now
   # calls, which decides spoken-vs-Slack before ember_announce ever runs.
-  [ember_slack]="script"
+  [ember_slack]="script automation"
   [ember_wake_backend]="script automation"
   # ember_intercom is the horn's relay: event entity press -> ask_question ->
   # announce on the peer hearth.
-  [ember_intercom]="automation"
+  [ember_intercom]="automation script template"
   # ember_battery_watch: the mobile cell's critical alarm (speak + broadcast).
   # The 20% chime is firmware-side; only the 8% escalation lives in HA.
   [ember_battery_watch]="automation"

@@ -25,6 +25,174 @@
 # decision. script.ember_broadcast's quiet-hours -> Slack routing is for
 # automated events.
 
+# ---- THE TARGET BOARD (2026-08-09: the horn grew a submenu) ----
+# JP: "the intercom horn should open a submenu where you choose a live view of
+# online HA compatible speakers." The device cannot enumerate HA, so HA
+# publishes the menu: every assist satellite and every media_player currently
+# ONLINE, one "Name|entity_id" row per line in the `rows` attribute. The
+# device renders rows verbatim and filters ITSELF out (each board knows its
+# own satellite_entity); this sensor deliberately does not personalize per
+# board — one truth, three readers.
+#
+# media_player.ember_* are EXCLUDED: those are the satellites' own speakers,
+# and offering both the satellite and its speaker would list every hearth
+# twice under two names — the second one wrong to use (a raw media_player
+# announce skips the herald chime and the announce contract).
+template:
+  - sensor:
+      - name: "Ember speaker targets"
+        unique_id: ember_speaker_targets
+        icon: mdi:bullhorn-variant
+        state: >-
+          {% set sats = states.assist_satellite
+             | rejectattr('state','in',['unavailable','unknown']) | list %}
+          {% set mps = states.media_player
+             | rejectattr('state','in',['unavailable','unknown'])
+             | rejectattr('entity_id','search','^media_player\.ember_') | list %}
+          {{ (sats | count) + (mps | count) }}
+        attributes:
+          rows: >-
+            {% set ns = namespace(r=[]) %}
+            {% for e in states.assist_satellite
+               | rejectattr('state','in',['unavailable','unknown']) %}
+              {% set ns.r = ns.r + [(e.name | replace('Assist satellite','') | trim
+                                     ~ '|' ~ e.entity_id)] %}
+            {% endfor %}
+            {% for e in states.media_player
+               | rejectattr('state','in',['unavailable','unknown'])
+               | rejectattr('entity_id','search','^media_player\.ember_') %}
+              {% set ns.r = ns.r + [(e.name ~ '|' ~ e.entity_id)] %}
+            {% endfor %}
+            {{ ns.r[:12] | join('\n') }}
+          # The DEVICE-FACING list: names only, pipe-joined, each clipped to 18
+          # chars — ESPHome text_sensor states cap at 255 BYTES, and the full
+          # rows blow past it. The device shows names and sends the chosen NAME
+          # back; ember_intercom_to resolves it against the same enumeration at
+          # call time, so device and script cannot disagree about the list.
+          names: >-
+            {% set ns = namespace(r=[]) %}
+            {% for e in states.assist_satellite
+               | rejectattr('state','in',['unavailable','unknown']) %}
+              {% set ns.r = ns.r + [(e.name | replace('Assist satellite','')
+                                     | trim)[:18]] %}
+            {% endfor %}
+            {% for e in states.media_player
+               | rejectattr('state','in',['unavailable','unknown'])
+               | rejectattr('entity_id','search','^media_player\\.ember_') %}
+              {% set ns.r = ns.r + [(e.name)[:18]] %}
+            {% endfor %}
+            {{ ns.r[:12] | join('|') }}
+
+script:
+  # The parameterized relay: same capture, chosen destination. Kept beside the
+  # paired relay below rather than replacing it — the automation remains the
+  # fallback for a board whose targets list is empty or stale.
+  ember_intercom_to:
+    alias: "Ember - intercom to a chosen speaker"
+    mode: restart
+    fields:
+      source_sat:
+        name: Source satellite
+        required: true
+        selector: { entity: { domain: assist_satellite } }
+      target:
+        name: Target entity
+        description: Optional — resolved from target_name against the live list when omitted.
+        selector: { text: }
+      target_name:
+        name: Target name
+        selector: { text: }
+    sequence:
+      # Resolve a NAME to an entity against the same enumeration the sensor
+      # publishes — the device speaks names (255-byte state cap), this speaks
+      # entities, and using one derivation for both is what keeps them from
+      # drifting. Exact name match, satellites first.
+      - variables:
+          target: >-
+            {% if target is defined and target %}{{ target }}{% else %}
+            {%- set want = (target_name | default('', true)) | trim -%}
+            {%- set ns = namespace(hit='') -%}
+            {%- for e in states.assist_satellite
+                | rejectattr('state','in',['unavailable','unknown']) -%}
+              {%- if not ns.hit and (e.name | replace('Assist satellite','')
+                  | trim)[:18] == want -%}{%- set ns.hit = e.entity_id -%}{%- endif -%}
+            {%- endfor -%}
+            {%- for e in states.media_player
+                | rejectattr('state','in',['unavailable','unknown'])
+                | rejectattr('entity_id','search','^media_player\\.ember_') -%}
+              {%- if not ns.hit and (e.name)[:18] == want -%}
+                {%- set ns.hit = e.entity_id -%}{%- endif -%}
+            {%- endfor -%}
+            {{ ns.hit }}{% endif %}
+      - if:
+          - condition: template
+            value_template: "{{ not target }}"
+        then:
+          - action: script.turn_on
+            target: { entity_id: script.ember_announce }
+            data:
+              variables:
+                message: "I no longer see that speaker."
+                satellite: "{{ source_sat }}"
+          - stop: name did not resolve
+      # Fail BEFORE capture — same order-of-loss rule as the paired relay.
+      - if:
+          - condition: template
+            value_template: "{{ states(target) in ['unavailable', 'unknown'] }}"
+        then:
+          - action: script.turn_on
+            target: { entity_id: script.ember_announce }
+            data:
+              variables:
+                message: "{{ target_name | default('That speaker', true) }} is dark."
+                satellite: "{{ source_sat }}"
+          - stop: target unavailable
+      - action: assist_satellite.ask_question
+        continue_on_error: true
+        data:
+          entity_id: "{{ source_sat }}"
+          question: "Send word."
+          preannounce: false
+        response_variable: reply
+      - variables:
+          sentence: >-
+            {{ (reply.sentence if reply is defined and reply.sentence is not none
+                else '') | trim }}
+          src_name: >-
+            {{ state_attr(source_sat, 'friendly_name')
+               | default(source_sat, true) | replace('Assist satellite','') | trim }}
+      - if:
+          - condition: template
+            value_template: "{{ sentence == '' }}"
+        then:
+          - action: script.turn_on
+            target: { entity_id: script.ember_announce }
+            data:
+              variables:
+                message: "I heard nothing to carry."
+                satellite: "{{ source_sat }}"
+          - stop: nothing captured
+      # Deliver by KIND: a satellite gets the full announce contract (its own
+      # herald, no HA blip); a bare media_player gets tts.speak through the
+      # pipeline voice. Both fire-and-forget — the 2.5-minute wedge precedent.
+      - if:
+          - condition: template
+            value_template: "{{ target.startswith('assist_satellite.') }}"
+        then:
+          - action: script.turn_on
+            target: { entity_id: script.ember_announce }
+            data:
+              variables:
+                message: "Word from {{ src_name }}: {{ sentence }}"
+                satellite: "{{ target }}"
+        else:
+          - action: tts.speak
+            continue_on_error: true
+            target: { entity_id: tts.piper_2 }
+            data:
+              media_player_entity_id: "{{ target }}"
+              message: "Word from {{ src_name }}: {{ sentence }}"
+
 automation:
   - id: ember_intercom_relay
     alias: Ember - the horn (intercom relay)

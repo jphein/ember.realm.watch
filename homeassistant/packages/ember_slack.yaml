@@ -170,3 +170,62 @@ script:
               data:
                 file:
                   url: "{{ image_url }}"
+
+
+# ---- the reply event relay (2026-08-09) ----
+# ESPHome firmware can only fire events prefixed `esphome.` — a fact the
+# bridge contract didn't know. Rather than change the frozen bridge, the
+# device calls THIS script and the script fires the real event. Channel is
+# omitted from the event when empty, exactly matching the bridge's
+# last-announced fallback semantics.
+script:
+  ember_slack_reply_fire:
+    alias: "Ember - fire slack_bridge_reply for a hearth"
+    mode: parallel
+    max: 4
+    fields:
+      device:
+        name: Device
+        required: true
+        selector: { text: }
+      channel:
+        name: Channel
+        selector: { text: }
+    sequence:
+      - if:
+          - condition: template
+            value_template: "{{ (channel | default('', true)) != '' }}"
+        then:
+          - event: slack_bridge_reply
+            event_data:
+              device: "{{ device }}"
+              channel: "{{ channel }}"
+        else:
+          - event: slack_bridge_reply
+            event_data:
+              device: "{{ device }}"
+
+# ---- chronicle channel tagging (2026-08-09, the tap-to-reply loop) ----
+# The bridge fires slack_bridge_announced alongside every Slack->hearth
+# announcement; this relays {channel, speech} onto the DEVICE so the chronicle
+# entry can carry its own reply address. The esphome service name is derived
+# from the satellite entity — one automation serves every hearth, including
+# ones that do not exist yet. mode: parallel because two hearths can announce
+# the same Slack message near-simultaneously (announce_all) and neither tag
+# may be dropped.
+automation:
+  - id: ember_chronicle_slack_tag
+    alias: "Ember - tag chronicle entries with their Slack channel"
+    mode: parallel
+    max: 6
+    triggers:
+      - trigger: event
+        event_type: slack_bridge_announced
+    actions:
+      - action: >-
+          esphome.{{ trigger.event.data.satellite.split('.')[1]
+                     | replace('_assist_satellite','') }}_slack_note
+        continue_on_error: true
+        data:
+          channel: "{{ trigger.event.data.channel }}"
+          speech: "{{ trigger.event.data.speech }}"

@@ -251,9 +251,15 @@ substitutions:
   # The single-press overlay now carries TWO controls, so it spans the flame band as
   # well and each control gets a shorter pair of targets. 56px ~= 10.3mm, still well
   # clear of the ~9mm minimum touch target — the constraint that decided the layout.
-  ui_vol_by: "88"       # volume +/- targets: top edge
-  ui_vol_bh: "56"       # +/- target height, shared by both controls
-  ui_gain_by: "204"     # mic gain +/- targets: top edge
+  # 2026-08-09: the audio overlay went from two stacked rows to THREE compact
+  # ones (volume / mic gain / brightness — JP: "that should be on the volume
+  # menu"). Each row is a 20px label line over a 46px control line; 46px is
+  # the same touch floor every menu row uses, and three of them plus labels
+  # fill the overlay exactly (ends y242 of 263).
+  ui_vol_by: "56"       # volume +/- targets: top edge
+  ui_vol_bh: "46"       # +/- target height, shared by all three controls
+  ui_gain_by: "126"     # mic gain +/- targets: top edge
+  ui_bri_by: "196"      # backlight brightness +/- targets: top edge
   ui_pm_iy: "72"        # power menu: first item top edge
   ui_pm_ih: "46"        # power menu: item height (46px ~= 8.4mm)
   ui_pm_n: "4"          # power menu: item count
@@ -958,6 +964,29 @@ api:
   # not just HA. That is harmless — wake_word_arm is `mode: restart` and no-ops when
   # the assistant is already running — but it is why the arm lives in a guarded
   # script rather than being inlined here.
+  # ---- slack_note: the bridge tells us which conversation an announce
+  # belongs to (contract: slack-bridge.md "Voice replies"; the ha session's
+  # brief, 2026-08-09). Matches the newest announce entry with this exact
+  # speech and stamps its channel; falls back to the newest announce when the
+  # text drifted (the bridge may trim). The chronicle's reply button reads it.
+  services:
+    - service: slack_note
+      variables:
+        channel: string
+        speech: string
+      then:
+        - lambda: |-
+            int fallback = -1;
+            for (int i = (int) id(chron).size() - 1; i >= 0; i--) {
+              const std::string &e = id(chron)[(size_t) i];
+              if (e.empty() || e[0] != 'a') continue;
+              if (fallback < 0) fallback = i;
+              if (e.substr(1) == speech) {
+                id(chron_chan)[(size_t) i] = channel;
+                return;
+              }
+            }
+            if (fallback >= 0) id(chron_chan)[(size_t) fallback] = channel;
   on_client_connected:
     - script.execute: wake_word_arm
 
@@ -2089,7 +2118,11 @@ script:
           std::string e = kind + text;
           if (!id(chron).empty() && id(chron).back() == e) return;
           id(chron).push_back(e);
-          if (id(chron).size() > 100) id(chron).erase(id(chron).begin());
+          id(chron_chan).push_back("");
+          if (id(chron).size() > 100) {
+            id(chron).erase(id(chron).begin());
+            id(chron_chan).erase(id(chron_chan).begin());
+          }
 
   - id: chime_play
     mode: restart
@@ -2641,6 +2674,111 @@ script:
                     .perform();
                 id(ui_action) = 0;
 
+      # ---- slack reply (30) ----
+      # One event, nothing else — the bridge drives the ask_question, posts
+      # the transcript, and speaks ONLY on failure. Success is silent by the
+      # bridge's design: the reply appearing in Slack is the confirmation, and
+      # a firmware chime here would double-confirm. Entries that know their
+      # channel pass it; the rest omit it and the bridge replies to the last
+      # Slack message announced on this hearth.
+      # NOT homeassistant.event: ESPHome may only fire `esphome.*` events, so
+      # the device calls the ember_slack_reply_fire relay script, which fires
+      # the bridge's real event (and drops an empty channel key, preserving
+      # the last-announced fallback).
+      - if:
+          condition: { lambda: 'return id(ui_action) == 30;' }
+          then:
+            - homeassistant.service:
+                service: script.ember_slack_reply_fire
+                data:
+                  device: ${name}
+                  channel: !lambda |-
+                    if (id(chron_sel) >= 0 &&
+                        id(chron_sel) < (int) id(chron_chan).size())
+                      return id(chron_chan)[(size_t) id(chron_sel)];
+                    return std::string("");
+            - lambda: |-
+                id(ui_mode) = 0;
+                id(force_full_repaint) = true;
+                id(ui_action) = 0;
+
+      # ---- the horn's picker (27-29) ----
+      # 27 parses the names list, skips this hearth's own name, resolves the
+      # tapped row, stashes it in ic_pick, and hands the summons to HA — the
+      # capture-and-carry lives in script.ember_intercom_to, so the firmware
+      # stays the dumb button the intercom family was designed around.
+      - if:
+          condition: { lambda: 'return id(ui_action) == 27;' }
+          then:
+            - lambda: |-
+                id(ic_pick).clear();
+                const std::string &all = id(ic_targets).state;
+                const int want = id(ic_page) * 4 + id(ui_sel);
+                int vis = 0;
+                size_t pos = 0;
+                while (pos <= all.size()) {
+                  size_t bar = all.find('|', pos);
+                  if (bar == std::string::npos) bar = all.size();
+                  const std::string nm = all.substr(pos, bar - pos);
+                  if (!nm.empty() && nm != "${friendly_name}") {
+                    if (vis == want) { id(ic_pick) = nm; break; }
+                    vis++;
+                  }
+                  pos = bar + 1;
+                }
+            - if:
+                condition: { lambda: 'return !id(ic_pick).empty();' }
+                then:
+                  - homeassistant.service:
+                      service: script.ember_intercom_to
+                      data:
+                        source_sat: ${satellite_entity}
+                        target_name: !lambda 'return id(ic_pick);'
+                  - lambda: |-
+                      id(ui_mode) = 0;
+                      id(force_full_repaint) = true;
+                      id(ui_action) = 0;
+            - lambda: 'id(ui_action) = 0;'
+      - if:
+          condition: { lambda: 'return id(ui_action) == 28 || id(ui_action) == 29;' }
+          then:
+            - lambda: |-
+                int p = id(ic_page) + (id(ui_action) == 28 ? 1 : -1);
+                if (p < 0) p = 0;
+                id(ic_page) = p;   // overrun clamps at draw time, where the
+                                   // visible count is actually known
+                id(ui_action) = 0;
+
+      # ---- brightness (25/26): the third audio-overlay row ----
+      # light.turn_on ACTIONS, not a lambda touching id(backlight) — partly
+      # for the transition/light-call semantics, and partly because the
+      # navigability harness compiles every dispatch lambda verbatim and
+      # should not need a light stub for a control the button never drives.
+      # Floor at 10%: a 0% screen is indistinguishable from a dead one, and
+      # banking is how the screen goes dark on purpose.
+      - if:
+          condition: { lambda: 'return id(ui_action) == 25;' }
+          then:
+            - light.turn_on:
+                id: backlight
+                brightness: !lambda |-
+                  const float b = id(backlight).remote_values.get_brightness();
+                  return b - 0.10f < 0.10f ? 0.10f : b - 0.10f;
+            - lambda: |-
+                id(ui_gen)++;
+                id(ui_action) = 0;
+      - if:
+          condition: { lambda: 'return id(ui_action) == 26;' }
+          then:
+            - light.turn_on:
+                id: backlight
+                brightness: !lambda |-
+                  const float b = id(backlight).remote_values.get_brightness();
+                  return b + 0.10f > 1.0f ? 1.0f : b + 0.10f;
+            - lambda: |-
+                id(ui_gen)++;
+                id(ui_action) = 0;
+
       # ---- the chronicle's actions (18, 20-23) ----
       # 18 open an entry · 20/21 page older/newer · 22 back to list · 23 SPEAK.
       - if:
@@ -2705,9 +2843,25 @@ script:
                 condition:
                   - lambda: 'return id(va_state) == 0 || id(va_state) == 4;'
                 then:
-                  - event.trigger:
-                      id: intercom_evt
-                      event_type: pressed
+                  # 2026-08-09: the horn opens the SPEAKER PICKER (ui_mode 7)
+                  # when HA has published a target list, and falls back to the
+                  # old paired event when it hasn't (boot, HA down, empty
+                  # list). The fallback is why the paired relay automation
+                  # still exists — a horn that goes silent because a sensor is
+                  # stale would be a regression from the fixed pairing.
+                  - if:
+                      condition:
+                        - lambda: 'return id(ic_targets).has_state() && !id(ic_targets).state.empty();'
+                      then:
+                        - lambda: |-
+                            id(ic_page) = 0;
+                            id(ui_sel) = -1;
+                            id(ui_mode) = 7;
+                            id(ui_gen)++;
+                      else:
+                        - event.trigger:
+                            id: intercom_evt
+                            event_type: pressed
 
       # Row 0 opened a submenu rather than toggling, because the mode is a three-way
       # choice and a toggle cannot express it. The Hush entity still toggles for
@@ -2951,6 +3105,16 @@ sensor:
 # "+N" tail by the template sensor. The device does no string work beyond
 # printing this.
 text_sensor:
+  # The horn's target menu: online speakers, pipe-joined names, published by
+  # sensor.ember_speaker_targets (ember_intercom.yaml). Names ONLY — ESPHome
+  # text states cap at 255 bytes — and the chosen name goes back to HA, which
+  # resolves it against the same enumeration. The device filters its own
+  # friendly_name out at draw time; every other row is a place a word can go.
+  - platform: homeassistant
+    id: ic_targets
+    entity_id: sensor.ember_speaker_targets
+    attribute: names
+    internal: true
   - platform: homeassistant
     id: house_names
     entity_id: sensor.ember_house_watch
@@ -3046,6 +3210,16 @@ globals:
   - id: chron
     type: std::vector<std::string>
     restore_value: no
+  # Parallel to `chron`, same indices: the Slack conversation id behind an
+  # announced entry, or "" for everything else. A PARALLEL vector rather than
+  # an encoding change inside the entries, deliberately: every text consumer
+  # (list, detail, SPEAK, the karaoke anchor, the replay dedupe) keeps reading
+  # entry.substr(1) untouched, and only the reply path reads this. Written by
+  # the slack_note api service; the bridge's slack_bridge_announced event
+  # feeds it via an automation in ember_slack.yaml.
+  - id: chron_chan
+    type: std::vector<std::string>
+    restore_value: no
   - id: chron_page
     type: int
     restore_value: no
@@ -3072,6 +3246,16 @@ globals:
     type: int
     restore_value: no
     initial_value: '0'
+  # the horn's speaker picker (ui_mode 7): page, and the name the finger chose
+  # — held in a global so the homeassistant.service action's lambda can read
+  # it without re-parsing the list a second time.
+  - id: ic_page
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: ic_pick
+    type: std::string
+    restore_value: no
 
   # false while sound_level publishes NAN (mic not running, e.g. during TTS)
   - id: mic_live
@@ -3993,17 +4177,44 @@ display:
         // Drawn AFTER the band erase and BEFORE the text so a long heard-line
         // slides under it rather than through it.
         {
-          const int bx = 214, by = SCRL_Y + 6;      // book: 18x22
-          it.filled_rectangle(bx, by, 18, 22, c_bed);          // cover
-          it.filled_rectangle(bx + 2, by + 2, 14, 18, c_bg);   // page block
-          it.filled_rectangle(bx + 8, by, 2, 22, c_bed);       // the spine
-          it.horizontal_line(bx + 3, by + 6, 4, c_dim);        // script lines
-          it.horizontal_line(bx + 3, by + 10, 4, c_dim);
-          it.horizontal_line(bx + 11, by + 6, 4, c_dim);
-          it.horizontal_line(bx + 11, by + 10, 4, c_dim);
-          it.draw_pixel_at(bx + 16, by - 2, c_gold);           // the magic: a
-          it.draw_pixel_at(bx + 19, by + 1, c_gold);           // scatter of
-          it.draw_pixel_at(bx + 21, by - 1, c_tip);            // sparks rising
+          // Bigger and grander (JP: "more beautiful and magical"): an open
+          // tome, 30x26, spread pages with script, a gold clasp, and a rising
+          // drift of sparks off the outer corner. Still all primitives — it
+          // animates never and enchants always.
+          const int bx = 204, by = SCRL_Y + 4;
+          // covers: two leaves with a raised rim
+          it.filled_rectangle(bx, by + 4, 14, 22, c_bed);
+          it.filled_rectangle(bx + 16, by + 4, 14, 22, c_bed);
+          it.horizontal_line(bx, by + 3, 14, c_ember);
+          it.horizontal_line(bx + 16, by + 3, 14, c_ember);
+          // page blocks, inset, with a soft outer step (page depth)
+          it.filled_rectangle(bx + 2, by + 6, 11, 18, c_bg);
+          it.filled_rectangle(bx + 17, by + 6, 11, 18, c_bg);
+          it.filled_rectangle(bx + 3, by + 7, 9, 16, c_ash);
+          it.filled_rectangle(bx + 18, by + 7, 9, 16, c_ash);
+          it.filled_rectangle(bx + 4, by + 8, 7, 14, c_bg);
+          it.filled_rectangle(bx + 19, by + 8, 7, 14, c_bg);
+          // the spine valley
+          it.filled_rectangle(bx + 14, by + 4, 2, 22, c_bed);
+          // script: three lines per page, the top one gold — an illuminated
+          // first line, the medieval touch
+          it.horizontal_line(bx + 5, by + 11, 5, c_gold);
+          it.horizontal_line(bx + 20, by + 11, 5, c_gold);
+          it.horizontal_line(bx + 5, by + 15, 5, c_dim);
+          it.horizontal_line(bx + 20, by + 15, 5, c_dim);
+          it.horizontal_line(bx + 5, by + 19, 4, c_dim);
+          it.horizontal_line(bx + 20, by + 19, 4, c_dim);
+          // the clasp
+          it.filled_rectangle(bx + 29, by + 12, 3, 6, c_gold);
+          // sparks drifting up and away off the open pages
+          it.draw_pixel_at(bx + 26, by - 1, c_gold);
+          it.draw_pixel_at(bx + 30, by + 1, c_tip);
+          it.draw_pixel_at(bx + 33, by - 3, c_gold);
+          it.draw_pixel_at(bx + 29, by - 5, c_amber);
+          it.draw_pixel_at(bx + 35, by + 2, c_tip);
+          it.filled_circle(bx + 31, by - 1, 1, c_amber);
+          it.print(W - 2, by + 30, id(font_sm), c_dim,
+                   display::TextAlign::TOP_RIGHT, "chronicle");
         }
         // A pushed announcement answers nothing, so captioning it "heard: -" would
         // be a small lie. Label the provenance instead.
@@ -4017,7 +4228,9 @@ display:
             int need = wrap(6, SCRL_Y + 18, id(font_sm), c_ink, id(heard_text),
                             MAXW, 14, 2, 0);
             if (need > 2) {
-              it.print(W - 6, SCRL_Y + 32, id(font_sm), c_ash,
+              // right-aligned LEFT of the tome zone (2026-08-09): the pager
+              // used to end at W-6, directly under the chronicle label.
+              it.print(W - 52, SCRL_Y + 32, id(font_sm), c_ash,
                        display::TextAlign::TOP_RIGHT, "...");
             }
           } else {
@@ -4314,6 +4527,11 @@ display:
             const int py = hcy + (int) (10.0f * sinf(a));
             it.filled_circle(px, py, 1 + (int) (2.2f * t + 0.5f), h_body);
           }
+          // Labelled (JP, 2026-08-09): a control whose meaning needs the help
+          // book has failed at being a control. Small, dim, lit with the glyph.
+          it.print(${ui_ic_x} + 34, ${ui_ic_y} + 42, id(font_sm),
+                   horn_lit ? c_amber : c_dim,
+                   display::TextAlign::TOP_CENTER, "horn");
           // The bell: an open ring past the curl's end, where the sound leaves.
           {
             const float ab = 20.0f * 0.0174533f;
@@ -4399,15 +4617,32 @@ display:
           // ever reaches printf as a variable. That is not fussiness: -Wformat-nonliteral
           // would fire, and the standing warning count on this file was just taken from 4
           // to 0. A warning budget only works while it is zero.
+          //
+          // THREE ROWS NOW (2026-08-09: brightness joined — JP: "that should be
+          // on the volume menu"), so the layout went compact: the -/+ boxes sit
+          // BESIDE the stones on one 46px control line instead of on their own
+          // band below. Same one-lambda rule as when there were two: a third
+          // hand-written copy would be the same drift hazard as the second.
           auto row = [&](int ly, int by, const char *val, const char *sub,
-                         int n_st, int lit, bool can_dn, bool can_up) {
+                         int n_st, int sw, int lit, bool can_dn, bool can_up) {
             it.print(6, ly, id(font_hdr), c_tip, val);
             it.print(W - 6, ly + 5, id(font_sm), c_dim,
                      display::TextAlign::TOP_RIGHT, sub);
-            // Hearth stones: a level readout that belongs to the metaphor rather than a
-            // grey progress bar bolted onto it. Lit ones climb the fire ramp.
-            const int sw = 10, sg = 2, sy = ly + 26, sh = 22;
-            const int sx0 = (W - (n_st * (sw + sg) - sg)) / 2;
+            const int bh = ${ui_vol_bh};
+            // -/+ boxes flank the stones: 70px wide (~12.9mm), full 46px tall.
+            // The HIT band is the full 240px split at x120 (see on_touch), so
+            // the drawn box is a picture inside a larger target, never smaller.
+            it.rectangle(4, by, 70, bh, c_dim);
+            it.filled_rectangle(22, by + bh / 2 - 2, 34, 5, can_dn ? c_ink : c_ash);
+            it.rectangle(166, by, 70, bh, c_dim);
+            it.filled_rectangle(184, by + bh / 2 - 2, 34, 5, can_up ? c_ink : c_ash);
+            it.filled_rectangle(198, by + bh / 2 - 16, 5, 33, can_up ? c_ink : c_ash);
+            // Hearth stones between the boxes: the level readout that belongs
+            // to the metaphor. Lit ones climb the fire ramp. sw is per-row so
+            // each row's stone count can BE its hardware resolution.
+            const int sg = 2, sh = 24, sy = by + (bh - 24) / 2;
+            const int span = n_st * (sw + sg) - sg;
+            const int sx0 = 78 + (84 - span) / 2;
             for (int i = 0; i < n_st; i++) {
               Color c = c_ash;
               if (i < lit) {
@@ -4416,28 +4651,25 @@ display:
               }
               it.filled_rectangle(sx0 + i * (sw + sg), sy, sw, sh, c);
             }
-            // Glyphs are drawn as bars rather than typed, so nothing depends on font
-            // metrics. 114 x 56 px ~= 21 x 10.3mm.
-            const int bh = ${ui_vol_bh};
-            it.rectangle(4, by, 114, bh, c_dim);
-            it.filled_rectangle(43, by + bh / 2 - 2, 36, 5, can_dn ? c_ink : c_ash);
-            it.rectangle(122, by, 114, bh, c_dim);
-            it.filled_rectangle(161, by + bh / 2 - 2, 36, 5, can_up ? c_ink : c_ash);
-            it.filled_rectangle(177, by + bh / 2 - 18, 5, 36, can_up ? c_ink : c_ash);
           };
 
-          char vbuf[12], gbuf[12];
+          const int bri = (int) (id(backlight).remote_values.get_brightness() * 100.0f + 0.5f);
+          char vbuf[12], gbuf[12], bbuf[12];
           snprintf(vbuf, sizeof vbuf, "%d%%", vol);
           snprintf(gbuf, sizeof gbuf, "%ddB", gain);
+          snprintf(bbuf, sizeof bbuf, "%d%%", bri);
 
-          // 20 stones for volume (one per 5%), 8 for gain — because the ES8311's PGA has
-          // exactly eight legal settings. The stone count IS the hardware's resolution, so
-          // the readout cannot imply a precision the codec does not have. lit = g/6 + 1, so
-          // 0dB shows one lit stone rather than none: 0dB is a real setting, not "off".
-          row(OY + 4,   ${ui_vol_by},  vbuf, "how loudly ember speaks",
-              20, vol / 5,      vol > 0,  vol < 100);
-          row(OY + 120, ${ui_gain_by}, gbuf, "how well ember hears",
-              8,  gain / 6 + 1, gain > 0, gain < 42);
+          // Stones per row = that control's real resolution: volume steps 5%
+          // (20 stones, thin), the ES8311 PGA has exactly eight settings (8),
+          // brightness steps 10% with a 10% floor (10 — the floor because a
+          // 0% screen is indistinguishable from a dead one, and BANKING is how
+          // the screen goes dark on purpose).
+          row(OY + 2,   ${ui_vol_by},  vbuf, "how loudly ember speaks",
+              20, 3, vol / 5,      vol > 0,  vol < 100);
+          row(OY + 72,  ${ui_gain_by}, gbuf, "how well ember hears",
+              8,  8, gain / 6 + 1, gain > 0, gain < 42);
+          row(OY + 142, ${ui_bri_by},  bbuf, "how brightly the hearth glows",
+              10, 6, bri / 10,     bri > 10, bri < 100);
 
         } else if (id(ui_mode) == 3) {
           it.print(6, OY + 4, id(font_hdr), c_gold, "MODE");
@@ -4649,6 +4881,12 @@ display:
               it.print(6, 224, id(font_sm), c_ash, "...");
             it.filled_rectangle(0, 233, W, 1, c_ash);
             it.print(6, 240, id(font_body), c_dim, "< back");
+            // reply: gold when the entry KNOWS its Slack conversation, dim
+            // when it will ride the bridge's last-announced fallback.
+            const bool has_chan = id(chron_sel) < (int) id(chron_chan).size()
+                                  && !id(chron_chan)[(size_t) id(chron_sel)].empty();
+            it.print(120, 240, id(font_body), has_chan ? c_gold : c_dim,
+                     display::TextAlign::TOP_CENTER, "reply");
             it.print(W - 6, 240, id(font_body), playing ? c_gold : c_amber,
                      display::TextAlign::TOP_RIGHT,
                      playing ? "speaking..." : "speak >");
@@ -4759,6 +4997,51 @@ display:
           if (hp > 0) it.print(6, 240, id(font_body), c_dim, "< prev");
           if (hp < 4) it.print(W - 6, 240, id(font_body), c_dim,
                                display::TextAlign::TOP_RIGHT, "next >");
+        } else if (id(ui_mode) == 7) {
+          // ---- THE HORN'S PICKER: where should the word go? ----
+          it.filled_rectangle(0, OY, W, SCRL_H + FLAM_H, c_bg);
+          it.print(6, OY + 2, id(font_sm), c_gold, "send word to...");
+          // Parse the live names, skipping this hearth — you cannot summon
+          // yourself, and a list that offers it would be a list that lies.
+          std::vector<std::string> names;
+          {
+            const std::string &all = id(ic_targets).state;
+            size_t pos = 0;
+            while (pos <= all.size() && names.size() < 48) {
+              size_t bar = all.find('|', pos);
+              if (bar == std::string::npos) bar = all.size();
+              std::string nm = all.substr(pos, bar - pos);
+              if (!nm.empty() && nm != "${friendly_name}") names.push_back(nm);
+              pos = bar + 1;
+            }
+          }
+          const int n = (int) names.size();
+          const int pages = n == 0 ? 1 : (n + 3) / 4;
+          if (id(ic_page) > pages - 1) id(ic_page) = pages - 1;
+          it.printf(W - 6, OY + 2, id(font_sm), c_dim,
+                    display::TextAlign::TOP_RIGHT, "%d listening", n);
+          if (n == 0)
+            it.print(6, OY + 34, id(font_body), c_dim, "no other hearths answer");
+          for (int row = 0; row < 4; row++) {
+            const int idx = id(ic_page) * 4 + row;
+            if (idx >= n) break;
+            const int iy = 50 + row * 46;
+            // the horn's own curl, miniature, as each row's glyph
+            it.filled_circle(13, iy + 20, 3, c_ember);
+            it.filled_circle(17, iy + 16, 2, c_ember);
+            it.draw_pixel_at(20, iy + 12, c_gold);
+            it.draw_pixel_at(21, iy + 11, c_gold);
+            it.print(30, iy + 10, id(font_body), c_ink, names[(size_t) idx].c_str());
+            it.filled_rectangle(0, iy + 44, W, 1, c_ash);
+          }
+          it.filled_rectangle(0, 233, W, 1, c_ash);
+          if (id(ic_page) < pages - 1)
+            it.print(6, 240, id(font_body), c_dim, "< more");
+          if (id(ic_page) > 0)
+            it.print(W - 6, 240, id(font_body), c_dim,
+                     display::TextAlign::TOP_RIGHT, "back >");
+          it.print(W / 2, 242, id(font_sm), c_ash,
+                   display::TextAlign::TOP_CENTER, "tap away to hush the horn");
         }
       };
 
@@ -6309,6 +6592,8 @@ touchscreen:
               id(ui_action) = (tx < 120) ? 1 : 2;
             } else if (ty >= ${ui_gain_by} && ty < ${ui_gain_by} + ${ui_vol_bh}) {
               id(ui_action) = (tx < 120) ? 14 : 15;
+            } else if (ty >= ${ui_bri_by} && ty < ${ui_bri_by} + ${ui_vol_bh}) {
+              id(ui_action) = (tx < 120) ? 25 : 26;
             } else {
               id(ui_action) = 4;
             }
@@ -6391,6 +6676,23 @@ touchscreen:
             return;
           }
 
+          if (id(ui_mode) == 7) {
+            // The horn's speaker picker: same 46px rows as every list, page
+            // bar at the bottom, tap-away cancels the summons entirely.
+            const int rel = ty - 50;
+            const int row = rel / 46;
+            if (ty >= 234) {
+              id(ui_action) = (tx < 120) ? 28 : 29;      // page down | up
+            } else if (rel >= 0 && row < 4 && (rel % 46) < 44) {
+              id(ui_sel) = row;
+              id(ui_action) = 27;                        // send word HERE
+            } else {
+              id(ui_action) = 4;
+            }
+            id(ui_gen)++;
+            return;
+          }
+
           if (id(ui_mode) == 6) {
             // The help book: bottom corners page, anywhere else closes back to
             // the power menu (you came from its title, you land back on it).
@@ -6408,12 +6710,11 @@ touchscreen:
           }
 
           if (id(ui_mode) == 5) {
-            // The chronicle detail: bottom bar is back (left third) and SPEAK
-            // (right two thirds — the control you came for gets the bigger
-            // target, and it sits away from the bezel lip corners). Anywhere
-            // else dismisses to the hearth.
+            // The chronicle detail bar, three targets since the Slack bridge
+            // (2026-08-09): back | reply | speak. Each 80px (~14.8mm) wide,
+            // full 30px bar height. Anywhere else dismisses to the hearth.
             if (ty >= 234) {
-              id(ui_action) = (tx < 80) ? 22 : 23;       // back | speak
+              id(ui_action) = (tx < 80) ? 22 : (tx < 160 ? 30 : 23);
             } else {
               id(ui_action) = 4;
             }
