@@ -1411,7 +1411,7 @@
      "cards": [
       {
        "type": "heading",
-       "heading": "Everything, plainly",
+       "heading": "Everything, plainly \u00b7 desk",
        "heading_style": "subtitle",
        "icon": "mdi:format-list-bulleted-square"
       },
@@ -1605,6 +1605,13 @@
        },
        "card_mod": {
         "style": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { height:100%; padding:0; border:none; box-shadow:none;\n  overflow:hidden; border-radius:6px;\n  background:linear-gradient(90deg, var(--em-bed) 0%, var(--em-coal) 20%,\n    var(--em-glow) 46%, var(--em-gold) 74%, var(--em-tip) 100%); }\nha-card > * { display:none; }\n"
+       }
+      },
+      {
+       "type": "markdown",
+       "content": "**About \u201cWake word \u00b7 slot 2\u201d.** Both wake-word selects are live surface on every board in *every* mode \u2014 the enumeration is static config and knows nothing about `${wake_word_mode}`. All three hearths run **mode 1** today, so the wake word is genuinely armed and slot 1 means what it says. **At mode 0 or 2 it would not be:** the select still offers *Okay Nabu*, and choosing it appears to do nothing \u2014 *\u201ca cosmetic lie HA gives us for free\u201d* (`esphome/ember-satellite.yaml`, `docs/wake-word.md`). Only one on-device model is installed, so slot 2's only meaningful states are that same model or `no_wake_word`.\n\nIf you change `wake_word_mode` and reflash, **update this card** \u2014 its accuracy depends on the mode, not on the hardware.",
+       "grid_options": {
+        "columns": "full"
        }
       }
      ]
@@ -2305,6 +2312,21 @@
        "name": "Intercom",
        "icon": "mdi:bullhorn-variant-outline",
        "color": "brown",
+       "grid_options": {
+        "columns": "full"
+       }
+      },
+      {
+       "type": "tile",
+       "entity": "automation.ember_mobile_cell_critical",
+       "name": "Cell-critical alarm",
+       "icon": "mdi:battery-alert-variant-outline",
+       "color": "red",
+       "features": [
+        {
+         "type": "toggle"
+        }
+       ],
        "grid_options": {
         "columns": "full"
        }
