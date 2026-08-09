@@ -46,6 +46,22 @@
 # that MUST be heard should target the desk unit (the default) or use
 # ember_announce_all, never the mobile unit alone.
 
+# The Hearth-view composer's target chooser (JP, 2026-08-09). ember_say
+# consults it ONLY when no explicit `satellite` field is passed — dashboard
+# buttons that name a hearth (the Fleet composer) are unaffected by it.
+# Options are friendly names; the mapping to entities lives in ember_say,
+# next to the code that uses it. Adding hearth #4: new option here, one line
+# in ember_say's map, and the chooser covers it everywhere at once.
+input_select:
+  ember_say_target:
+    name: Ember - who speaks the text field
+    icon: mdi:bullhorn-variant
+    options:
+      - Desk
+      - Mobile
+      - Dad's house
+      - Every hearth (house)
+
 script:
   ember_announce:
     alias: Ember - announce
@@ -223,9 +239,23 @@ script:
     sequence:
       - condition: template
         value_template: "{{ states('input_text.ember_say') | trim not in ['', 'unknown', 'unavailable'] }}"
+      # Resolution order: explicit field > the Hearth-view chooser > desk.
+      # The chooser branch is what makes the front page's ONE speak button
+      # target any hearth; buttons that pass `satellite` explicitly (Fleet
+      # composer) ignore the chooser on purpose — a per-hearth button that
+      # obeyed a dropdown somewhere else would be lying about its label.
+      - variables:
+          resolved: >-
+            {% set explicit = satellite | default('', true) %}
+            {% if explicit %}{{ explicit }}
+            {% else %}{{ {'Desk': '',
+                          'Mobile': 'assist_satellite.ember_mobile_assist_satellite',
+                          "Dad's house": 'assist_satellite.ember_dad_assist_satellite',
+                          'Every hearth (house)': 'all'}.get(states('input_select.ember_say_target'), '') }}
+            {% endif %}
       - if:
           - condition: template
-            value_template: "{{ satellite | default('', true) == 'all' }}"
+            value_template: "{{ resolved | trim == 'all' }}"
         then:
           - action: script.ember_announce_all
             data:
@@ -234,4 +264,4 @@ script:
           - action: script.ember_announce
             data:
               message: "{{ states('input_text.ember_say') }}"
-              satellite: "{{ satellite | default('', true) }}"
+              satellite: "{{ resolved | trim }}"
