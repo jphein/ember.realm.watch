@@ -64,8 +64,7 @@ automation:
           message: >-
             The mobile hearth is guttering —
             {{ states('sensor.ember_mobile_battery_soc') }}% and falling. It goes
-            dark near 3.4 volts, and the cell beneath it has no protection strip
-            fitted yet.
+            dark near 3.4 volts.
 
   # Dad's hearth (2026-08-09: "his is mobile too and has a battery already").
   # Same ladder, two deliberate differences: the self-announcement happens in

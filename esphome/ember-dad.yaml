@@ -28,9 +28,8 @@
 # from the device name: sensor.ember_dad_battery_soc), and
 # ember_battery_watch.yaml carries this hearth's critical alarm.
 #
-# ⛔ Same cell warning as the mobile unit: if that 18650 has no 1S protection
-# strip fitted, it is required equipment — the regulator floor and the
-# divider's 9µA drain do not care whose house the board is in.
+# ✅ 1S protection strip FITTED (JP, 2026-08-09, same session as the mobile
+# unit's) — the warning that stood here is retired by that observation.
 #
 # DEPLOYMENT TARGET is Dad's house behind the south-dads realm AP, on the
 # same `jplovescl` SSID baked in via secrets. Until it ships it lives on the
