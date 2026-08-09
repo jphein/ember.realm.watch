@@ -7,22 +7,22 @@
     "updated": "2026-08-03T00:10"
   },
   "ember-front-bezel": {
-    "printed_at": "2026-08-01",
-    "printed_rev": 2,
+    "printed_at": "2026-08-09",
+    "printed_rev": 3,
     "rev": 3,
     "sha8": "9470c8d0",
     "updated": "2026-08-06T12:55"
   },
   "ember-mobile-back": {
-    "printed_at": null,
-    "printed_rev": 0,
+    "printed_at": "2026-08-09",
+    "printed_rev": 15,
     "rev": 15,
     "sha8": "5baf88b0",
     "updated": "2026-08-02T18:24"
   },
   "ember-mobile-midframe": {
-    "printed_at": null,
-    "printed_rev": 0,
+    "printed_at": "2026-08-09",
+    "printed_rev": 12,
     "rev": 12,
     "sha8": "a0582520",
     "updated": "2026-08-03T00:14"
