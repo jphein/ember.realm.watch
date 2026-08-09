@@ -53,8 +53,12 @@ template:
         attributes:
           rows: >-
             {% set ns = namespace(r=[]) %}
-            {% for e in states.assist_satellite
-               | rejectattr('state','in',['unavailable','unknown']) %}
+            {% for e in (states.assist_satellite
+               | rejectattr('state','in',['unavailable','unknown'])
+               | selectattr('entity_id','search','ember') | list)
+               + (states.assist_satellite
+               | rejectattr('state','in',['unavailable','unknown'])
+               | rejectattr('entity_id','search','ember') | list) %}
               {% set ns.r = ns.r + [(e.name | replace('Assist satellite','') | trim
                                      ~ '|' ~ e.entity_id)] %}
             {% endfor %}
@@ -71,8 +75,13 @@ template:
           # call time, so device and script cannot disagree about the list.
           names: >-
             {% set ns = namespace(r=[]) %}
-            {% for e in states.assist_satellite
-               | rejectattr('state','in',['unavailable','unknown']) %}
+            {# embers first (JP): the family leads, guests follow #}
+            {% for e in (states.assist_satellite
+               | rejectattr('state','in',['unavailable','unknown'])
+               | selectattr('entity_id','search','ember') | list)
+               + (states.assist_satellite
+               | rejectattr('state','in',['unavailable','unknown'])
+               | rejectattr('entity_id','search','ember') | list) %}
               {% set ns.r = ns.r + [(e.name | replace('Assist satellite','')
                                      | trim)[:18]] %}
             {% endfor %}
@@ -112,8 +121,12 @@ script:
             {% if target is defined and target %}{{ target }}{% else %}
             {%- set want = (target_name | default('', true)) | trim -%}
             {%- set ns = namespace(hit='') -%}
-            {%- for e in states.assist_satellite
-                | rejectattr('state','in',['unavailable','unknown']) -%}
+            {%- for e in (states.assist_satellite
+                | rejectattr('state','in',['unavailable','unknown'])
+                | selectattr('entity_id','search','ember') | list)
+                + (states.assist_satellite
+                | rejectattr('state','in',['unavailable','unknown'])
+                | rejectattr('entity_id','search','ember') | list) -%}
               {%- if not ns.hit and (e.name | replace('Assist satellite','')
                   | trim)[:18] == want -%}{%- set ns.hit = e.entity_id -%}{%- endif -%}
             {%- endfor -%}
