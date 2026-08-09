@@ -84,7 +84,21 @@ Do these first; the packages reference them and sit `unavailable` otherwise.
 ### 2.1 Add-ons
 Settings → Add-ons:
 - **Piper** — TTS. Download voice `en_GB-cori-medium`.
-- **vosk** — STT.
+- ~~**vosk** — STT.~~ **Replaced 2026-08-09** by **Parakeet on `familiar`** — not an
+  add-on. `wyoming-onnx-asr` serves NVIDIA `parakeet-tdt-0.6b-v2` (the current
+  local-English state of the art; vosk was the best *add-on* but add-ons were the
+  wrong pond to fish in) over the Wyoming protocol from `familiar:10300`, CPU-only
+  so the GPUs stay with the inference lanes. Unit + the save-audio debug patch are
+  owned by **familiar.realm.watch** (`ops/systemd/units/wyoming-onnx-asr.service`,
+  `ops/patches/`) — cross-referenced, never mirrored, per the standing boundary.
+  HA side: Settings → Integrations → Wyoming → host `familiar.lan`, port `10300`.
+  The vosk add-on can stay installed as a fallback engine; nothing selects it.
+
+  🔊 **To hear exactly what Ember's mic delivered to STT** (the thing JP asked for):
+  every utterance is teed on `familiar` to `/opt/wyoming-onnx-asr/debug-audio/`
+  as `utt-<ts>.wav` + a `.txt` sidecar holding the transcript it produced —
+  newest 40 kept. `scp` one over and play it; a wrong transcript can be replayed
+  against the exact audio that produced it.
 - **openWakeWord** — the pipeline names it even though Ember is push-to-talk ([§6](#6--the-voice-pipeline)).
 
 ### 2.2 HACS integration
@@ -119,7 +133,7 @@ Settings → Voice assistants → Add assistant, named **`familiar-ember`**:
 | Stage | Value |
 |:--|:--|
 | Conversation agent | `Ember (familiar local)` |
-| Speech-to-text | `stt.vosk` |
+| Speech-to-text | `stt.onnx_asr` — Parakeet on `familiar`, via Wyoming (was `stt.vosk` until 2026-08-09) |
 | Text-to-speech | `tts.piper`, voice `en_GB-cori-medium`, language `en_GB` |
 | Wake word | `wake_word.openwakeword` |
 | **Prefer handling commands locally** | **on** — see [§6.4](#64-prefer_local_intents--why-its-on) |
@@ -271,7 +285,7 @@ cause, and it is not in Home Assistant.
         ▼
   ┌─────────┐   ┌────────────┐   ┌──────────────────────┐   ┌───────────┐
   │  wake   │──▶│    ear     │──▶│         mind         │──▶│   voice   │
-  │openWake │   │ stt.vosk   │   │ Qwen3.6-35B-A3B      │   │ tts.piper │
+  │openWake │   │stt.onnx_asr│   │ Qwen3.6-35B-A3B      │   │ tts.piper │
   │  Word   │   │            │   │ on `familiar`        │   │ en_GB-    │
   └─────────┘   └────────────┘   │ via LiteLLM @ ubox0  │   │ cori-med  │
                                  └──────────────────────┘   └───────────┘
@@ -287,7 +301,7 @@ at each stage.
 |:--|:--|
 | Conversation agent | `conversation.extended_openai_conversation_2` — *Ember* |
 | Language / conversation language | `en` |
-| STT | `stt.vosk` (`en`) |
+| STT | `stt.onnx_asr` (`en`) — Parakeet via Wyoming at `familiar.lan:10300` |
 | TTS | `tts.piper`, language `en_GB`, voice **`en_GB-cori-medium`** |
 | Wake word entity | `wake_word.openwakeword` (`wake_word_id: null`) |
 | **`prefer_local_intents`** | **`true`** |

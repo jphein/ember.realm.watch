@@ -3,7 +3,7 @@
  "conversation_language": "en",
  "language": "en",
  "name": "familiar-ember",
- "stt_engine": "stt.vosk",
+ "stt_engine": "stt.onnx_asr",
  "stt_language": "en",
  "tts_engine": "tts.piper",
  "tts_language": "en_GB",
