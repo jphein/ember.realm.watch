@@ -83,7 +83,14 @@ Do these first; the packages reference them and sit `unavailable` otherwise.
 
 ### 2.1 Add-ons
 Settings → Add-ons:
-- **Piper** — TTS. Download voice `en_GB-cori-medium`.
+- ~~**Piper** — TTS add-on.~~ **Moved to `familiar` 2026-08-09** (the VM was
+  overloaded and TTS inference was part of why): `wyoming-piper` at
+  `familiar:10200`, voice bumped `en_GB-cori-medium` → **`en_GB-cori-high`** —
+  the quality tier the VM could never afford is free on 24 idle cores. Unit:
+  familiar.realm.watch `ops/systemd/units/wyoming-piper.service`. HA side:
+  Wyoming integration → `familiar.lan:10200` → `tts.piper_2`. The add-on is
+  STOPPED, not uninstalled — one click (or `hassio.addon_stop`'s twin
+  `addon_start`) brings it back as a fallback with the old `tts.piper` entity.
 - ~~**vosk** — STT.~~ **Replaced 2026-08-09** by **Parakeet on `familiar`** — not an
   add-on. `wyoming-onnx-asr` serves NVIDIA `parakeet-tdt-0.6b-v2` (the current
   local-English state of the art; vosk was the best *add-on* but add-ons were the
@@ -134,7 +141,7 @@ Settings → Voice assistants → Add assistant, named **`familiar-ember`**:
 |:--|:--|
 | Conversation agent | `Ember (familiar local)` |
 | Speech-to-text | `stt.onnx_asr` — Parakeet on `familiar`, via Wyoming (was `stt.vosk` until 2026-08-09) |
-| Text-to-speech | `tts.piper`, voice `en_GB-cori-medium`, language `en_GB` |
+| Text-to-speech | `tts.piper_2` (familiar), voice `en_GB-cori-high`, language `en_GB` |
 | Wake word | `wake_word.openwakeword` |
 | **Prefer handling commands locally** | **on** — see [§6.4](#64-prefer_local_intents--why-its-on) |
 
@@ -302,7 +309,7 @@ at each stage.
 | Conversation agent | `conversation.extended_openai_conversation_2` — *Ember* |
 | Language / conversation language | `en` |
 | STT | `stt.onnx_asr` (`en`) — Parakeet via Wyoming at `familiar.lan:10300` |
-| TTS | `tts.piper`, language `en_GB`, voice **`en_GB-cori-medium`** |
+| TTS | `tts.piper_2` (familiar via Wyoming), language `en_GB`, voice **`en_GB-cori-high`** |
 | Wake word entity | `wake_word.openwakeword` (`wake_word_id: null`) |
 | **`prefer_local_intents`** | **`true`** |
 
