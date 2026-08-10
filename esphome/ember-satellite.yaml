@@ -248,18 +248,19 @@ substitutions:
   # silent drift between "where it's drawn" and "where it's tappable" is the
   # classic touch-UI bug and it is invisible in review.
   ui_oy: "32"           # overlay origin y — must equal SCRL_Y
-  # The single-press overlay now carries TWO controls, so it spans the flame band as
-  # well and each control gets a shorter pair of targets. 56px ~= 10.3mm, still well
-  # clear of the ~9mm minimum touch target — the constraint that decided the layout.
-  # 2026-08-09: the audio overlay went from two stacked rows to THREE compact
-  # ones (volume / mic gain / brightness — JP: "that should be on the volume
-  # menu"). Each row is a 20px label line over a 46px control line; 46px is
-  # the same touch floor every menu row uses, and three of them plus labels
-  # fill the overlay exactly (ends y242 of 263).
-  ui_vol_by: "56"       # volume +/- targets: top edge
-  ui_vol_bh: "46"       # +/- target height, shared by all three controls
-  ui_gain_by: "126"     # mic gain +/- targets: top edge
-  ui_bri_by: "196"      # backlight brightness +/- targets: top edge
+  # The single-press overlay: FOUR rows since 2026-08-09 evening (volume /
+  # mic gain / brightness / reading font — JP: "font size should be
+  # configurable in the volume menu too"). Four 46px control lines do not fit
+  # in the overlay's 232px, so each row is an 18px label line over a 38px
+  # drawn control line at a 56px pitch — and the HIT band is the full 56px
+  # pitch, label included (see the mode-1 hit-test: by-18 .. by+bh). 56px
+  # ~= 10.3mm, the same touch floor every menu row uses; the drawn box is a
+  # picture inside a larger target, never smaller. Rows end y258 of 263.
+  ui_vol_by: "52"       # volume +/- : top edge of the drawn boxes
+  ui_vol_bh: "38"       # +/- drawn-box height, shared by all four controls
+  ui_gain_by: "108"     # mic gain +/- : top edge
+  ui_bri_by: "164"      # backlight brightness +/- : top edge
+  ui_font_by: "220"     # reading-font size +/- : top edge
   ui_pm_iy: "72"        # power menu: first item top edge
   ui_pm_ih: "46"        # power menu: item height (46px ~= 8.4mm)
   ui_pm_n: "4"          # power menu: item count
@@ -2833,6 +2834,24 @@ script:
                 id(ui_gen)++;
                 id(ui_action) = 0;
 
+      # ---- the reading font (34/35): the audio overlay's fourth row ----
+      # Clamped over the three baked rungs (15/17/20pt — see the font: block).
+      # force_full_repaint so the scroll band re-renders in the new size while
+      # you're still choosing: the selection is judged by reading, not labels.
+      - if:
+          condition: { lambda: 'return id(ui_action) == 34 || id(ui_action) == 35;' }
+          then:
+            - lambda: |-
+                int s = id(font_scale) + (id(ui_action) == 35 ? 1 : -1);
+                if (s < 0) s = 0;
+                if (s > 2) s = 2;
+                if (s != id(font_scale)) {
+                  id(font_scale) = s;
+                  id(force_full_repaint) = true;
+                }
+                id(ui_gen)++;
+                id(ui_action) = 0;
+
       # ---- the chronicle's actions (18, 20-23) ----
       # 18 open an entry · 20/21 page older/newer · 22 back to list · 23 SPEAK.
       - if:
@@ -3530,6 +3549,14 @@ globals:
   # While ui_mode == 0 the touch gesture is exactly what it was; while an overlay
   # is up, touch addresses the overlay and talk is suspended. One boolean of state
   # instead of a gesture recogniser.
+  # The reading-font rung: 0 small (15pt) / 1 medium (17pt) / 2 large (20pt),
+  # set from the audio overlay's fourth row (actions 34/35). Restored across
+  # reboots — a reading preference is exactly the kind of thing that must not
+  # reset when the power blips. See the bodyf selector in the display lambda.
+  - id: font_scale
+    type: int
+    restore_value: yes
+    initial_value: '1'
   - id: ui_mode
     type: uint8_t
     restore_value: false
@@ -3925,6 +3952,19 @@ display:
           }
         }
       }
+
+      // The reading font (2026-08-09, JP: "make the font a bit bigger", then
+      // "font size should be configurable in the volume menu too"). Fonts are
+      // compiled bitmaps, so configurable = three baked Roboto sizes and this
+      // selector; body_pitch rides along or the sizes would collide on the
+      // line below. Scope is READING text — Ember's reply and the chronicle
+      // detail's playback. Chrome keeps fixed fonts so no band layout ever
+      // depends on a runtime value.
+      font::Font *bodyf = (id(font_scale) <= 0) ? id(font_body_s)
+                        : (id(font_scale) >= 2) ? id(font_body_l)
+                                                : id(font_body);
+      const int body_pitch = (id(font_scale) <= 0) ? 18
+                           : (id(font_scale) >= 2) ? 24 : 21;
 
       Color accent = c_ember;
       switch (st) {
@@ -4331,9 +4371,9 @@ display:
         // loop — it would compete directly with the fire, permanently, for a case that
         // is rare because the persona enforces terseness.
         if (!id(said_text).empty()) {
-          const int need = wrap(6, SCRL_Y + 58, id(font_body),
+          const int need = wrap(6, SCRL_Y + 58, bodyf,
                                 st == 4 ? c_alarm : c_ink, id(said_text),
-                                MAXW, 18, SAID_LINES,
+                                MAXW, body_pitch, SAID_LINES,
                                 id(scroll_page) * SAID_LINES);
           // Publish the page count for the scheduler. Only >1 arms the page timer, so
           // a reply that fits costs exactly what it did before: nothing.
@@ -4695,7 +4735,9 @@ display:
           // hand-written copy would be the same drift hazard as the second.
           auto row = [&](int ly, int by, const char *val, const char *sub,
                          int n_st, int sw, int lit, bool can_dn, bool can_up) {
-            it.print(6, ly, id(font_hdr), c_tip, val);
+            // font_body since the fourth row (2026-08-09): the label gap is
+            // 18px now and font_hdr's 18pt descends into the control boxes.
+            it.print(6, ly, id(font_body), c_tip, val);
             it.print(W - 6, ly + 5, id(font_sm), c_dim,
                      display::TextAlign::TOP_RIGHT, sub);
             const int bh = ${ui_vol_bh};
@@ -4733,13 +4775,19 @@ display:
           // (20 stones, thin), the ES8311 PGA has exactly eight settings (8),
           // brightness steps 10% with a 10% floor (10 — the floor because a
           // 0% screen is indistinguishable from a dead one, and BANKING is how
-          // the screen goes dark on purpose).
-          row(OY + 2,   ${ui_vol_by},  vbuf, "how loudly ember speaks",
+          // the screen goes dark on purpose), and the reading font has three
+          // baked rungs (3 — bitmaps don't scale; see the font: block).
+          const int fsc = id(font_scale) <= 0 ? 0 : (id(font_scale) >= 2 ? 2 : id(font_scale));
+          const char *fs_names[3] = {"small", "medium", "large"};
+          row(${ui_vol_by} - 18,  ${ui_vol_by},  vbuf, "how loudly ember speaks",
               20, 3, vol / 5,      vol > 0,  vol < 100);
-          row(OY + 72,  ${ui_gain_by}, gbuf, "how well ember hears",
+          row(${ui_gain_by} - 18, ${ui_gain_by}, gbuf, "how well ember hears",
               8,  8, gain / 6 + 1, gain > 0, gain < 42);
-          row(OY + 142, ${ui_bri_by},  bbuf, "how brightly the hearth glows",
+          row(${ui_bri_by} - 18,  ${ui_bri_by},  bbuf, "how brightly the hearth glows",
               10, 6, bri / 10,     bri > 10, bri < 100);
+          row(${ui_font_by} - 18, ${ui_font_by}, fs_names[fsc],
+              "how large her words read",
+              3, 26, fsc + 1,      fsc > 0,  fsc < 2);
 
         } else if (id(ui_mode) == 3) {
           it.print(6, OY + 4, id(font_hdr), c_gold, "MODE");
@@ -4939,9 +4987,9 @@ display:
               if (sp == std::string::npos) sp = t.size();
               const std::string w = t.substr(pos, sp - pos);
               int bx, by, bw, bh;
-              it.get_text_bounds(0, 0, (w + " ").c_str(), id(font_body),
+              it.get_text_bounds(0, 0, (w + " ").c_str(), bodyf,
                                  display::TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
-              if (x + bw > W - 6) { x = 6; y += 20; if (y >= 224) break; }
+              if (x + bw > W - 6) { x = 6; y += body_pitch + 2; if (y >= 224) break; }
               // Spoken words settle to ink, the word under the voice burns
               // gold, the unspoken wait in dim — read order is fire order.
               Color wc = c_ink;
@@ -4949,7 +4997,7 @@ display:
                 if (lit < (long) pos) wc = c_dim;
                 else if (lit < (long) sp) wc = c_gold;
               }
-              it.print(x, y, id(font_body), wc, w.c_str());
+              it.print(x, y, bodyf, wc, w.c_str());
               x += bw;
               pos = sp + 1;
             }
@@ -5039,7 +5087,7 @@ display:
             it.print(6, OY + 156, id(font_sm), c_ash, "open one and tap speak: she");
             it.print(6, OY + 172, id(font_sm), c_ash, "says it again, lighting each");
             it.print(6, OY + 188, id(font_sm), c_ash, "word gold as she passes");
-            it.print(6, OY + 206, id(font_sm), c_ash, "gold rune by the fire: reply");
+            it.print(6, OY + 206, id(font_sm), c_ash, "gold button by the fire: reply");
           } else if (hp == 3) {
             it.print(6, OY + 2, id(font_sm), c_gold, "the horn & the candle");
             it.print(6, OY + 24, id(font_body), c_ink, "horn, bottom-right corner:");
@@ -6364,7 +6412,7 @@ display:
         // correction, same evening: the ring marks where a tap WAKES her ("the
         // tapping of the waking be on the familiar and the aura"), and it should
         // burn, not merely delineate. Geometry: ellipse about the DGN bbox centre
-        // (120,235); a steady 3px gold core at rx 80 ry 30 and an amber halo
+        // (120,235); a steady 3px gold core at rx 72 ry 30 and an amber halo
         // whose outer edge wobbles 0..3px on ph, so the boundary licks like flame
         // instead of sitting like a drawn hoop. The on_touch talk disk is the
         // core ellipse — drawn == tappable.
@@ -6376,7 +6424,9 @@ display:
         int hl0 = 0, hl1 = 0, hr0 = 0, hr1 = 0;   // amber halo intervals
         {
           const int ACX = DGN_X + DGN_W / 2;      // 120
-          const int ARX = 80, ARY = 30;
+          const int ARX = 72, ARY = 30;           // 72 (was 80): the reply button
+                                                  // grew, so the disk stepped in —
+                                                  // leftmost core pixel is x48 now
           const int ady = r - (DGN_Y + DGN_H / 2);
           const int a2 = ady * ady;
           const int wob = (int) (1.8f + 1.8f * sinf(ph * 2.9f + (float) r * 0.37f));
@@ -6406,19 +6456,31 @@ display:
           aura_live = (x_out >= 0);
         }
 
-        // ---- the reply rune (2026-08-09): answer the latest Slack word without
-        // opening the chronicle. A gold chevron-and-shaft smouldering at the
-        // fire's left edge, drawn only while reply_live; the on_touch zone
-        // (x<40, y212..260) tests the same condition and cannot collide with the
-        // talk disk, whose leftmost pixel is x40 at its waist. Reuses the aura's
-        // gold core class (15): one visual grammar — gold is tappable — and no
-        // new flush case.
-        int ql0 = 0, ql1 = 0, qr0 = 0, qr1 = 0;
+        // ---- the reply button (2026-08-09, grown from a bare rune the same
+        // evening — JP: "make the reply button a nice big button"): a gold-
+        // bordered window of calm in the fire, chevron and shaft inside, x2..42
+        // y203..253. The face forces class 0 — becalmed background — which is
+        // what makes it read as a BUTTON against dancing flame. Drawn only while
+        // reply_live; the on_touch zone (x<46, y196..260) tests the same
+        // condition, and the talk disk's leftmost pixel is x48 (rx 72), so the
+        // zone cannot steal a talk tap. Gold reuses the aura's core class (15):
+        // one visual grammar — gold is tappable.
+        int ql0 = 0, ql1 = 0, qr0 = 0, qr1 = 0;   // gold: borders
+        int qc0 = 0, qc1 = 0, qs0 = 0, qs1 = 0;   // gold: chevron / shaft
+        int qb0 = 0, qb1 = 0;                     // the becalmed face
         if (reply_live) {
-          const int qdy = y - 234;               // rune centre, screen row 234
+          const int qdy = y - 228;                // button centre, screen row 228
           const int qay = qdy < 0 ? -qdy : qdy;
-          if (qay <= 10) { ql0 = 12 + qay; ql1 = ql0 + 6; }   // chevron, aimed left
-          if (qay <= 2)  { qr0 = 19;       qr1 = 35; }        // the shaft
+          if (qay <= 25) {
+            if (qay >= 24) { ql0 = 2; ql1 = 42; } // top / bottom border
+            else {
+              ql0 = 2;  ql1 = 4;                  // left wall
+              qr0 = 40; qr1 = 42;                 // right wall
+              qb0 = 4;  qb1 = 40;                 // the face
+              if (qay <= 12) { qc0 = 10 + qay; qc1 = qc0 + 6; }  // chevron, aimed left
+              if (qay <= 3)  { qs0 = 22;       qs1 = 36; }       // the shaft
+            }
+          }
         }
 
         // ---- build the stage row: span memsets, in depth order. Doing it this way
@@ -6524,13 +6586,16 @@ display:
                 }
               }
             }
-            // The aura and the rune outrank fire and background (k 0..5) but
-            // NEVER the wyrm or her breath (k 6..13): she sleeps inside her own
-            // light, not under a drawn hoop. Gold wins over halo where both
-            // claim; the rune (x<35) and the wyrm (x>=60) can never meet.
+            // The aura and the reply button outrank fire and background (k 0..5)
+            // but NEVER the wyrm or her breath (k 6..13): she sleeps inside her
+            // own light, not under a drawn hoop. Gold first, then the button's
+            // becalmed face (class 0 — background wins over fire there), then
+            // the halo. The button (x<43) and the wyrm (x>=60) can never meet.
             if (k <= 5) {
               if ((x >= cl0 && x < cl1) || (x >= cr0 && x < cr1) ||
-                  (x >= ql0 && x < ql1) || (x >= qr0 && x < qr1)) k = 15;
+                  (x >= ql0 && x < ql1) || (x >= qr0 && x < qr1) ||
+                  (x >= qc0 && x < qc1) || (x >= qs0 && x < qs1)) k = 15;
+              else if (x >= qb0 && x < qb1) k = 0;
               else if (aura_live &&
                        ((x >= hl0 && x < hl1) || (x >= hr0 && x < hr1))) k = 14;
             }
@@ -6725,9 +6790,22 @@ font:
   - file: "gfonts://Roboto"
     id: font_hdr
     size: 18
+  # font_body went 15 -> 17 on 2026-08-09 (JP: "make the font a bit bigger")
+  # and is the MEDIUM rung of the reading ladder below. Chrome (menus, bars,
+  # labels) uses it directly; reading text goes through the bodyf selector.
   - file: "gfonts://Roboto"
     id: font_body
+    size: 17
+  # The reading-size ladder (2026-08-09, JP: "font size should be configurable
+  # in the volume menu too"). Fonts are compiled bitmaps — nothing scales at
+  # runtime — so configurable means three baked sizes and the font_scale
+  # global choosing among them. Small is the pre-2026-08-09 look.
+  - file: "gfonts://Roboto"
+    id: font_body_s
     size: 15
+  - file: "gfonts://Roboto"
+    id: font_body_l
+    size: 20
   - file: "gfonts://Roboto"
     id: font_sm
     size: 12
@@ -6788,15 +6866,19 @@ touchscreen:
           }
 
           if (id(ui_mode) == 1) {
-            // audio overlay: FOUR targets now — volume -/+ and mic gain -/+ — else
-            // tap-away to dismiss. Both bands are tested against the same constants the
-            // drawing uses, so a target cannot drift away from the thing it looks like.
-            if (ty >= ${ui_vol_by} && ty < ${ui_vol_by} + ${ui_vol_bh}) {
+            // audio overlay: four rows, eight targets (-/+ per row), else
+            // tap-away to dismiss. Each hit band is the row's full 56px pitch
+            // (label line INCLUDED — the drawn 38px box is a picture inside a
+            // larger target), tested against the same constants the drawing
+            // uses so a target cannot drift away from what it looks like.
+            if (ty >= ${ui_vol_by} - 18 && ty < ${ui_vol_by} + ${ui_vol_bh}) {
               id(ui_action) = (tx < 120) ? 1 : 2;
-            } else if (ty >= ${ui_gain_by} && ty < ${ui_gain_by} + ${ui_vol_bh}) {
+            } else if (ty >= ${ui_gain_by} - 18 && ty < ${ui_gain_by} + ${ui_vol_bh}) {
               id(ui_action) = (tx < 120) ? 14 : 15;
-            } else if (ty >= ${ui_bri_by} && ty < ${ui_bri_by} + ${ui_vol_bh}) {
+            } else if (ty >= ${ui_bri_by} - 18 && ty < ${ui_bri_by} + ${ui_vol_bh}) {
               id(ui_action) = (tx < 120) ? 25 : 26;
+            } else if (ty >= ${ui_font_by} - 18 && ty < ${ui_font_by} + ${ui_vol_bh}) {
+              id(ui_action) = (tx < 120) ? 34 : 35;
             } else {
               id(ui_action) = 4;
             }
@@ -6982,14 +7064,15 @@ touchscreen:
             return;
           }
 
-          // The reply rune — answer the latest Slack word without opening the
-          // chronicle (2026-08-09, JP: "put a reply button on the front screen
-          // too for the latest message"). Checked BEFORE the talk disk, but it
-          // cannot steal a talk tap regardless: the disk's leftmost pixel is
-          // x40 at its waist, and this zone is strictly x<40. Armed only while
-          // a tagged entry exists — the same condition that draws the rune, so
-          // drawn == tappable == armed; unarmed it falls through to dead glass.
-          if (tx < 40 && ty >= 212 && ty < 260) {
+          // The reply button — answer the latest Slack word without opening
+          // the chronicle (2026-08-09, JP: "put a reply button on the front
+          // screen too", then "make the reply button a nice big button").
+          // Checked BEFORE the talk disk, but it cannot steal a talk tap
+          // regardless: the disk's leftmost pixel is x48 at its waist (rx 72),
+          // and this zone is strictly x<46. Armed only while a tagged entry
+          // exists — the same condition that draws the button, so drawn ==
+          // tappable == armed; unarmed it falls through to dead glass.
+          if (tx < 46 && ty >= 196 && ty < 260) {
             bool rl = false;
             const auto &cc = id(chron_chan);
             for (int i = (int) cc.size() - 1; i >= 0; i--)
@@ -7003,10 +7086,11 @@ touchscreen:
 
           // The waking — talk lives INSIDE the wyrm's aura (2026-08-09, JP:
           // "the tapping of the waking be on the familiar and the aura").
-          // The disk is the aura's gold-core ellipse (centre 120,235; rx 80,
-          // ry 30) — drawn == tappable. Integer test, cross-multiplied to
-          // avoid the divide: (dx/80)^2 + (dy/30)^2 <= 1  ->
-          // dx^2*30^2 + dy^2*80^2 <= 80^2*30^2 = 5760000. Worst case
+          // The disk is the aura's gold-core ellipse (centre 120,235; rx 72,
+          // ry 30 — 72 since the reply button grew) — drawn == tappable.
+          // Integer test, cross-multiplied to avoid the divide:
+          // (dx/72)^2 + (dy/30)^2 <= 1  ->
+          // dx^2*30^2 + dy^2*72^2 <= 72^2*30^2 = 4665600. Worst case
           // dx^2*900 ~ 13M, comfortably inside int32.
           // Same in every op MODE: the three modes differ only in what leaves
           // the speaker, so there is no mode in which the ring means something
@@ -7014,7 +7098,7 @@ touchscreen:
           // the same disk, the same meaning: her attention.)
           {
             const int dxw = tx - 120, dyw = ty - 235;
-            if (dxw * dxw * 900 + dyw * dyw * 6400 <= 5760000) {
+            if (dxw * dxw * 900 + dyw * dyw * 5184 <= 4665600) {
               id(ui_action) = 3;
               // Strike the coal under your finger. 60 flame columns across
               // 240px, so x/4 is the column. Fired here — not in ui_dispatch —
