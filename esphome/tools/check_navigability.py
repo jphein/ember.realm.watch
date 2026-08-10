@@ -343,6 +343,7 @@ static struct { std::string state; bool has_state() { return true; } }
 static int ic_page_v = 0;
 static std::string ic_pick_v;
 static int help_page_v = 0;
+static int font_scale_v = 1;      // the reading-font rung (actions 34/35)
 static uint32_t chron_play_ms_v = 0;
 static uint32_t clock_ms = 1000;
 static uint32_t millis() { return clock_ms += 10; }
@@ -378,6 +379,7 @@ struct SelPtr { SelStub *operator->() { return &sel_mode_v; } };
 #define chron_play_idx chron_play_idx_v
 #define chron_play_ms  chron_play_ms_v
 #define help_page      help_page_v
+#define font_scale     font_scale_v
 #define chron_chan     chron_chan_v
 #define ic_targets     ic_targets_v
 #define ic_page        ic_page_v

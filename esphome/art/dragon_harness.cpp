@@ -707,7 +707,7 @@ static void paint_flame_frame() {
     // correction, same evening: the ring marks where a tap WAKES her ("the
     // tapping of the waking be on the familiar and the aura"), and it should
     // burn, not merely delineate. Geometry: ellipse about the DGN bbox centre
-    // (120,235); a steady 3px gold core at rx 80 ry 30 and an amber halo
+    // (120,235); a steady 3px gold core at rx 72 ry 30 and an amber halo
     // whose outer edge wobbles 0..3px on ph, so the boundary licks like flame
     // instead of sitting like a drawn hoop. The on_touch talk disk is the
     // core ellipse — drawn == tappable.
@@ -719,7 +719,9 @@ static void paint_flame_frame() {
     int hl0 = 0, hl1 = 0, hr0 = 0, hr1 = 0;   // amber halo intervals
     {
       const int ACX = DGN_X + DGN_W / 2;      // 120
-      const int ARX = 80, ARY = 30;
+      const int ARX = 72, ARY = 30;           // 72 (was 80): the reply button
+                                              // grew, so the disk stepped in —
+                                              // leftmost core pixel is x48 now
       const int ady = r - (DGN_Y + DGN_H / 2);
       const int a2 = ady * ady;
       const int wob = (int) (1.8f + 1.8f * sinf(ph * 2.9f + (float) r * 0.37f));
@@ -749,19 +751,31 @@ static void paint_flame_frame() {
       aura_live = (x_out >= 0);
     }
 
-    // ---- the reply rune (2026-08-09): answer the latest Slack word without
-    // opening the chronicle. A gold chevron-and-shaft smouldering at the
-    // fire's left edge, drawn only while reply_live; the on_touch zone
-    // (x<40, y212..260) tests the same condition and cannot collide with the
-    // talk disk, whose leftmost pixel is x40 at its waist. Reuses the aura's
-    // gold core class (15): one visual grammar — gold is tappable — and no
-    // new flush case.
-    int ql0 = 0, ql1 = 0, qr0 = 0, qr1 = 0;
+    // ---- the reply button (2026-08-09, grown from a bare rune the same
+    // evening — JP: "make the reply button a nice big button"): a gold-
+    // bordered window of calm in the fire, chevron and shaft inside, x2..42
+    // y203..253. The face forces class 0 — becalmed background — which is
+    // what makes it read as a BUTTON against dancing flame. Drawn only while
+    // reply_live; the on_touch zone (x<46, y196..260) tests the same
+    // condition, and the talk disk's leftmost pixel is x48 (rx 72), so the
+    // zone cannot steal a talk tap. Gold reuses the aura's core class (15):
+    // one visual grammar — gold is tappable.
+    int ql0 = 0, ql1 = 0, qr0 = 0, qr1 = 0;   // gold: borders
+    int qc0 = 0, qc1 = 0, qs0 = 0, qs1 = 0;   // gold: chevron / shaft
+    int qb0 = 0, qb1 = 0;                     // the becalmed face
     if (reply_live) {
-      const int qdy = y - 234;               // rune centre, screen row 234
+      const int qdy = y - 228;                // button centre, screen row 228
       const int qay = qdy < 0 ? -qdy : qdy;
-      if (qay <= 10) { ql0 = 12 + qay; ql1 = ql0 + 6; }   // chevron, aimed left
-      if (qay <= 2)  { qr0 = 19;       qr1 = 35; }        // the shaft
+      if (qay <= 25) {
+        if (qay >= 24) { ql0 = 2; ql1 = 42; } // top / bottom border
+        else {
+          ql0 = 2;  ql1 = 4;                  // left wall
+          qr0 = 40; qr1 = 42;                 // right wall
+          qb0 = 4;  qb1 = 40;                 // the face
+          if (qay <= 12) { qc0 = 10 + qay; qc1 = qc0 + 6; }  // chevron, aimed left
+          if (qay <= 3)  { qs0 = 22;       qs1 = 36; }       // the shaft
+        }
+      }
     }
 
     // ---- build the stage row: span memsets, in depth order. Doing it this way
@@ -867,13 +881,16 @@ static void paint_flame_frame() {
             }
           }
         }
-        // The aura and the rune outrank fire and background (k 0..5) but
-        // NEVER the wyrm or her breath (k 6..13): she sleeps inside her own
-        // light, not under a drawn hoop. Gold wins over halo where both
-        // claim; the rune (x<35) and the wyrm (x>=60) can never meet.
+        // The aura and the reply button outrank fire and background (k 0..5)
+        // but NEVER the wyrm or her breath (k 6..13): she sleeps inside her
+        // own light, not under a drawn hoop. Gold first, then the button's
+        // becalmed face (class 0 — background wins over fire there), then
+        // the halo. The button (x<43) and the wyrm (x>=60) can never meet.
         if (k <= 5) {
           if ((x >= cl0 && x < cl1) || (x >= cr0 && x < cr1) ||
-              (x >= ql0 && x < ql1) || (x >= qr0 && x < qr1)) k = 15;
+              (x >= ql0 && x < ql1) || (x >= qr0 && x < qr1) ||
+              (x >= qc0 && x < qc1) || (x >= qs0 && x < qs1)) k = 15;
+          else if (x >= qb0 && x < qb1) k = 0;
           else if (aura_live &&
                    ((x >= hl0 && x < hl1) || (x >= hr0 && x < hr1))) k = 14;
         }
