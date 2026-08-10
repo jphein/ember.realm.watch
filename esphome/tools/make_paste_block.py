@@ -92,6 +92,7 @@ IDS = {
     "g_spark_col": "id(spark_col)",
     "g_hist_idx": "id(hist_idx)",
     "g_level_hist": "id(level_hist)",
+    "g_unread": "id(unread)",       # the chronicle aura's pulse (2026-08-09)
 }
 
 # literals the live YAML carries as substitutions
