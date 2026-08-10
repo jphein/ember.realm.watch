@@ -153,7 +153,9 @@ static bool g_audio_live = false, g_guttering = false;
 // Baseline switch: renders the fire EXACTLY as it ships, so the dragon's added
 // run count is measured against the real thing rather than estimated.
 static bool g_no_dragon = false;
-static bool g_unread = false;      // mirrors id(unread) — aura pulse only, no geometry
+// One tagged entry, so every harness state renders (and tiling-checks) the
+// reply rune — the OFF case is the pre-rune painter, already proven.
+static std::vector<std::string> g_chron_chan = {"C0EMBER"};
 // Mirrors the firmware's `silenced` = (st == 3) && op_mode >= 1. Default false, so every
 // recorded runs/frame figure is unchanged by its introduction — verified, not assumed.
 // The `silenced` scenario sets it (added with #10's coverage guard, c36c585); before
@@ -602,15 +604,28 @@ static void paint_flame_frame() {
   else if (guttering) { k_bed = c_ash; k_body = c_bed; k_tipg = c_ember; k_tipw = c_ember; }
   else                { k_bed = c_ember; k_body = c_amber; k_tipg = c_gold; k_tipw = c_tip; }
 
-  // The aura's gold (class 14 below): derived from c_gold so both palettes
-  // work untouched, dimmed to read as light rather than as a drawn line.
-  // While a word waits UNREAD it breathes brighter on the same slow sine
-  // the idle fire uses — the familiar stirring over an untold thing. One
-  // Color per FRAME, so the pulse costs nothing per pixel.
-  const float ap = g_unread ? (0.60f + 0.40f * breath) : 0.34f;
-  const Color c_aura((uint8_t) ((float) c_gold.r * ap),
-                     (uint8_t) ((float) c_gold.g * ap),
-                     (uint8_t) ((float) c_gold.b * ap));
+  // The wyrm's waking aura (classes 14/15 below): tap-to-talk lives INSIDE
+  // this ring now, so it is drawn to be seen — a steady gold core with an
+  // amber halo that licks outward on the fire's own clock. Colors derive
+  // from the palette so day and night both work; `breath` adds a slow
+  // shimmer. Two Colors per FRAME — the life in it costs nothing per pixel.
+  const float ashim = 0.78f + 0.22f * breath;
+  const Color c_aura_core((uint8_t) ((float) c_gold.r * 0.72f * ashim),
+                          (uint8_t) ((float) c_gold.g * 0.72f * ashim),
+                          (uint8_t) ((float) c_gold.b * 0.72f * ashim));
+  const Color c_aura_halo((uint8_t) ((float) c_amber.r * 0.46f * ashim),
+                          (uint8_t) ((float) c_amber.g * 0.46f * ashim),
+                          (uint8_t) ((float) c_amber.b * 0.46f * ashim));
+
+  // Does any chronicle entry still carry a Slack address? The dispatch picks
+  // the newest at fire time; the painter only needs existence — draw the
+  // reply rune or don't. Once per frame, at most one pass over <=100 strings.
+  bool reply_live = false;
+  {
+    const auto &cc = g_chron_chan;
+    for (int i = (int) cc.size() - 1; i >= 0; i--)
+      if (!cc[(size_t) i].empty()) { reply_live = true; break; }
+  }
 
   // ---- pass 2: ROW-MAJOR render ----
   for (int r = 0; r < FLAM_H; r++) {
@@ -687,32 +702,66 @@ static void paint_flame_frame() {
     const int dr = r - DGN_Y;
     const bool drow_live = (dr >= 0 && dr < DGN_H) && !g_no_dragon;
 
-    // ---- the chronicle's aura (2026-08-09) — the wyrm IS the door now ----
-    // Mirrors ember-satellite.yaml exactly (see the long note there). One more
-    // pixel class (14) in the single pass: re-classifies, never re-writes, so
-    // write-once and the 18,240 px budget hold by construction — which is
-    // precisely what check_tiling verifies below.
-    bool ring_live = false;
-    int rl0 = 0, rl1 = 0, rr0 = 0, rr1 = 0;
+    // ---- the wyrm's WAKING aura (2026-08-09, second shape) ----
+    // First shape was a thin gold ring that opened the chronicle; JP's
+    // correction, same evening: the ring marks where a tap WAKES her ("the
+    // tapping of the waking be on the familiar and the aura"), and it should
+    // burn, not merely delineate. Geometry: ellipse about the DGN bbox centre
+    // (120,235); a steady 3px gold core at rx 80 ry 30 and an amber halo
+    // whose outer edge wobbles 0..3px on ph, so the boundary licks like flame
+    // instead of sitting like a drawn hoop. The on_touch talk disk is the
+    // core ellipse — drawn == tappable.
+    // One PAIR of pixel classes (14 halo, 15 core) in the single pass below:
+    // re-classifies, never re-writes, so write-once and the 18,240 px budget
+    // hold by construction — which is precisely what check_tiling verifies.
+    bool aura_live = false;
+    int cl0 = 0, cl1 = 0, cr0 = 0, cr1 = 0;   // gold core intervals
+    int hl0 = 0, hl1 = 0, hr0 = 0, hr1 = 0;   // amber halo intervals
     {
-      const int AURA_CX = DGN_X + DGN_W / 2;      // 120
-      const int AURA_RX = 76, AURA_RY = 28;
-      const int ady = r - (DGN_Y + DGN_H / 2);    // centre row: band r=47
+      const int ACX = DGN_X + DGN_W / 2;      // 120
+      const int ARX = 80, ARY = 30;
+      const int ady = r - (DGN_Y + DGN_H / 2);
       const int a2 = ady * ady;
-      if (a2 < AURA_RY * AURA_RY) {
-        const int xo = (int) ((float) AURA_RX *
-            sqrtf(1.0f - (float) a2 / (float) (AURA_RY * AURA_RY)) + 0.5f);
-        int xi = 0;
-        const int ri = AURA_RY - 2;
-        if (a2 < ri * ri)
-          xi = (int) ((float) (AURA_RX - 2) *
-              sqrtf(1.0f - (float) a2 / (float) (ri * ri)) + 0.5f);
-        rl0 = AURA_CX - xo; rl1 = AURA_CX - xi;
-        rr0 = AURA_CX + xi; rr1 = AURA_CX + xo;
-        // at the cap rows xi==0, the two intervals meet at the centre and
-        // the ring closes into a solid 2-row arc — no seam, no gap
-        ring_live = (xo > xi);
+      const int wob = (int) (1.8f + 1.8f * sinf(ph * 2.9f + (float) r * 0.37f));
+      // half-width of the ellipse (rx_, ry_) at this row; -1 when the row
+      // lies outside it entirely
+      auto ex = [&](int rx_, int ry_) -> int {
+        if (a2 >= ry_ * ry_) return -1;
+        return (int) ((float) rx_ *
+            sqrtf(1.0f - (float) a2 / (float) (ry_ * ry_)) + 0.5f);
+      };
+      const int x_in  = ex(ARX - 3, ARY - 3);
+      const int x_mid = ex(ARX, ARY);
+      const int x_out = ex(ARX + 2 + wob, ARY + 2 + wob);
+      if (x_mid >= 0) {
+        const int xi = x_in > 0 ? x_in : 0;
+        cl0 = ACX - x_mid; cl1 = ACX - xi;
+        cr0 = ACX + xi;    cr1 = ACX + x_mid;
       }
+      if (x_out >= 0) {
+        const int xm = x_mid > 0 ? x_mid : 0;
+        hl0 = ACX - x_out; hl1 = ACX - xm;
+        hr0 = ACX + xm;    hr1 = ACX + x_out;
+      }
+      // at the cap rows the inner ellipses fall away, xi/xm hit 0, the
+      // interval pairs meet at the centre and each band closes into a solid
+      // arc — no seam, no gap
+      aura_live = (x_out >= 0);
+    }
+
+    // ---- the reply rune (2026-08-09): answer the latest Slack word without
+    // opening the chronicle. A gold chevron-and-shaft smouldering at the
+    // fire's left edge, drawn only while reply_live; the on_touch zone
+    // (x<40, y212..260) tests the same condition and cannot collide with the
+    // talk disk, whose leftmost pixel is x40 at its waist. Reuses the aura's
+    // gold core class (15): one visual grammar — gold is tappable — and no
+    // new flush case.
+    int ql0 = 0, ql1 = 0, qr0 = 0, qr1 = 0;
+    if (reply_live) {
+      const int qdy = y - 234;               // rune centre, screen row 234
+      const int qay = qdy < 0 ? -qdy : qdy;
+      if (qay <= 10) { ql0 = 12 + qay; ql1 = ql0 + 6; }   // chevron, aimed left
+      if (qay <= 2)  { qr0 = 19;       qr1 = 35; }        // the shaft
     }
 
     // ---- build the stage row: span memsets, in depth order. Doing it this way
@@ -818,13 +867,16 @@ static void paint_flame_frame() {
             }
           }
         }
-        // The aura outranks fire and background (k 0..5) but NEVER the
-        // wyrm or her breath (k 6..13): the ring passes BEHIND the
-        // familiar and in front of the flames — she sleeps inside her
-        // own light, not under a drawn hoop.
-        if (ring_live && k <= 5 &&
-            ((x >= rl0 && x < rl1) || (x >= rr0 && x < rr1)))
-          k = 14;
+        // The aura and the rune outrank fire and background (k 0..5) but
+        // NEVER the wyrm or her breath (k 6..13): she sleeps inside her own
+        // light, not under a drawn hoop. Gold wins over halo where both
+        // claim; the rune (x<35) and the wyrm (x>=60) can never meet.
+        if (k <= 5) {
+          if ((x >= cl0 && x < cl1) || (x >= cr0 && x < cr1) ||
+              (x >= ql0 && x < ql1) || (x >= qr0 && x < qr1)) k = 15;
+          else if (aura_live &&
+                   ((x >= hl0 && x < hl1) || (x >= hr0 && x < hr1))) k = 14;
+        }
       }
       // class 6 carries a payload (which rung of the furnace), so a change of
       // rung has to break the run as surely as a change of class does.
@@ -845,7 +897,8 @@ static void paint_flame_frame() {
             case 11: rc = c_tip;   break;
             case 12: rc = c_amber; break;
             case 13: rc = k_row[dr]; break;
-            case 14: rc = c_aura;  break;   // the chronicle's aura
+            case 14: rc = c_aura_halo; break;   // the waking aura, licking edge
+            case 15: rc = c_aura_core; break;   // the waking aura, gold core
             default: rc = c_bg;    break;
           }
           it.horizontal_line(run_x, y, x - run_x, rc);

@@ -2702,6 +2702,28 @@ script:
                 id(force_full_repaint) = true;
                 id(ui_action) = 0;
 
+      # ---- the front-screen reply rune (33): answer the LATEST tagged word ----
+      # Same relay as the chronicle detail's reply (30) but the target is
+      # resolved here: the newest entry that carries a Slack address. The
+      # hit-test only arms when one exists, so the empty fallback below is
+      # defensive — a chron_push between touch and release could in principle
+      # reshuffle, and the relay's empty-channel path (bridge falls back to
+      # last-announced) is the right answer to that race anyway.
+      - if:
+          condition: { lambda: 'return id(ui_action) == 33;' }
+          then:
+            - homeassistant.service:
+                service: script.ember_slack_reply_fire
+                data:
+                  device: ${name}
+                  channel: !lambda |-
+                    const auto &cc = id(chron_chan);
+                    for (int i = (int) cc.size() - 1; i >= 0; i--)
+                      if (!cc[(size_t) i].empty())
+                        return cc[(size_t) i];
+                    return std::string("");
+            - lambda: 'id(ui_action) = 0;'
+
       # ---- the horn's picker (27-29) ----
       # 27 parses the names list, skips this hearth's own name, resolves the
       # tapped row, stashes it in ic_pick, and hands the summons to HA — the
@@ -4200,14 +4222,70 @@ display:
         const int MAXW = W - 12;
         const int SAID_LINES = ${said_lines};
         it.filled_rectangle(0, SCRL_Y, W, SCRL_H, c_bg);
-        // ---- the tome, RETIRED 2026-08-09 — it lived one day ----
-        // The chronicle's drawn door was a 30x26 open book in this corner
-        // (zone 44x40, "chronicle" label under it). Retired by observation,
-        // not by taste: the zone sat under the bezel lip, the finger's contact
-        // centroid reported left of x=196, and every tap fell through to talk.
-        // The door is now the wyrm itself — the glowing ellipse in paint_flame,
-        // the matching hit-test in on_touch. The double-click on BOOT still
-        // opens the chronicle, unchanged, and help page 2 teaches the new door.
+        // ---- the tome — the chronicle's door, drawn (2026-08-09) ----
+        // Retired at noon, back by nightfall: the morning's diagnosis (zone
+        // under the bezel lip, taps falling through to talk) briefly moved the
+        // door to the wyrm, until JP's correction: the wyrm's aura is the
+        // WAKING, "but the chronicle button be more magical and work". It
+        // works now because talk no longer claims the rest of the screen —
+        // the zone in on_touch is 80x56 and collides with nothing. Drawn
+        // AFTER the band erase and BEFORE the text so a long heard-line
+        // slides under it rather than through it.
+        {
+          // An open tome, 30x26, spread pages with script, a gold clasp — and
+          // more magic than its first printing: a crown of drifting motes on
+          // both shoulders, a gold rune lighting the left page, and a c_tip
+          // star risen off the spine. Still all primitives; the scroll band is
+          // chrome (erase + overdraw, outside the flame invariants), so the
+          // enchantment costs ~20 one-shot runs on a band that repaints rarely.
+          const int bx = 204, by = SCRL_Y + 4;
+          // covers: two leaves with a raised rim
+          it.filled_rectangle(bx, by + 4, 14, 22, c_bed);
+          it.filled_rectangle(bx + 16, by + 4, 14, 22, c_bed);
+          it.horizontal_line(bx, by + 3, 14, c_ember);
+          it.horizontal_line(bx + 16, by + 3, 14, c_ember);
+          // page blocks, inset, with a soft outer step (page depth)
+          it.filled_rectangle(bx + 2, by + 6, 11, 18, c_bg);
+          it.filled_rectangle(bx + 17, by + 6, 11, 18, c_bg);
+          it.filled_rectangle(bx + 3, by + 7, 9, 16, c_ash);
+          it.filled_rectangle(bx + 18, by + 7, 9, 16, c_ash);
+          it.filled_rectangle(bx + 4, by + 8, 7, 14, c_bg);
+          it.filled_rectangle(bx + 19, by + 8, 7, 14, c_bg);
+          // the spine valley
+          it.filled_rectangle(bx + 14, by + 4, 2, 22, c_bed);
+          // the rune: an illuminated capital on the left page, 3x4 of gold
+          // with a c_tip heart — the page is LIT, not merely inked
+          it.filled_rectangle(bx + 5, by + 9, 3, 4, c_gold);
+          it.draw_pixel_at(bx + 6, by + 10, c_tip);
+          // script: lines per page, the top ones gold — illuminated firsts
+          it.horizontal_line(bx + 9, by + 11, 2, c_gold);
+          it.horizontal_line(bx + 20, by + 11, 5, c_gold);
+          it.horizontal_line(bx + 5, by + 15, 5, c_dim);
+          it.horizontal_line(bx + 20, by + 15, 5, c_dim);
+          it.horizontal_line(bx + 5, by + 19, 4, c_dim);
+          it.horizontal_line(bx + 20, by + 19, 4, c_dim);
+          // the clasp, with a glint
+          it.filled_rectangle(bx + 29, by + 12, 3, 6, c_gold);
+          it.draw_pixel_at(bx + 30, by + 13, c_tip);
+          // the star off the spine: a 5px c_tip cross, the reader's candle
+          it.draw_pixel_at(bx + 15, by - 4, c_tip);
+          it.draw_pixel_at(bx + 14, by - 3, c_tip);
+          it.draw_pixel_at(bx + 16, by - 3, c_tip);
+          it.draw_pixel_at(bx + 15, by - 2, c_tip);
+          // motes drifting off BOTH shoulders now, rising as they thin
+          it.draw_pixel_at(bx + 26, by - 1, c_gold);
+          it.draw_pixel_at(bx + 30, by + 1, c_tip);
+          it.draw_pixel_at(bx + 33, by - 3, c_gold);
+          it.draw_pixel_at(bx + 29, by - 5, c_amber);
+          it.draw_pixel_at(bx + 35, by + 2, c_tip);
+          it.filled_circle(bx + 31, by - 1, 1, c_amber);
+          it.draw_pixel_at(bx + 3, by - 1, c_amber);
+          it.draw_pixel_at(bx - 1, by - 3, c_gold);
+          it.draw_pixel_at(bx - 4, by + 1, c_dim);
+          it.draw_pixel_at(bx + 1, by - 5, c_tip);
+          it.print(W - 2, by + 30, id(font_sm), c_dim,
+                   display::TextAlign::TOP_RIGHT, "chronicle");
+        }
         // A pushed announcement answers nothing, so captioning it "heard: -" would
         // be a small lie. Label the provenance instead.
         if (id(is_announce)) {
@@ -4220,9 +4298,9 @@ display:
             int need = wrap(6, SCRL_Y + 18, id(font_sm), c_ink, id(heard_text),
                             MAXW, 14, 2, 0);
             if (need > 2) {
-              // back at W-6 (2026-08-09, same day): it had dodged left of the
-              // tome's zone; the tome is retired and the corner is prose again.
-              it.print(W - 6, SCRL_Y + 32, id(font_sm), c_ash,
+              // right-aligned LEFT of the tome (2026-08-09, twice): the pager
+              // ends at W-52 so it never runs under the chronicle's door.
+              it.print(W - 52, SCRL_Y + 32, id(font_sm), c_ash,
                        display::TextAlign::TOP_RIGHT, "...");
             }
           } else {
@@ -4903,7 +4981,7 @@ display:
                     display::TextAlign::TOP_RIGHT, "%d/5", hp + 1);
           if (hp == 0) {
             it.print(6, OY + 2, id(font_sm), c_gold, "speaking with ember");
-            it.print(6, OY + 24, id(font_body), c_ink, "tap anywhere on the fire");
+            it.print(6, OY + 24, id(font_body), c_ink, "tap the wyrm in her fire-ring");
             it.print(6, OY + 44, id(font_body), c_ink, "or say \"okay nabu\"");
             // a mini hearth: coals and two flames
             it.filled_rectangle(60, OY + 96, 120, 8, c_bed);
@@ -4944,7 +5022,7 @@ display:
           } else if (hp == 2) {
             it.print(6, OY + 2, id(font_sm), c_gold, "the chronicle");
             it.print(6, OY + 24, id(font_body), c_ink, "double-click the button, or");
-            it.print(6, OY + 44, id(font_body), c_ink, "tap the wyrm in her gold ring");
+            it.print(6, OY + 44, id(font_body), c_ink, "tap the little book, top-right");
             // legend: the three glyphs, exactly as the list draws them
             it.circle(16, OY + 84, 6, c_dim);
             it.filled_rectangle(17, OY + 77, 8, 15, c_bg);
@@ -4961,6 +5039,7 @@ display:
             it.print(6, OY + 156, id(font_sm), c_ash, "open one and tap speak: she");
             it.print(6, OY + 172, id(font_sm), c_ash, "says it again, lighting each");
             it.print(6, OY + 188, id(font_sm), c_ash, "word gold as she passes");
+            it.print(6, OY + 206, id(font_sm), c_ash, "gold rune by the fire: reply");
           } else if (hp == 3) {
             it.print(6, OY + 2, id(font_sm), c_gold, "the horn & the candle");
             it.print(6, OY + 24, id(font_body), c_ink, "horn, bottom-right corner:");
@@ -6184,15 +6263,28 @@ display:
       else if (guttering) { k_bed = c_ash; k_body = c_bed; k_tipg = c_ember; k_tipw = c_ember; }
       else                { k_bed = c_ember; k_body = c_amber; k_tipg = c_gold; k_tipw = c_tip; }
 
-      // The aura's gold (class 14 below): derived from c_gold so both palettes
-      // work untouched, dimmed to read as light rather than as a drawn line.
-      // While a word waits UNREAD it breathes brighter on the same slow sine
-      // the idle fire uses — the familiar stirring over an untold thing. One
-      // Color per FRAME, so the pulse costs nothing per pixel.
-      const float ap = id(unread) ? (0.60f + 0.40f * breath) : 0.34f;
-      const Color c_aura((uint8_t) ((float) c_gold.r * ap),
-                         (uint8_t) ((float) c_gold.g * ap),
-                         (uint8_t) ((float) c_gold.b * ap));
+      // The wyrm's waking aura (classes 14/15 below): tap-to-talk lives INSIDE
+      // this ring now, so it is drawn to be seen — a steady gold core with an
+      // amber halo that licks outward on the fire's own clock. Colors derive
+      // from the palette so day and night both work; `breath` adds a slow
+      // shimmer. Two Colors per FRAME — the life in it costs nothing per pixel.
+      const float ashim = 0.78f + 0.22f * breath;
+      const Color c_aura_core((uint8_t) ((float) c_gold.r * 0.72f * ashim),
+                              (uint8_t) ((float) c_gold.g * 0.72f * ashim),
+                              (uint8_t) ((float) c_gold.b * 0.72f * ashim));
+      const Color c_aura_halo((uint8_t) ((float) c_amber.r * 0.46f * ashim),
+                              (uint8_t) ((float) c_amber.g * 0.46f * ashim),
+                              (uint8_t) ((float) c_amber.b * 0.46f * ashim));
+
+      // Does any chronicle entry still carry a Slack address? The dispatch picks
+      // the newest at fire time; the painter only needs existence — draw the
+      // reply rune or don't. Once per frame, at most one pass over <=100 strings.
+      bool reply_live = false;
+      {
+        const auto &cc = id(chron_chan);
+        for (int i = (int) cc.size() - 1; i >= 0; i--)
+          if (!cc[(size_t) i].empty()) { reply_live = true; break; }
+      }
 
       // ---- pass 2: ROW-MAJOR render ----
       for (int r = 0; r < FLAM_H; r++) {
@@ -6267,43 +6359,66 @@ display:
         const int dr = r - DGN_Y;
         const bool drow_live = (dr >= 0 && dr < DGN_H);
 
-        // ---- the chronicle's aura (2026-08-09) — the wyrm IS the door now ----
-        // JP: "move the touch to the circle around the familiar ember itself
-        // maybe a light glow or aura to delineate". A 2px elliptical ring of
-        // gold around the sleeping wyrm: rx 76, ry 28 about the DGN bbox centre
-        // (120, 235), so wyrm and aura move together if the bbox ever does.
-        // The on_touch ellipse is the SAME geometry — drawn == tappable.
-        //
-        // Rendered as ONE MORE PIXEL CLASS (14) in the single pass below, so
-        // the write-once tiling invariant and the 18,240 px/frame budget hold
-        // BY CONSTRUCTION: the ring re-classifies pixels, it never re-writes
-        // them. Cost is one sqrtf per live row (~2, at the cap rows only one
-        // interval pair) and four int compares per pixel on ring rows — the
-        // grate's note applies: runs barely bill, px is what bills, px is
-        // unchanged. The bottom arc (rows >= base_row) is clipped by the grate
-        // branch above, so the ring reads as a dome rooted in the grate; the
-        // top clears the wyrm's crown by 3px.
-        bool ring_live = false;
-        int rl0 = 0, rl1 = 0, rr0 = 0, rr1 = 0;
+        // ---- the wyrm's WAKING aura (2026-08-09, second shape) ----
+        // First shape was a thin gold ring that opened the chronicle; JP's
+        // correction, same evening: the ring marks where a tap WAKES her ("the
+        // tapping of the waking be on the familiar and the aura"), and it should
+        // burn, not merely delineate. Geometry: ellipse about the DGN bbox centre
+        // (120,235); a steady 3px gold core at rx 80 ry 30 and an amber halo
+        // whose outer edge wobbles 0..3px on ph, so the boundary licks like flame
+        // instead of sitting like a drawn hoop. The on_touch talk disk is the
+        // core ellipse — drawn == tappable.
+        // One PAIR of pixel classes (14 halo, 15 core) in the single pass below:
+        // re-classifies, never re-writes, so write-once and the 18,240 px budget
+        // hold by construction — which is precisely what check_tiling verifies.
+        bool aura_live = false;
+        int cl0 = 0, cl1 = 0, cr0 = 0, cr1 = 0;   // gold core intervals
+        int hl0 = 0, hl1 = 0, hr0 = 0, hr1 = 0;   // amber halo intervals
         {
-          const int AURA_CX = DGN_X + DGN_W / 2;      // 120
-          const int AURA_RX = 76, AURA_RY = 28;
-          const int ady = r - (DGN_Y + DGN_H / 2);    // centre row: band r=47
+          const int ACX = DGN_X + DGN_W / 2;      // 120
+          const int ARX = 80, ARY = 30;
+          const int ady = r - (DGN_Y + DGN_H / 2);
           const int a2 = ady * ady;
-          if (a2 < AURA_RY * AURA_RY) {
-            const int xo = (int) ((float) AURA_RX *
-                sqrtf(1.0f - (float) a2 / (float) (AURA_RY * AURA_RY)) + 0.5f);
-            int xi = 0;
-            const int ri = AURA_RY - 2;
-            if (a2 < ri * ri)
-              xi = (int) ((float) (AURA_RX - 2) *
-                  sqrtf(1.0f - (float) a2 / (float) (ri * ri)) + 0.5f);
-            rl0 = AURA_CX - xo; rl1 = AURA_CX - xi;
-            rr0 = AURA_CX + xi; rr1 = AURA_CX + xo;
-            // at the cap rows xi==0, the two intervals meet at the centre and
-            // the ring closes into a solid 2-row arc — no seam, no gap
-            ring_live = (xo > xi);
+          const int wob = (int) (1.8f + 1.8f * sinf(ph * 2.9f + (float) r * 0.37f));
+          // half-width of the ellipse (rx_, ry_) at this row; -1 when the row
+          // lies outside it entirely
+          auto ex = [&](int rx_, int ry_) -> int {
+            if (a2 >= ry_ * ry_) return -1;
+            return (int) ((float) rx_ *
+                sqrtf(1.0f - (float) a2 / (float) (ry_ * ry_)) + 0.5f);
+          };
+          const int x_in  = ex(ARX - 3, ARY - 3);
+          const int x_mid = ex(ARX, ARY);
+          const int x_out = ex(ARX + 2 + wob, ARY + 2 + wob);
+          if (x_mid >= 0) {
+            const int xi = x_in > 0 ? x_in : 0;
+            cl0 = ACX - x_mid; cl1 = ACX - xi;
+            cr0 = ACX + xi;    cr1 = ACX + x_mid;
           }
+          if (x_out >= 0) {
+            const int xm = x_mid > 0 ? x_mid : 0;
+            hl0 = ACX - x_out; hl1 = ACX - xm;
+            hr0 = ACX + xm;    hr1 = ACX + x_out;
+          }
+          // at the cap rows the inner ellipses fall away, xi/xm hit 0, the
+          // interval pairs meet at the centre and each band closes into a solid
+          // arc — no seam, no gap
+          aura_live = (x_out >= 0);
+        }
+
+        // ---- the reply rune (2026-08-09): answer the latest Slack word without
+        // opening the chronicle. A gold chevron-and-shaft smouldering at the
+        // fire's left edge, drawn only while reply_live; the on_touch zone
+        // (x<40, y212..260) tests the same condition and cannot collide with the
+        // talk disk, whose leftmost pixel is x40 at its waist. Reuses the aura's
+        // gold core class (15): one visual grammar — gold is tappable — and no
+        // new flush case.
+        int ql0 = 0, ql1 = 0, qr0 = 0, qr1 = 0;
+        if (reply_live) {
+          const int qdy = y - 234;               // rune centre, screen row 234
+          const int qay = qdy < 0 ? -qdy : qdy;
+          if (qay <= 10) { ql0 = 12 + qay; ql1 = ql0 + 6; }   // chevron, aimed left
+          if (qay <= 2)  { qr0 = 19;       qr1 = 35; }        // the shaft
         }
 
         // ---- build the stage row: span memsets, in depth order. Doing it this way
@@ -6409,13 +6524,16 @@ display:
                 }
               }
             }
-            // The aura outranks fire and background (k 0..5) but NEVER the
-            // wyrm or her breath (k 6..13): the ring passes BEHIND the
-            // familiar and in front of the flames — she sleeps inside her
-            // own light, not under a drawn hoop.
-            if (ring_live && k <= 5 &&
-                ((x >= rl0 && x < rl1) || (x >= rr0 && x < rr1)))
-              k = 14;
+            // The aura and the rune outrank fire and background (k 0..5) but
+            // NEVER the wyrm or her breath (k 6..13): she sleeps inside her own
+            // light, not under a drawn hoop. Gold wins over halo where both
+            // claim; the rune (x<35) and the wyrm (x>=60) can never meet.
+            if (k <= 5) {
+              if ((x >= cl0 && x < cl1) || (x >= cr0 && x < cr1) ||
+                  (x >= ql0 && x < ql1) || (x >= qr0 && x < qr1)) k = 15;
+              else if (aura_live &&
+                       ((x >= hl0 && x < hl1) || (x >= hr0 && x < hr1))) k = 14;
+            }
           }
           // class 6 carries a payload (which rung of the furnace), so a change of
           // rung has to break the run as surely as a change of class does.
@@ -6436,7 +6554,8 @@ display:
                 case 11: rc = c_tip;   break;
                 case 12: rc = c_amber; break;
                 case 13: rc = k_row[dr]; break;
-                case 14: rc = c_aura;  break;   // the chronicle's aura
+                case 14: rc = c_aura_halo; break;   // the waking aura, licking edge
+                case 15: rc = c_aura_core; break;   // the waking aura, gold core
                 default: rc = c_bg;    break;
               }
               it.horizontal_line(run_x, y, x - run_x, rc);
@@ -6629,24 +6748,28 @@ touchscreen:
     on_touch:
       # ---- hit-test only; the doing happens in script ui_dispatch ----
       #
-      # RESOLVING THE TOUCH-TO-TALK CONFLICT: when no overlay is up, ANY touch is
-      # still "talk", byte-for-byte the gesture that shipped. No zones, no drag
-      # recognition, no tap/hold timing — nothing to relearn and nothing that can
-      # silently do the wrong thing. Controls only compete for the screen while a
-      # modal overlay is open, and an overlay can only be opened from the hardware
-      # button, so the two input meanings are never live at the same time.
+      # THE TOUCH-TO-TALK DOCTRINE, INVERTED 2026-08-09 (JP's call). The
+      # original rule — when no overlay is up, ANY touch is "talk" — was right
+      # while talk was the only thing on the glass: no zones, nothing to
+      # relearn, nothing that silently does the wrong thing. Then the bare
+      # screen grew controls (the horn 08-05, the mode chip and the tome
+      # 08-09), each licensed as an exception because it was VISIBLE AND
+      # DRAWN... and the whole-screen default became the thing that silently
+      # did wrong: every tap that MISSED a control started a conversation.
+      # "So that i'm not activating ember by accident" — the accident was
+      # structural, not a bad zone.
       #
-      # AMENDED 2026-08-05, deliberately (JP's call — the intercom horn): there
-      # is now exactly ONE exception on the bare screen, the horn glyph in the
-      # telemetry band's bottom-right corner (geometry: the ui_ic_* pair). The
-      # original rule guarded against zones that SILENTLY do the wrong thing;
-      # the horn is a visible, drawn control whose press flashes the thing you
-      # touched. Everywhere else remains byte-for-byte the talk gesture, and in
-      # overlay modes the corner stays tap-away-dismiss (the glyph is not drawn
-      # there, so nothing invisible is tappable).
+      # So talk is now a drawn, delineated control like the others: the fiery
+      # aura around the sleeping wyrm ("the tapping of the waking be on the
+      # familiar and the aura"). Tap inside her ring and she wakes; tap a
+      # drawn control and it acts; tap dead glass and a coal strikes — the
+      # screen heard you — and nothing else happens. Every gesture now has a
+      # visible target, which is the original rule's PURPOSE kept while its
+      # mechanism is retired.
       #
-      # Geometry comes from ${ui_*} substitutions shared with the display lambda,
-      # so "where it's drawn" and "where it's tappable" cannot drift apart.
+      # Geometry comes from ${ui_*} substitutions (or the aura's shared
+      # ellipse constants) also used by the display lambdas, so "where it's
+      # drawn" and "where it's tappable" cannot drift apart.
       - lambda: |-
           const int ty = touch.y;
           const int tx = touch.x;
@@ -6807,35 +6930,26 @@ touchscreen:
           // Any touch clears the unread marker: you are demonstrably in the room.
           if (id(unread)) { id(unread) = false; id(ui_gen)++; }
 
-          // The chronicle's door — the wyrm itself (2026-08-09, the tome's
-          // corner zone retired the day it shipped). What retired it, observed:
-          // the 44x40 zone sat under the bezel lip, the finger's contact
-          // centroid reported LEFT of x=196, and the tap fell through to talk —
-          // "the chronicle button is not seeing my tap" PLUS an accidental
-          // conversation, the worst possible pair (JP: "so that i'm not
-          // activating ember by accident"). JP's call: "move the touch to the
-          // circle around the familiar ember itself". A 152x56 ellipse centred
-          // on the sleeping wyrm cannot miss and has no bezel within reach.
-          //
-          // Geometry is the SAME ellipse the aura draws in the flame band
-          // (centre 120,235 = the DGN bbox centre; rx 76, ry 28), so drawn and
-          // tappable stay one geometry. Integer test, cross-multiplied to avoid
-          // the divide: (dx/76)^2 + (dy/28)^2 <= 1  ->
-          // dx^2*28^2 + dy^2*76^2 <= 76^2*28^2 = 4528384. Worst case
-          // dx^2*784 ~ 11.3M, comfortably inside int32.
+          // The tome — the chronicle's drawn door, top-right of the transcript.
+          // Shipped 08-09 morning with a 44x40 zone that sat under the bezel
+          // lip: the finger's contact centroid reported LEFT of x=196 and every
+          // tap fell through to talk. The morning's fix moved the DOOR to the
+          // wyrm; JP's evening correction moved TALK to the wyrm instead and
+          // put the tome back ("the chronicle button be more magical and
+          // work"). What makes it work now is not the glyph — it is that talk
+          // no longer claims the rest of the screen, so this zone can be twice
+          // the bezel-lip miss and still collide with nothing: 80x56,
+          // corner-anchored, two walls to aim against.
           // ⚠️ ACTION ONLY — the first tome changed ui_mode right here, and
           // on_touch fires per REPORT, so the same finger's next report
           // hit-tested against the NEWLY opened mode and dismissed it before
           // release. Open-and-close inside one tap, invisible. The hit-test/
-          // dispatch split exists for exactly this; the lesson survives the
-          // control that taught it.
-          {
-            const int dxw = tx - 120, dyw = ty - 235;
-            if (dxw * dxw * 784 + dyw * dyw * 5776 <= 4528384) {
-              id(ui_action) = 19;
-              id(ui_gen)++;
-              return;
-            }
+          // dispatch split exists for exactly this; the lesson survives every
+          // reshuffle of the controls that taught it.
+          if (tx >= 160 && ty >= 32 && ty < 88) {
+            id(ui_action) = 19;
+            id(ui_gen)++;
+            return;
           }
 
           // The mode chip — bare-screen exception #2 (2026-08-09, JP: "we need
@@ -6868,26 +6982,67 @@ touchscreen:
             return;
           }
 
-          // normal: touch-to-talk, exactly as before — AND IN EVERY MODE. The three
-          // modes differ only in what leaves the speaker, so there is no mode in which
-          // a tap means something else, and no "why did nothing happen" state to
-          // explain. An earlier draft needed a two-tap escalation here for a mode that
-          // refused to listen; that mode no longer exists and this stays a single
-          // gesture with a single meaning.
-          id(ui_action) = 3;
-          // Strike the coal under your finger. 60 flame columns across 240px, so
-          // x/4 is the column. Fired here — not in ui_dispatch — because this is
-          // where the coordinate exists, and it fires even when hush is on or the
-          // pipeline refuses: the tap DID land, and the screen should say so before
-          // it explains why nothing else happened.
-          //
-          // Deliberately NOT fired for overlay touches. Feedback should come from
-          // the thing you touched, and in an overlay that is the overlay — which
-          // already repaints on the action (a new stone lights, a row highlights).
-          // Flaring the fire when you tap a volume stone would point at the wrong
-          // object.
-          // Captured BEFORE the clamp, and here because this is the only scope
-          // where the raw coordinate exists at all.
+          // The reply rune — answer the latest Slack word without opening the
+          // chronicle (2026-08-09, JP: "put a reply button on the front screen
+          // too for the latest message"). Checked BEFORE the talk disk, but it
+          // cannot steal a talk tap regardless: the disk's leftmost pixel is
+          // x40 at its waist, and this zone is strictly x<40. Armed only while
+          // a tagged entry exists — the same condition that draws the rune, so
+          // drawn == tappable == armed; unarmed it falls through to dead glass.
+          if (tx < 40 && ty >= 212 && ty < 260) {
+            bool rl = false;
+            const auto &cc = id(chron_chan);
+            for (int i = (int) cc.size() - 1; i >= 0; i--)
+              if (!cc[(size_t) i].empty()) { rl = true; break; }
+            if (rl) {
+              id(ui_action) = 33;
+              id(ui_gen)++;
+              return;
+            }
+          }
+
+          // The waking — talk lives INSIDE the wyrm's aura (2026-08-09, JP:
+          // "the tapping of the waking be on the familiar and the aura").
+          // The disk is the aura's gold-core ellipse (centre 120,235; rx 80,
+          // ry 30) — drawn == tappable. Integer test, cross-multiplied to
+          // avoid the divide: (dx/80)^2 + (dy/30)^2 <= 1  ->
+          // dx^2*30^2 + dy^2*80^2 <= 80^2*30^2 = 5760000. Worst case
+          // dx^2*900 ~ 13M, comfortably inside int32.
+          // Same in every op MODE: the three modes differ only in what leaves
+          // the speaker, so there is no mode in which the ring means something
+          // else. (This also covers tap-again-to-stop while she is listening —
+          // the same disk, the same meaning: her attention.)
+          {
+            const int dxw = tx - 120, dyw = ty - 235;
+            if (dxw * dxw * 900 + dyw * dyw * 6400 <= 5760000) {
+              id(ui_action) = 3;
+              // Strike the coal under your finger. 60 flame columns across
+              // 240px, so x/4 is the column. Fired here — not in ui_dispatch —
+              // because this is where the coordinate exists, and it fires even
+              // when hush is on or the pipeline refuses: the tap DID land, and
+              // the screen should say so before it explains why nothing else
+              // happened.
+              //
+              // Deliberately NOT fired for overlay touches. Feedback should
+              // come from the thing you touched, and in an overlay that is the
+              // overlay — which already repaints on the action.
+              // Captured BEFORE the clamp, and here because this is the only
+              // scope where the raw coordinate exists at all.
+              id(touch_raw_x) = (int16_t) tx;
+              id(touch_raw_y) = (int16_t) ty;
+              id(spark_col) = tx < 0 ? 0 : (tx > 239 ? 59 : tx / 4);
+              id(spark_ms) = millis();
+              return;
+            }
+          }
+
+          // Dead glass: the tap still LANDS — strike the coal so the screen
+          // visibly heard you — but ui_action stays 0 and dispatch does
+          // nothing. This is the inversion's whole point: glass outside every
+          // drawn control can no longer start a conversation by accident.
+          // The raw-coordinate capture stays here too, so a "dead" zone is
+          // diagnosable from the glass itself (tap it, read the telemetry
+          // line) instead of by archaeology.
           id(touch_raw_x) = (int16_t) tx;
           id(touch_raw_y) = (int16_t) ty;
           id(spark_col) = tx < 0 ? 0 : (tx > 239 ? 59 : tx / 4);
