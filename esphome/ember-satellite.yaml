@@ -3109,8 +3109,16 @@ sensor:
             // termination — a cell at <30mA taper is full in every sense
             // that matters. Unplugging clears it in one sample: the load
             // step (~20-30mV) breaks flat immediately.
+            // Floor at 4.02, BELOW the charger's relaxation band: a
+            // long-plugged cell rests as low as ~4.05 between the TP4054's
+            // top-offs (recharge threshold ~4.05), and a floor above that
+            // made the dish flicker on a cell that never left the plug. The
+            // floor's real job is only the mid-curve plateau (3.6-3.8V),
+            // where discharge genuinely is flat — everywhere above it, the
+            // flat test is the discriminator: unplugged, the top of the
+            // curve falls ~7mV per window and flat fails on its own.
             static uint8_t flat_n = 0;
-            const bool flatf = x >= 4.08f && !id(batt_chg)
+            const bool flatf = x >= 4.02f && !id(batt_chg)
                                && dv > -0.004f && dv < 0.004f;
             flat_n = flatf ? (uint8_t) (flat_n >= 3 ? 3 : flat_n + 1) : 0;
             id(batt_sated) = (flat_n >= 3);
@@ -4269,11 +4277,10 @@ display:
         // or sated; gold dish + tall white flame + no motes is "plugged in at
         // 100%", JP's exact question 2026-08-10) — plus the cold wick for "no
         // sample yet", because unknown and empty must never share a glyph. State
-        // is carried by SHAPE AND MOTION (lean, flicker, height, climb), never
-        // colour alone, per the band's standing accessibility rule — the dish is
-        // the one colour-cued state, and it is redundant with the motes while
-        // filling; only "sated" rides on colour, and it is the least actionable
-        // state a battery has.
+        // is carried by SHAPE AND MOTION (lean, flicker, height, climb, and the
+        // bolt), never colour alone, per the band's standing accessibility rule —
+        // the gold dish briefly carried "sated" on colour alone; the bolt
+        // (2026-08-10, same day) restored the rule.
         //
         // Fits y 2..27: wax max 14 tall on a +26 baseline, flame up to 6 above the
         // wick, top at +6 — clear of the band's own top and of the +28 rule.
@@ -4339,6 +4346,22 @@ display:
                 const int my = SIGIL_Y + 25 - ((ph3 + m * 5) % 15);
                 it.draw_pixel_at(ccx - 6, my, (m == 1) ? c_amber : c_gold);
               }
+            }
+            if (id(batt_chg) || id(batt_sated)) {
+              // The bolt (2026-08-10, JP: "we should also have the lightning
+              // bolt symbol for when it's plugged in") — the phone-battery
+              // idiom, a 4x6 zigzag ON the wax. Shape, not colour: the gold
+              // dish alone bent the band's accessibility rule, the bolt
+              // squares it. Same condition as the dish — both mean "the
+              // hearth feeds it", which is as close to "plugged in" as an
+              // unwired CHRG pin lets firmware honestly claim.
+              const int bx2 = ccx - 2, by2 = SIGIL_Y + 18;
+              it.horizontal_line(bx2 + 2, by2 + 0, 2, c_tip);
+              it.horizontal_line(bx2 + 1, by2 + 1, 2, c_tip);
+              it.horizontal_line(bx2 + 0, by2 + 2, 4, c_tip);
+              it.horizontal_line(bx2 + 2, by2 + 3, 2, c_tip);
+              it.horizontal_line(bx2 + 1, by2 + 4, 2, c_tip);
+              it.horizontal_line(bx2 + 0, by2 + 5, 2, c_tip);
             }
           }
         }
@@ -5195,7 +5218,7 @@ display:
             it.draw_pixel_at(37, OY + 143, c_gold);
             it.print(60, OY + 150, id(font_sm), c_dim, "guttering = low (she chimes)");
             it.print(60, OY + 166, id(font_sm), c_dim, "motes climb = filling");
-            it.print(60, OY + 186, id(font_sm), c_dim, "gold dish = on the charger");
+            it.print(60, OY + 186, id(font_sm), c_dim, "bolt + gold dish = plugged in");
           } else {
             it.print(6, OY + 2, id(font_sm), c_gold, "the button");
             it.print(6, OY + 28, id(font_body), c_ink, "click: volume overlay");
