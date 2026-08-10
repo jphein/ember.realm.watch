@@ -153,6 +153,7 @@ static bool g_audio_live = false, g_guttering = false;
 // Baseline switch: renders the fire EXACTLY as it ships, so the dragon's added
 // run count is measured against the real thing rather than estimated.
 static bool g_no_dragon = false;
+static bool g_unread = false;      // mirrors id(unread) — aura pulse only, no geometry
 // Mirrors the firmware's `silenced` = (st == 3) && op_mode >= 1. Default false, so every
 // recorded runs/frame figure is unchanged by its introduction — verified, not assumed.
 // The `silenced` scenario sets it (added with #10's coverage guard, c36c585); before
@@ -601,6 +602,16 @@ static void paint_flame_frame() {
   else if (guttering) { k_bed = c_ash; k_body = c_bed; k_tipg = c_ember; k_tipw = c_ember; }
   else                { k_bed = c_ember; k_body = c_amber; k_tipg = c_gold; k_tipw = c_tip; }
 
+  // The aura's gold (class 14 below): derived from c_gold so both palettes
+  // work untouched, dimmed to read as light rather than as a drawn line.
+  // While a word waits UNREAD it breathes brighter on the same slow sine
+  // the idle fire uses — the familiar stirring over an untold thing. One
+  // Color per FRAME, so the pulse costs nothing per pixel.
+  const float ap = g_unread ? (0.60f + 0.40f * breath) : 0.34f;
+  const Color c_aura((uint8_t) ((float) c_gold.r * ap),
+                     (uint8_t) ((float) c_gold.g * ap),
+                     (uint8_t) ((float) c_gold.b * ap));
+
   // ---- pass 2: ROW-MAJOR render ----
   for (int r = 0; r < FLAM_H; r++) {
     const int y = FLAM_Y + r;
@@ -675,6 +686,34 @@ static void paint_flame_frame() {
     const int hup = base_row - r;
     const int dr = r - DGN_Y;
     const bool drow_live = (dr >= 0 && dr < DGN_H) && !g_no_dragon;
+
+    // ---- the chronicle's aura (2026-08-09) — the wyrm IS the door now ----
+    // Mirrors ember-satellite.yaml exactly (see the long note there). One more
+    // pixel class (14) in the single pass: re-classifies, never re-writes, so
+    // write-once and the 18,240 px budget hold by construction — which is
+    // precisely what check_tiling verifies below.
+    bool ring_live = false;
+    int rl0 = 0, rl1 = 0, rr0 = 0, rr1 = 0;
+    {
+      const int AURA_CX = DGN_X + DGN_W / 2;      // 120
+      const int AURA_RX = 76, AURA_RY = 28;
+      const int ady = r - (DGN_Y + DGN_H / 2);    // centre row: band r=47
+      const int a2 = ady * ady;
+      if (a2 < AURA_RY * AURA_RY) {
+        const int xo = (int) ((float) AURA_RX *
+            sqrtf(1.0f - (float) a2 / (float) (AURA_RY * AURA_RY)) + 0.5f);
+        int xi = 0;
+        const int ri = AURA_RY - 2;
+        if (a2 < ri * ri)
+          xi = (int) ((float) (AURA_RX - 2) *
+              sqrtf(1.0f - (float) a2 / (float) (ri * ri)) + 0.5f);
+        rl0 = AURA_CX - xo; rl1 = AURA_CX - xi;
+        rr0 = AURA_CX + xi; rr1 = AURA_CX + xo;
+        // at the cap rows xi==0, the two intervals meet at the centre and
+        // the ring closes into a solid 2-row arc — no seam, no gap
+        ring_live = (xo > xi);
+      }
+    }
 
     // ---- build the stage row: span memsets, in depth order. Doing it this way
     // rather than testing ~18 intervals per pixel is what keeps the added cost
@@ -779,6 +818,13 @@ static void paint_flame_frame() {
             }
           }
         }
+        // The aura outranks fire and background (k 0..5) but NEVER the
+        // wyrm or her breath (k 6..13): the ring passes BEHIND the
+        // familiar and in front of the flames — she sleeps inside her
+        // own light, not under a drawn hoop.
+        if (ring_live && k <= 5 &&
+            ((x >= rl0 && x < rl1) || (x >= rr0 && x < rr1)))
+          k = 14;
       }
       // class 6 carries a payload (which rung of the furnace), so a change of
       // rung has to break the run as surely as a change of class does.
@@ -799,6 +845,7 @@ static void paint_flame_frame() {
             case 11: rc = c_tip;   break;
             case 12: rc = c_amber; break;
             case 13: rc = k_row[dr]; break;
+            case 14: rc = c_aura;  break;   // the chronicle's aura
             default: rc = c_bg;    break;
           }
           it.horizontal_line(run_x, y, x - run_x, rc);
