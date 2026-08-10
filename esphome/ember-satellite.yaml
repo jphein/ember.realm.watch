@@ -3070,9 +3070,10 @@ sensor:
             id(batt_low_latched) = false;
           }
           // ---- charging, read from the TREND (2026-08-10) ----
-          // The TP4054's CHRG pin isn't wired to anything (board fact, the
-          // vendor schematic), so the only place charging shows is the
-          // voltage's direction. At 290mA into this cell the filtered value
+          // The TP4054's CHRG pin goes to a 10K pull-up (R11) and NOTHING
+          // else — no GPIO, not even the reference design's LED (board fact,
+          // the vendor schematic; the net appears exactly once). So the only
+          // place charging shows is the voltage's direction. At 290mA into this cell the filtered value
           // climbs ~25-40mV per five minutes; resting or discharging it is
           // flat or falling. Compare against the reading from ~5 minutes ago:
           // +15mV latches charging, -8mV clears it. Termination then behaves
@@ -3096,6 +3097,23 @@ sensor:
             const float dv = x - vpast;
             if (!id(batt_chg) && dv >= 0.015f) id(batt_chg) = true;
             else if (id(batt_chg) && dv <= -0.008f) id(batt_chg) = false;
+            // ---- sated: plugged in AND full (2026-08-10, JP: "how do i
+            // tell if it's charged and plugged in at 100%?") ----
+            // The tell is LOAD, courtesy of the SL2305 power path: plugged,
+            // the system runs from VBUS and the cell rests UNLOADED — high
+            // and rock-flat indefinitely. Unplugged, the cell carries Ember
+            // (~C/12), which sags the reading below ~4.08 within minutes and
+            // walks it down ~7mV per window through the steep top of the
+            // curve. High AND flat, held three windows, can only be the
+            // charger's float. The CV taper trips it slightly before true
+            // termination — a cell at <30mA taper is full in every sense
+            // that matters. Unplugging clears it in one sample: the load
+            // step (~20-30mV) breaks flat immediately.
+            static uint8_t flat_n = 0;
+            const bool flatf = x >= 4.08f && !id(batt_chg)
+                               && dv > -0.004f && dv < 0.004f;
+            flat_n = flatf ? (uint8_t) (flat_n >= 3 ? 3 : flat_n + 1) : 0;
+            id(batt_sated) = (flat_n >= 3);
           }
 
   # Calibrated dBFS level, straight from ESPHome's purpose-built component.
@@ -3268,6 +3286,13 @@ globals:
   # same reason as the rest of the ladder: five minutes of fresh samples
   # re-derive it, and a latch restored from before an overnight unplug lies.
   - id: batt_chg
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  # Sated: plugged in AND full — distinguishable from "unplugged and full"
+  # by LOAD, thanks to the SL2305 power path (see the detector). restore no,
+  # same reasoning as the rest of the ladder.
+  - id: batt_sated
     type: bool
     restore_value: no
     initial_value: 'false'
@@ -4236,21 +4261,29 @@ display:
         // honest desk candle is no candle.
         //
         // Reads bottom-up like every gauge here (the mode chip fills from the
-        // bottom for the same reason): wax = charge. Four findable states beyond
+        // bottom for the same reason): wax = charge. Five findable states beyond
         // the level — flame steady (healthy), flame guttering + stub (low: the
         // chime has already rung once), bare alarm spark (critical: HA is speaking
         // for it by now), motes climbing the candle's side (charging: filling
-        // drawn as arrival) — plus the cold wick for "no sample yet", because
-        // unknown and empty must never share a glyph. State is carried by SHAPE
-        // AND MOTION (lean, flicker, height, climb), never colour alone, per the
-        // band's standing accessibility rule.
+        // drawn as arrival), and the DISH GLOWING GOLD (on the charger — filling
+        // or sated; gold dish + tall white flame + no motes is "plugged in at
+        // 100%", JP's exact question 2026-08-10) — plus the cold wick for "no
+        // sample yet", because unknown and empty must never share a glyph. State
+        // is carried by SHAPE AND MOTION (lean, flicker, height, climb), never
+        // colour alone, per the band's standing accessibility rule — the dish is
+        // the one colour-cued state, and it is redundant with the motes while
+        // filling; only "sated" rides on colour, and it is the least actionable
+        // state a battery has.
         //
         // Fits y 2..27: wax max 14 tall on a +26 baseline, flame up to 6 above the
         // wick, top at +6 — clear of the band's own top and of the +28 rule.
         if (${has_battery}) {
           const int soc  = id(batt_soc);
           const int ccx  = W - 10;                       // candle centreline
-          it.horizontal_line(W - 16, SIGIL_Y + 27, 12, c_dim);   // the holder
+          // The dish: gold whenever the hearth feeds it (filling or sated),
+          // dim on the cell's own wax.
+          it.horizontal_line(W - 16, SIGIL_Y + 27, 12,
+                             (id(batt_chg) || id(batt_sated)) ? c_gold : c_dim);
           if (soc < 0) {
             // No sample yet: a cold wick and nothing else — no wax claim at all.
             it.filled_rectangle(ccx, SIGIL_Y + 21, 1, 6, c_dim);
@@ -5160,9 +5193,9 @@ display:
             it.filled_rectangle(37, OY + 152, 1, 4, c_ink);
             it.filled_rectangle(36, OY + 146, 3, 4, c_amber);
             it.draw_pixel_at(37, OY + 143, c_gold);
-            it.print(60, OY + 150, id(font_sm), c_dim, "guttering flame = low;");
-            it.print(60, OY + 166, id(font_sm), c_dim, "she'll chime, then call out");
-            it.print(60, OY + 186, id(font_sm), c_dim, "climbing motes = charging");
+            it.print(60, OY + 150, id(font_sm), c_dim, "guttering = low (she chimes)");
+            it.print(60, OY + 166, id(font_sm), c_dim, "motes climb = filling");
+            it.print(60, OY + 186, id(font_sm), c_dim, "gold dish = on the charger");
           } else {
             it.print(6, OY + 2, id(font_sm), c_gold, "the button");
             it.print(6, OY + 28, id(font_body), c_ink, "click: volume overlay");
@@ -6796,7 +6829,8 @@ display:
         static uint32_t t_candle = 0;
         const int soc = id(batt_soc);
         const int sig = soc < 0 ? -1
-                        : ((soc * 14 + 50) / 100) * 16
+                        : ((soc * 14 + 50) / 100) * 32
+                          + (id(batt_sated) ? 16 : 0)
                           + (id(batt_chg) ? 8 : 0)
                           + (soc <= ${batt_crit_pct} ? 4 : 0)
                           + (soc <= ${batt_low_pct}  ? 2 : 0)
