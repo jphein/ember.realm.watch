@@ -3069,59 +3069,84 @@ sensor:
           } else if (id(batt_low_latched) && soc >= ${batt_low_pct} + 5) {
             id(batt_low_latched) = false;
           }
-          // ---- charging, read from the TREND (2026-08-10) ----
+          // ---- charging + sated, read from the TREND (2026-08-10, v2) ----
           // The TP4054's CHRG pin goes to a 10K pull-up (R11) and NOTHING
           // else — no GPIO, not even the reference design's LED (board fact,
           // the vendor schematic; the net appears exactly once). So the only
-          // place charging shows is the voltage's direction. At 290mA into this cell the filtered value
-          // climbs ~25-40mV per five minutes; resting or discharging it is
-          // flat or falling. Compare against the reading from ~5 minutes ago:
-          // +15mV latches charging, -8mV clears it. Termination then behaves
-          // right by physics alone: at top-of-charge the slope goes flat, the
-          // cell relaxes a few tens of mV, and the latch clears — batt_chg
-          // honestly means FILLING, not "on the plug"; the rich flame
-          // (>=3.98V) is what says full. A long TTS burn can sag the median
-          // enough to clear the latch mid-charge; it re-latches within five
-          // minutes, and a candle that briefly under-claims beats one that
-          // over-claims (the 2026-08-09 MAINS-POWERED lesson, in miniature).
-          // Statics, not globals: nothing else reads the trail, and a reboot
-          // that forgets five minutes of history re-learns it in five.
-          static float vtrail[6] = {0, 0, 0, 0, 0, 0};
+          // place charge state shows is the voltage's behaviour over time.
+          //
+          // v2 THE SAME DAY, and the reason is measured, not aesthetic: v1
+          // compared single filtered samples 5 minutes apart with a ±4mV
+          // flat band and ±8/15mV latch thresholds — sized for the ~±3mV the
+          // median filter was ASSUMED to leave. The mobile's real trace
+          // (2026-08-10 12:05-12:42 PDT, plugged and resting the whole time)
+          // swung +32 to -42mV per window with no state change underneath.
+          // JP watched the bolt appear on the boot transient and vanish on
+          // the next swing ("it was on mobile, and now it's not"). A
+          // detector whose thresholds sit INSIDE the noise floor is a
+          // random-number generator with good intentions.
+          //
+          // v2 shape, all three changes aimed at that trace:
+          //  - Compare 3-sample MEDIANS ~7 minutes apart (both ends
+          //    denoised), drawn from a 10-minute ring.
+          //  - FILLING latches on dv >= +20mV (real CC charge measures about
+          //    +42mV per span) and clears only on one big fall (<= -18mV —
+          //    the unplug load step) or three sustained <= -10mV windows
+          //    (the post-termination relaxation tail). One noisy window can
+          //    no longer unlatch anything.
+          //  - SATED (plugged AND full — the SL2305 power path rests the
+          //    cell unloaded, so plugged-full is high AND flat; unplugged,
+          //    the cell carries Ember at ~C/12 and falls) latches on three
+          //    consecutive |dv| <= 12mV windows at >= 4.02V, and unlatches
+          //    only on real decline (<= -20mV), real drain (< 3.98V), or
+          //    the charger starting again. The 4.02 floor sits BELOW the
+          //    TP4054's ~4.05 relaxation band (a floor above it made the
+          //    dish flicker on a cell that never left the plug) and above
+          //    the 3.6-3.8V plateau, the only place discharge is genuinely
+          //    flat.
+          // Worst honest cases, stated: up to ~20 minutes of gold dish
+          // after unplugging a full cell (the < 3.98V test ends it), and a
+          // ~10-minute dim gap between "motes stop" and "sated latches"
+          // while the cell relaxes — a window in which neither claim would
+          // be true anyway. Warmup after any reboot: 10 ring samples plus 3
+          // flat windows, so ~13 minutes to the first gold dish.
+          // Statics, not globals: nothing else reads the trail, and a
+          // reboot that forgets ten minutes of history re-learns it in ten.
+          static float vtrail[10] = {0};
           static uint8_t vt_n = 0, vt_i = 0;
-          const float vpast = vtrail[vt_i];
           vtrail[vt_i] = x;
-          vt_i = (uint8_t) ((vt_i + 1) % 6);
-          if (vt_n < 6) {
+          vt_i = (uint8_t) ((vt_i + 1) % 10);
+          if (vt_n < 10) {
             vt_n++;
           } else {
-            const float dv = x - vpast;
-            if (!id(batt_chg) && dv >= 0.015f) id(batt_chg) = true;
-            else if (id(batt_chg) && dv <= -0.008f) id(batt_chg) = false;
-            // ---- sated: plugged in AND full (2026-08-10, JP: "how do i
-            // tell if it's charged and plugged in at 100%?") ----
-            // The tell is LOAD, courtesy of the SL2305 power path: plugged,
-            // the system runs from VBUS and the cell rests UNLOADED — high
-            // and rock-flat indefinitely. Unplugged, the cell carries Ember
-            // (~C/12), which sags the reading below ~4.08 within minutes and
-            // walks it down ~7mV per window through the steep top of the
-            // curve. High AND flat, held three windows, can only be the
-            // charger's float. The CV taper trips it slightly before true
-            // termination — a cell at <30mA taper is full in every sense
-            // that matters. Unplugging clears it in one sample: the load
-            // step (~20-30mV) breaks flat immediately.
-            // Floor at 4.02, BELOW the charger's relaxation band: a
-            // long-plugged cell rests as low as ~4.05 between the TP4054's
-            // top-offs (recharge threshold ~4.05), and a floor above that
-            // made the dish flicker on a cell that never left the plug. The
-            // floor's real job is only the mid-curve plateau (3.6-3.8V),
-            // where discharge genuinely is flat — everywhere above it, the
-            // flat test is the discriminator: unplugged, the top of the
-            // curve falls ~7mV per window and flat fails on its own.
+            auto med3 = [](float a, float b, float c) -> float {
+              const float lo = a < b ? a : b, hi = a < b ? b : a;
+              return c < lo ? lo : (c > hi ? hi : c);
+            };
+            // vt_i points at the OLDEST slot after the post-increment above
+            const float oldm = med3(vtrail[vt_i], vtrail[(vt_i + 1) % 10],
+                                    vtrail[(vt_i + 2) % 10]);
+            const float newm = med3(vtrail[(vt_i + 7) % 10],
+                                    vtrail[(vt_i + 8) % 10],
+                                    vtrail[(vt_i + 9) % 10]);
+            const float dv = newm - oldm;
+            static uint8_t fall_n = 0;
+            fall_n = (dv <= -0.010f)
+                         ? (uint8_t) (fall_n >= 3 ? 3 : fall_n + 1) : 0;
+            if (!id(batt_chg) && dv >= 0.020f) {
+              id(batt_chg) = true;
+            } else if (id(batt_chg) && (dv <= -0.018f || fall_n >= 3)) {
+              id(batt_chg) = false;
+            }
             static uint8_t flat_n = 0;
-            const bool flatf = x >= 4.02f && !id(batt_chg)
-                               && dv > -0.004f && dv < 0.004f;
+            const bool flatf = newm >= 4.02f && !id(batt_chg)
+                               && dv > -0.012f && dv < 0.012f;
             flat_n = flatf ? (uint8_t) (flat_n >= 3 ? 3 : flat_n + 1) : 0;
-            id(batt_sated) = (flat_n >= 3);
+            if (!id(batt_sated)) {
+              id(batt_sated) = (flat_n >= 3);
+            } else if (dv <= -0.020f || newm < 3.98f || id(batt_chg)) {
+              id(batt_sated) = false;
+            }
           }
 
   # Calibrated dBFS level, straight from ESPHome's purpose-built component.
