@@ -3069,6 +3069,34 @@ sensor:
           } else if (id(batt_low_latched) && soc >= ${batt_low_pct} + 5) {
             id(batt_low_latched) = false;
           }
+          // ---- charging, read from the TREND (2026-08-10) ----
+          // The TP4054's CHRG pin isn't wired to anything (board fact, the
+          // vendor schematic), so the only place charging shows is the
+          // voltage's direction. At 290mA into this cell the filtered value
+          // climbs ~25-40mV per five minutes; resting or discharging it is
+          // flat or falling. Compare against the reading from ~5 minutes ago:
+          // +15mV latches charging, -8mV clears it. Termination then behaves
+          // right by physics alone: at top-of-charge the slope goes flat, the
+          // cell relaxes a few tens of mV, and the latch clears — batt_chg
+          // honestly means FILLING, not "on the plug"; the rich flame
+          // (>=3.98V) is what says full. A long TTS burn can sag the median
+          // enough to clear the latch mid-charge; it re-latches within five
+          // minutes, and a candle that briefly under-claims beats one that
+          // over-claims (the 2026-08-09 MAINS-POWERED lesson, in miniature).
+          // Statics, not globals: nothing else reads the trail, and a reboot
+          // that forgets five minutes of history re-learns it in five.
+          static float vtrail[6] = {0, 0, 0, 0, 0, 0};
+          static uint8_t vt_n = 0, vt_i = 0;
+          const float vpast = vtrail[vt_i];
+          vtrail[vt_i] = x;
+          vt_i = (uint8_t) ((vt_i + 1) % 6);
+          if (vt_n < 6) {
+            vt_n++;
+          } else {
+            const float dv = x - vpast;
+            if (!id(batt_chg) && dv >= 0.015f) id(batt_chg) = true;
+            else if (id(batt_chg) && dv <= -0.008f) id(batt_chg) = false;
+          }
 
   # Calibrated dBFS level, straight from ESPHome's purpose-built component.
   #
@@ -3232,6 +3260,14 @@ globals:
     restore_value: no
     initial_value: '0.0'
   - id: batt_low_latched
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  # Charging, inferred from the voltage TREND (the TP4054's CHRG pin isn't
+  # wired — see the detector in the cell ladder). restore_value no for the
+  # same reason as the rest of the ladder: five minutes of fresh samples
+  # re-derive it, and a latch restored from before an overnight unplug lies.
+  - id: batt_chg
     type: bool
     restore_value: no
     initial_value: 'false'
@@ -4200,13 +4236,14 @@ display:
         // honest desk candle is no candle.
         //
         // Reads bottom-up like every gauge here (the mode chip fills from the
-        // bottom for the same reason): wax = charge. Three findable states beyond
+        // bottom for the same reason): wax = charge. Four findable states beyond
         // the level — flame steady (healthy), flame guttering + stub (low: the
         // chime has already rung once), bare alarm spark (critical: HA is speaking
-        // for it by now) — plus the cold wick for "no sample yet", because unknown
-        // and empty must never share a glyph. State is carried by SHAPE AND MOTION
-        // (lean, flicker, height), never colour alone, per the band's standing
-        // accessibility rule.
+        // for it by now), motes climbing the candle's side (charging: filling
+        // drawn as arrival) — plus the cold wick for "no sample yet", because
+        // unknown and empty must never share a glyph. State is carried by SHAPE
+        // AND MOTION (lean, flicker, height, climb), never colour alone, per the
+        // band's standing accessibility rule.
         //
         // Fits y 2..27: wax max 14 tall on a +26 baseline, flame up to 6 above the
         // wick, top at +6 — clear of the band's own top and of the +28 rule.
@@ -4220,10 +4257,15 @@ display:
           } else {
             const bool low  = soc <= ${batt_low_pct};
             const bool crit = soc <= ${batt_crit_pct};
-            const bool rich = id(batt_v_filt) >= 3.98f;  // full-or-charging; the
-                                                         // CHRG pin isn't wired, so
-                                                         // the flame only claims
-                                                         // what the voltage shows
+            const bool rich = id(batt_v_filt) >= 3.98f;  // a rich cell: full, or
+                                                         // riding the charger's
+                                                         // voltage. batt_chg (the
+                                                         // trend detector in the
+                                                         // ladder) is what says
+                                                         // FILLING — the CHRG pin
+                                                         // isn't wired, so both
+                                                         // claims come from the
+                                                         // voltage, each honestly
             const int wax = (soc * 14 + 50) / 100;       // 0..14 px
             const int top = SIGIL_Y + 26 - wax;          // top of wax / wick base
             if (wax > 0) {
@@ -4250,6 +4292,20 @@ display:
               const int fh = rich ? 4 : 3;
               it.filled_rectangle(ccx - 1, top - 2 - fh, 3, fh, c_amber);
               it.draw_pixel_at(ccx, top - 3 - fh, rich ? c_tip : c_gold);
+            }
+            if (id(batt_chg)) {
+              // Charging: motes of light climbing the candle's left side into
+              // the wax — filling drawn as arrival (2026-08-10, JP: "make the
+              // candle also indicate when it's charging"). Three motes, five
+              // rows apart, on the same 600ms clock the gutter lean reads, so
+              // paint and tick can never disagree; the scheduler ticks the
+              // band while charging so they actually climb. x is ccx-6 —
+              // clear of the wax (ccx-3) and of the unread dot (W-22).
+              const int ph3 = (int) ((now / 600u) % 15u);
+              for (int m = 0; m < 3; m++) {
+                const int my = SIGIL_Y + 25 - ((ph3 + m * 5) % 15);
+                it.draw_pixel_at(ccx - 6, my, (m == 1) ? c_amber : c_gold);
+              }
             }
           }
         }
@@ -5106,6 +5162,7 @@ display:
             it.draw_pixel_at(37, OY + 143, c_gold);
             it.print(60, OY + 150, id(font_sm), c_dim, "guttering flame = low;");
             it.print(60, OY + 166, id(font_sm), c_dim, "she'll chime, then call out");
+            it.print(60, OY + 186, id(font_sm), c_dim, "climbing motes = charging");
           } else {
             it.print(6, OY + 2, id(font_sm), c_gold, "the button");
             it.print(6, OY + 28, id(font_body), c_ink, "click: volume overlay");
@@ -6722,26 +6779,31 @@ display:
         t_chron = now + 200u;
       }
       // ---- the candle's two repaint reasons (battery builds only; folds out) ----
-      // 1. Its DRAWN state changed: wax height, low/crit banding, rich flame, or
-      //    first-sample arrival. A signature int catches all of them in one compare
-      //    so a 60s ADC tick that changes nothing visible repaints nothing.
-      // 2. It is guttering or critical AND the hearth is idle: a 600ms tick (a
-      //    multiple of the 50ms frame — see the !! warning above) drives the
-      //    lean/blink. Idle-gated ON PURPOSE: during a conversation the flame band
-      //    needs its slots, the header repaints on every state change anyway, and a
-      //    frozen mid-lean flame still READS as guttering — motion is a luxury
-      //    here, the shape is the signal.
+      // 1. Its DRAWN state changed: wax height, low/crit banding, rich flame,
+      //    charging latch, or first-sample arrival. A signature int catches all
+      //    of them in one compare so a 60s ADC tick that changes nothing visible
+      //    repaints nothing.
+      // 2. It is guttering, critical, OR CHARGING, and the hearth is idle: a
+      //    600ms tick (a multiple of the 50ms frame — see the !! warning above)
+      //    drives the lean/blink/climb. Idle-gated ON PURPOSE: during a
+      //    conversation the flame band needs its slots, the header repaints on
+      //    every state change anyway, and a frozen mid-lean flame still READS
+      //    as guttering — motion is a luxury here, the shape is the signal.
+      //    (Frozen motes likewise still read as charging: three gold points in
+      //    a column exist in no other candle state.)
       if (${has_battery}) {
         static int      seen_candle = -999;
         static uint32_t t_candle = 0;
         const int soc = id(batt_soc);
         const int sig = soc < 0 ? -1
-                        : ((soc * 14 + 50) / 100) * 8
+                        : ((soc * 14 + 50) / 100) * 16
+                          + (id(batt_chg) ? 8 : 0)
                           + (soc <= ${batt_crit_pct} ? 4 : 0)
                           + (soc <= ${batt_low_pct}  ? 2 : 0)
                           + (id(batt_v_filt) >= 3.98f ? 1 : 0);
         if (sig != seen_candle) { seen_candle = sig; pend |= 0x01; }
-        if (soc >= 0 && soc <= ${batt_low_pct} && st == 0 && now >= t_candle) {
+        if (soc >= 0 && (soc <= ${batt_low_pct} || id(batt_chg))
+            && st == 0 && now >= t_candle) {
           pend |= 0x01;
           t_candle = now + 600u;
         }
