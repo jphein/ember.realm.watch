@@ -178,7 +178,12 @@ script:
 # device calls THIS script and the script fires the real event. Channel is
 # omitted from the event when empty, exactly matching the bridge's
 # last-announced fallback semantics.
-script:
+#
+# NOTE: no second `script:` key here — this block continues the one opened
+# above. A duplicate top-level `script:` (added 2026-08-09) made YAML keep only
+# the LAST block, silently dropping `ember_broadcast` (last-key-wins), so every
+# driveway herald failed with "script.ember_broadcast not found" and nothing
+# reached Slack. Merged 2026-08-11.
   ember_slack_reply_fire:
     alias: "Ember - fire slack_bridge_reply for a hearth"
     mode: parallel
