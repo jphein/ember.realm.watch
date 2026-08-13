@@ -53,6 +53,17 @@ script:
           Must be reachable from HA. Slack renders it inline.
         selector:
           text:
+      speak_on:
+        name: Speak on
+        description: >-
+          Which hearth voices it. Empty = the desk unit (what every
+          pre-existing caller expects). "all" = every hearth in the house
+          (fans out via ember_announce_all inside the awake-guard; Dad's
+          hearth deliberately excluded). Added 2026-08-12 so the laundry
+          herald reaches the mobile too.
+        required: false
+        selector:
+          text:
     sequence:
       - variables:
           # Shared definition — see packages/house_config.yaml. Editable from
@@ -118,6 +129,7 @@ script:
             continue_on_error: true
             data:
               message: "{{ message }}"
+              satellite: "{{ speak_on | default('', true) }}"
 
       # ---- 3. ESCALATE to #yurt: only what you'd otherwise miss -------------
       - if:

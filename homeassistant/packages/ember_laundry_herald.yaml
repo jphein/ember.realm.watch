@@ -85,3 +85,7 @@ automation:
         data:
           category: laundry
           message: "{{ line }}"
+          # Every hearth in the house, not just the desk (JP, 2026-08-12):
+          # laundry is a walk-somewhere-now announcement, and the mobile unit
+          # travels with the person most likely to do the walking.
+          speak_on: all
