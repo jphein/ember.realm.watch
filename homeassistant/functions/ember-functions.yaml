@@ -632,3 +632,43 @@
             {%- else -%}
             sent={{ t }}; note=dispatched, playback not awaited
             {%- endif -%}
+
+- spec:
+    name: slack_send
+    description: >-
+      Send a Slack text message as JP. Use when JP asks to message someone on
+      Slack, slack somebody, text dad, or leave himself a note on Slack. For
+      speaking aloud on a hearth in this house use send_word instead — Slack
+      is text that lands on phones.
+    parameters:
+      type: object
+      properties:
+        target:
+          type: string
+          description: >-
+            Where it goes. "#channel-name" for a channel (for example
+            "#general"). "@handle" for a person's DM — "@calsurvstephen" is
+            JP's dad Stephen; "@jp" is JP's own note-to-self DM, right for
+            "send me" / "note this down". Only destinations JP routes exist.
+        message:
+          type: string
+          description: The text to send, exactly as it should appear.
+      required:
+        - target
+        - message
+  function:
+    # Dispatches an event; the Slack bridge addon (~/Projects/ha,
+    # docs/slack-bridge.md) owns posting, the allowlist (routed channels +
+    # configured DM peers only) and failure announcements at the hearth.
+    # Success is silent by design, so this reports dispatched=, never
+    # delivered= — same honesty contract as send_word's sent=.
+    type: script
+    sequence:
+      - event: slack_bridge_reply
+        event_data:
+          channel: "{{ target }}"
+          text: "{{ message }}"
+      - variables:
+          _function_result: >-
+            dispatched target={{ target }}; the bridge refuses unrouted
+            destinations and announces failures aloud — silence means sent.
