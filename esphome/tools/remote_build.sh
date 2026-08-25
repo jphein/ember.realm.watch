@@ -25,15 +25,26 @@ R=familiar
 RDIR="ember-build"
 
 ssh "$R" "mkdir -p $RDIR/esphome"
+# secrets.yaml is gitignored, so a WORKTREE checkout doesn't have it — and
+# --delete would then remove familiar's standing copy and break every !secret
+# lookup (found by PR #91's ultrareview). Excluded from the sync wholesale;
+# pushed explicitly only when the caller actually has one.
 rsync -a --delete \
       --exclude '.esphome/build' --exclude '.esphome/storage' \
-      --exclude '__pycache__' \
+      --exclude '__pycache__' --exclude 'secrets.yaml' \
       "$HERE/" "$R:$RDIR/esphome/"
+if [ -f "$HERE/secrets.yaml" ]; then
+  rsync -a "$HERE/secrets.yaml" "$R:$RDIR/esphome/secrets.yaml"
+fi
+# Exit codes must SURVIVE the log-trimming: a remote `esphome | tail` reports
+# tail's success, not the compile's (same ultrareview). Capture, then trim.
 ssh "$R" "chmod 700 $RDIR; cd $RDIR/esphome && \
-  ~/esphome-venv/bin/esphome -s sigil_version '$SIGIL' compile '$DEV.yaml' 2>&1 | tail -2"
+  { ~/esphome-venv/bin/esphome -s sigil_version '$SIGIL' compile '$DEV.yaml' \
+      > /tmp/ember-build.log 2>&1; rc=\$?; tail -3 /tmp/ember-build.log; exit \$rc; }"
 
 if [ "$ACT" = flash ]; then
   ssh "$R" "cd $RDIR/esphome && \
-    ~/esphome-venv/bin/esphome upload '$DEV.yaml' --device '$DEV.local' 2>&1 | tail -2"
+    { ~/esphome-venv/bin/esphome upload '$DEV.yaml' --device '$DEV.local' \
+        > /tmp/ember-flash.log 2>&1; rc=\$?; tail -2 /tmp/ember-flash.log; exit \$rc; }"
 fi
 echo "remote_build: $DEV $ACT done (sigil $SIGIL, host $R)"
