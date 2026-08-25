@@ -8,7 +8,7 @@
  "tts_engine": "tts.piper_2",
  "tts_language": "en_US",
  "tts_voice": "en_US-jp-medium",
- "wake_word_entity": "wake_word.openwakeword",
+ "wake_word_entity": "wake_word.openwakeword_2",
  "wake_word_id": "donk_ee",
  "prefer_local_intents": true,
  "id": "01kzm778javxn4ebpax5rtnd1k"

@@ -17,10 +17,12 @@
 # secrets ride the rsync (familiar is trusted; the dir is chmod 700).
 set -euo pipefail
 
-DEV="${1:?usage: remote_build.sh <device> compile|flash [sigil]}"
-ACT="${2:?usage: remote_build.sh <device> compile|flash [sigil]}"
+DEV="${1:?usage: remote_build.sh <device> compile|flash [sigil] [-s KEY VALUE ...]}"
+ACT="${2:?usage: remote_build.sh <device> compile|flash [sigil] [-s KEY VALUE ...]}"
 HERE="$(cd "$(dirname "$0")/.." && pwd)"          # the esphome/ dir
 SIGIL="${3:-$(git -C "$HERE" rev-parse --short HEAD)$(git -C "$HERE" diff --quiet HEAD -- . 2>/dev/null || echo -dirty)}"
+shift $(( $# > 3 ? 3 : $# ))
+EXTRA="$*"                                        # e.g. "-s wake_word_mode 2"
 R=familiar
 RDIR="ember-build"
 
@@ -39,7 +41,7 @@ fi
 # Exit codes must SURVIVE the log-trimming: a remote `esphome | tail` reports
 # tail's success, not the compile's (same ultrareview). Capture, then trim.
 ssh "$R" "chmod 700 $RDIR; cd $RDIR/esphome && \
-  { ~/esphome-venv/bin/esphome -s sigil_version '$SIGIL' compile '$DEV.yaml' \
+  { ~/esphome-venv/bin/esphome -s sigil_version '$SIGIL' $EXTRA compile '$DEV.yaml' \
       > /tmp/ember-build.log 2>&1; rc=\$?; tail -3 /tmp/ember-build.log; exit \$rc; }"
 
 if [ "$ACT" = flash ]; then
