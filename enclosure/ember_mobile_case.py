@@ -2498,6 +2498,11 @@ _BRL_FLAT = (OY0 + OUT_R, MOB_OY1 - OUT_R)    # 3.50 / 82.50 -- plan-corner tang
 # (0.39) on o's dot 5; a non-adjacent site (order-preserving instead of nearest-wins);
 # or no IO word, ink only. The encoding table above keeps "io" so the day one of those
 # is chosen, only SIDE_BRL_SITES changes.
+# >>> JP'S VERDICT, 2026-08-25: DROP IO. <<<  Offered the three ways out (squeeze the
+# Marburg spacing below standard, relocate the word off its nearest-opening wall, or
+# ship three of four), he chose to ship uart/sd/i2c and leave IO ink-only. The
+# shortfall stays measured below and the assert stays armed: if the wall ever grows
+# 0.70mm, the block self-retires and IO comes back by the recorded recipe.
 _BRL_IO_DMAX = math.sqrt(OUT_R ** 2 - (OUT_R - (BRL_DOT_H - 0.60)) ** 2)
 BRL_IO_SHORTFALL = (_brl_w("IO") + E.BRL_GAP) - (
     (MOB_OY1 - OUT_R + _BRL_IO_DMAX) - (E.CONN_R[2][1] + E.CHAN_PAD))
@@ -4752,6 +4757,51 @@ def _check_mobile(parts):
     assert _dock_self > 1.0, (
         f"[self-test] the docked mobile stack sunk 2mm reads {_dock_self:.3f} mm3 -- the "
         f"detector is blind, so the 0.000 above is silence, not evidence")
+
+    # ---- 8i-b. THE DOTS RIDE INSIDE THEIR LANES (#51, the groove-the-stand deal). ----
+    # 8i going to zero says the ASSEMBLY clears; this says WHY it clears — every braille
+    # dome sits inside its hardcoded stand lane (E.BRL_DOCK_LANES) with >=0.20mm to spare
+    # on every axis, in the CASE frame both sides are authored in. A future word move
+    # re-fails HERE with names and numbers instead of re-interfering as an anonymous mm3.
+    # SD carries no lane on purpose: its posed z-span starts at 82.9 on a 40-tall stand —
+    # it never enters the slot (measured 2026-08-25) — asserted below so that fact cannot
+    # rot silently into "SD was forgotten".
+    for _nm in ("UART", "I2C"):
+        _f, _bcy = SIDE_BRL_SITES[_nm]
+        _dd = _brl_dots(_nm, _f, _bcy)
+        _r = E.BRL_DOT_D / 2
+        _xs = [(_x - BRL_DOT_H, _x) if _f == "-X" else (_x, _x + BRL_DOT_H) for _x, _, _ in _dd]
+        _dx0, _dx1 = min(a for a, _ in _xs), max(b for _, b in _xs)
+        _dy0, _dy1 = min(_y for _, _y, _ in _dd) - _r, max(_y for _, _y, _ in _dd) + _r
+        _dz0, _dz1 = min(_z for _, _, _z in _dd) - _r, max(_z for _, _, _z in _dd) + _r
+        _lane = next((_l for _l in E.BRL_DOCK_LANES
+                      if _l[0] <= (_dx0 + _dx1) / 2 <= _l[1]), None)
+        assert _lane is not None, f"braille word {_nm} has no stand lane covering x={_dx0:.2f}..{_dx1:.2f}"
+        # The flank-plane side is a SEAM, not a clearance: the dome ends at the
+        # wall and the lane pokes 0.05 past it purely so no cut face coincides
+        # with the slot wall. Clearance is measured on the five sides the dome
+        # actually sweeps past; the seam side is asserted as covered, only.
+        if _f == "-X":
+            _seam_ok = _lane[1] >= _dx1
+            _m = min(_dx0 - _lane[0],
+                     _dy0 - _lane[2], _lane[3] - _dy1,
+                     _dz0 - _lane[4], _lane[5] - _dz1)
+        else:
+            _seam_ok = _lane[0] <= _dx0
+            _m = min(_lane[1] - _dx1,
+                     _dy0 - _lane[2], _lane[3] - _dy1,
+                     _dz0 - _lane[4], _lane[5] - _dz1)
+        assert _seam_ok, f"braille word {_nm}'s lane does not reach the flank plane"
+        assert _m >= 0.20, (
+            f"braille word {_nm} rides {_m:.2f}mm from its stand lane's edge (need >=0.20) — "
+            f"the word moved or the lane is stale; re-measure E.BRL_DOCK_LANES from _brl_dots "
+            f"rather than widening a number to pass")
+        print(f"  [8i-b]   {_nm} dots inside their stand lane, worst margin {_m:.2f}mm")
+    _sd_f, _sd_cy = SIDE_BRL_SITES["SD"]
+    _sd_ymin = min(_y for _, _y, _ in _brl_dots("SD", _sd_f, _sd_cy)) - E.BRL_DOT_D / 2
+    assert _sd_ymin > COVER_Y0 + 2.0, (
+        f"SD's braille now starts at case-y {_sd_ymin:.2f}, inside or near the docking band "
+        f"(top {COVER_Y0:.2f}) — it NOW needs a stand lane that 2026-08-25 said it never would")
     # ---- AND THE DOCKING BAND ITSELF: no retention feature may reach below y = COVER_Y0. ----
     # Stated per feature rather than trusted, because "the cover starts at 18.00" is the kind of
     # sentence that stays in a comment while a lip creeps under it.
