@@ -42,15 +42,15 @@ The outcome tracks speech level and SNR almost perfectly:
 | outcome | speech RMS (dBFS) | SNR (dB) |
 |---|---|---|
 | clean transcript (12) | −14 … −42 | 15 … 46 |
-| garbled — "tricky me.", "my phone.", "Nadu. Mm-hmm." (4) | −35 … −49 | 12 … 21 |
+| garbled — short fragments of longer speech (4) | −35 … −49 | 12 … 21 |
 | empty transcript, real speech present (≈9 of 12) | −28 … −51 | 4 … 19 |
 
 **Empirical threshold: speech RMS ≥ ~−40 dBFS *and* SNR ≥ ~18 dB transcribes cleanly;
 below either, results degrade to fragments and then to nothing.** The cleanest border
-pair: `utt-20260824-203229` ("How are you doing, Ember?", −34.6 dBFS / 15.2 dB, clean)
+pair: `utt-20260824-203229` (a short greeting, −34.6 dBFS / 15.2 dB, clean)
 vs `utt-20260824-213843` (−37.2 dBFS / 15.7 dB, empty) — right at the line, a coin flip.
 
-**Clipping is a non-issue at the current 36 dB mic gain.** 33 of 40 files have zero
+**Clipping is a non-issue at the current 36 dB mic gain.** 32 of 40 files have zero
 clipped samples. The worst file has 58 (0.07 % of its samples), longest run 5 samples
 (0.3 ms). Close-talk recordings peak at −0.0 dBFS with exactly *one* clipped sample —
 the ceiling is being touched, not leaned on.
@@ -63,7 +63,7 @@ pipeline waits out the full window. Same root cause, second symptom.
 
 Two clear regimes in the data:
 
-- **Close-talk** (2026-08-14 evening, "Run the tests in the Veil session" ×3, plus
+- **Close-talk** (2026-08-14 evening, the same close-talk command ×3, plus
   18:13): speech RMS −14 … −17 dBFS, SNR 39–46 dB, **4/4 perfect transcripts**.
 - **Normal room use** (everything else): speech RMS −30 … −51 dBFS, SNR 6–28 dB,
   clean rate roughly half.
