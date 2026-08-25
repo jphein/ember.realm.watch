@@ -1062,8 +1062,15 @@ If it comes out illegible, the label is what fails, not the part.
    failure vent.
 2. **Two experiments below the minimum-solid floor** await bench verdicts — §13b. The 0.50 band is
    the thinnest solid in the family.
-3. **Protection is unbuilt electrically.** The pocket, the leaf seats and the tab runs exist; no strip
-   has been fitted and no firmware cutoff written.
+3. **Protection is fitted at board level — in-case fit is still unproven.** When this item was
+   written it read *"no strip has been fitted"*; that retired on **2026-08-09**, when JP fitted 1S
+   strips to both battery boards (`f240fe6` — the observation, dated per the §32 rule, which also
+   scrubbed a live alarm message that would have announced the old fact as current). What this item
+   still holds open is narrower and real: **the strip has never sat in this case's channel.** The
+   channel, the leaf seats and the tab folds are dimensioned from JP's measurements but nothing has
+   been printed to completion — the 2026-08-01 rib-spacing cancel is the only contact between this
+   geometry and the physical strip. No firmware cutoff is written, and per the repo's standing rule
+   none may ever be *called* the protection — the strip is.
 4. **Reverse insertion is unprotected** — markings only, and §5 records that the *rationale* for their
    asymmetry expired when both ends became leaf seats. A measurement order is open on it.
 5. **The 1.76× vent ratio** still inherits an assumption about the cell's own port area.
@@ -1089,6 +1096,59 @@ If it comes out illegible, the label is what fails, not the part.
   a different edge and got smaller.* Reopen it there, not at the top, if a print gaps. *Recorded as closed rather than
   deleted, because the reason it closed is the interesting part: it was retired by a change made
   for printability, not by anyone attacking the gap.*
+
+---
+
+## 15 · Decision register — what the `needs decision` label is actually waiting on
+
+*Added 2026-08-25.* Issue [#44](https://github.com/jphein/ember.realm.watch/issues/44) carries the
+label; this section is the list it points at. Everything here already exists somewhere above — the
+register's only job is to collect the calls **only JP can make**, each with its options and the
+observation that would unblock it, so the label can be retired decision-by-decision instead of by
+fatigue. Where a default is stated, it is what the model currently builds, not a recommendation.
+
+### 15a · The issue's six electrical questions, reconciled
+
+The issue body's ⚠️ block predates most of §6 and §7. Current status, so nobody re-opens a closed
+one or trusts a closed-looking open one:
+
+| # | question (as asked) | status | where |
+|---|---|---|---|
+| Q1 | Can `BAT` charge a cell at all? | ✅ **answered** — TP4054 on-board, with a power path | §6 |
+| Q2 | At what current / correct CC/CV? | ✅ **answered** — ~290 mA (R12 3.3 kΩ), 15.8 h for 3400 mAh; in-case fast charge frozen **out** 2026-08-01, external bay charger instead | §6 |
+| Q3 | Does the board protect the cell? | ✅ **answered** — no protection IC (schematic fact); 1S strips **fitted to both battery boards 2026-08-09**. In-*case* strip fit still unproven — §14.3 | §6, §7 |
+| Q4 | Run while charging / brown-out on transition? | ◐ **half-answered** — the SL2305 + B5819W power path runs the system from VBUS while the cell charges, per the schematic. **The unplug transition is unmeasured** — a bench observation, one plug-pull with the device mid-response | §6 |
+| Q5 | Venting / thermal path | ◐ **redesigned, not closed** — the cell-bay *failure* vent is built and measured (§8); the *steady-state* heat path is still open item №1 → **D1** | §8, §9b, §14.1 |
+| Q6 | Reverse insertion | ◐ **moved, not closed** — mechanical keying is provably impossible on bare cells (§5); the live question is now **electrical, about the strip** → **D2** | §5 |
+
+The issue body is also stale on five headline facts the register should not let anyone re-derive
+from it: envelope (101.45 → **91.90**, the lip is gone, §1), cell policy (protected-cell bay →
+**bare only**, §5), the TP4056 pocket (reserved → **frozen out**, §6), retention (hooks + one screw
+→ **two screws + box section**, §3), and the rear LED (occluded, unsolved → **glow window built**,
+§10). *The body should be updated from this document or explicitly superseded by it — reading it
+as current is now a way to be wrong five times.*
+
+### 15b · The decisions, in worry order
+
+| | decision | options and their stated costs | what unblocks it |
+|---|---|---|---|
+| **D1** | **Print gate: does the cell-bay thermal path need a measurement before a full print?** The issue called this the biggest unresolved risk "needing a call before a print", and §14.1 still ranks it first. | (a) **accept for a first print** — charge is capped at ~290 mA (≤ 0.09 C on the assumed 3400 mAh, so self-heat is small by arithmetic, not by measurement), the failure case is §8's vent, and the first full in-case charge is bench-supervised with a thermometer in the bay. (b) **require a measurement first** — no print until a heat path is demonstrated or modelled. | JP's call. If (a): one supervised charge cycle with a probe in the bay converts the arithmetic into an observation. |
+| **D2** | **Does the fitted DW01-class strip block a reversed cell?** Q6's remainder. The keying is gone for a proved reason; the marks are informational; the strip is now the only thing standing between a backwards cell and the board. | (a) strip datasheet states reverse-polarity behaviour → cite it. (b) bench test — reversed cell through the strip on a current-limited supply, nothing downstream connected. (c) accept marks-only and rely on the operator. | A datasheet or one bench test. Until one exists, §5's "making reverse insertion *safe* is electrical, and it is unbuilt" stays true *with the strip fitted*. |
+| **D3** | **Vent sizing premise** (§8 soft, §14.5): the 1.76× margin is measured against an *assumed* 9.42 mm² of cell port area. | (a) name the actual cell SKU and take its real vent figure — the unit count is the stated knob if it moves. (b) accept the general-construction assumption. | Naming the cell. This also settles §5's slop (real ⌀/length) and the leaf preload figures in §12. |
+| **D4** | **Bench verdicts JP already owes himself** (§13b): the 0.90/0.50 separator wall, and the deboss/SD-label/witness-ring legibility set. Not design decisions — *observations* — but two exemption classes in §11b are experimental until his eye rules. | Look at the printed parts. The SD label is allowed to fail; the 0.50 wall is allowed to be trimmed to nothing. | Parts are printed or printing; the verdicts are a morning's inspection. |
+| **D5** | **Acoustic acceptance** (§9): front air is −11.1 % (real cost, hidden inside a ±25 % band) and the diaphragm gap went 2.50 → 9.40 on a stated *belief* that axial air trades neutral against lateral. | (a) accept and let the first print's listening test rule. (b) A/B against the desk stand before accepting. (c) reject — it is one constant, but reclaiming volume re-opens the §7b packing argument. | A listening test on the first assembled unit — the only instrument this repo has for it. |
+| **D6** | **Glow in charcoal** (§10 soft): the window will be dim in the specified filament. | (a) accept dim. (b) natural-PLA midframe — fights the charcoal finish spec. (c) membrane 0.80 → 0.40. (d) through-holes (adds no ingress class the wall doesn't already have). Each is one constant. | Aesthetic call; (a) can be judged on the first print and revisited — the options don't expire. |
+| **D7** | **Third cover screw at ~(46, 82)** (§3): would halve the +X worst unheld span (43.19 mm). Two screws is JP's stated cap; the constraint that used to forbid a third has moved. | (a) hold the cap. (b) lift it — one boss, one pilot, one more M3×22. | JP's call outright; or let the first print's gap (if any) decide — §14's closed item says *reopen at the +X edge, not the top*. |
+| **D8** | **Cell radial slop ~0.30 mm** (§5 soft): shim, printed rib, or accept. | Foam shim (no CAD), rib (one feature + reprint), accept. | A cell in hand and a shake — explicitly blocked on D3's cell naming. |
+| **D9** | **Low-battery behaviour** (§6, §14.8): no boost, so the device browns out at ~3.4 V rather than shutting down. The strip (fitted) is the safety floor; this is UX, not protection — and per the standing rule nothing in firmware may be *called* protection. | (a) accept brown-out; candle + ladder + battery_watch already warn. (b) add a firmware graceful *shutdown/announcement* — permissible as UX under that rule, never as the answer to Q3. | JP's call; the voltage sensor and the announce chain both already exist, so (b) is HA/firmware work with no case impact. |
+| **D10** | **`LEAF_FREE` 3.60** (§14.9): the one number still set by feel. | Leave it, or let the first assembly's preload feel adjust it. | First assembly. Recorded so it isn't mistaken for a derived value. |
+| **D11** | **Stand r5 reprint** (§10b): docking a backpack requires the relieved stand. | Reprint now, or defer until a backpack exists to dock. | Scheduling only; a desk-only setup is unaffected. |
+| **D12** | **Mobile print sheet** (§11): `PRINT-SHEET.md` has no mobile column — the parts print on inherited shell spec plus this file's ⛔ slicer note. | (a) add the column before a print campaign. (b) keep inheriting and rely on §11. | A doc task, not a measurement — but the gap is the kind that bites the *next* person, not this one. |
+| **D13** | **The issue body itself** (§15a): stale on five headline facts. | (a) rewrite the body from this document. (b) replace it with a pointer here and keep only the decision label. | One edit; (b) is the one-name-one-thing shape. |
+
+**What is *not* on this list, deliberately:** everything the model already answers with an assert
+and a control. The register holds only items where the missing input is an owner's judgement, a
+bench observation, or a datasheet — the three things `ember_mobile_case.py` cannot generate.
 
 ---
 
