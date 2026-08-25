@@ -84,7 +84,20 @@ LABEL_GAP    = 1.90      # centreline advance between glyphs -> 1.00mm of materi
 LABEL_DEBOSS = 0.40      # how deep the grooves cut. THE DISCRIMINATOR.
 
 # What the flat back face must say. Order-free: the matcher works out which run is which.
-FLAT_LABELS = ["SD", "MIC", "UART", "I2C", "SPK", "BAT", "IO"]
+#
+# NO "BAT" — corrected 2026-08-25, and the defect was THIS LIST, not the shell. d18e17c
+# (2026-08-01) blocked the desk's BAT flank (SIDE_BLOCK: the connector has no consumer;
+# there is no cell in the stand) and the shell's own rule — "NO LABEL MAY NAME AN OPENING
+# THAT IS NOT THERE" — correctly deleted the label with the opening. This spec predated
+# that rule and kept demanding 20 glyphs of a face that honestly says 17; the check then
+# FAILED for 24 days against a correct part (issue #92; verified by mesh archaeology:
+# the missing boxes are exactly BAT's three, the BAT band has wall where UART's has
+# channel, and the MIC strip is byte-identical across every revision suspected). The
+# tool's independence doctrine stands — this list is still hand-written truth, not an
+# import — it just has to be CURRENT truth. Scope note: this default spec is the DESK
+# shell's; the mobile midframe additionally drops MIC and SPK and is not this tool's
+# default target.
+FLAT_LABELS = ["SD", "MIC", "UART", "I2C", "SPK", "IO"]
 
 # The ratio a word space must beat a letter space by. NOT 2.0, and the reason is a finding of
 # this tool rather than a choice: the nominal letter space is LABEL_GAP - LABEL_W = 1.00 and
@@ -314,19 +327,20 @@ def assign(ink, pool, tol=0.08):
     return rec(0, frozenset(pool))
 
 
-def check(stl_path, verbose=True):
+def check(stl_path, verbose=True, spec=None):
+    spec = spec if spec is not None else FLAT_LABELS
     """Returns (ok, report). Raises Blind if it could not measure -- which callers treat as
     a failure, never as a skip."""
     glyphs, ink_h = glyph_boxes(stl_path)
     ls = lines(glyphs, ink_h)
 
-    pool = list(FLAT_LABELS)
+    pool = list(spec)
     rows, worst = [], None
     total_glyphs = sum(len(l["ink"]) for l in ls)
-    if total_glyphs != sum(len(x) for x in FLAT_LABELS):
+    if total_glyphs != sum(len(x) for x in spec):
         raise Blind(
-            f"found {total_glyphs} glyphs but the spec {FLAT_LABELS} needs "
-            f"{sum(len(x) for x in FLAT_LABELS)} -- a label is missing, doubled, or fused")
+            f"found {total_glyphs} glyphs but the spec {spec} needs "
+            f"{sum(len(x) for x in spec)} -- a label is missing, doubled, or fused")
 
     for ln in ls:
         ink = ln["ink"]
@@ -369,7 +383,7 @@ def check(stl_path, verbose=True):
             print(f"    {'+'.join(r['labels']):<16} along {r['axis']} at {r['at']}  "
                   f"letter {let}  word {wrd}")
         amb = {}
-        for t in FLAT_LABELS:
+        for t in spec:
             amb.setdefault(round(_width(t), 3), []).append(t)
         for wv in sorted(k for k, v in amb.items() if len(v) > 1):
             print(f"    note: {'/'.join(amb[wv])} are both {wv:.2f}mm wide — the names above "
@@ -391,15 +405,21 @@ def _fx(name):
 
 # (path, must_pass, why). Every glyph count must be GLYPHS_EXPECTED -- see the note below.
 CONTROLS = [
-    (DEFAULT_STL, True,
+    (DEFAULT_STL, True, None,
      "the shipped part, chamfered (#35), must PASS"),
-    (_fx("back-shell-chamfered-wordgap-0.80.stl"), False,
+    (_fx("back-shell-chamfered-wordgap-0.80.stl"), False, "FIXTURE",
      "CURRENT geometry at word gap 0.80, must FAIL"),
-    (_fx("back-shell-wordgap-0.80.stl"), False,
+    (_fx("back-shell-wordgap-0.80.stl"), False, "FIXTURE",
      "PRE-CHAMFER geometry at word gap 0.80, must still FAIL"),
 ]
 
-GLYPHS_EXPECTED = sum(len(t) for t in FLAT_LABELS)   # 20
+# The FIXTURES are frozen pre-d18e17c geometry and still carry the desk's BAT label —
+# deliberately: the controls test the INSTRUMENT (loop recovery, fusion sensitivity),
+# not the current design truth, and re-cutting fixtures every time a label legitimately
+# dies would let a filter regression hide inside the churn. Each control judges its STL
+# against ITS OWN spec (2026-08-25, when the live spec dropped BAT and both 0.80 controls
+# started BLIND-failing on count instead of failing on ratio as designed).
+FIXTURE_LABELS = ["SD", "MIC", "UART", "I2C", "SPK", "BAT", "IO"]
 
 
 def selftest():
@@ -414,7 +434,9 @@ def selftest():
     that still says OK. A merged `BATUARTSD` run is large AND interior, so it must survive
     the silhouette filter; the two 0.80 controls are what prove it does."""
     rc = 0
-    for i, (path, must_pass, why) in enumerate(CONTROLS, 1):
+    for i, (path, must_pass, which, why) in enumerate(CONTROLS, 1):
+        spec = FIXTURE_LABELS if which == "FIXTURE" else FLAT_LABELS
+        expected = sum(len(t) for t in spec)
         print(f"control {i}/{len(CONTROLS)} -- {why}")
         if not os.path.exists(path):
             print(f"  BLIND: fixture missing at {path}")
@@ -422,14 +444,14 @@ def selftest():
             rc = 1
             continue
         try:
-            ok, rep = check(path)
+            ok, rep = check(path, spec=spec)
         except Blind as e:
             print(f"  BLIND -> FAIL: {e}")
             rc = 1
             continue
         n = rep["glyphs"]
-        if n != GLYPHS_EXPECTED:
-            print(f"  FAIL: {n} glyphs recovered, expected {GLYPHS_EXPECTED} — a filter is "
+        if n != expected:
+            print(f"  FAIL: {n} glyphs recovered, expected {expected} — a filter is "
                   f"eating text")
             rc = 1
             continue
