@@ -160,6 +160,11 @@ detector *still* said `0.000`.
 
 > **There is now a permanent self-test doing exactly that, and it must report
 > `1467.842 mm³`. If it ever reports zero, the checker is broken — not the parts.**
+>
+> *(2026-08-25: the figure tracks bezel geometry and is now **1512.804 mm³** — the #41 boss
+> flare moved it and no doc was updated, which is this document's own failure shape landing on
+> its own pages. Current value lives in `enclosure/README.md`; the zero-means-broken rule is
+> the part that doesn't move.)*
 
 #### The same shape in a status probe: a query that answers about itself
 

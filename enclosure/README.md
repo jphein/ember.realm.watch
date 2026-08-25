@@ -50,8 +50,17 @@ and reports the interference volume. Expect `0.000 mm³`.
 own coordinate frame (X −52.75..−2.75) while the parts are in board coords, so the two never
 overlapped in space and *every* boolean returned empty. It surfaced only because a bezel was
 deliberately sunk 2 mm into the board and the detector **still** said `0.000`. There is now a
-permanent self-test doing exactly that, and it must report **1467.842 mm³**. If it ever
+permanent self-test doing exactly that, and it must report **1512.804 mm³**. If it ever
 reports zero, the checker is broken — not the parts.
+
+> ⚠️ **That figure tracks the bezel's geometry and moved once without being re-recorded**: it
+> was captured as 1467.842 on 2026-07-30, the #41 boss flare (2026-08-06) changed the bezel's
+> volume near the board, and every doc kept quoting the old number. Re-recorded at 1512.804 on
+> 2026-08-25 (observed during the #48 rebuild — whose own change, the 0.96 front-face deboss,
+> provably cannot move it: sunk 2 mm, the deboss band spans z 4.74–5.70 and the board tops out
+> at 4.30). The code's own gate is `> 1.0 mm³`; the recorded figure exists so a *different*
+> value is noticed, so if you change the bezel and it moves, update it here **in the same
+> commit**.
 
 **`--- MESH CHECK ---`** is arithmetic on the exported triangles: every undirected edge shared
 by exactly two, every directed edge appearing once. Current output, re-derived from the
