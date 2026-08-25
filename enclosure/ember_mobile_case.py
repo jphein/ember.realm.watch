@@ -121,6 +121,13 @@ CELL_D_MAX      = 18.80     # bare flat-top can incl. wrap; bare stock is 18.4-1
 CELL_BORE_CLR   = 0.30      # per side, hand-drop fit for a cylinder
 CELL_BORE_D     = CELL_D_MAX + 2*CELL_BORE_CLR          # 19.40 = 97 layers, and the cover
                                                         # depth below must stay layer-whole
+# >>> D3 SETTLED (JP, 2026-08-25, issue #44): the cell IS the mobile hearth's cell — the
+# same bare flat-top 18650 stock, one household population. These four constants are the
+# draft's TOLERANCE BANDS, not measurements; nothing in this repo records the actual cells'
+# calipered length/diameter. When JP's calipers land, replace NOM/TOL here with the measured
+# values (± the spread across the cells he owns) and let vent ratio, trough slop, and leaf
+# preload re-derive — every consumer (5g preload assert, BAY_L, CELL_BORE_D layer count)
+# already flows from these four names, so the caliper numbers drop in HERE and nowhere else.
 CELL_L_NOM      = 65.20     # bare 18650
 CELL_L_TOL      = 0.30      # manufacturing spread, bare stock
 CELL_L_MIN      = CELL_L_NOM - CELL_L_TOL               # 64.90
