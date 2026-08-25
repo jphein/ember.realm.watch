@@ -1,7 +1,13 @@
 # Wake word
 
-Status: **wired and compiled, never flashed.** Ember ships answering to **"Okay Nabu"**,
-detected on-device.
+Status: **flashed and heard.** Ember answers to **"Okay Nabu"**, detected on-device.
+
+> This line read *"wired and compiled, never flashed"* until 2026-08-25, which was stale
+> — the YAML's own substitution block records the flash: JP confirmed "Okay Nabu" on the
+> desk unit 2026-08-03, and ember-mobile's first flash came up clean the same day. The
+> desk unit was reflashed to main `558b01d` on 2026-08-25 (clean boot, safe_mode counter
+> reset, no `Parent bus is busy` in the idle log). Mode 2 (don-kee) rides in every build
+> and remains **never selected** — see "What #42 still awaits" below.
 
 There are two wake-word implementations in this repo because there are two models in two
 incompatible formats. One `wake_word_mode` substitution picks between them.
@@ -159,10 +165,27 @@ Note that pipeline edits need an HA core restart to take effect.
 
 ---
 
+## What #42 still awaits (all JP's, none of it firmware)
+
+The don-kee wiring is on both boards — it ships in every build, inert at mode 1. For it
+to actually answer to "don-kee", three things remain, and none is a repo change:
+
+1. **`wake_word_mode: "2"` + reflash** — the privacy decision (idle 16 kHz audio streams
+   to HA continuously). It also gives up mode 1's on-device advantage, so it is a real
+   trade, not an upgrade.
+2. **An HA core restart** — the `familiar-ember` pipeline's `wake_word_id: donk_ee` was
+   written 2026-07-31 and the runner caches the old config until restart.
+3. **Tuning the openWakeWord add-on `threshold`** — the 0.60 `probability_cutoff` in
+   project memory belongs to the *lost* microWakeWord "donkee", not this model.
+
+---
+
 ## Flashing this, and what to listen for
 
-Flash with the device in reach. **The arbiter has never been heard** — it is reasoned
-from the ESPHome sources and gated by a clean compile, nothing more.
+Flash with the device in reach. ~~The arbiter has never been heard~~ — retired
+2026-08-03: JP confirmed "Okay Nabu" on the desk unit and ember-mobile's first flash ran
+wake word → STREAMING_MICROPHONE → STT with no bus errors. The symptom table below stays
+as the diagnostic reference for any future regression.
 
 Good: Ember chimes on a tap with no delay, replies audibly, and answers to "Okay Nabu".
 
