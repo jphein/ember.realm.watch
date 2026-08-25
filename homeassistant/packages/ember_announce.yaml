@@ -172,6 +172,8 @@ script:
         description: >
           Passed straight through to script.ember_announce; defaults to the desk
           unit there. Present so the awake-guard and the target choice compose.
+          The one special value (same convention as ember_say): "all" fans out
+          via ember_announce_all — every hearth in THIS house, Dad's excluded.
         required: false
         selector:
           entity:
@@ -182,10 +184,18 @@ script:
             entity_id: binary_sensor.ember_reachable
             state: "on"
         then:
-          - action: script.ember_announce
-            data:
-              message: "{{ message }}"
-              satellite: "{{ satellite | default('', true) }}"
+          - if:
+              - condition: template
+                value_template: "{{ satellite | default('', true) | trim == 'all' }}"
+            then:
+              - action: script.ember_announce_all
+                data:
+                  message: "{{ message }}"
+            else:
+              - action: script.ember_announce
+                data:
+                  message: "{{ message }}"
+                  satellite: "{{ satellite | default('', true) }}"
         else:
           # Backend asleep: wake it and retry once (packages/ember_wake_backend.yaml).
           # Added 2026-08-03 — this used to just skip, so a sleeping `familiar`
@@ -197,10 +207,18 @@ script:
                 entity_id: binary_sensor.ember_reachable
                 state: "on"
             then:
-              - action: script.ember_announce
-                data:
-                  message: "{{ message }}"
-                  satellite: "{{ satellite | default('', true) }}"
+              - if:
+                  - condition: template
+                    value_template: "{{ satellite | default('', true) | trim == 'all' }}"
+                then:
+                  - action: script.ember_announce_all
+                    data:
+                      message: "{{ message }}"
+                else:
+                  - action: script.ember_announce
+                    data:
+                      message: "{{ message }}"
+                      satellite: "{{ satellite | default('', true) }}"
               - stop: "spoke after waking the backend"
           - action: system_log.write
             data:
