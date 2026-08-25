@@ -256,6 +256,44 @@ S.write_svg(_out("mobile-glow-window.svg"), [(_glow_polys, "wall")],
             "mobile-glow", dims=dims)
 
 
+# ====================================================== 4b. RAISED BRAILLE (svg)  (#51)
+# Both flank elevations, one file per flank. Two slices share each frame: the wall's own
+# section (channels, SD slit, glow hexes -- the context) and a slice through the domes'
+# equator band, which draws every dot as its circle. This is the one view in which "the
+# dots stand beside the opening they name, clear of the label's ink and the glow window"
+# is VISIBLE rather than asserted -- and five faults on this project were caught by a
+# render after every assert passed. Dimensions are measured off M._brl_dots, the same
+# call the build placed the domes from; nothing here is transcribed.
+#
+# ⚠️ No caption on these may say left or right: the x view puts model +Y at page-right for
+# BOTH flanks, so the -X flank appears mirror-read (its braille runs toward -Y). That is
+# check 7d-c's chirality, already measured; the figure shows placement, not reading order.
+print("braille flanks:")
+for _fname, _face, _ctx_x, _dot_x in (
+        ("mobile-braille-x0.svg", "-X", -E.FIT - M.WALL / 2, E.OX0 - M.BRL_DOT_H / 2),
+        ("mobile-braille-x50.svg", "+X", E.BW + E.FIT + M.WALL / 2,
+         E.OX1 + M.BRL_DOT_H / 2)):
+    _words = [_w for _w, (_f, _) in M.SIDE_BRL_SITES.items() if _f == _face]
+    _wall_polys = S.face_polys(S.section(mid, "x", _ctx_x), "x")
+    _dot_polys = S.face_polys(S.section(mid, "x", _dot_x), "x")
+    _pts = [(_y, _z) for _w in _words
+            for _, _y, _z in M._brl_dots(_w, *M.SIDE_BRL_SITES[_w])]
+    _pp = _cp = None                     # a dot-pitch pair (same column) / a cell-pitch pair
+    for _a in _pts:
+        for _b in _pts:
+            if _pp is None and abs(_a[0] - _b[0]) < 1e-6 \
+                    and abs((_a[1] - _b[1]) - E.BRL_PITCH) < 1e-6:
+                _pp = (_b, _a)
+            if _cp is None and abs(_a[1] - _b[1]) < 1e-6 \
+                    and abs((_b[0] - _a[0]) - M.BRL_CELL) < 1e-6:
+                _cp = (_a, _b)
+    dims = [S.dim(*_pp, off=-4.0, side="h"), S.dim(*_cp, off=-3.5, side="v")]
+    S.write_svg(_out(_fname), [(_wall_polys, "wall"), (_dot_polys, "dots")],
+                "mobile-brl", dims=dims)
+    print(f"  {_fname}: {len(_dot_polys)} dot outlines on the {_face} flank "
+          f"({', '.join(_words)})")
+
+
 # ====================================================== 5. STRIP POCKET (svg)
 # The 1S protection pocket, in plan through the locating ribs.
 #

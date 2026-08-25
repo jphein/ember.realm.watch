@@ -2180,6 +2180,18 @@ PORT_ZFACE = -USB_OVERHANG - OY0     # 2.582 — the receptacle mouth, up the sl
 DOCK_RELIEF_Y = 13.00    # back from ST_D along the rear top edge
 DOCK_RELIEF_Z = 4.40     # down from ST_H
 
+# Braille dot lanes for the slot walls (#51) — CASE-FRAME boxes (x0,x1,y0,y1,z0,z1),
+# cut through dock_pose in desk_stand(). Measured off _brl_dots 2026-08-25:
+#   UART -X: dome x -3.736..-2.950, ink y 4.93..27.03, z -5.80..0.80
+#   I2C  +X: dome x 52.950..53.736, ink y 2.45..30.55, z -5.80..0.80
+# each expanded 0.40 clear of the dome, inner x edge poked 0.05 PAST the flank
+# plane (into the slot void) so no cut face coincides with the slot wall, and
+# y extended to 35.0 for the insertion sweep. See the lane comment in desk_stand.
+BRL_DOCK_LANES = (
+    (-4.14, -2.90,  4.53, 35.00, -6.20, 1.20),   # UART, -X wall
+    (52.90, 54.14,  2.05, 35.00, -6.20, 1.20),   # I2C,  +X wall
+)
+
 
 def dock_pose(part):
     """A model-frame part placed in its DOCKED pose, in stand coordinates.
@@ -3386,6 +3398,30 @@ def desk_stand():
                              (-(ST_H + 1.0), ST_D + 1.0),
                              (-(ST_H - DOCK_RELIEF_Z), ST_D + 1.0), close=True))
     p -= Pos(-1.0, 0, 0) * (Rot(0, 90, 0) * extrude(_rt, ST_W + 2.0))
+
+    # ---- BRAILLE DOT LANES (#51, JP's call 2026-08-25: "groove the stand") ----
+    #
+    # The mobile's raised braille (UART on -X, I2C on +X) rides the docking band, and a
+    # 0.79mm dome proud of a flank that the slot grips is a 4.082mm3 interference check 8i
+    # rightly refused. JP chose to relieve the STAND rather than recess the dots, shrink
+    # them below the ANSI floor, or retire docking: the slot walls get one groove per word,
+    # sized to the word, so retention is lost only on the lanes the dots actually sweep.
+    #
+    # THE LANES ARE CASE-FRAME BOXES PUSHED THROUGH dock_pose — the same shared transform
+    # 2f and 8i use — so the stand's grooves and the mobile's dots cannot drift apart in
+    # tilt or seat depth; only these lane RECTANGLES are hardcoded, and they are measured
+    # off _brl_dots (2026-08-25) with 0.40 clearance beyond the dome on every side. The
+    # case-frame +Y extent runs to 35.0: insertion slides the slot rim from case-y -2.95
+    # to 18.00 past the dots, so the groove must sweep the wall the dots traverse, and 35
+    # clears the rim's whole travel with margin. SD (also -X) lives at case-y 58.7..68.8,
+    # above the band — its dots never enter the slot and it needs no lane (measured, not
+    # assumed: its posed z-span starts at 82.9 on a 40-tall stand).
+    #
+    # Mobile check 8i-b asserts every posed dot sits INSIDE its lane with >=0.2mm to
+    # spare, so a future word move re-fails loudly instead of re-interfering quietly.
+    for _lx0, _lx1, _ly0, _ly1, _lz0, _lz1 in BRL_DOCK_LANES:
+        p -= dock_pose(Pos((_lx0+_lx1)/2, (_ly0+_ly1)/2, (_lz0+_lz1)/2) *
+                       Box(_lx1-_lx0, _ly1-_ly0, _lz1-_lz0))
     return p
 
 def stand_base():
