@@ -58,8 +58,15 @@ esphome run     ember-mobile.yaml        # OTA — target derived from the confi
 esphome logs    ember-mobile.yaml --device /dev/ttyACM2   # USB serial
 ```
 
-Verified against ESPHome **2026.7.3** (config declares `min_version: 2025.11.0`). Compiling on a
+Verified against ESPHome **2026.8.0** (config declares `min_version: 2025.11.0`). Compiling on a
 workstation is ~5× faster than on the HA host.
+
+> **Builds run on `familiar`, not katana (JP, 2026-08-24):** use
+> `esphome/tools/remote_build.sh <device> compile|flash [sigil]` — it rsyncs the config to
+> familiar (24 cores, same LAN as the hearths, pinned esphome venv at `~/esphome-venv`),
+> compiles there, and OTAs from there. One full local build pegs every katana core for
+> minutes, which is a bad marriage with parallel agent work. Agents especially: never run
+> bare `esphome compile` on katana.
 
 Three traps, all of which have already cost time here:
 
