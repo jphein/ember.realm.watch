@@ -276,5 +276,11 @@ automation:
         continue_on_error: true
         data:
           url: "https://ha.jphe.in:8123{{ trigger.event.data.image_url }}"
+          # ALL of the message's images (bridge 1.4.3+), '|'-packed /local
+          # paths — the device swipes between them. Falls back to the single
+          # image_url so a 1.4.0-2 bridge still shows one.
+          urls: >-
+            {{ (trigger.event.data.image_urls
+                | default([trigger.event.data.image_url])) | join('|') }}
           caption: >-
             {{ trigger.event.data.sender }} · {{ trigger.event.data.channel_label }}

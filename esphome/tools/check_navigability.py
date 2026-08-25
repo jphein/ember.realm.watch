@@ -339,7 +339,8 @@ static std::vector<std::string> chron_chan_v = {"","","","","",""};
 // one entry with an image, so the 37 path's guarded branch is walkable
 static std::vector<std::string> chron_img_v = {"","","","","/local/ember/slack-vision-1.jpg",""};
 static std::string vision_url_v, zoom_url_v, vision_caption_v;
-static int vision_view_v = 0, vision_px_v = 0, vision_py_v = 0;
+static std::string vision_urls_v = "/local/a.jpg|/local/b.jpg";
+static int vision_view_v = 0, vision_px_v = 0, vision_py_v = 0, vision_idx_v = 0;
 struct OnlineImageStub {
   // declared before SIDE(), so the update is counted via a flag the walker
   // never reads — 37 is touch-only and takes no part in button exits
@@ -401,6 +402,8 @@ struct SelPtr { SelStub *operator->() { return &sel_mode_v; } };
 #define vision_view    vision_view_v
 #define vision_px      vision_px_v
 #define vision_py      vision_py_v
+#define vision_urls    vision_urls_v
+#define vision_idx     vision_idx_v
 #define vision_img     VisionPtr()
 #define zoom_img       ZoomPtr()
 #define ic_targets     ic_targets_v
