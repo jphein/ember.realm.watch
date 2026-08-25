@@ -24,6 +24,31 @@
 #
 # WoL only works because familiar's NIC has it enabled; the MAC lives in
 # packages/wake_on_lan.yaml (script.wake_familiar).
+#
+# ---------------------------------------------------------------------------
+# THE HOLD (added 2026-08-15) — why healing needs an off switch
+# ---------------------------------------------------------------------------
+# The three layers above make "familiar is asleep" a fault to be repaired. That
+# is right when the host fell asleep on its own, and exactly wrong when a human
+# just asked it to sleep: `realm wol sleep familiar` suspended the host and this
+# stack woke it back up within ~75s, every time, indefinitely.
+#
+# Measured 2026-08-15 with tcpdump on VLAN6 — three magic packets from the HA VM
+# (10.0.6.108 -> 10.0.6.255:9), at 21:21:27, 21:22:42 and 21:23:57. Exactly 75s
+# apart, which is this script's own wait_template timeout: mode:single swallows
+# callers while a run is in flight, so the observable cadence is the timeout and
+# not the caller's real rate.
+#
+# familiar now sets this hold itself from its sleep hook (familiar-ml-quiesce,
+# in the familiar.realm.watch repo under ops/familiar/) and clears it on resume,
+# so EVERY sleep path is covered — `realm wol sleep`, `familiar-sleep`, and
+# autosuspend if it is ever re-enabled — without any of them knowing about HA.
+# ---------------------------------------------------------------------------
+input_boolean:
+  familiar_sleep_hold:
+    name: "Familiar: let it sleep"
+    icon: mdi:sleep
+
 script:
   ember_wake_backend:
     alias: "Ember - wake the backend (familiar)"
@@ -31,6 +56,24 @@ script:
     mode: single          # never stack magic packets
     max_exceeded: silent
     sequence:
+      # 🛑 OPERATOR HOLD — checked FIRST, ahead of the already-serving guard.
+      #    Guarding here rather than in the calling automations is deliberate:
+      #    every layer funnels through this script (including the icam365 PTT
+      #    taps and the reactive announce path), so one check covers all of
+      #    them and no future caller can route around it.
+      - if:
+          - condition: state
+            entity_id: input_boolean.familiar_sleep_hold
+            state: "on"
+        then:
+          - stop: "familiar was deliberately put to sleep — standing down"
+      # ⚠️ This tests for "on", not "not off", because binary_sensor.ember_backend
+      #    is TRI-state: it reads `unavailable` while familiar is down, which is
+      #    neither. That asymmetry is load-bearing and was measured, not assumed:
+      #    on 2026-08-15 the sensor sat at `unavailable`, which correctly failed
+      #    this stop-check (so the script ran) while simultaneously failing the
+      #    `state: "off"` conditions on both automations below (so neither
+      #    fired). If you ever "tidy" one side, tidy both.
       - if:
           - condition: state
             entity_id: binary_sensor.ember_backend
@@ -95,3 +138,29 @@ automation:
     action:
       - action: script.ember_wake_backend
       - delay: "00:05:00"
+
+  - id: familiar_sleep_hold_auto_expire
+    alias: "Familiar: expire the sleep hold after 12h"
+    description: >-
+      A hold that never clears turns one quiet night into a permanently deaf
+      Ember. familiar clears this itself on resume — this is the backstop for
+      when it never comes back, or comes back without the sleep hook (e.g. a
+      cold boot after a power cut, where /run state is gone).
+
+      Caveat, stated because it is the failure mode people assume away: an
+      automation `delay` does NOT survive an HA restart. If HA restarts while
+      the hold is on, this timer is lost and the hold persists until something
+      clears it. That is the safe direction to fail (familiar stays asleep
+      rather than being woken against a human's wishes), but it does mean the
+      dashboard toggle is the real off switch, not this.
+    mode: restart          # re-arming the hold restarts the 12h clock
+    max_exceeded: silent
+    trigger:
+      - platform: state
+        entity_id: input_boolean.familiar_sleep_hold
+        to: "on"
+    action:
+      - delay: "12:00:00"
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.familiar_sleep_hold

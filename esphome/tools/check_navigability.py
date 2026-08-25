@@ -99,7 +99,7 @@ MODES = (0, 1, 2, 3, 4)
 # recovery property there. Button-EXITABILITY is: the walk seeds (5, -1) as if a
 # touch had opened it and asserts the button path out. Everything else keeps the
 # full contract.
-TOUCH_SEEDED = (5, 6, 7)
+TOUCH_SEEDED = (5, 6, 7, 8)   # 8 = the vision (entered only by show_image)
 
 
 # See check_restore_resync.py for why this SafeLoader subclass is safe: it swallows
@@ -449,7 +449,7 @@ int main() {
   q.push(start);
   // ui_mode 5 is touch-entered by design; seed it so its BUTTON EXIT is walked
   // even though no button path leads in.
-  for (int tm : {5, 6, 7}) {       // touch-entered: chronicle detail, help, picker
+  for (int tm : {5, 6, 7, 8}) {    // touch-entered: chronicle detail, help, picker, vision
     const St ts{tm, -1};
     seen.insert(ts);
     q.push(ts);

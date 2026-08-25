@@ -246,3 +246,35 @@ automation:
         data:
           channel: "{{ trigger.event.data.channel }}"
           speech: "{{ trigger.event.data.speech }}"
+
+  # ---- the vision (2026-08-24, JP: "add the ability to display slack
+  # images") ----
+  # Bridge 1.4.0 stashes an announced Slack image's thumb at
+  # /config/www/ember/slack-vision.jpg and adds `image_url` to
+  # slack_bridge_announced (additive — absent when there is no image). This
+  # relay turns that into the device's show_image service, same
+  # satellite-to-service derivation as the tag automation above, so one
+  # automation serves every hearth including ones that do not exist yet.
+  # The URL is absolute because the DEVICE fetches it: the hearths reach HA
+  # the same way everything else here does — the edge name, TLS, port 8123
+  # (the firmware's http_request carries the IDF certificate bundle).
+  - id: ember_slack_vision
+    alias: "Ember - show a Slack image on the hearth that announced it"
+    mode: parallel
+    max: 4
+    triggers:
+      - trigger: event
+        event_type: slack_bridge_announced
+        # image_url is additive: old events simply lack the key
+    conditions:
+      - condition: template
+        value_template: "{{ trigger.event.data.image_url is defined }}"
+    actions:
+      - action: >-
+          esphome.{{ trigger.event.data.satellite.split('.')[1]
+                     | replace('_assist_satellite','') }}_show_image
+        continue_on_error: true
+        data:
+          url: "https://ha.jphe.in:8123{{ trigger.event.data.image_url }}"
+          caption: >-
+            {{ trigger.event.data.sender }} · {{ trigger.event.data.channel_label }}
