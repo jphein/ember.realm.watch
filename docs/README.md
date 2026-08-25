@@ -14,6 +14,7 @@ directory *is* the site. `.nojekyll` keeps the tree served untouched by Jekyll.
 | `vendor/` | The archived ES3C28P schematic, plus a README of what it settles — the charger, the power path, and the *absence* of any protection IC. |
 | `print-sheet.html` | **Generated** by `../site/build_print_sheet.py` (which `build.py` calls) from `../enclosure/PRINT-SHEET.md`. Never hand-edit. See the exception below. |
 | `intercom-live-audio.md` | Research capture for live two-way audio (#57): the community survey, the I2S-arbiter and pipeline constraints, a recommended shape if a v2 is ever green-lit, and the open questions. Nothing in it is built. |
+| `stt-mic-analysis.md` | What Parakeet actually hears (#56): levels/clipping/SNR of the saved debug utterances, the empirical transcription threshold, and the proposed mic-gain change. |
 | `verification.md` | The running log of claims that outran their evidence. Read it before trusting a green check. |
 | `version.json` | realm-sigil stamp, written by `../build-sigil.sh`. |
 
