@@ -404,7 +404,9 @@ python3 -m venv cadenv && ./cadenv/bin/pip install -r tools/requirements.txt
 > a test* — the clearance checker returned a confident `CLEAR` for a while because the vendor
 > solid and the parts were in disjoint coordinate frames, so every boolean returned empty.
 > There is now a permanent self-test that deliberately sinks a bezel into the board and must
-> report **1467.842 mm³**. And *a boolean cannot see occlusion* — the stand covered a fifth of
+> report **1512.804 mm³** (the figure tracks bezel geometry — it was 1467.842 until the #41
+> boss flare; re-recorded 2026-08-25, see `enclosure/README.md`). And *a boolean cannot see
+> occlusion* — the stand covered a fifth of
 > the screen, then buried both buttons, without ever intersecting anything. Both were found by
 > rendering the thing and looking at it.
 >
