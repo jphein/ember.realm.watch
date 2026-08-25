@@ -2295,6 +2295,274 @@ def _side_label(paths, face, cy, cz, depth, w=None):
     return Pos(_x, cy, cz) * extrude(_sk, depth)
 
 
+# ============================================================================
+# 5m. RAISED BRAILLE BESIDE THE FLANK OPENINGS  --  io / uart / sd / i2c  (#51)
+# ============================================================================
+#
+# JP (#51): "raised braille on the side labels, io, uart, sd, i2c." Grade-1 (UEB) WORDS
+# this time, not the desk's single adjacency cells -- these labels are words, so the
+# braille spells them.
+#
+# THE CELL GEOMETRY IS A STANDARD'S, NOT THIS FILE'S. Verified 2026-08-24 against the
+# Marburg Medium braille standard (pharmabraille.com's font-standard page; the basis of
+# ISO 17351 pharma braille): dot pitch 2.5mm within the cell, 6.0mm cell-to-cell, dot
+# base diameter 1.3..1.6mm. Marburg Medium does NOT specify a dot height -- it is an
+# embossed-carton standard and CEN's 0.20mm target is foil arithmetic, not tactile-sign
+# practice -- so height comes from ANSI A117.1-2003 703.3 (tactile signage, via
+# brailleauthority.org's size survey): 0.6..0.9mm, dots "domed or rounded". Each dot is a
+# spherical dome: base O-1.60 on the wall face, R = 0.80, 0.79 proud, with a O-0.30 FLAT
+# at the apex and a 0.30 cylindrical root buried in the wall. The desk's recessed V/P
+# cells already carry this pitch and dot (BRL_PITCH, BRL_DOT_D) -- imported, never
+# re-typed.
+#
+# ⚠️ THE APEX FLAT AND THE ROOT ARE MESH ARITHMETIC, NOT STYLE. DO NOT "COMPLETE" THE
+# DOME. The obvious construction -- Sphere(0.8) with its centre on the wall plane --
+# exports 2 open + 2 non-manifold edges PER DOT (measured; the wall plane passes through
+# the sphere primitive's parametric poles and OCC's mesher skips the face outright:
+# "1 face has been skipped due to null triangulation"). Rotating the poles onto the wall
+# normal still leaves 1 crack per dot AT the outward pole, and so does a revolved dome
+# ending on its own axis -- the apex singularity is the defect, however it is authored.
+# A 0.15 flat takes the revolved surface OFF the axis and the same five-dot fixture
+# exports watertight, on the flat wall and riding a corner round both. The root gives
+# the union a transversal cylinder-plane intersection instead of a surface tangent to
+# the face it lands on -- the hex-span 20-micron lesson, applied before printing this
+# time. Tactilely the flat is nothing: 0.15mm wide on a 1.6 dot, under any fingertip's
+# resolution, and pharma embossing tools flatten dome tips more than this.
+#
+# RAISED HERE, RECESSED THERE, AND BOTH ARE RIGHT. Real braille is embossed; the desk
+# recessed its cells only because dots proud of its bottom edge would grow the Y envelope
+# and ride the stand's slot floor. The mobile's flanks mate with nothing -- the dots cost
+# 0.79 per side of X envelope and no other feature touches them. (The desk's own four
+# connector labels stay dot-free: they are BACK-FACE ink, and the back face is the bed
+# face -- a raised dot there prints into the build plate.)
+#
+# WHY THE WORDS SIT BESIDE THEIR OPENINGS, NOT OVER THEM. A braille cell is 6.60mm tall
+# (2 x 2.5 pitch + 1.6 dot) and the wall above a channel is PCB_BOT..SEAM_Z = 6.30 --
+# short by 0.30 with zero margin -- while below it is the 2.60 back slab. Numbers, not
+# taste. So each word stands on FULL-HEIGHT solid wall next to the opening it names,
+# nearest-opening-wins -- the desk cells' own mapping rule -- and it is asserted below.
+#
+# >>> I2C IS FIVE CELLS AND THAT IS THE STANDARD, NOT A MISTAKE. <<<  In UEB grade 1 a
+# digit needs the numeric indicator (dots 3456), and a letter a..j immediately after a
+# digit needs the grade-1 indicator (dots 56) or it reads as another digit: three literal
+# letter-cells would spell "ibc", and i + numeric + b + c would read "i23". So the dots
+# say  i [num] b [g1] c  -- five cells, 28.10mm of ink -- where the print says I2C in
+# three glyphs. FLAGGED FOR JP: the one place ink and dots disagree in glyph count.
+#
+# PLACEMENT, ALL DERIVED (channel spans from the connector tables + CHAN_PAD, label ink
+# from the strokefont, the glow window from its own solve, corner tangents from OUT_R):
+#   UART  -X  BELOW its channel -- and below its label's INK, which overhangs the channel
+#             by 1.08 per side (ink 14.31 in a 12.15 span); the keepout is the union.
+#   SD    -X  ABOVE its slit (below is UART's label ink; between them is 2.06 of wall).
+#   I2C   +X  BELOW THE GLOW WINDOW, 13.3mm shy of its own channel: the window's solve
+#             took the wall between them, and nearer is not on offer. Nearest-opening
+#             still holds -- SPK has no opening on this variant, so nothing closer exists.
+#   IO    +X  >>> NOT BUILT, AND THAT IS THE ARITHMETIC -- see the shortfall block below.
+#             "o" inks dot 5, so the word's last column is REAL ink at the word's far end,
+#             and it rides the top corner rounding to 0.39mm of relief against ANSI's
+#             0.60 floor. Short by 0.70mm against every rule this block holds. NEEDS JP.
+#
+# READING FRAME: the same bench-anchored chirality as the flank text labels (JP, printed
+# r10, 2026-08-02: the derived frame mirrored all four; the derivation lost to the
+# plastic). SIDE_CHIR is hoisted HERE so the build and check 7d-b consume one constant --
+# and it matters MORE for dots than for glyphs, because a mirrored letter looks wrong
+# while a mirrored braille cell silently reads as a different letter.
+SIDE_CHIR = {"-X": -1.0, "+X": +1.0}    # viewer-right in model Y, per face -- BENCH-ANCHORED
+BRL_CELL  = 6.00                        # Marburg Medium cell-to-cell pitch
+BRL_DOT_FLAT = 0.15                     # apex flat radius -- mesh arithmetic, see above
+BRL_DOT_ROOT = 0.30                     # buried cylindrical root -- ditto
+BRL_DOT_H = math.sqrt((E.BRL_DOT_D / 2) ** 2 - BRL_DOT_FLAT ** 2)   # 0.786 dome relief
+BRL_CZ    = (BACK_Z + SEAM_Z) / 2       # -2.50: the cell centred on the flank's full height
+assert E.BRL_PITCH == 2.5 and BRL_CELL == 6.0 and 1.3 <= E.BRL_DOT_D <= 1.6, (
+    "braille cell geometry has left the Marburg Medium standard (2.5 dot pitch, 6.0 cell "
+    "pitch, dot base 1.3..1.6) -- non-standard braille is noise a trained finger cannot "
+    "read. Re-verify against the standard; do not bend the cell to fit a wall")
+assert 0.6 <= BRL_DOT_H <= 0.9, (
+    f"dot relief {BRL_DOT_H:.2f} is outside ANSI A117.1 703.3's 0.6..0.9mm tactile range")
+
+# Grade-1 UEB, dots by NUMBER (1..6, column-major: 1,2,3 down the left, 4,5,6 the right).
+_BRL_DOTS = {"a": (1,), "b": (1, 2), "c": (1, 4), "d": (1, 4, 5), "i": (2, 4),
+             "o": (1, 3, 5), "r": (1, 2, 3, 5), "s": (2, 3, 4), "t": (2, 3, 4, 5),
+             "u": (1, 3, 6),
+             "#": (3, 4, 5, 6),     # UEB numeric indicator
+             ";": (5, 6)}           # UEB grade-1 symbol indicator
+_BRL_WORDS = {"UART": "uart", "SD": "sd", "IO": "io", "I2C": "i#b;c"}
+_BRL_EXT = (E.BRL_PITCH + E.BRL_DOT_D) / 2            # cell centre -> ink edge, 2.05
+
+
+def _brl_w(word):
+    """Nominal ink width of a word: first possible dot edge to last possible dot edge."""
+    return (len(_BRL_WORDS[word]) - 1) * BRL_CELL + 2 * _BRL_EXT
+
+
+def _brl_dome():
+    """ONE dot, +Z out, base disc on z=0: root cylinder below, flat-apexed dome above.
+    Built by revolve rather than Sphere() for the mesher reasons in the block above."""
+    _R = E.BRL_DOT_D / 2
+    with BuildPart() as _bp:
+        with BuildSketch(Plane.XZ):
+            with BuildLine():
+                Polyline((0, -BRL_DOT_ROOT), (_R, -BRL_DOT_ROOT), (_R, 0))
+                RadiusArc((_R, 0), (BRL_DOT_FLAT, BRL_DOT_H), -_R)
+                Polyline((BRL_DOT_FLAT, BRL_DOT_H), (0, BRL_DOT_H), (0, -BRL_DOT_ROOT))
+            make_face()
+        revolve(axis=Axis.Z)
+    return _bp.part
+
+
+def _brl_dots(word, face, cy):
+    """World dot positions (dome base centres). The BUILD and every CHECK read this one
+    derivation, so a check that passes is about the dots that were actually placed.
+
+    Authored in reading space (u right, v up) and mapped u -> SIDE_CHIR[face] * Y,
+    v -> +Z: the exact frame _side_label's u-mirror encodes for the text labels."""
+    x = OX0 if face == "-X" else OX1
+    w = _brl_w(word)
+    out = []
+    for k, ch in enumerate(_BRL_WORDS[word]):
+        u_cell = -w / 2 + _BRL_EXT + k * BRL_CELL
+        for d in _BRL_DOTS[ch]:
+            col, row = (0 if d <= 3 else 1), (d - 1) % 3
+            u = u_cell + (col - 0.5) * E.BRL_PITCH
+            out.append((x, cy + SIDE_CHIR[face] * u, BRL_CZ + (1 - row) * E.BRL_PITCH))
+    return out
+
+
+# ---- the four sites. Faces from the DERIVED label set (the mic-label rule: a word for a
+# closed opening dies with it), channel spans from the tables the openings are cut from.
+_BRL_FACE = {**{_nm: _f for _nm, _f, _ in SIDE_LBL_SITES}, "SD": SIDE_LBL_SD[1]}
+assert sorted(_BRL_FACE) == sorted(_BRL_WORDS), (
+    f"the braille word set {sorted(_BRL_WORDS)} no longer matches the served labels "
+    f"{sorted(_BRL_FACE)} -- a connector opened or closed. Fix the opening first and let "
+    f"both sets re-derive; never edit one list to match the other")
+_BRL_CH = {}
+for _names, _tbl in ((E.CONN_LBL_L, E.CONN_L), (E.CONN_LBL_R, E.CONN_R)):
+    for _i, _nm in enumerate(_names):
+        if _nm in _BRL_FACE:
+            _BRL_CH[_nm] = (_tbl[_i][0] - E.CHAN_PAD, _tbl[_i][1] + E.CHAN_PAD)
+_BRL_CH["SD"] = (E.SD_SOCKET[2] + E.SD_SLIT_INSET, E.SD_SOCKET[3] - E.SD_SLIT_INSET)
+
+
+def _brl_keepout(name):
+    """The Y interval a word must stand clear of: its opening UNION its label's ink.
+    UART is why the union exists -- its ink overhangs its channel by 1.08 per side, and a
+    dot placed off the CHANNEL alone would land on the label's own strokes."""
+    a, b = _BRL_CH[name]
+    h, w, g = ((SIDE_LBL_SD_H, SIDE_LBL_SD_W, SIDE_LBL_SD_GAP) if name == "SD"
+               else (SIDE_LBL_H, SIDE_LBL_W, SIDE_LBL_GAP))
+    iw = E._SF.ink_size(name, h, w, g)[0]
+    c = (a + b) / 2
+    return min(a, c - iw / 2), max(b, c + iw / 2)
+
+
+_GLOW_FACE = {"hi": "+X", "lo": "-X"}[GLOW_WALL]
+_GLOW_IV = (GLOW_CY - GLOW_SPAN_Y / 2, GLOW_CY + GLOW_SPAN_Y / 2)
+
+
+def _brl_site(name, below):
+    """(face, word centre y). `below` is the one designed fact per word -- which side of
+    its opening the wall has room on; everything else is measured off the neighbours."""
+    f = _BRL_FACE[name]
+    k0, k1 = _brl_keepout(name)
+    w = _brl_w(name)
+    if below:
+        hi = k0 - E.BRL_GAP
+        if f == _GLOW_FACE and _GLOW_IV[1] <= k0:     # the window sits between word & port
+            hi = min(hi, _GLOW_IV[0] - E.BRL_GAP)
+        return f, hi - w / 2
+    lo = k1 + E.BRL_GAP
+    if f == _GLOW_FACE and _GLOW_IV[0] >= k1:
+        lo = max(lo, _GLOW_IV[1] + E.BRL_GAP)
+    return f, lo + w / 2
+
+
+SIDE_BRL_SITES = {_nm: _brl_site(_nm, _below) for _nm, _below in
+                  (("UART", True), ("SD", False), ("I2C", True))}
+
+# ---- the placement proves itself before anything is built ----
+_BRL_FLAT = (OY0 + OUT_R, MOB_OY1 - OUT_R)    # 3.50 / 82.50 -- plan-corner tangents
+
+# ---- AND THIS IS WHERE JP'S FOURTH BRAILLE WORD DOES NOT FIT. NUMBER, NOT AN OPINION. ----
+#
+# The same shape as the SD text label's shortfall above, so it is recorded the same way.
+# IO's only adjacent wall is ABOVE its channel: below is the 5.70mm gap to I2C's channel
+# (a word needs 11.70 there), and the lower span is I2C's -- five cells fill it. Above,
+# the hard bounds are the channel at 73.84 and the corner tangent at 82.50, plus however
+# far past the tangent a dot may ride before the corner rounding eats its relief under
+# ANSI's 0.60 floor: rec <= BRL_DOT_H - 0.60 = 0.19, i.e. d <= sqrt(R^2 - (R-rec)^2) =
+# 1.54. That is 10.20mm of usable run for 10.10 of ink + 0.80 of channel gap -- SHORT BY
+# 0.70. It would fit with ~0.10 of channel margin, against the 0.80 every raised dot and
+# every desk cell holds, with BOTH margins spent to zero. "Both true, both luck" is this
+# repo's own words for exactly that, so it is not built on an agent's judgement.
+# >>> NEEDS JP -- the options are his, none is free: ~0.10 channel gap; sub-ANSI relief
+# (0.39) on o's dot 5; a non-adjacent site (order-preserving instead of nearest-wins);
+# or no IO word, ink only. The encoding table above keeps "io" so the day one of those
+# is chosen, only SIDE_BRL_SITES changes.
+_BRL_IO_DMAX = math.sqrt(OUT_R ** 2 - (OUT_R - (BRL_DOT_H - 0.60)) ** 2)
+BRL_IO_SHORTFALL = (_brl_w("IO") + E.BRL_GAP) - (
+    (MOB_OY1 - OUT_R + _BRL_IO_DMAX) - (E.CONN_R[2][1] + E.CHAN_PAD))
+assert BRL_IO_SHORTFALL > 0, (
+    "the IO braille word now FITS above its channel -- delete this shortfall block, add "
+    "IO back to SIDE_BRL_SITES (above=True is `below=False`) and let the gate re-measure "
+    "it, rather than leaving a constant that says it cannot")
+
+
+def _brl_recession(y):
+    """How far the outer wall has receded from the flank plane at board y (plan corners)."""
+    d = max(0.0, _BRL_FLAT[0] - y, y - _BRL_FLAT[1])
+    assert d < OUT_R, f"braille ink at y={y:.2f} has gone around the corner entirely"
+    return OUT_R - math.sqrt(OUT_R * OUT_R - d * d)
+
+
+def _iv_dist(a, b):
+    return max(0.0, b[0] - a[1], a[0] - b[1])
+
+
+_BRL_INK = {}
+for _nm, (_f, _bcy) in SIDE_BRL_SITES.items():
+    _dd = _brl_dots(_nm, _f, _bcy)
+    _ys = [_dy for _, _dy, _ in _dd]
+    _BRL_INK[_nm] = (min(_ys) - E.BRL_DOT_D / 2, max(_ys) + E.BRL_DOT_D / 2)
+    for _, _dy, _dz in _dd:
+        # the ANSI floor is held at the dot's WORST ink edge, not its centre: the corner
+        # rounding eats relief quadratically and the extreme edge is the honest reading
+        _rec = max(_brl_recession(_dy - E.BRL_DOT_D / 2),
+                   _brl_recession(_dy + E.BRL_DOT_D / 2))
+        assert BRL_DOT_H - _rec >= 0.60 - 1e-9, (
+            f"braille {_nm!r}: the dot at y={_dy:.2f} keeps only {BRL_DOT_H - _rec:.2f}mm "
+            f"of local relief against the corner rounding, under ANSI 703.3's 0.60 floor "
+            f"-- move the word inboard; do not shave the dot")
+        assert (BACK_Z + CHAMFER + 0.5 <= _dz - E.BRL_DOT_D / 2
+                and _dz + E.BRL_DOT_D / 2 <= SEAM_Z - 0.5), (
+            f"braille {_nm!r}: dot at z={_dz:.2f} has left the flank's safe band (bed "
+            f"chamfer below, bezel seam above)")
+
+for _nm, (_f, _bcy) in SIDE_BRL_SITES.items():
+    _ink, _own = _BRL_INK[_nm], _BRL_CH[_nm]
+    _mine = _iv_dist(_ink, _own)
+    # nothing under the dots: clear of every opening on this face, and of every keepout
+    for _a, _b in (MOB_CH_HI if _f == "+X" else MOB_CH_LO):
+        _sp = (_a, _b)
+        if _iv_dist(_sp, _own) > 1e-9:            # a FOREIGN opening: own must be nearer
+            assert _iv_dist(_ink, _sp) > _mine, (
+                f"braille {_nm!r} sits nearer the opening at y {_a:.2f}..{_b:.2f} "
+                f"({_iv_dist(_ink, _sp):.2f}mm) than its own at {_own[0]:.2f}.."
+                f"{_own[1]:.2f} ({_mine:.2f}mm) -- adjacency is the mapping, move the word")
+        assert _iv_dist(_ink, _sp) >= E.BRL_GAP - 1e-9, (
+            f"braille {_nm!r} ink reaches into the opening at y {_a:.2f}..{_b:.2f}")
+    for _o in SIDE_BRL_SITES:
+        if _o == _nm or _BRL_FACE[_o] != _f:
+            continue
+        assert _iv_dist(_ink, _BRL_INK[_o]) >= E.BRL_GAP - 1e-9, (
+            f"braille {_nm!r} and {_o!r} overlap on the {_f} flank")
+        assert _iv_dist(_ink, _brl_keepout(_o)) >= E.BRL_GAP - 1e-9, (
+            f"braille {_nm!r} lands on {_o}'s label ink or opening")
+    if _f == _GLOW_FACE:
+        assert _iv_dist(_ink, _GLOW_IV) >= E.BRL_GAP - 1e-9, (
+            f"braille {_nm!r} stands on the glow window's membrane -- readable, printable, "
+            f"and a row of shadows the moment the LED lights. Keep dots off the window")
+
+
 def midframe():
     """back_shell() plus the mobile additions. Composition, not a fork.
 
@@ -2387,6 +2655,16 @@ def midframe():
     # other three by sharing a constant with them.
     p -= _side_label(E._LBL_SIDE_SD, SIDE_LBL_SD[1], SIDE_LBL_SD[2],
                      (SIDE_LBL_Z0 + SIDE_LBL_Z1) / 2, SIDE_LBL_DEPTH, w=SIDE_LBL_SD_W)
+
+    # ---- RAISED BRAILLE beside each flank opening (#51). See 5m for every number. ----
+    # ADDED, not cut, and added LAST: each dot is the 5m dome plug, base on the wall
+    # plane, root buried. A cut made after this loop could sever a dot from the wall,
+    # which is exactly what check 7d-c's per-dot backing probe exists to see.
+    _dome = _brl_dome()
+    for _nm, (_face, _bcy) in SIDE_BRL_SITES.items():
+        _out_rot = Rot(0, 90, 0) if _face == "+X" else Rot(0, -90, 0)   # dome +Z -> outward
+        for _dx, _dy, _dz in _brl_dots(_nm, _face, _bcy):
+            p += Pos(_dx, _dy, _dz) * (_out_rot * _dome)
 
     return p
 
@@ -3462,8 +3740,12 @@ def _check_mobile(parts):
     # MEASURED, not reasoned: each glyph is placed SEPARATELY through the very transform the cut
     # uses, and its world Y is read off the resulting solid. Reading order must advance toward
     # that face's own viewer-right.
-    _CHIR = {"-X": -1.0, "+X": +1.0}        # viewer-right in model Y, per face -- BENCH-ANCHORED
-                                            # (JP, printed r10: the +1/-1 derivation mirrored all 4)
+    _CHIR = SIDE_CHIR                       # viewer-right in model Y, per face -- BENCH-ANCHORED
+                                            # (JP, printed r10: the +1/-1 derivation mirrored all
+                                            # 4). ONE constant since #51: the braille dots read
+                                            # through the same frame, and a mirrored cell is a
+                                            # DIFFERENT LETTER, not just a backwards one -- so the
+                                            # labels' verdict and the dots' must move together.
 
     def _glyph_ys(text, face, cy, h, w, gap, mirror_as=None):
         """World Y of each glyph, one glyph at a time, through _side_label's own transform.
@@ -3537,6 +3819,117 @@ def _check_mobile(parts):
     print(f"             Buying it needs a sub-two-extrusion groove on a vertical wall (unproven, "
           f"and an invisible label is this file's own shipped defect) or a taller band, which is "
           f"bounded by a THROUGH-CUT channel below and the bezel SEAM above. NEEDS JP.")
+
+    # ---- 7d-c. THE RAISED BRAILLE (#51): every dot PRESENT, BACKED, and READING FORWARD ----
+    #
+    # Three questions, each with its own lens, because they fail independently:
+    #   present  -- a probe box outside the wall plane over each dot's own footprint must
+    #               contain one dome of material (pi*(R^2 h - h^3/3) = 1.07 mm3). Per DOT,
+    #               not per word: a word probe would forgive one missing dot as tolerance,
+    #               and a missing dot is a different letter, not a fainter word.
+    #   backed   -- the MIN_SOLID of wall behind each word's ink must be solid. The corner
+    #               recession does not reduce the beyond-plane volume (the dome's base disc
+    #               sits ON the plane, so the material past it is constant), so `present`
+    #               cannot see a dot whose WALL has been cut away behind it. This lens can.
+    #   forward  -- cells advance toward the face's viewer-right, and inside every cell that
+    #               inks both columns, column 2 sits viewer-right of column 1. The dot
+    #               coordinates come from _brl_dots -- the same call the build placed spheres
+    #               from -- and `present` has already tied those coordinates to the solid, so
+    #               this is a reading of the part, not of a parallel arithmetic.
+    _r = E.BRL_DOT_D / 2
+    _hemi = math.pi * (_r ** 2 * BRL_DOT_H - BRL_DOT_H ** 3 / 3)   # the 5m dome, exactly
+    _brl_rows = []
+    for _nm, (_f, _bcy) in SIDE_BRL_SITES.items():
+        _dd = _brl_dots(_nm, _f, _bcy)
+        _vtot = 0.0
+        for _dx, _dy, _dz in _dd:
+            _pr = (bx(OX1, OX1 + _r + 0.2, _dy - _r - 0.05, _dy + _r + 0.05,
+                      _dz - _r - 0.05, _dz + _r + 0.05) if _f == "+X" else
+                   bx(OX0 - _r - 0.2, OX0, _dy - _r - 0.05, _dy + _r + 0.05,
+                      _dz - _r - 0.05, _dz + _r + 0.05))
+            _v = (_pr & mf).volume
+            assert 0.90 * _hemi <= _v <= 1.10 * _hemi, (
+                f"braille {_nm!r}: the dot at (y {_dy:.2f}, z {_dz:.2f}) reads {_v:.3f} mm3 "
+                f"proud of the {_f} flank against a {_hemi:.3f} dome -- it is missing, "
+                f"clipped, or doubled, and any of those is a different letter")
+            _vtot += _v
+        _iy0, _iy1 = _BRL_INK[_nm]
+        # inset the slab by the word's worst corner recession: past the tangent the wall
+        # FACE is inboard of the flank plane, and a probe that starts at the plane would
+        # read that never-was-wall sliver as a defect in a part that has none
+        _ins = max(_brl_recession(_iy0), _brl_recession(_iy1))
+        _bk = (bx(OX1 - _ins - MIN_SOLID, OX1 - _ins, _iy0, _iy1,
+                  BRL_CZ - _r - E.BRL_PITCH, BRL_CZ + _r + E.BRL_PITCH) if _f == "+X" else
+               bx(OX0 + _ins, OX0 + _ins + MIN_SOLID, _iy0, _iy1,
+                  BRL_CZ - _r - E.BRL_PITCH, BRL_CZ + _r + E.BRL_PITCH))
+        _solid = 1.0 - (_bk - mf).volume / _bk.volume
+        assert _solid > 0.999, (
+            f"braille {_nm!r} stands on wall that is only {100 * _solid:.1f}% solid -- an "
+            f"opening, the glow window or a label groove has moved under the dots")
+        # reading order, cell by cell, through the bench-anchored frame
+        _cys, _i = [], 0
+        for _ch in _BRL_WORDS[_nm]:
+            _n_d = len(_BRL_DOTS[_ch])
+            _cys.append(sum(_y for _, _y, _ in _dd[_i:_i + _n_d]) / _n_d)
+            _cols = {(0 if _d <= 3 else 1) for _d in _BRL_DOTS[_ch]}
+            if _cols == {0, 1}:
+                _c0 = [_y for (_, _y, _), _d in zip(_dd[_i:_i + _n_d], _BRL_DOTS[_ch]) if _d <= 3]
+                _c1 = [_y for (_, _y, _), _d in zip(_dd[_i:_i + _n_d], _BRL_DOTS[_ch]) if _d > 3]
+                assert (sum(_c1) / len(_c1) - sum(_c0) / len(_c0)) * _CHIR[_f] > 0.10, (
+                    f"braille {_nm!r}: cell {_ch!r} is MIRRORED on the {_f} flank -- its "
+                    f"column 2 sits viewer-left of column 1, which reads as a different "
+                    f"letter, silently")
+            _i += _n_d
+        assert all((_cys[_k + 1] - _cys[_k]) * _CHIR[_f] > 0.10 for _k in range(len(_cys) - 1)), (
+            f"braille {_nm!r} runs the WRONG WAY on the {_f} flank: cell centres at "
+            f"{[round(_y, 2) for _y in _cys]} against viewer-right = "
+            f"{'+Y' if _CHIR[_f] > 0 else '-Y'}")
+        # CONTROL, anchored to the frame: the same word read with the OPPOSITE face's
+        # comparator must fail, or this lens cannot see direction at all
+        assert not all((_cys[_k + 1] - _cys[_k]) * -_CHIR[_f] > 0.10
+                       for _k in range(len(_cys) - 1)), (
+            f"control failed: {_nm!r} reads forward under BOTH comparators")
+        _brl_rows.append((_nm, _f, len(_dd), len(_BRL_WORDS[_nm]), _vtot, _solid, _cys))
+    # CONTROL for the presence lens: a dot-sized probe where no dot was placed must read
+    # EMPTY -- nonzero readings are dots, not noise. On -X that is the wall between the
+    # two words; on +X it is IO's would-be site above its channel, so the same probe also
+    # proves the shortfalled word was not built anyway by some other hand.
+    for _f, _gap_y in (("-X", (_BRL_INK["UART"][1] + _BRL_INK["SD"][0]) / 2),
+                       ("+X", (E.CONN_R[2][1] + E.CHAN_PAD + MOB_OY1 - OUT_R) / 2)):
+        _pr = (bx(OX1, OX1 + _r + 0.2, _gap_y - _r, _gap_y + _r,
+                  BRL_CZ - _r, BRL_CZ + _r) if _f == "+X" else
+               bx(OX0 - _r - 0.2, OX0, _gap_y - _r, _gap_y + _r, BRL_CZ - _r, BRL_CZ + _r))
+        _v = (_pr & mf).volume
+        assert _v < 0.02, (
+            f"control failed: {_v:.3f} mm3 of material stands proud of the {_f} flank at "
+            f"y={_gap_y:.2f}, where no dot was placed -- the presence lens is reading wall")
+    # CONTROL for the backing lens: a word-sized slab in UART's own OPEN channel must read
+    # cut-through, or the lens cannot see the defect it is named for
+    _ca, _cb = _BRL_CH["UART"]
+    _cbk = bx(OX0, OX0 + MIN_SOLID, _ca + 1.0, _cb - 1.0,
+              E.CAV_FLOOR + 0.5, E.PCB_BOT - 0.5)
+    _cfrac = 1.0 - (_cbk - mf).volume / _cbk.volume
+    assert _cfrac < 0.999, (
+        f"control failed: UART's open channel reads {100 * _cfrac:.1f}% solid -- the "
+        f"backing lens is blind to an opening")
+    print(f"  [braille] {sum(_row[2] for _row in _brl_rows)} raised dots in "
+          f"{sum(_row[3] for _row in _brl_rows)} cells over {len(_brl_rows)} words -- "
+          f"Marburg Medium cell (pitch {E.BRL_PITCH}, cell {BRL_CELL}, dot O-{E.BRL_DOT_D}), "
+          f"dome {BRL_DOT_H:.2f} proud (ANSI 703.3's 0.6..0.9), verified 2026-08-24")
+    for _nm, _f, _n_d, _n_c, _vtot, _solid, _cys in _brl_rows:
+        print(f"             {_nm:5s} {_f}  {_n_c} cells / {_n_d:2d} dots, cell centres y "
+              f"{' '.join(f'{_y:.1f}' for _y in _cys)} -> runs "
+              f"{'+Y' if _cys[-1] > _cys[0] else '-Y'} (viewer-right), "
+              f"{_vtot:5.2f} mm3 proud, backing {100 * _solid:.1f}% solid")
+    print(f"             I2C is FIVE cells (i,num,b,g1,c) -- UEB grade 1, see 5m. presence "
+          f"and backing controls fired on both flanks; mirrored-comparator control fired "
+          f"on all {len(_brl_rows)} words")
+    print(f"             ⚠️ IO IS NOT BUILT AND THAT IS THE ARITHMETIC, NOT AN OVERSIGHT: "
+          f"10.10 of ink + {E.BRL_GAP:.2f} of channel gap against "
+          f"{(MOB_OY1 - OUT_R + _BRL_IO_DMAX) - (E.CONN_R[2][1] + E.CHAN_PAD):.2f} of usable "
+          f"run above its channel (corner tangent + {_BRL_IO_DMAX:.2f} of relief-budget "
+          f"overhang) -> SHORT BY {BRL_IO_SHORTFALL:.2f}mm. \"o\" inks dot 5, so the last "
+          f"column is real ink riding the corner. NEEDS JP -- options in the 5m block.")
 
     # ---- THE DEBOSS DEPTH LEDGER.  "as deep as we can", with what stops each one. ----
     # JP: "all debosses should be even deeper as deep as we can." Every depth in this file is now
@@ -5190,3 +5583,6 @@ if __name__ == "__main__":
     print(f"\n[export] committed {len(parts)} STLs -- all checks passed first")
     print(f"[envelope] {OX1-OX0:.2f} x {MOB_OY1-OY0:.2f} x {FRONT_Z-COVER_Z0:.2f} mm  "
           f"(desk case: {OX1-OX0:.2f} x {OY1-OY0:.2f} x {FRONT_Z-BACK_Z:.2f})")
+    print(f"[envelope] +{BRL_DOT_H:.2f}/side of braille dome in X since #51 -- true width "
+          f"{OX1-OX0+2*BRL_DOT_H:.2f}. Nothing mates with the flanks; the constants above "
+          f"stay the WALL envelope on purpose, every derivation keys on walls, not domes")
