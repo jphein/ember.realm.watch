@@ -1010,26 +1010,34 @@ api:
       variables:
         url: string
         caption: string
+        urls: string
       then:
         - lambda: |-
             id(vision_caption) = caption;
+            // urls (2026-08-24 evening, JP sent two photos and saw one):
+            // ALL of the message's images as '|'-packed /local paths; url
+            // stays as the absolute first for compatibility. Swipe moves
+            // vision_idx through the set.
+            std::string pk = urls;
+            if (pk.empty()) {
+              size_t sl0 = url.find("/local/");
+              pk = (sl0 == std::string::npos) ? url : url.substr(sl0);
+            }
+            id(vision_urls) = pk;
+            id(vision_idx) = 0;
             id(vision_url) = url;
             id(vision_view) = 0;
             id(vision_px) = 0;
             id(vision_py) = 0;
-            // Stamp the newest announce entry with its image (2026-08-24,
-            // JP: images "should appear in the chronicle") — same
-            // newest-'a' targeting as slack_note's fallback: the announce
-            // this image rode in on is seconds old at most. The stashed
-            // /local path is stored, not the absolute URL, to survive an
-            // edge-name change; the fetch below still gets the absolute
-            // form the automation passed.
-            size_t sl = url.find("/local/");
-            const std::string rel = (sl == std::string::npos) ? url : url.substr(sl);
+            // Stamp the newest announce entry with the WHOLE set (JP:
+            // images "should appear in the chronicle") — same newest-'a'
+            // targeting as slack_note's fallback: the announce this image
+            // rode in on is seconds old at most. Stored as /local paths so
+            // an edge-name change can't strand the chronicle.
             for (int i = (int) id(chron).size() - 1; i >= 0; i--) {
               const std::string &e = id(chron)[(size_t) i];
               if (!e.empty() && e[0] == 'a') {
-                id(chron_img)[(size_t) i] = rel;
+                id(chron_img)[(size_t) i] = pk;
                 break;
               }
             }
@@ -3003,7 +3011,10 @@ script:
                     id(chron_sel) >= (int) id(chron_img).size() ||
                     id(chron_img)[(size_t) id(chron_sel)].empty())
                   return;
-                const std::string &rel = id(chron_img)[(size_t) id(chron_sel)];
+                const std::string &pk = id(chron_img)[(size_t) id(chron_sel)];
+                id(vision_urls) = pk;
+                id(vision_idx) = 0;
+                std::string rel = pk.substr(0, pk.find('|'));
                 id(vision_url) = (rel[0] == '/') ? (std::string("${ha_base}") + rel) : rel;
                 const std::string &e = id(chron)[(size_t) id(chron_sel)];
                 std::string cap = e.substr(1);
@@ -3031,6 +3042,34 @@ script:
                   id(force_full_repaint) = true;
                 }
                 id(ui_gen)++;
+      # ---- 39/40: swipe between one message's images (wraps) ----
+      - if:
+          condition: { lambda: 'return id(ui_action) == 39 || id(ui_action) == 40;' }
+          then:
+            - lambda: |-
+                const bool fwd = (id(ui_action) == 39);
+                id(ui_action) = 0;
+                const std::string &pk = id(vision_urls);
+                if (pk.empty()) return;
+                int cnt = 1;
+                for (char c : pk) if (c == '|') cnt++;
+                if (cnt < 2) return;
+                int idx = (id(vision_idx) + (fwd ? 1 : cnt - 1)) % cnt;
+                // walk to the idx-th segment
+                size_t a = 0;
+                for (int i = 0; i < idx; i++) a = pk.find('|', a) + 1;
+                size_t b = pk.find('|', a);
+                std::string rel = pk.substr(a, b == std::string::npos
+                                                   ? std::string::npos : b - a);
+                if (rel.empty()) return;
+                id(vision_idx) = idx;
+                id(vision_url) = (rel[0] == '/')
+                                     ? (std::string("${ha_base}") + rel) : rel;
+                id(vision_px) = 0;
+                id(vision_py) = 0;
+                id(ui_last_ms) = millis();
+                id(vision_img)->set_url(id(vision_url).c_str());
+                id(vision_img)->update();
 
       # ---- the chronicle's actions (18, 20-23) ----
       # 18 open an entry · 20/21 page older/newer · 22 back to list · 23 SPEAK.
@@ -3582,6 +3621,17 @@ globals:
   - id: vision_url
     type: std::string
     restore_value: no
+  # All of one message's images, as /local paths packed with '|' (1.4.3+
+  # bridge sends up to 6). vision_idx is which one is on the glass; swipe
+  # left/right moves it. Packed string rather than a fourth vector so
+  # chron_img can carry the whole set per entry unchanged.
+  - id: vision_urls
+    type: std::string
+    restore_value: no
+  - id: vision_idx
+    type: int
+    restore_value: no
+    initial_value: '0'
   - id: zoom_url
     type: std::string
     restore_value: no
@@ -5288,12 +5338,22 @@ display:
               if (t.size() > 60) { l2.resize(27); l2 += "..."; }
               it.print(26, iy + 25, id(font_sm), c_dim, l2.c_str());
             }
-            // a tiny frame on rows whose entry carries an image (2026-08-24)
+            // A little picture on rows whose entry carries one (2026-08-24
+            // evening — JP: "a little thumbnail so i know which messages
+            // have photos right away". This is a drawn pictogram, bold
+            // enough to read across the room: gold frame, amber hills, a
+            // tip-white sun. Real fetched mini-thumbnails are the v3 if
+            // this doesn't satisfy — three more online_image buffers.)
             if (idx < (int) id(chron_img).size() &&
                 !id(chron_img)[(size_t) idx].empty()) {
-              it.rectangle(W - 18, iy + 38, 14, 11, c_gold);
-              it.filled_rectangle(W - 15, iy + 43, 4, 3, c_amber);
-              it.filled_rectangle(W - 10, iy + 41, 4, 5, c_amber);
+              it.filled_rectangle(W - 30, iy + 32, 24, 18, c_bg);
+              it.rectangle(W - 30, iy + 32, 24, 18, c_gold);
+              it.rectangle(W - 29, iy + 33, 22, 16, c_gold);
+              it.filled_rectangle(W - 26, iy + 42, 8, 6, c_amber);
+              it.filled_rectangle(W - 17, iy + 38, 9, 10, c_amber);
+              it.draw_pixel_at(W - 24, iy + 36, c_tip);
+              it.draw_pixel_at(W - 23, iy + 36, c_tip);
+              it.draw_pixel_at(W - 24, iy + 37, c_tip);
             }
             it.filled_rectangle(0, iy + 54, W, 1, c_ash);
           }
@@ -5539,8 +5599,28 @@ display:
                 it.print(W / 2, 302, id(font_sm), c_dim,
                          display::TextAlign::TOP_CENTER, "fetching finer detail...");
             }
+            {
+              const std::string &pk = id(vision_urls);
+              int cnt = pk.empty() ? 0 : 1;
+              for (char c : pk) if (c == '|') cnt++;
+              if (cnt > 1)
+                it.printf(W - 4, 4, id(font_sm), c_amber,
+                          display::TextAlign::TOP_RIGHT, "%d/%d",
+                          id(vision_idx) + 1, cnt);
+            }
           } else {
             it.print(6, OY + 2, id(font_sm), c_gold, "a vision from the house");
+            // multi-image badge: "1/3", and the swipe hint the first time
+            {
+              const std::string &pk = id(vision_urls);
+              int cnt = pk.empty() ? 0 : 1;
+              for (char c : pk) if (c == '|') cnt++;
+              if (cnt > 1) {
+                it.printf(W - 6, OY + 2, id(font_sm), c_amber,
+                          display::TextAlign::TOP_RIGHT, "%d/%d  swipe",
+                          id(vision_idx) + 1, cnt);
+              }
+            }
             // the buffer can be a full 320 tall now (portrait images); the
             // framed view shows its middle through a clipping rect and the
             // fullscreen tap shows the rest
@@ -7455,11 +7535,13 @@ touchscreen:
             // per-report like the coal strike: it is feedback, not an action.
             // A >300ms report gap starts a fresh gesture (release carries no
             // coordinates, so the gap IS the finger-lift signal here).
-            static int16_t vlx = 0, vly = 0;
+            static int16_t vlx = 0, vly = 0, vgx = 0, vgy = 0;
             static uint16_t vmoved = 9999;
             static uint32_t vlast = 0;
             const uint32_t nowms = millis();
-            if (nowms - vlast > 300) { vlx = tx; vly = ty; vmoved = 0; }
+            if (nowms - vlast > 300) {
+              vlx = tx; vly = ty; vgx = tx; vgy = ty; vmoved = 0;
+            }
             vlast = nowms;
             const int ddx = tx - vlx, ddy = ty - vly;
             vmoved = (uint16_t) (vmoved + (ddx < 0 ? -ddx : ddx)
@@ -7470,7 +7552,18 @@ touchscreen:
               id(ui_gen)++;         // repaint pans at frame rate
             }
             vlx = tx; vly = ty;
-            id(ui_action) = (vmoved < 14) ? 38 : 0;
+            // Vote, re-voted every report, consumed at release: a mostly-
+            // horizontal swipe in framed/fullscreen turns the page of a
+            // multi-image message (39 next, 40 previous); small travel is a
+            // tap (38); anything else — including all zoom-view drags, which
+            // already panned above — is nothing.
+            const int nx = tx - vgx, ny = ty - vgy;
+            const int anx = nx < 0 ? -nx : nx, any2 = ny < 0 ? -ny : ny;
+            if (id(vision_view) <= 1 && anx > 40 && anx > 2 * any2) {
+              id(ui_action) = (nx < 0) ? 39 : 40;
+            } else {
+              id(ui_action) = (vmoved < 14) ? 38 : 0;
+            }
             return;
           }
 
