@@ -227,7 +227,37 @@ FIT        = 0.35    # clearance per side, board edge -> pocket wall
 WALL       = 2.60    # shell wall thickness
 BEZEL_T    = 3.00    # bezel thickness over the glass
 CAV_CLR    = 0.80    # clearance under the deepest back component
-WIN_MARGIN = 0.40    # bezel window oversize beyond the visible area
+# ---- r5: THE TAP RAMP (2026-08-25, JP: "bezel need to be MUCH thinner/
+# shorter so it's easier to tap the edges of the screen") ----
+# The obstruction was never the face thickness alone — it was the CLIFF: a
+# 0.40 GLASS_GAP + 3.00 face = 3.40mm wall standing 0.40mm from the active
+# pixels, so a fingertip's contact centroid lands short of edge targets (the
+# same physics that killed the tome button in firmware, 2026-08-09). BEZEL_T
+# itself is load-bearing for the r4 deep deboss (>=2.00 must remain over the
+# glass), so r5 keeps the face and kills the cliff two ways:
+#   * WIN_MARGIN 0.40 -> 1.40: the window retreats 1.0mm from the pixels on
+#     every edge, exposing inactive glass border instead of plastic. Bounded
+#     by the glass's own top border (77.60 - 76.26 = 1.34mm coverage remains,
+#     the thinnest edge) and policed by the boss-flare window asserts.
+#   * A 45-degree TAP RAMP chamfered from the front face down to a
+#     BEZEL_LIP_T rim at the window (see front_bezel), so the finger descends
+#     a slope, not a wall: the cliff at the rim is 0.40 + 0.90 = 1.30mm
+#     (was 3.40).
+# The deboss field and the wyrm mark stay on full-thickness face only — the
+# cell/mark keepouts grow by BEZEL_RAMP_W, so the >=2.00-over-glass assert
+# keeps meaning what it says everywhere a deboss exists.
+WIN_MARGIN = 1.40    # window oversize on LEFT/RIGHT/BOTTOM (r5; was 0.40)
+# The TOP edge deliberately keeps the r4 geometry — no retreat, no ramp.
+# Two reasons, both load-bearing: (1) the brow hosts the hearth-wyrm frieze,
+# whose scale is FLOORED by the 0.90mm min-feature rule and which fills its
+# band by definition — a top ramp evicts a mark that cannot shrink; (2) the
+# top screen edge's tap targets (mode chip, tome) already carry firmware-side
+# compensation (oversized zones, 2026-08-09), while the HIGH-traffic edges —
+# horn, reply button, page bars — are all at the bottom and sides, which get
+# the full treatment.
+WIN_MARGIN_TOP = 0.40
+BEZEL_LIP_T  = 0.90  # face thickness AT the window rim — the min-feature floor
+BEZEL_RAMP_W = BEZEL_T - BEZEL_LIP_T   # 2.10; drop == width -> exactly 45 deg
 BOSS_D     = 5.40    # <= 5.60 pad diameter, per the vendor keepout
 PILOT_D    = 2.50    # M3 self-tapper pilot
 SCREW_D    = 3.30    # M3 shank clearance through the shell
@@ -767,7 +797,7 @@ def _bezel_cells():
     """
     R = BEZ_AFLAT / math.sqrt(3)          # circumradius: pointy-top spans R*sqrt(3) across
     px, py = BEZ_AFLAT + BEZ_WEB, 1.5 * R + BEZ_WEB * math.sqrt(3) / 2
-    win = (VA[0]-WIN_MARGIN, VA[1]+WIN_MARGIN, VA[2]-WIN_MARGIN, VA[3]+WIN_MARGIN)
+    win = (VA[0]-WIN_MARGIN, VA[1]+WIN_MARGIN, VA[2]-WIN_MARGIN, VA[3]+WIN_MARGIN_TOP)
     out = None
     cnt = {"chin": 0, "rails": 0}
 
@@ -787,9 +817,12 @@ def _bezel_cells():
         for (hx, hy) in HOLES:
             if math.hypot(x-hx, y-hy) < BOSS_D/2 + BEZ_MARGIN + R:
                 return False
-        # ...and clear of the screen window on ALL FOUR edges, not just the bottom one.
-        if not (x + R < win[0]-BEZ_MARGIN or x - R > win[1]+BEZ_MARGIN
-                or y + R < win[2]-BEZ_MARGIN or y - R > win[3]+BEZ_MARGIN):
+        # ...and clear of the screen window on ALL FOUR edges, not just the
+        # bottom one — INCLUDING the r5 tap ramp: a deboss cut into the ramp's
+        # thinning face would locally break the 2.00-over-glass rule that the
+        # global assert can only check against full BEZEL_T.
+        if not (x + R < win[0]-BEZ_MARGIN-BEZEL_RAMP_W or x - R > win[1]+BEZ_MARGIN+BEZEL_RAMP_W
+                or y + R < win[2]-BEZ_MARGIN-BEZEL_RAMP_W or y - R > win[3]+BEZ_MARGIN+BEZEL_RAMP_W):
             return False
         return True
 
@@ -910,7 +943,7 @@ def _bezel_mark():
     # 9.45mm becomes plain left margin, which is invisible.
     _inset_l = (_W.WYRM_W - _ix1) * s          # mirroring swaps which inset leads
     x0 = (4.0 + BOSS_D/2 + MARK_MARGIN) - _inset_l
-    y0 = (VA[3] + WIN_MARGIN) + MARK_MARGIN
+    y0 = (VA[3] + WIN_MARGIN_TOP) + MARK_MARGIN   # the top edge keeps r4 geometry (no ramp) — see WIN_MARGIN_TOP
     # ⚠️ EVERY SPAN IS INFLATED BY EPS, AND THE STL IS NON-MANIFOLD WITHOUT IT.
     #
     # The mark is 104 row-runs stacked into a staircase. Wherever one row's run ENDS at exactly
@@ -1018,9 +1051,36 @@ def cone(x,y,z0,z1,d0,d1):
 def front_bezel():
     p  = rbox(OX0,OX1,OY0,OY1, SEAM_Z, FRONT_Z, OUT_R)
     # screen window
-    w  = (VA[0]-WIN_MARGIN, VA[1]+WIN_MARGIN, VA[2]-WIN_MARGIN, VA[3]+WIN_MARGIN)
+    w  = (VA[0]-WIN_MARGIN, VA[1]+WIN_MARGIN, VA[2]-WIN_MARGIN, VA[3]+WIN_MARGIN_TOP)
     sk = RectangleRounded(w[1]-w[0], w[3]-w[2], 1.5)
     p -= Pos((w[0]+w[1])/2,(w[2]+w[3])/2, SEAM_Z-1) * extrude(sk, BEZEL_T+2)
+    # ---- r5 tap ramp: 45deg from the face down to a BEZEL_LIP_T rim ----
+    # A loft cut rather than an edge-chamfer op: explicit geometry, no edge
+    # selection to silently miss. Printed front-face-down the ramp is a 45deg
+    # rising ceiling — exactly the printability doctrine's limit, same as the
+    # mushroom cap that proved it. The +0.01 top keeps the loft's upper face
+    # proud of FRONT_Z so the boolean can't leave a zero-thickness skin.
+    _cx, _cy = (w[0]+w[1])/2, (w[2]+w[3])/2
+    # THREE-EDGE RAMP: left/right/bottom flare out by BEZEL_RAMP_W; the TOP
+    # edge stays a plain wall (the brow's frieze cannot shrink — see
+    # WIN_MARGIN_TOP). Every sketch edge that would coincide with the window
+    # cut's wall is pushed 0.02 PAST it instead: coincident cut faces are
+    # non-manifold by definition, not by rounding (the wyrm mark's EPS lesson;
+    # measured here too — exactly 3 non-manifold edges when the lower sketch
+    # kissed the window wall). The 0.02 top-edge bite into the brow face is a
+    # cosmetic nothing; the planes it leaves are 0.02 apart, not coincident.
+    def _rr(x0, x1, y0, y1, r):
+        return Pos((x0+x1)/2, (y0+y1)/2, 0) * RectangleRounded(x1-x0, y1-y0, r)
+    _lo = _rr(w[0]-0.02, w[1]+0.02, w[2]-0.02, w[3]+0.02, 1.5)
+    _hi = _rr(w[0]-BEZEL_RAMP_W, w[1]+BEZEL_RAMP_W,
+              w[2]-BEZEL_RAMP_W, w[3]+0.02, 1.5)
+    _ramp = loft([Pos(0, 0, FRONT_Z - BEZEL_RAMP_W) * _lo,
+                  Pos(0, 0, FRONT_Z + 0.01) * _hi])
+    p -= _ramp
+    # The rim is the thinnest place a finger can press: assert it holds the
+    # min-feature floor, and that the ramp's arithmetic still means 45deg.
+    assert BEZEL_LIP_T >= 0.90, f"bezel rim {BEZEL_LIP_T}mm is under the 0.90 floor"
+    assert abs(BEZEL_RAMP_W - (BEZEL_T - BEZEL_LIP_T)) < 1e-9, "ramp is not 45deg"
     # mounting bosses: PCB top face up into the bezel body.
     # FLARED, not straight — the straight ones snapped off. See BEZEL_BOSS_FLARE_D
     # for why the root is the failure plane and why this taper is also the easier
@@ -1033,7 +1093,7 @@ def front_bezel():
     # derivation above to stay true if a hole, the window or the silhouette moves.
     # A boss that quietly breaches the window is a hole over the LCD.
     _fr = BEZEL_BOSS_FLARE_D / 2.0
-    _win = (VA[0]-WIN_MARGIN, VA[1]+WIN_MARGIN, VA[2]-WIN_MARGIN, VA[3]+WIN_MARGIN)
+    _win = (VA[0]-WIN_MARGIN, VA[1]+WIN_MARGIN, VA[2]-WIN_MARGIN, VA[3]+WIN_MARGIN_TOP)
     for (hx, hy) in HOLES:
         _edge = min(hx - OX0, OX1 - hx, hy - OY0, OY1 - hy) - _fr
         assert _edge >= 1.20, (
@@ -1071,10 +1131,23 @@ def front_bezel():
     # region COLLAPSING — which is the failure this assert exists for, after 75 cells all
     # landed in the chin and the rails got none — not to track the exact count. Do not simply
     # lower a floor to make a build pass; work out where the cells went first.
-    for _rg, _min in (("chin", 50), ("rails", 20)):
+    # FLOORS MOVED r5 (2026-08-25), with the accounting the rule demands:
+    #   chin 50 -> 35: the window's 1.00mm bottom retreat plus the 2.10mm ramp
+    #   keepout removed the chin's top ~3 cell rows — 57 cells became 42, each
+    #   loss attributable to the tap-ramp geometry, none to a grid failure.
+    #   rails 20 -> RETIRED: the side strips (4.75mm outer-edge-to-window) are
+    #   now 2.10mm of ramp plus margins — no full-thickness face wide enough
+    #   for a single cell remains. The rails REGION is the ramp now: a smooth
+    #   45-degree grip slope instead of texture, which is the feature, not a
+    #   collapse. The count stays printed so a future geometry change that
+    #   resurrects the region is visible.
+    for _rg, _min in (("chin", 35),):
         assert _cnt[_rg] >= _min, (
             f"only {_cnt[_rg]} hex cells landed on the bezel {_rg} (need >={_min}) — "
             f"a keepout or the grid phase has eaten the region. Counts: {_cnt}")
+    assert _cnt["rails"] == 0, (
+        f"the r5 ramp was expected to consume the rails entirely, but {_cnt['rails']} "
+        f"cell(s) landed there — the ramp keepout has a gap; find it before trusting the face")
     assert _mf >= 0.90, f"wyrm mark min feature {_mf:.2f}mm is under the 0.90mm print floor"
 
     # ⚠️ THE MARK MUST BE ONE PIECE, AND NO MINIMUM-FEATURE TEST CAN CHECK THIS.
@@ -1117,7 +1190,7 @@ def front_bezel():
     # is 1.20mm: both true, both luck, and neither would survive the mark changing size.
     # NOTE a bounding-box check cannot substitute for the outer one — the mark's bbox corner
     # sits INSIDE the r6.45 fillet while the geometry itself does not.
-    _brow = OY1 - (VA[3] + WIN_MARGIN) - 2*MARK_MARGIN
+    _brow = OY1 - (VA[3] + WIN_MARGIN_TOP) - 2*MARK_MARGIN
     assert _mh <= _brow - 0.30, (
         f"wyrm mark is {_mh:.2f}mm in {_brow:.2f}mm of usable brow — under 0.30mm of slack "
         f"is a coincidence, not a fit")
