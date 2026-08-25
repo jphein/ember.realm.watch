@@ -889,9 +889,11 @@ proven void, so the labyrinth depends on that setting too.
 - Export goes through a `.stl.partial` → `os.replace` gate that is self-tested in both directions;
   on failure nothing is committed and the STLs on disk are the previous good set.
 
-⚠️ **`PRINT-SHEET.md` does not list the mobile parts.** There is no mobile print sheet, no mobile
-supports statement of its own, and no mobile filament call. The figures above are the shell spec
-inherited by layer height.
+✅ **RETIRED 2026-08-25** — this warning said `PRINT-SHEET.md` does not list the mobile parts,
+and that has been false since `e5a32ad` (2026-08-01): the sheet carries full rows for
+`ember-mobile-midframe.stl` and `ember-mobile-back.stl` (orientation, supports-by-construction,
+the gap-closing and vent-band warnings, volumes and bed contact). Caught by PR #90's
+ultrareview, retired with the observation per verification.md §32.
 
 ---
 
@@ -1143,7 +1145,7 @@ as current is now a way to be wrong five times.*
 | **D9** | **Low-battery behaviour** (§6, §14.8): no boost, so the device browns out at ~3.4 V rather than shutting down. The strip (fitted) is the safety floor; this is UX, not protection — and per the standing rule nothing in firmware may be *called* protection. | (a) accept brown-out; candle + ladder + battery_watch already warn. (b) add a firmware graceful *shutdown/announcement* — permissible as UX under that rule, never as the answer to Q3. | JP's call; the voltage sensor and the announce chain both already exist, so (b) is HA/firmware work with no case impact. |
 | **D10** | **`LEAF_FREE` 3.60** (§14.9): the one number still set by feel. | Leave it, or let the first assembly's preload feel adjust it. | First assembly. Recorded so it isn't mistaken for a derived value. |
 | **D11** | **Stand r5 reprint** (§10b): docking a backpack requires the relieved stand. | Reprint now, or defer until a backpack exists to dock. | Scheduling only; a desk-only setup is unaffected. |
-| **D12** | **Mobile print sheet** (§11): `PRINT-SHEET.md` has no mobile column — the parts print on inherited shell spec plus this file's ⛔ slicer note. | (a) add the column before a print campaign. (b) keep inheriting and rely on §11. | A doc task, not a measurement — but the gap is the kind that bites the *next* person, not this one. |
+| **D12** | ~~Mobile print sheet~~ **RESOLVED 2026-08-25, no decision needed** — the premise was stale: `PRINT-SHEET.md` has carried both mobile parts' full rows since `e5a32ad` (2026-08-01). §11's matching warning is retired above. | — | Kept in the register (rather than deleted) so the numbering of D1–D13 stays stable in prior references. |
 | **D13** | **The issue body itself** (§15a): stale on five headline facts. | (a) rewrite the body from this document. (b) replace it with a pointer here and keep only the decision label. | One edit; (b) is the one-name-one-thing shape. |
 
 **What is *not* on this list, deliberately:** everything the model already answers with an assert
@@ -1158,4 +1160,4 @@ bench observation, or a datasheet — the three things `ember_mobile_case.py` ca
   about the board applies unchanged.
 - [`verification.md`](verification.md) — the running log of claims that outran their evidence.
 - [`vendor/README.md`](vendor/README.md) — the schematic and what it settles.
-- [`../enclosure/PRINT-SHEET.md`](../enclosure/PRINT-SHEET.md) — desk parts only; see §11.
+- [`../enclosure/PRINT-SHEET.md`](../enclosure/PRINT-SHEET.md) — all parts, mobile rows included since e5a32ad.
