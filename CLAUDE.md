@@ -71,6 +71,11 @@ Three traps, all of which have already cost time here:
 - ⚠️ **`/dev/ttyACM*` renumbers on replug, and both boards are from the same batch.** Check the
   MAC, never the port number. The USB-JTAG serial number *is* the MAC:
   `udevadm info -q property -n /dev/ttyACM2 | grep ID_SERIAL_SHORT`.
+- ⚠️ **katana's USB bus carries NON-EMBER Espressif boards too** (2026-08-24, via the cyd-c5
+  session): `3C:DC:75:99:8D:18` is cyd-c5 (another project), and `14:C1:9F:D1:C3:C8` is
+  reliquary's sealed spare — **never flash that one**. A bare "first Espressif device" pick
+  can now land on a stranger. Same rule as above, applied harder: resolve the port from the
+  MAC (`/dev/serial/by-id/...<MAC>...`) before any serial flash.
 
 ### OTA — the iteration loop
 
