@@ -27,6 +27,13 @@
     "sha8": "a0582520",
     "updated": "2026-08-03T00:14"
   },
+  "ember-plug-cradle": {
+    "printed_at": null,
+    "printed_rev": 0,
+    "rev": 1,
+    "sha8": "f2a3e6d4",
+    "updated": "2026-08-25T04:51"
+  },
   "ember-stand": {
     "printed_at": "2026-07-31",
     "printed_rev": 1,
