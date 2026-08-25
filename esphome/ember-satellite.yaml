@@ -276,6 +276,9 @@ substitutions:
   ui_vol_timeout: "8000"   # was 5000; two controls take longer to set
   ui_pm_timeout: "12000"
   vision_timeout: "120000" # the Slack image lingers 2 min, then the fire returns
+  # Where the hearths fetch stashed visions from. The edge name, not a LAN IP:
+  # the IDF cert bundle validates it, and the IP-moved-once lesson applies.
+  ha_base: "https://ha.jphe.in:8123"
   # The horn — the intercom button (2026-08-05). Bottom-right block of the
   # telemetry band: 47px wide (~8.7mm) by the band's full 56px (~10.3mm). Shared
   # by the on_touch hit-test and the display lambda for the same reason as every
@@ -1008,8 +1011,29 @@ api:
         url: string
         caption: string
       then:
-        - lambda: 'id(vision_caption) = caption;'
-        - lambda: 'id(vision_img)->set_url(url.c_str());'
+        - lambda: |-
+            id(vision_caption) = caption;
+            id(vision_url) = url;
+            id(vision_view) = 0;
+            id(vision_px) = 0;
+            id(vision_py) = 0;
+            // Stamp the newest announce entry with its image (2026-08-24,
+            // JP: images "should appear in the chronicle") — same
+            // newest-'a' targeting as slack_note's fallback: the announce
+            // this image rode in on is seconds old at most. The stashed
+            // /local path is stored, not the absolute URL, to survive an
+            // edge-name change; the fetch below still gets the absolute
+            // form the automation passed.
+            size_t sl = url.find("/local/");
+            const std::string rel = (sl == std::string::npos) ? url : url.substr(sl);
+            for (int i = (int) id(chron).size() - 1; i >= 0; i--) {
+              const std::string &e = id(chron)[(size_t) i];
+              if (!e.empty() && e[0] == 'a') {
+                id(chron_img)[(size_t) i] = rel;
+                break;
+              }
+            }
+        - lambda: 'id(vision_img)->set_url(id(vision_url).c_str());'
         - component.update: vision_img
   on_client_connected:
     - script.execute: wake_word_arm
@@ -1030,11 +1054,14 @@ http_request:
   timeout: 15s
 
 online_image:
+  # The FIT buffer: fullscreen-capable (240x320) since the tap-to-fullscreen
+  # work — the framed view draws it through a clipping rect instead of a
+  # smaller buffer, so one fetch serves both views. ~150KB RGB565 in PSRAM.
   - id: vision_img
-    url: "https://ha.jphe.in:8123/local/ember/slack-vision.jpg"
+    url: "https://ha.jphe.in:8123/local/ember/placeholder.jpg"
     format: jpeg
     type: RGB565
-    resize: 240x188
+    resize: 240x320
     update_interval: never
     on_download_finished:
       - lambda: |-
@@ -1049,6 +1076,21 @@ online_image:
           id(ui_gen)++;
     on_error:
       - lambda: 'ESP_LOGW("vision", "image fetch failed - staying on the hearth");'
+  # The ZOOM buffer: the stash is a 480-wide thumb and the panel is 240, so
+  # decoding at up to 480 yields true 2x detail. Fetched lazily on the first
+  # pinch-out per image (zoom_url tracks which image it holds); ~355KB RGB565
+  # in PSRAM. While it downloads, the zoomed view shows the fit buffer.
+  - id: zoom_img
+    url: "https://ha.jphe.in:8123/local/ember/placeholder.jpg"
+    format: jpeg
+    type: RGB565
+    resize: 480x376
+    update_interval: never
+    on_download_finished:
+      - lambda: |-
+          if (id(ui_mode) == 8 && id(vision_view) == 2) id(ui_gen)++;
+    on_error:
+      - lambda: 'ESP_LOGW("vision", "zoom fetch failed - staying at fit scale"); id(zoom_url) = "";'
 
 # ---- douse (2026-08-24, JP: "an off option") ----
 # Deep sleep until the BOOT button is pressed — the battery alarm has said
@@ -2199,9 +2241,11 @@ script:
           if (!id(chron).empty() && id(chron).back() == e) return;
           id(chron).push_back(e);
           id(chron_chan).push_back("");
+          id(chron_img).push_back("");
           if (id(chron).size() > 100) {
             id(chron).erase(id(chron).begin());
             id(chron_chan).erase(id(chron_chan).begin());
+            id(chron_img).erase(id(chron_img).begin());
           }
 
   - id: chime_play
@@ -2945,6 +2989,49 @@ script:
             - delay: 400ms
             - deep_sleep.enter: hearth_sleep
 
+      # ---- the vision's gestures (37 open-from-chronicle, 38 tap-advance) ----
+      # 37: a chronicle entry that carries an image re-opens it — the stash
+      # keeps the newest 24 server-side, so a very old entry's fetch may 404
+      # and the vision simply doesn't open (on_error logs, nothing changes).
+      # 38: tap advances framed -> fullscreen -> gone; zoomed taps to full.
+      - if:
+          condition: { lambda: 'return id(ui_action) == 37;' }
+          then:
+            - lambda: |-
+                id(ui_action) = 0;
+                if (id(chron_sel) < 0 ||
+                    id(chron_sel) >= (int) id(chron_img).size() ||
+                    id(chron_img)[(size_t) id(chron_sel)].empty())
+                  return;
+                const std::string &rel = id(chron_img)[(size_t) id(chron_sel)];
+                id(vision_url) = (rel[0] == '/') ? (std::string("${ha_base}") + rel) : rel;
+                const std::string &e = id(chron)[(size_t) id(chron_sel)];
+                std::string cap = e.substr(1);
+                if (cap.size() > 30) { cap.resize(29); cap += "..."; }
+                id(vision_caption) = cap;
+                id(vision_view) = 0;
+                id(vision_px) = 0;
+                id(vision_py) = 0;
+                id(vision_img)->set_url(id(vision_url).c_str());
+                id(vision_img)->update();
+      - if:
+          condition: { lambda: 'return id(ui_action) == 38;' }
+          then:
+            - lambda: |-
+                id(ui_action) = 0;
+                if (id(vision_view) == 0) {
+                  id(vision_view) = 1;
+                } else if (id(vision_view) == 2) {
+                  id(vision_view) = 1;
+                  id(vision_px) = 0;
+                  id(vision_py) = 0;
+                } else {
+                  id(ui_mode) = 0;
+                  id(vision_view) = 0;
+                  id(force_full_repaint) = true;
+                }
+                id(ui_gen)++;
+
       # ---- the chronicle's actions (18, 20-23) ----
       # 18 open an entry · 20/21 page older/newer · 22 back to list · 23 SPEAK.
       - if:
@@ -3480,6 +3567,36 @@ globals:
   - id: chron_chan
     type: std::vector<std::string>
     restore_value: no
+  # Third parallel vector (2026-08-24, JP: "if multiple images are sent they
+  # should appear in the chronicle"): the /local image URL behind an announced
+  # entry, or "" — same parallel-vector reasoning as chron_chan. Written by
+  # the show_image api service; the bridge keeps the newest 24 files alive
+  # server-side, so a very old entry's image may 404 — the vision's on_error
+  # handles that by simply not opening.
+  - id: chron_img
+    type: std::vector<std::string>
+    restore_value: no
+  # The vision's state: current image URL (for the zoom re-fetch), which zoom
+  # URL is actually in the zoom buffer, view (0 framed / 1 fullscreen /
+  # 2 zoomed), and the zoom pan offsets in screen px.
+  - id: vision_url
+    type: std::string
+    restore_value: no
+  - id: zoom_url
+    type: std::string
+    restore_value: no
+  - id: vision_view
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: vision_px
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: vision_py
+    type: int
+    restore_value: no
+    initial_value: '0'
   - id: chron_page
     type: int
     restore_value: no
@@ -5171,6 +5288,13 @@ display:
               if (t.size() > 60) { l2.resize(27); l2 += "..."; }
               it.print(26, iy + 25, id(font_sm), c_dim, l2.c_str());
             }
+            // a tiny frame on rows whose entry carries an image (2026-08-24)
+            if (idx < (int) id(chron_img).size() &&
+                !id(chron_img)[(size_t) idx].empty()) {
+              it.rectangle(W - 18, iy + 38, 14, 11, c_gold);
+              it.filled_rectangle(W - 15, iy + 43, 4, 3, c_amber);
+              it.filled_rectangle(W - 10, iy + 41, 4, 5, c_amber);
+            }
             it.filled_rectangle(0, iy + 54, W, 1, c_ash);
           }
           // The page bar, grown to the 46px touch floor (JP). "older" sits
@@ -5203,6 +5327,16 @@ display:
             it.print(6, OY + 2, id(font_sm), c_gold,
                      k == 'h' ? "heard" : (k == 'a' ? "a word from the house"
                                                     : "ember said"));
+            // The entry carries an image: a little frame top-right, the
+            // drawn licence for "tap the words to open the vision" (the
+            // mode-5 hit-test only arms 37 when this is drawn).
+            if (id(chron_sel) < (int) id(chron_img).size() &&
+                !id(chron_img)[(size_t) id(chron_sel)].empty()) {
+              it.rectangle(W - 26, OY + 2, 20, 15, c_gold);
+              it.filled_rectangle(W - 22, OY + 10, 5, 4, c_amber);   // hill
+              it.filled_rectangle(W - 15, OY + 7, 6, 7, c_amber);    // hill
+              it.draw_pixel_at(W - 20, OY + 5, c_tip);               // sun
+            }
             const std::string t = e.substr(1);
             // KARAOKE BY THE FUSE'S OWN ESTIMATOR. Word timings do not exist
             // in this pipeline; what does exist is the bench-calibrated
@@ -5368,21 +5502,59 @@ display:
           // ---- THE VISION — a Slack image on the hearth (2026-08-24) ----
           // Entered only from online_image's on_download_finished, so the
           // buffer always holds a complete frame by the time this paints.
-          // One-shot like every overlay: the fetch happened before entry,
-          // and this branch just blits PSRAM to panel. Tap anywhere or a
-          // button click dismisses; vision_timeout returns the fire on its
-          // own after two minutes.
-          it.print(6, OY + 2, id(font_sm), c_gold, "a vision from the house");
-          {
-            const int iw = id(vision_img)->get_width();
-            const int ih2 = id(vision_img)->get_height();
-            const int ax = (W - iw) / 2;
-            const int ay = OY + 22 + (188 - ih2) / 2;
-            it.image(ax < 0 ? 0 : ax, ay, id(vision_img));
-          }
-          if (!id(vision_caption).empty()) {
-            it.print(W / 2, OY + 214, id(font_sm), c_dim,
-                     display::TextAlign::TOP_CENTER, id(vision_caption).c_str());
+          // Three views (v2, same day — JP: "tap on the photo to full screen
+          // and pinch to zoom?"):
+          //   0 FRAMED — title + image + caption inside the overlay region
+          //   1 FULLSCREEN — the whole panel is the image (tap advances here
+          //     from framed; the band scheduler suppresses sigil/telemetry
+          //     repaints while view >= 1 so nothing paints over it)
+          //   2 ZOOMED — the 480-wide zoom buffer, drag to pan, clamped
+          // Tap advances framed->full->gone (zoom taps back to full); pinch
+          // out/in moves between full and zoom; the button always dismisses;
+          // vision_timeout returns the fire on its own.
+          if (id(vision_view) >= 1) {
+            it.filled_rectangle(0, 0, W, 320, c_bg);
+            if (id(vision_view) == 2 && id(zoom_url) == id(vision_url)
+                && id(zoom_img)->get_width() > 4) {
+              // pan offsets are clamped HERE, where the buffer dims are
+              // known — the touch handler just accumulates deltas
+              const int zw = id(zoom_img)->get_width();
+              const int zh = id(zoom_img)->get_height();
+              int minx = W - zw;  if (minx > 0) minx = 0;
+              int miny = 320 - zh; if (miny > 0) miny = 0;
+              if (id(vision_px) < minx) id(vision_px) = minx;
+              if (id(vision_px) > 0)    id(vision_px) = 0;
+              if (id(vision_py) < miny) id(vision_py) = miny;
+              if (id(vision_py) > 0)    id(vision_py) = 0;
+              const int ax = zw < W ? (W - zw) / 2 : id(vision_px);
+              const int ay = zh < 320 ? (320 - zh) / 2 : id(vision_py);
+              it.image(ax, ay, id(zoom_img));
+            } else {
+              // fullscreen fit (also the zoomed view's stand-in while the
+              // finer buffer downloads)
+              const int iw = id(vision_img)->get_width();
+              const int ih2 = id(vision_img)->get_height();
+              it.image((W - iw) / 2, (320 - ih2) / 2, id(vision_img));
+              if (id(vision_view) == 2)
+                it.print(W / 2, 302, id(font_sm), c_dim,
+                         display::TextAlign::TOP_CENTER, "fetching finer detail...");
+            }
+          } else {
+            it.print(6, OY + 2, id(font_sm), c_gold, "a vision from the house");
+            // the buffer can be a full 320 tall now (portrait images); the
+            // framed view shows its middle through a clipping rect and the
+            // fullscreen tap shows the rest
+            it.start_clipping(0, OY + 20, W, OY + 210);
+            {
+              const int iw = id(vision_img)->get_width();
+              const int ih2 = id(vision_img)->get_height();
+              it.image((W - iw) / 2, OY + 22 + (188 - ih2) / 2, id(vision_img));
+            }
+            it.end_clipping();
+            if (!id(vision_caption).empty()) {
+              it.print(W / 2, OY + 214, id(font_sm), c_dim,
+                       display::TextAlign::TOP_CENTER, id(vision_caption).c_str());
+            }
           }
         } else if (id(ui_mode) == 7) {
           // ---- THE HORN'S PICKER: where should the word go? ----
@@ -7022,6 +7194,12 @@ display:
         pend |= 0x20 | 0x01;             // overlay + the header that names it
       }
 
+      // The fullscreen/zoomed vision owns the WHOLE panel: while it is up,
+      // sigil/scroll/telemetry/flame repaints would paint chrome over the
+      // image, so their pend bits are dropped (not deferred — dismissal
+      // forces a full repaint anyway, so nothing is owed). The overlay bit
+      // survives: it is how the vision itself repaints on pan and zoom.
+      if (id(ui_mode) == 8 && id(vision_view) > 0) pend &= 0x20;
       if (pend & 0x01)      { pend &= ~0x01; paint_sigil();  }
       else if (pend & 0x20) { pend &= ~0x20; if (id(ui_mode) != 0) paint_overlay(); }
       else if (pend & 0x08) { pend &= ~0x08; paint_telem();  }
@@ -7268,10 +7446,31 @@ touchscreen:
           }
 
           if (id(ui_mode) == 8) {
-            // The vision: any touch dismisses — an image has no controls,
-            // and the person standing at the glass has seen it.
-            id(ui_action) = 4;
-            id(ui_gen)++;
+            // The vision (v2): a TAP advances the view (framed -> fullscreen
+            // -> gone; zoomed taps back to fullscreen), a DRAG pans the
+            // zoomed view. Tap vs drag is decided by accumulated travel, and
+            // the decision lives in ui_action so release still does the
+            // doing: every report re-votes, the last vote wins at release —
+            // idempotent, per the hit-test doctrine. Pan itself is applied
+            // per-report like the coal strike: it is feedback, not an action.
+            // A >300ms report gap starts a fresh gesture (release carries no
+            // coordinates, so the gap IS the finger-lift signal here).
+            static int16_t vlx = 0, vly = 0;
+            static uint16_t vmoved = 9999;
+            static uint32_t vlast = 0;
+            const uint32_t nowms = millis();
+            if (nowms - vlast > 300) { vlx = tx; vly = ty; vmoved = 0; }
+            vlast = nowms;
+            const int ddx = tx - vlx, ddy = ty - vly;
+            vmoved = (uint16_t) (vmoved + (ddx < 0 ? -ddx : ddx)
+                                        + (ddy < 0 ? -ddy : ddy));
+            if (id(vision_view) == 2 && (ddx != 0 || ddy != 0)) {
+              id(vision_px) += ddx;
+              id(vision_py) += ddy;
+              id(ui_gen)++;         // repaint pans at frame rate
+            }
+            vlx = tx; vly = ty;
+            id(ui_action) = (vmoved < 14) ? 38 : 0;
             return;
           }
 
@@ -7281,6 +7480,14 @@ touchscreen:
             // full 30px bar height. Anywhere else dismisses to the hearth.
             if (ty >= 234) {
               id(ui_action) = (tx < 80) ? 22 : (tx < 160 ? 30 : 23);
+            } else if (id(chron_sel) >= 0 &&
+                       id(chron_sel) < (int) id(chron_img).size() &&
+                       !id(chron_img)[(size_t) id(chron_sel)].empty()) {
+              // An entry with an image: tapping its words opens the vision
+              // (2026-08-24). Entries without one keep tap-away-dismiss, so
+              // nothing invisible became tappable — the detail view draws a
+              // frame glyph when this branch is live.
+              id(ui_action) = 37;
             } else {
               id(ui_action) = 4;
             }
@@ -7439,6 +7646,56 @@ touchscreen:
     # was wrong.
     on_release:
       - script.execute: ui_dispatch
+
+    # ---- pinch (2026-08-24): two fingers, vision mode only ----
+    # The FT6336 reports two touch points and on_update delivers them all.
+    # A pinch is detected by the distance between the first two points moving
+    # >40px from where the gesture started; it LATCHES once per gesture (the
+    # zoom is a stepped re-decode, not a live scale — this chip has no
+    # arbitrary-scale blit, so the gesture picks the level and the decode
+    # does the rest). Pinch-out enters the zoomed view and lazily fetches the
+    # 480-wide buffer once per image; pinch-in steps back to fullscreen.
+    on_update:
+      - lambda: |-
+          static float pinch_d0 = -1.0f;
+          static bool pinch_done = false;
+          if (id(ui_mode) != 8) { pinch_d0 = -1.0f; return; }
+          int n = 0;
+          float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+          for (auto &tp : touches) {
+            if (n == 0) { x0 = tp.x; y0 = tp.y; }
+            if (n == 1) { x1 = tp.x; y1 = tp.y; }
+            n++;
+          }
+          if (n < 2) { pinch_d0 = -1.0f; return; }
+          const float dx = x0 - x1, dy = y0 - y1;
+          const float d = sqrtf(dx * dx + dy * dy);
+          if (pinch_d0 < 0.0f) { pinch_d0 = d; pinch_done = false; return; }
+          if (pinch_done) return;
+          if (d - pinch_d0 > 40.0f) {
+            pinch_done = true;
+            if (id(vision_view) != 2) {
+              id(vision_view) = 2;
+              id(vision_px) = 0;
+              id(vision_py) = 0;
+              if (id(zoom_url) != id(vision_url)) {
+                id(zoom_url) = id(vision_url);
+                id(zoom_img)->set_url(id(zoom_url).c_str());
+                id(zoom_img)->update();
+              }
+              id(ui_last_ms) = millis();
+              id(ui_gen)++;
+            }
+          } else if (pinch_d0 - d > 40.0f) {
+            pinch_done = true;
+            if (id(vision_view) == 2) {
+              id(vision_view) = 1;
+              id(vision_px) = 0;
+              id(vision_py) = 0;
+              id(ui_last_ms) = millis();
+              id(ui_gen)++;
+            }
+          }
 
 ####################  on-device wake word  ####################
 #
