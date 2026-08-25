@@ -2077,6 +2077,24 @@ SLOT_CY  = 34.0                    # slot centreline Y at the floor
 # ample), the visible area is entirely clear of the stand, and 20.0mm remains below for
 # the plug. See the VA_CLEAR assert below — this must not silently regress.
 SLOT_FLOOR = 24.0
+# ---- the USB-C well's cross-section and depth, PROMOTED to module scope (#49, 2026-08-25) ----
+# These lived as locals inside desk_stand() while the well had one consumer. The captive-plug
+# cradle (ember_plug_cradle.py) is a separate printed part that must fit this exact cavity, and
+# a second hand-typed 22.0 / 12.0 over there is the duplicate-constant trap this file keeps a
+# list of (SCALLOP_*, the stand-base's private 20.7). Same numbers, same derivation, one owner.
+# The prose arguing WHY 22 / 12 / the derived depth stays at the cut in desk_stand(), where the
+# geometry is — read it before changing any of the three.
+WELL_W = 22.0
+WELL_Y = 12.0
+WELL_DEPTH = (SLOT_FLOOR - ST_WALL) / math.cos(math.radians(TILT))   # 20.706, mouth -> inner floor
+# ---- and the docked port's position, promoted with them (same new consumer, same trap) ----
+# Derivations UNCHANGED from check 2e in _check_geometry(), which now reads these instead of
+# computing locals — see the ⚠️ there for why the SIGN of PORT_PC was a whole dispute and is
+# settled. USB_OVERHANG is the USB-C shell's measured overhang past the PCB edge: it is the
+# vendor STEP's own Y min (-0.368, see the bbox note at the clearance check in __main__).
+USB_OVERHANG = 0.368
+PORT_PC    = -((USB_Z[0] + USB_Z[1])/2 - (FRONT_Z + BACK_Z)/2)  # +2.2250 => REARWARD of mid-plane
+PORT_ZFACE = -USB_OVERHANG - OY0     # 2.582 — the receptacle mouth, up the slab from its edge
 # ---- and the rear-top relief that makes the MOBILE variant dockable. Sized by
 # ---- bisection against the real docked stack, not chosen -- see desk_stand().
 DOCK_RELIEF_Y = 13.00    # back from ST_D along the rear top edge
@@ -2994,7 +3012,8 @@ def desk_stand():
     # so at full reach its front face sits at SLOT_CY - sin(15)*20.7 - _wellY/2. At 16.0 that
     # is y=20.6, inside the sealed chamber whose rear wall is at 22.0 — the assert in
     # _check_geometry caught it, which is the whole point of having it. 12.0 lands at 22.6.
-    _wellY = 12.0
+    _wellY = WELL_Y      # 12.0 — module scope since #49 (the plug cradle fits this cavity);
+                         # the derivation is this block's, unchanged
     # DEPTH IS DERIVED, not 30.0. At 30 the well ran 30mm down the tilted axis and its far
     # end reached z = -4.98 — straight THROUGH the 4mm floor, leaving a 273mm2 hole in the
     # underside and a bearing footprint of only 2911 of 4010mm2. The stand was standing on a
@@ -3016,9 +3035,9 @@ def desk_stand():
     # The plug never needed it. Measured clearance was "past 20.7mm" for every plug size, and
     # 20.7 IS the floor — (SLOT_FLOOR - ST_WALL)/cos(TILT). So ending the well exactly at the
     # inner floor surface costs nothing and closes the hole for free.
-    _wellDepth = (SLOT_FLOOR - ST_WALL) / math.cos(math.radians(TILT))
+    _wellDepth = WELL_DEPTH   # (SLOT_FLOOR - ST_WALL)/cos(TILT) — module scope since #49
     p -= Pos(ST_W/2, SLOT_CY, SLOT_FLOOR) * (Rot(-TILT,0,0) *
-             Box(22.0, _wellY, _wellDepth, align=(Align.CENTER, Align.CENTER, Align.MAX)))
+             Box(WELL_W, _wellY, _wellDepth, align=(Align.CENTER, Align.CENTER, Align.MAX)))
     # ---- TAIL CORRIDOR + EGRESS CHANNEL: the rest of the 40mm rigid run (#29/#30) ----
     #
     # The well above ends at the cradle's inner floor, which is where the paragraph above says
@@ -3093,8 +3112,8 @@ def desk_stand():
     assert _tail_y(+TAIL_Y/2, _cz) <= EGRESS_Y1, (
         f"the corridor's rear face is at y={_tail_y(TAIL_Y/2, _cz):.2f} at the channel ceiling "
         f"but the channel stops at y={EGRESS_Y1:.2f} — the cable would arrive onto a ledge")
-    assert TAIL_W <= 22.0 and EGRESS_W <= TAIL_W, (
-        f"the corridor ({TAIL_W}) must stay inside the well above it (22.0) so it removes no "
+    assert TAIL_W <= WELL_W and EGRESS_W <= TAIL_W, (
+        f"the corridor ({TAIL_W}) must stay inside the well above it ({WELL_W}) so it removes no "
         f"new material there, and the channel ({EGRESS_W}) must stay inside the corridor so "
         f"the step at z=0 faces UP (supported) rather than down (an overhang)")
     # REAR CORD TUCK (#46) — straight run, front channel's end to the rear face.
@@ -3902,8 +3921,8 @@ def _check_geometry(parts=None):
         f"stand occludes {engagement - va_start:.1f}mm of the visible area "
         f"(engagement {engagement:.1f}mm along the slab, VA starts at {va_start:.1f}mm)")
     # 2a. the USB-C well must not breach the sealed speaker chamber
-    reach = (SLOT_FLOOR - ST_WALL) / math.cos(math.radians(TILT))
-    front_at_depth = SLOT_CY - math.sin(math.radians(TILT))*reach - 12.0/2
+    reach = WELL_DEPTH               # was a re-typed copy of the same formula (#49)
+    front_at_depth = SLOT_CY - math.sin(math.radians(TILT))*reach - WELL_Y/2
     assert front_at_depth > 22.0, (
         f"USB-C well reaches y={front_at_depth:.1f} at full depth and would breach the "
         f"speaker chamber at y=22.0")
@@ -3921,10 +3940,13 @@ def _check_geometry(parts=None):
     # 1.152mm on whether the port axis sits in front of or behind the slab's mid-plane. Written
     # this way the file answers it from its own data: USB_Z about the slab mid-plane, mapped by
     # the same local_y convention check 3b's cap probe uses.
-    _pc = -((USB_Z[0] + USB_Z[1])/2 - (FRONT_Z + BACK_Z)/2)     # +2.2250 => BEHIND the mid-plane
-    _zface = -0.368 - OY0    # connector face up the slab. -0.368 is the USB-C shell's overhang
-                             # past the PCB edge, measured, and asserted against the vendor
-                             # STEP's own bounding box in __main__ — not a number typed twice.
+    _pc = PORT_PC            # +2.2250 => BEHIND the mid-plane. Module scope since #49 — the
+    _zface = PORT_ZFACE      # plug cradle derives its seat from the same two numbers, and a
+                             # private copy there is the drift this check exists to catch. The
+                             # derivations are UNCHANGED, one screen up from SLOT_FLOOR.
+                             # -0.368 (USB_OVERHANG) is the USB-C shell's overhang past the PCB
+                             # edge, measured, and asserted against the vendor STEP's own
+                             # bounding box in __main__ — not a number typed twice.
     _port_z = SLOT_FLOOR - _pc*math.sin(math.radians(TILT)) + _zface*math.cos(math.radians(TILT))
     # ⚠️ THE CENTRELINE CLEARS THE DESK, NOT THE TIP. A tail whose lowest surface just grazes
     # the desk plane is a tail whose axis is CABLE_OD/2 below it — i.e. the last few millimetres

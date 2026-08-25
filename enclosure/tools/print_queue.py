@@ -60,7 +60,11 @@ MANIFEST = os.path.join(QUEUE, "manifest.json")
 
 PARTS = ["ember-front-bezel", "ember-back-shell", "ember-stand", "ember-stand-base",
          # the mobile variant (#44) — same queue, same rules
-         "ember-mobile-midframe", "ember-mobile-back"]
+         "ember-mobile-midframe", "ember-mobile-back",
+         # the captive-plug cradle (#49) — ⚠️ four of its dimensions are ASSUMED until
+         # JP's calipers meet the actual plug head; see ember_plug_cradle.py and the
+         # print sheet before printing
+         "ember-plug-cradle"]
 
 
 def sha8(path: str) -> str:

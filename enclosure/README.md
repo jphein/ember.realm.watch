@@ -34,7 +34,12 @@ modelled by part number. Without it the STLs still build; the clearance check is
 ```bash
 ./cadenv/bin/python ember_case.py      # STLs + clearance check + geometry asserts
 ./cadenv/bin/python tools/make_renders.py   # the figures used on the site
+./cadenv/bin/python ember_plug_cradle.py    # the captive-USB-C well insert (#49) + its checks
+./cadenv/bin/python tools/make_cradle_renders.py   # its two figures
 ```
+
+⚠️ `ember_plug_cradle.py` builds against **assumed plug-head dimensions** — see the ⛔ on its
+row in [PRINT-SHEET.md](PRINT-SHEET.md) before printing it.
 
 ## What the checks actually do — and why there are two kinds
 
