@@ -336,6 +336,19 @@ static bool screen_banked_v = false, force_full_repaint_v = false;
 // the dispatch lambdas runs against a populated ring, as it would in life.
 static std::vector<std::string> chron_v = {"ha","sb","hc","sd","ae","sf"};
 static std::vector<std::string> chron_chan_v = {"","","","","",""};
+// one entry with an image, so the 37 path's guarded branch is walkable
+static std::vector<std::string> chron_img_v = {"","","","","/local/ember/slack-vision-1.jpg",""};
+static std::string vision_url_v, zoom_url_v, vision_caption_v;
+static int vision_view_v = 0, vision_px_v = 0, vision_py_v = 0;
+struct OnlineImageStub {
+  // declared before SIDE(), so the update is counted via a flag the walker
+  // never reads — 37 is touch-only and takes no part in button exits
+  void set_url(const char *) {}
+  void update() {}
+};
+static OnlineImageStub vision_img_v, zoom_img_v;
+struct VisionPtr { OnlineImageStub *operator->() { return &vision_img_v; } };
+struct ZoomPtr   { OnlineImageStub *operator->() { return &zoom_img_v; } };
 static int chron_page_v = 0, chron_sel_v = -1, chron_play_idx_v = -1;
 // the horn's picker
 static struct { std::string state; bool has_state() { return true; } }
@@ -381,6 +394,15 @@ struct SelPtr { SelStub *operator->() { return &sel_mode_v; } };
 #define help_page      help_page_v
 #define font_scale     font_scale_v
 #define chron_chan     chron_chan_v
+#define chron_img      chron_img_v
+#define vision_url     vision_url_v
+#define zoom_url       zoom_url_v
+#define vision_caption vision_caption_v
+#define vision_view    vision_view_v
+#define vision_px      vision_px_v
+#define vision_py      vision_py_v
+#define vision_img     VisionPtr()
+#define zoom_img       ZoomPtr()
 #define ic_targets     ic_targets_v
 #define ic_page        ic_page_v
 #define ic_pick        ic_pick_v
