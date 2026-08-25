@@ -2496,11 +2496,14 @@ script:
       # ~100 lines of load-bearing comments and waits, so that this diff is reviewable
       # and the sequencing notes below stay attached to the actions they explain.
       #
-      # ⚠️ FORWARD COMPATIBILITY: wake word is currently off. If micro_wake_word is
-      # ever enabled it needs NO mode gate under this spec — every mode listens. That
-      # is a change from the previous design and is worth stating, because the earlier
-      # draft required the opposite and a half-applied memory of it would reintroduce a
-      # gate nobody wants.
+      # ✅ THE FORWARD-COMPATIBILITY NOTE CAME DUE. This block read "wake word is
+      # currently off" until 2026-08-25, which had been stale since 2026-08-03: mode 1
+      # is the flashed default and micro_wake_word runs with NO mode gate here, exactly
+      # as the note specified — every mode listens, hush means "do not make noise",
+      # not "do not listen". Still worth stating, because an earlier draft required the
+      # opposite and a half-applied memory of it would reintroduce a gate nobody wants.
+      # (Retired on observation of the contradiction with the FLASHED AND HEARD block
+      # in the substitutions — a stale banner here is how verification.md §32 happened.)
       - if:
           condition: { lambda: 'return true;' }
           then:
