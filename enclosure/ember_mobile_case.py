@@ -123,11 +123,15 @@ CELL_BORE_D     = CELL_D_MAX + 2*CELL_BORE_CLR          # 19.40 = 97 layers, and
                                                         # depth below must stay layer-whole
 # >>> D3 SETTLED (JP, 2026-08-25, issue #44): the cell IS the mobile hearth's cell — the
 # same bare flat-top 18650 stock, one household population. These four constants are the
-# draft's TOLERANCE BANDS, not measurements; nothing in this repo records the actual cells'
-# calipered length/diameter. When JP's calipers land, replace NOM/TOL here with the measured
-# values (± the spread across the cells he owns) and let vent ratio, trough slop, and leaf
-# preload re-derive — every consumer (5g preload assert, BAY_L, CELL_BORE_D layer count)
-# already flows from these four names, so the caliper numbers drop in HERE and nowhere else.
+# draft's TOLERANCE BANDS, not measurements — and that turned out to be GOOD ENOUGH,
+# verified in the flesh rather than by calipers: JP, 2026-08-26, on the printed
+# backpacks (midframe r12 + cover r15, in service since 08-09): "the 18650 cell works
+# perfectly, size and temp." That closed #44's last gate (D1, the bench-supervised
+# charge + temperature check). The caliper re-derivation this comment used to demand is
+# therefore MOOT WHILE THE CELL POPULATION IS THIS ONE — the condition written next to
+# the decision, per the house rule: if a future cell binds or rattles in the bore,
+# measured values replace NOM/TOL here (every consumer — 5g preload assert, BAY_L,
+# CELL_BORE_D layer count — flows from these four names) and nowhere else.
 CELL_L_NOM      = 65.20     # bare 18650
 CELL_L_TOL      = 0.30      # manufacturing spread, bare stock
 CELL_L_MIN      = CELL_L_NOM - CELL_L_TOL               # 64.90
