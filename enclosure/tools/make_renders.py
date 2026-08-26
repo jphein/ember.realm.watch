@@ -246,7 +246,7 @@ FACE_TGT = (25.0, 43.0, _fz)
 FACE_EYE = (25.0, 43.0, _fz + 3000.0)
 groups = [(*S.project(Compound(children=_faces), FACE_EYE, up=(0,1,0), target=FACE_TGT), "face")]
 S.write_svg(os.path.join(OUT,"case-front.svg"), groups, "case-front")
-print(f"    {len(_faces)} section faces (chin cells + rail chains + wyrm + window + outline)")
+print(f"    {len(_faces)} section faces (chin + brow cells + window + outline; wyrm left the bezel in r6)")
 
 # ============================== 3. PRINT LAYOUT (svg) ========================
 print("print layout:")

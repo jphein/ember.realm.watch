@@ -53,6 +53,12 @@ case "$WHAT" in
   all)
     run_remote ember_case.py
     run_remote ember_mobile_case.py
+    # BOTH render generators, by name. make_renders.py (desk) was missing from this
+    # list and case-front.svg silently served a July geometry into late August — the
+    # same drift mechanism deploy-ha.sh documents for PACKAGES=(...): a generator not
+    # named in the seam is never regenerated and nothing complains (found 2026-08-26,
+    # bezel r6: the site still showed the wyrm the part no longer wears).
+    run_remote tools/make_renders.py
     run_remote tools/make_mobile_renders.py
     ssh "$R" "cd $RDIR/repo/site && \
       { python3 build.py > /tmp/ember-site.log 2>&1 && \

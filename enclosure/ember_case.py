@@ -246,16 +246,21 @@ CAV_CLR    = 0.80    # clearance under the deepest back component
 # The deboss field and the wyrm mark stay on full-thickness face only — the
 # cell/mark keepouts grow by BEZEL_RAMP_W, so the >=2.00-over-glass assert
 # keeps meaning what it says everywhere a deboss exists.
-WIN_MARGIN = 1.40    # window oversize on LEFT/RIGHT/BOTTOM (r5; was 0.40)
-# The TOP edge deliberately keeps the r4 geometry — no retreat, no ramp.
-# Two reasons, both load-bearing: (1) the brow hosts the hearth-wyrm frieze,
-# whose scale is FLOORED by the 0.90mm min-feature rule and which fills its
-# band by definition — a top ramp evicts a mark that cannot shrink; (2) the
-# top screen edge's tap targets (mode chip, tome) already carry firmware-side
-# compensation (oversized zones, 2026-08-09), while the HIGH-traffic edges —
-# horn, reply button, page bars — are all at the bottom and sides, which get
-# the full treatment.
-WIN_MARGIN_TOP = 0.40
+WIN_MARGIN = 1.40    # window oversize, ALL FOUR edges (r6; r5 was 3-edge, r4 was 0.40)
+# r6 (2026-08-26): THE TOP-EDGE EXCEPTION IS RETIRED. r5 kept the top at r4
+# geometry for two reasons; here is what retired each. (1) "The brow hosts the
+# wyrm frieze, which cannot shrink" — still arithmetically true (min printable
+# ink 11.25mm vs ~9.6mm of post-ramp brow), but JP's verdict on the printed r5
+# (2026-08-25: "the top didn't get chamfered like the others. I need access to
+# the top of the screen with my thumb too — you can move or resize the ember
+# spirit") resolved the conflict the other way: the FRIEZE leaves, the ramp
+# stays. The creature is not lost — it remains a solid island in the stand's
+# grille and in the on-screen art ("one creature, three renderings" — now two
+# on hardware). (2) "Firmware compensates the top targets" — compensation for
+# a cliff is not access; a thumb still could not land there. The brow now
+# carries the same honeycomb as the chin instead of a calm field for a mark
+# that is no longer on it.
+WIN_MARGIN_TOP = WIN_MARGIN   # r6: the top is no longer special (was 0.40)
 BEZEL_LIP_T  = 0.90  # face thickness AT the window rim — the min-feature floor
 BEZEL_RAMP_W = BEZEL_T - BEZEL_LIP_T   # 2.10; drop == width -> exactly 45 deg
 BOSS_D     = 5.40    # <= 5.60 pad diameter, per the vendor keepout
@@ -713,8 +718,8 @@ BEZEL_DEBOSS = 6 * LAYER_H_BEZEL  # every debossed feature on the front face. EX
                       # 2026-08-25 — 3880 of 3880 on exactly 2.040mm), with NO back-side
                       # thinning anywhere. The four screw pilots DO reach up into the slab (to
                       # SEAM_Z+1.5, leaving only 1.50mm there) but every debossed region is held
-                      # off them — the hex field by a BOSS_D/2 + BEZ_MARGIN + R keepout, the
-                      # wyrm by starting at x = 4.0 + BOSS_D/2 + MARK_MARGIN. So the binding
+                      # off them — the hex field by a BOSS_D/2 + BEZ_MARGIN + R keepout (the
+                      # wyrm frieze, r6-deleted, kept its own margin). So the binding
                       # number really is the nominal one: 6 layers leaves 2.04mm, clearing the
                       # 2.00 assert below by 0.04. The shell already runs DEBOSS_BIG = 0.80 on
                       # a 2.60 wall and keeps far less than this.
@@ -731,26 +736,16 @@ BEZ_WEB      = 0.70   # material between cells. ⚠️ NOT "two extrusion widths
                       # stated-as-fact justification is what licenses a wrong edit later.
                       # (HEX_WEB = 0.90 on the back face IS 2.25 widths, so that one is two
                       # lines and its comment is right.)
-MARK_MARGIN  = 1.00   # the MARK's keepout, deliberately tighter than the cells' BEZ_MARGIN.
-                      # Not a fudge to make it fit — the constraint is different. A hex cell
-                      # can land anywhere, including beside the r6.45 corner fillets, so it
-                      # needs the conservative figure. The mark's ink sits at x 7.700..33.351
-                      # (measured on the solid, not transcribed — it read 7.90..34.90), where
-                      # the outer silhouette is a STRAIGHT edge (fillet influence ends by
-                      # x=3.5) and the lower bound is the screen window. 1.00mm of face
-                      # material beside a 0.48mm-deep cosmetic recess, with 2.52mm of bezel
-                      # still under it, is structurally uninteresting.
-                      #
-                      # It exists because the assert below caught the mark occupying 11.25 of
-                      # 11.29mm of usable brow — 0.04mm of slack, which is a coincidence
-                      # wearing a fit's clothing. The honest options were a tighter margin with
-                      # a stated reason or a smaller mark, and the mark cannot shrink: its
-                      # scale is pinned by the 0.90mm print floor.
+# r6 (2026-08-26): MARK_MARGIN deleted with the frieze it margined (see WIN_MARGIN_TOP
+# and the note where _bezel_mark() used to be). This file's own SIDE-CHANNEL lesson:
+# a constant with no consumer cannot be wrong in a way anything detects — so it goes
+# rather than lingers. Its reasoning (straight-edge outer bound, 11.25-in-11.29 near-
+# coincidence that forced an honest margin) is in git history at this line.
 BEZ_MARGIN   = 1.20   # keepout from the outer edge, the screen window, the mic flare AND the
                       # four screw bosses. ⚠️ An earlier version of this comment named three
                       # keepouts and the code implemented one and a half: the window was tested
                       # only on its BOTTOM edge and only in the chin, the mic flare was never
-                      # tested anywhere (it held solely because the brow is excluded), and the
+                      # tested anywhere (it held solely because the brow was then excluded), and the
                       # screw bosses were not considered at all — so 4 chin cells overlapped a
                       # 2.50mm pilot and 5 more the 5.40mm pad, thinning the roof over a
                       # fastener from 1.50 to 1.05mm, and the mark overlapped the (4,82) boss
@@ -791,15 +786,18 @@ def _bezel_cells():
     POINTY-TOP here (rotation=30), unlike the button caps: this is decorative lattice with no
     hinge to hem, so it follows the honeycomb pitch the rest of the case uses.
 
-    The brow is deliberately EXCLUDED. It carries the wyrm mark, and a mark reads better
-    against a calm field than against texture — also the mic flare and the top corner arcs
-    turn the brow into a fragmented strip where whole cells barely fit.
+    The brow WAS deliberately excluded while it carried the wyrm mark ("a mark reads
+    better against a calm field than against texture"). r6 (2026-08-26) removed the mark
+    — JP's thumb-access verdict, see WIN_MARGIN_TOP — so the brow now takes the same
+    staggered honeycomb as the chin: same generator, mirrored bounds, its own count and
+    its own floor, per this docstring's own rule about adding regions. The mic flare and
+    boss keepouts do the fragmenting they always did; _fits() already knows them.
     """
     R = BEZ_AFLAT / math.sqrt(3)          # circumradius: pointy-top spans R*sqrt(3) across
     px, py = BEZ_AFLAT + BEZ_WEB, 1.5 * R + BEZ_WEB * math.sqrt(3) / 2
     win = (VA[0]-WIN_MARGIN, VA[1]+WIN_MARGIN, VA[2]-WIN_MARGIN, VA[3]+WIN_MARGIN_TOP)
     out = None
-    cnt = {"chin": 0, "rails": 0}
+    cnt = {"chin": 0, "rails": 0, "brow": 0}
 
     def _fits(x, y):
         # inside the part's rounded outline...
@@ -842,6 +840,23 @@ def _bezel_cells():
         y += py
         j += 1
 
+    # --- BROW: the chin's mirror, above the window (r6 — the wyrm's old ground) ---
+    # Same staggered grid walked upward from the window's top edge. Rows are phased
+    # from win[3] rather than continuing the chin's phase: the two fields are separated
+    # by the full screen window, so phase continuity across it is invisible, and phasing
+    # from the nearer edge is what makes the first row land tight to the ramp the way
+    # the chin's first row lands tight to the bottom edge.
+    j, y = 0, win[3] + BEZEL_RAMP_W + BEZ_MARGIN + R
+    while y <= OY1:
+        x = OX0 + (px/2 if j % 2 else 0.0)
+        while x <= OX1:
+            if _fits(x, y):
+                out = _cell(x, y) if out is None else out + _cell(x, y)
+                cnt["brow"] += 1
+            x += px
+        y += py
+        j += 1
+
     # --- RAILS: one explicit chain up each side of the window ---
     # Pitch is 2R + BEZ_WEB, so the vertical gap between cells matches the web thickness used
     # everywhere else. That consistency reads more strongly at arm's length than sharing the
@@ -856,136 +871,11 @@ def _bezel_cells():
             y += 2*R + BEZ_WEB
     return out, cnt
 
-def _bezel_mark():
-    """The hearth-wyrm, debossed into the brow. Returns (solid, w, h, min_feat).
-
-    ⚠️ "AT TOP-LEFT" WAS IN THIS LINE UNTIL IT WAS MEASURED, and the file knew better 27 lines
-    down, where the comment on mirroring already names "the 'not top-left' cost" as something
-    JP accepted. Measured on the solid: ink x 7.700..33.351, y 76.240..87.530, 11.250mm tall.
-    So: top, and left of centre, but not in the corner.
-
-    >>> TWO CENTRES LIVE IN THIS AREA AND THEY ARE DIFFERENT QUANTITIES. NAME WHICH ONE. <<<
-
-        the MARK's ink centre         20.525    ->  4.475mm LEFT of the x=25.0 centreline
-        the MARK + PORT group centre  25.000    ->  dead on it, and asserted below
-
-    The composition is the PAIR regarding each other — a hearth-wyrm attending the port sound
-    enters through — so the thing that is centred is the group, from the mark's left ink edge
-    to the port's right edge: `(_mx0 + (MIC[0] + 2.30)) / 2 == 25.000`, exactly. The mark alone
-    being off-centre is not a defect, it is what centring the group requires.
-
-    Both sentences are here because they were briefly taken for contradictions of each other,
-    and a corrected number sitting next to an uncorrected one WITHOUT ITS SUBJECT NAMED is how
-    a reader concludes one of them must be wrong. State the subject, not just the value.
-
-    ONE CREATURE, NOW RENDERED FOUR WAYS — the device draws it as RLE spans, the website
-    traces it to SVG, the stand's grille is cut from it, and this debosses it. All four read
-    esphome/art/dragon.py, so re-posing the wyrm moves all four.
-
-    ⚠️ AND "THE SCALE IS SET BY THE PRINT FLOOR" IS BACKWARDS. This paragraph used to end
-    "the mark is as large as the floor allows rather than as large as the brow allows", and the
-    direction is wrong: SCALING UP MULTIPLIES EVERY FEATURE SIZE BY s, so a larger mark is
-    strictly safer to print. The print floor bounds the scale from BELOW. It cannot cap the
-    mark's size and never could.
-
-    The magnitude was wrong too. `WYRM_MIN_FEATURE` is 4*px of the source canvas — a
-    conservative BOUND, not a measurement of the creature (see tools/minfeature.py, now the
-    fourth metric, not the third). Measured threshold-free as the smallest ridge value of the
-    distance transform, the silhouette's thinnest feature is 2.4667mm, so at s = 0.90/1.2333
-    the mark's real thinnest feature is 1.800mm — TWICE the 0.90mm floor, not on it.
-
-    So the floor would permit this mark at half its current scale, and permits any larger scale
-    without limit. Whatever should set the size, it is not printability: the candidates are the
-    brow's usable height and MARK_MARGIN's keepout, and neither has been measured against the
-    mark as built. NOT RESCALED HERE — JP has a printed bezel in hand and this geometry is
-    byte-identical across that correction. Recorded so the next person sizing it does not
-    inherit the inverted reason.
-    """
-    s = 0.90 / _W.WYRM_MIN_FEATURE
-    h = _W.WYRM_H * s
-
-    # MIRRORED, AND THAT IS THE WHOLE COMPOSITION. dragon.py line 48: "Faces LEFT." Unmirrored,
-    # the creature's TAIL points at the mic port and its gesture exits off the face — so the
-    # port became the end of a sentence with nothing leading to it, and the 12mm before it read
-    # as dead air rather than as spacing. Mirrored, the head faces the flare and the same
-    # emptiness becomes direction: the port is where sound enters, so a hearth-wyrm attending it
-    # is the device's function drawn on its own face.
-    #
-    # ⚠️ THE COST, ON THE RECORD: this hands the creature. Three other renderings (the device's
-    # RLE spans, the website's SVG, the stand's grille) share one handedness and this one does
-    # not, so "one creature, four renderings" is now "…one of them mirrored". JP was shown that
-    # cost and the "not top-left" cost and chose this anyway.
-    #
-    # READ IT AS A FRIEZE, NOT A LOGO. The ink fills the canvas height completely
-    # (y 0.0000..15.4166 of 15.4167) and the scale is floored by printability, so it CANNOT be
-    # given a ground — and a frieze fills its band by definition. That reframing is what makes
-    # the full-height fit correct rather than cramped, and the port sharing the register
-    # natural. It is also why this is not the coiled-ember mark: it is character art in a band.
-    _ix0 = min(r[0] for r in _W.WYRM)
-    _ix1 = max(r[0] + r[2] for r in _W.WYRM)
-
-    # x0 IS DERIVED TWICE OVER, NOT CHOSEN.
-    #
-    # First by the screw boss: the mark once started at x=1.00, which put it 1.18mm INSIDE the
-    # (4,82) boss's 5.40mm pad, thinning the bezel roof over a driven self-tapper from 1.50 to
-    # 1.05mm. Invisible to the clearance check because the pilot stops at SEAM_Z+1.5 and the
-    # front face is 1.5mm above it — an absence cannot collide.
-    #
-    # Second, and this is the part worth checking rather than trusting: the constraint is on the
-    # INK, not on the canvas. Mirrored, the leftmost ink sits 0.900mm inside the canvas origin,
-    # so a canvas origin of 6.80 puts the first ink at exactly 7.70 = boss pad + MARK_MARGIN.
-    # The reviewer's 6.80 and my 7.70 looked like a disagreement and were the same number
-    # measured from different edges.
-    #
-    # The payoff is not spacing, it is centring: ink 7.70..33.35 plus the flare's right edge at
-    # 42.30 gives a creature-and-port group centred on 25.00 — the face's exact centreline. The
-    # 4.35mm gap reads as attention (2.0 crowds, 5.0 drifts, both rendered), and the leftover
-    # 9.45mm becomes plain left margin, which is invisible.
-    _inset_l = (_W.WYRM_W - _ix1) * s          # mirroring swaps which inset leads
-    x0 = (4.0 + BOSS_D/2 + MARK_MARGIN) - _inset_l
-    y0 = (VA[3] + WIN_MARGIN_TOP) + MARK_MARGIN   # the top edge keeps r4 geometry (no ramp) — see WIN_MARGIN_TOP
-    # ⚠️ EVERY SPAN IS INFLATED BY EPS, AND THE STL IS NON-MANIFOLD WITHOUT IT.
-    #
-    # The mark is 104 row-runs stacked into a staircase. Wherever one row's run ENDS at exactly
-    # the x where the next row's run BEGINS, the two boxes touch along a single vertical edge —
-    # and edge-only contact between solids is non-manifold by definition, not a rounding
-    # artefact. It produced 9 non-manifold edges and 22 mis-oriented directed edges in
-    # ember-front-bezel.stl, all of them at z = 7.700 and 7.220: the front face and the deboss
-    # floor, inside the wyrm's footprint. The other three parts were clean.
-    #
-    # Inflating each span by EPS in BOTH x and y turns every such corner kiss into a genuine
-    # 2*EPS square prism of overlap, which unions cleanly. It must be both axes: y alone leaves
-    # the contact zero-width in x and still an edge. At 1.5um the silhouette grows 3um overall —
-    # three orders of magnitude below the 0.90mm print floor and below the resolution of any
-    # instrument here — and it only ever makes features THICKER, so no printability claim
-    # weakens.
-    #
-    # THE REASON THIS SURVIVED SO LONG IS WORTH MORE THAN THE FIX. The repo asserted "all parts
-    # watertight, 0 non-manifold edges" on the strength of a check that imported each STL and
-    # counted boundary edges — but build123d's import_stl returns a single Face with ZERO edges
-    # and zero volume, so the count was 0 because there was nothing to count. A perfect result
-    # about nothing. The real test is arithmetic on the triangles: every undirected edge shared
-    # by exactly two, every directed edge appearing exactly once.
-    # EPS MUST EXCEED THE MESHER'S TOLERANCE, NOT MERELY EXCEED ZERO. At 1.5um the overlap was
-    # real in the BRep and vanished in the triangulation — the tessellator collapsed a 3um-wide
-    # prism back to a single edge, so the solid was manifold and the exported mesh was not. That
-    # took 9 non-manifold edges to 3 and stopped, which is the tell: a fix that helps but does
-    # not finish is usually the right idea at the wrong magnitude. 20um is above any linear
-    # deflection used here and still 45x below the 0.90mm print floor.
-    EPS = 0.020
-    out = None
-    for (rx, ry, rw, rh) in _W.WYRM:
-        mx = _W.WYRM_W - (rx + rw)             # mirror in X about the canvas centre
-        b = bx(x0 + mx*s - EPS, x0 + (mx + rw)*s + EPS,
-               y0 + ry*s - EPS, y0 + (ry+rh)*s + EPS,
-               FRONT_Z - BEZEL_DEBOSS, FRONT_Z + 1)
-        out = b if out is None else out + b
-    # return the INK extents, not the canvas: every assert downstream is about where the
-    # creature actually is, and the canvas carries up to 0.9mm of nothing on either side.
-    ink0 = x0 + (_W.WYRM_W - _ix1) * s
-    ink1 = x0 + (_W.WYRM_W - _ix0) * s
-    return out, ink0, ink1 - ink0, h, _W.WYRM_MIN_FEATURE * s
-
+# r6 (2026-08-26): _bezel_mark() deleted with the frieze it cut — the four-edge tap
+# ramp evicted the wyrm from the brow (JP's thumb-access verdict; see WIN_MARGIN_TOP).
+# The creature still renders on the stand grille (WYRM_ON island) and on the screen;
+# the mark's placement math, its EPS non-manifold lesson, and the two-component head
+# bug are preserved in git history and in the notes at the stand's cut site.
 def cap_hex_pts(cx, cy, R):
     """The six corners of a FLAT-top hexagon, in mm, counter-clockwise from +X.
 
@@ -1061,19 +951,17 @@ def front_bezel():
     # mushroom cap that proved it. The +0.01 top keeps the loft's upper face
     # proud of FRONT_Z so the boolean can't leave a zero-thickness skin.
     _cx, _cy = (w[0]+w[1])/2, (w[2]+w[3])/2
-    # THREE-EDGE RAMP: left/right/bottom flare out by BEZEL_RAMP_W; the TOP
-    # edge stays a plain wall (the brow's frieze cannot shrink — see
-    # WIN_MARGIN_TOP). Every sketch edge that would coincide with the window
-    # cut's wall is pushed 0.02 PAST it instead: coincident cut faces are
-    # non-manifold by definition, not by rounding (the wyrm mark's EPS lesson;
-    # measured here too — exactly 3 non-manifold edges when the lower sketch
-    # kissed the window wall). The 0.02 top-edge bite into the brow face is a
-    # cosmetic nothing; the planes it leaves are 0.02 apart, not coincident.
+    # FOUR-EDGE RAMP (r6, 2026-08-26 — the top-edge exception is retired, see
+    # WIN_MARGIN_TOP; JP's thumb needs the top of the screen too). Every sketch
+    # edge that would coincide with the window cut's wall is pushed 0.02 PAST
+    # it instead: coincident cut faces are non-manifold by definition, not by
+    # rounding (the wyrm mark's EPS lesson; measured here too — exactly 3
+    # non-manifold edges when the lower sketch kissed the window wall).
     def _rr(x0, x1, y0, y1, r):
         return Pos((x0+x1)/2, (y0+y1)/2, 0) * RectangleRounded(x1-x0, y1-y0, r)
     _lo = _rr(w[0]-0.02, w[1]+0.02, w[2]-0.02, w[3]+0.02, 1.5)
     _hi = _rr(w[0]-BEZEL_RAMP_W, w[1]+BEZEL_RAMP_W,
-              w[2]-BEZEL_RAMP_W, w[3]+0.02, 1.5)
+              w[2]-BEZEL_RAMP_W, w[3]+BEZEL_RAMP_W, 1.5)
     _ramp = loft([Pos(0, 0, FRONT_Z - BEZEL_RAMP_W) * _lo,
                   Pos(0, 0, FRONT_Z + 0.01) * _hi])
     p -= _ramp
@@ -1111,12 +999,14 @@ def front_bezel():
     p += cyl(mx,my, PCB_TOP+0.30, SEAM_Z, 5.0)          # collar (tube wall)
     p -= cyl(mx,my, PCB_TOP+0.20, FRONT_Z+1, 2.40)       # the port bore
     p -= cone(mx,my, FRONT_Z-0.90, FRONT_Z+0.01, 2.40, 4.60)  # outside flare
-    # ---- debossed honeycomb + the hearth-wyrm mark, both cut INTO the front face ----
+    # ---- debossed honeycomb, cut INTO the front face ----
+    # r6 (2026-08-26): the hearth-wyrm frieze no longer lives here — the four-edge
+    # tap ramp evicted it (JP's verdict; see WIN_MARGIN_TOP). The creature remains
+    # on the stand's grille and the screen. Its old ground, the brow, now carries
+    # honeycomb like the chin.
     _cells, _cnt = _bezel_cells()
     if _cells is not None:
         p -= _cells
-    _mark, _mx0, _mw, _mh, _mf = _bezel_mark()
-    p -= _mark
     # A DEBOSS THAT BREAKS THROUGH IS A HOLE. The bezel is BEZEL_T over the glass and this
     # face is the only thing between a finger and the LCD, so assert the remaining thickness
     # rather than trusting that 0.45 "looks shallow".
@@ -1141,60 +1031,28 @@ def front_bezel():
     #   45-degree grip slope instead of texture, which is the feature, not a
     #   collapse. The count stays printed so a future geometry change that
     #   resurrects the region is visible.
-    for _rg, _min in (("chin", 35),):
+    #   brow floor ADDED r6 (2026-08-26): the wyrm left (see WIN_MARGIN_TOP) and the
+    #   brow now hexes like the chin. OBSERVED 8, and the 8 is accounted for, not
+    #   tolerated: the 10.59mm band (window top 76.26 + 2.10 ramp .. OY1 88.95) admits
+    #   exactly TWO rows at the 2.86 row pitch under the 1.20 outline margin, and the
+    #   two top screw bosses (keepout r≈5.4 at y=82) plus the mic flare (r≈5.0) eat the
+    #   row ends and middle. A provisional floor of 10 failed the first build — that
+    #   was the floor being wrong, worked out above, not the region collapsing. Floor 6
+    #   catches a row vanishing (8→≤4 if either row dies) without tripping on keepout
+    #   arithmetic.
+    for _rg, _min in (("chin", 35), ("brow", 6)):
         assert _cnt[_rg] >= _min, (
             f"only {_cnt[_rg]} hex cells landed on the bezel {_rg} (need >={_min}) — "
             f"a keepout or the grid phase has eaten the region. Counts: {_cnt}")
     assert _cnt["rails"] == 0, (
         f"the r5 ramp was expected to consume the rails entirely, but {_cnt['rails']} "
         f"cell(s) landed there — the ramp keepout has a gap; find it before trusting the face")
-    assert _mf >= 0.90, f"wyrm mark min feature {_mf:.2f}mm is under the 0.90mm print floor"
 
-    # ⚠️ THE MARK MUST BE ONE PIECE, AND NO MINIMUM-FEATURE TEST CAN CHECK THIS.
-    #
-    # The shipped mark was TWO components: a body, and the head floating 1.215mm above the
-    # shoulders with no neck. Two upstream bugs — head_mask() returns the sprite unposed at
-    # dragon-local (0,0) while the device translates it, and dragon.py's neck_spans() is drawn
-    # by the device and omitted from body|head entirely.
-    #
-    # A GAP IS NOT A THIN FEATURE. Morphological opening measures the narrowest place material
-    # EXISTS; it is structurally blind to material that is absent. So 1.23mm minimum feature
-    # and 0.19% opening loss were both true, both green, and both silent about a logo that had
-    # come apart. The generator now exports the component count precisely so this cannot
-    # recur quietly.
-    assert _W.WYRM_COMPONENTS == 1, (
-        f"the wyrm mark is {_W.WYRM_COMPONENTS} disconnected pieces (largest gap "
-        f"{getattr(_W, 'WYRM_GAP', float('nan')):.3f}mm at generator scale) — it will print as "
-        f"a creature with a detached head. Regenerate with body|neck|posed-head.")
-
-    # THE GAP TO THE FLARE IS THE COMPOSITION, so assert the gap rather than a keepout.
-    # 2.0mm crowds and 5.0mm drifts — both were rendered and looked at — and 3.5..4.5 reads as
-    # attention. Below the floor it stops being a creature regarding a port and becomes a
-    # creature bumping into a hole.
-    _gap = (MIC[0] - 2.30) - (_mx0 + _mw)
-    assert 3.00 <= _gap <= 5.50, (
-        f"wyrm head sits {_gap:.2f}mm from the mic flare — outside the 3.00..5.50 band where "
-        f"it reads as attention rather than as collision or as dead air")
-    # AND THE PROPERTY THE COMPOSITION ACTUALLY RESTS ON: the creature-and-port group is
-    # centred on the face. This is the one thing that makes the arrangement deliberate rather
-    # than merely spaced — ink 7.70..33.35 plus the flare's right edge at 42.30 centres on
-    # 25.000, the exact face centreline, which turns 9.45mm of leftover into plain margin.
-    # Nothing else here would notice if it drifted: every other assert is a clearance, and a
-    # clearance is satisfied by any amount of slack in the wrong place.
-    _centre = (_mx0 + (MIC[0] + 2.30)) / 2.0
-    assert abs(_centre - BW/2) <= 0.40, (
-        f"the wyrm-and-port group centres on x={_centre:.3f}, {abs(_centre-BW/2):.3f}mm off the "
-        f"face centreline {BW/2:.3f} — the frieze reads as centred or it reads as an accident")
-    # ...and must fit the brow with margin rather than by coincidence. It previously occupied
-    # 11.28 of 11.29mm of usable height and sat 1.21mm from an outer silhouette whose keepout
-    # is 1.20mm: both true, both luck, and neither would survive the mark changing size.
-    # NOTE a bounding-box check cannot substitute for the outer one — the mark's bbox corner
-    # sits INSIDE the r6.45 fillet while the geometry itself does not.
-    _brow = OY1 - (VA[3] + WIN_MARGIN_TOP) - 2*MARK_MARGIN
-    assert _mh <= _brow - 0.30, (
-        f"wyrm mark is {_mh:.2f}mm in {_brow:.2f}mm of usable brow — under 0.30mm of slack "
-        f"is a coincidence, not a fit")
-    front_bezel.report = (_cnt, _mw, _mh, _mf)
+    # r6: the wyrm-mark asserts (one-piece, min-feature, mic-flare gap, group centring,
+    # brow fit) left with the mark itself — 2026-08-26, JP's thumb-access verdict. They
+    # guarded a frieze that is no longer cut here; the stand's grille island keeps its own
+    # WYRM_COMPONENTS == 1 protection at its own cut site.
+    front_bezel.report = _cnt
     return p
 
 # ============================================================================
@@ -3070,6 +2928,17 @@ def desk_stand():
     # the driver's ~700mm2 effective radiating area. A dragon on the case costs about a
     # quarter of the grille. Setting WYRM_ON = False restores the plain array exactly.
     if WYRM_ON:
+        # ⚠️ THE MARK MUST BE ONE PIECE. Moved here from front_bezel r6 (2026-08-26)
+        # when the bezel frieze was dropped — this grille island is now the only place
+        # the case cuts the wyrm, so the detached-head protection lives at this cut.
+        # History: the shipped bezel mark WAS two components (head floating 1.215mm
+        # above the shoulders, no neck) and every thin-feature metric stayed green —
+        # a gap is not a thin feature. The generator exports the component count
+        # precisely so this cannot recur quietly.
+        assert _W.WYRM_COMPONENTS == 1, (
+            f"the wyrm mark is {_W.WYRM_COMPONENTS} disconnected pieces (largest gap "
+            f"{getattr(_W, 'WYRM_GAP', float('nan')):.3f}mm at generator scale) — the "
+            f"grille island would print as a creature with a detached head")
         _fx = ST_W/2 - (DRIVER_W - 2*GRILLE_INSET)/2
         _fz = dz - (DRIVER_H - 2*GRILLE_INSET)/2 + ((DRIVER_H - 2*GRILLE_INSET) - _W.WYRM_H)/2
         wyrm = None
