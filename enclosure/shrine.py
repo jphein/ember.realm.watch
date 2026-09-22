@@ -11,6 +11,39 @@ carries one CR80 card pad over the MFRC522 coil.  It is NOT fused to the stand �
 is imported read-only and never edited, so `ember-front-bezel.stl` and `ember-back-shell.stl`
 are byte-identical by construction rather than by care.
 
+HOW THIS FILE IS BUILT, AND WHY THE DIMENSIONS BELOW CAN BE TRUSTED
+-------------------------------------------------------------------
+Read this before reading a single number. The dimensions are only as good as the four rules that
+keep them honest, and each rule exists because its absence produced a defect that every check in
+the file passed.
+
+1.  THE PART IS BUILT FROM THE CUTS THE CHECKS PROBE.  `apron()` is `_envelope()` less exactly the
+    objects `_cuts()` returns — no feature is written twice, anywhere.  When the two were separate
+    descriptions of the same intent they were only as true as the coincidence that they agreed,
+    and that coincidence broke silently: a fix landed in the checks' copy, the built solid kept a
+    0.20 mm membrane, and every check measured the fixed model and passed.  A check and its
+    subject sharing one object is worth more than any amount of care spent writing the check.
+
+2.  EXEMPTIONS ARE NAMED AND FAIL CLOSED IN BOTH DIRECTIONS.  `JOINED` lists the pairs of cuts that
+    must intersect, each with its argument.  An intersection nobody argued for is an error, and so
+    is a named pair that has stopped intersecting.  A blanket "skip anything that intersects"
+    inverts the failure mode — the worse two voids collide, the less the check says.
+
+3.  CONSTANTS ARE DERIVED FROM THEIR CONSTRAINTS, NOT TYPED.  `REAR_BAND` comes from the cable
+    sweep and the RF keepout, `POCKET_CLR` from the minimum solid and the scallop's vertical miss,
+    `APRON_T` from the two stacks that must fit, `FRONT_MG` from the scallop's radius.  A typed
+    number is a second opinion about a constraint that is already written down somewhere else.
+
+4.  THE ONE PLACE RULE 1 DOES NOT REACH is a cut's distance to the OUTSIDE of the part, and it
+    cannot be fixed by making the geometric rule broader.  Most cuts here open to the exterior on
+    purpose — the LED channel is a groove in the top face — so a distance probe against the
+    outside world reports zero for them and means nothing.  The one wall that is neither an
+    opening nor covered by rule 1, the LED channel's outer wall, therefore has a constants-level
+    guard (`WALL - CHAMFER`), and that is deliberate: a narrow check that states exactly what job
+    it does beats a broad one that reports a meaningless number.  **Do not replace it with a
+    geometric probe against the exterior** — that would look stricter and would in fact check
+    nothing.
+
 COORDINATE SYSTEM = ember's model frame, so imported parts compose with no transform:
     x  0 .. ST_W     the stand's width; the apron is centred on the same axis and is wider
     y  0 .. ST_D     the stand.  y = 0 IS THE STAND'S FRONT FACE, so the apron lives at y < 0
