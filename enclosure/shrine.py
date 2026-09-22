@@ -231,6 +231,17 @@ ARM_H   = 6.0                             # from the desk up; stays under the cr
 ARM_L   = 26.0                            # reaches y = 26, inside the side face's flat span
 assert ARM_L <= ST_D - ST_R, "arm would run past the stand's flat side into the rear corner radius"
 
+# >>> NO RETAINING LIP, AND THAT IS MEASURED RATHER THAN ASSUMED. <<<
+# The arms resist sliding and rotation in plan; they do nothing against vertical lift, and
+# _check_geometry reports what that costs (~0.6 N at the front edge). The obvious hedge is a lip
+# tucking under an overhang on the plinth — so the stand was measured for one, and it has none:
+# desk_stand() is a constant 64.00 x 64.00 cross-section from z = -14 to well above the plinth.
+# The only relief anywhere near the desk is the base chamfer, and it is 0.15 mm of inset half a
+# millimetre up — too small to hook and the wrong shape (a 45 deg ramp sheds a lip rather than
+# catching it). Inventing a ledge would mean modifying a validated part we may not touch, so the
+# apron stays a shelf that lifts at ~60 g. Acceptable for playtest one, whose point is the game;
+# if it annoys anyone on a table, rubber feet are the fix that needs no new geometry.
+
 
 def _pad_pocket(z0, z1, grow=0.0):
     """The card-shaped prism, as a pocket or as a keepout probe."""
