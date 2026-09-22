@@ -281,9 +281,12 @@ PRINT_LIFT = PLINTH_H
 # position. The pocket is therefore placed from the scallop's reach, not centred, so the two
 # cannot drift apart again. There is slack at both ends to absorb it.
 # >>> MINIMUM SOLID, AND IT IS NOT A NUMBER I CHOSE. <<<
-# PRINT-SHEET calls 1.60 mm this family's minimum-solid floor, and says so in the places where a
-# part deliberately goes under it (the mobile back's 0.90/0.50 separator, the 1.25 mm web) — both
-# flagged as experimental rather than normal. Nothing here has that licence.
+# PRINT-SHEET calls 1.60 mm this family's minimum-solid floor. It goes under it in three places
+# and they are not all the same: the mobile back's 0.90/0.50 separator walls are EXPERIMENTAL, and
+# the 1.25 mm web is PROVEN on a real print and deliberately excluded from the minimum-solid check
+# by name, with "must not be 'fixed' by adding it" next to it. That web is the precedent for how a
+# legitimate exclusion is written here — named, argued and printed loudly — which is why JOINED
+# below is a list rather than a condition. Nothing in this part has either licence.
 MIN_FLOOR = 1.60
 
 # Clearance between the scallop's arc and the board pocket, SOLVED rather than picked. They miss
@@ -316,21 +319,62 @@ def _cable_groove(z0, z1, grow=0.0):
     return leg_in + corner + leg_out
 
 
-def _cuts():
-    """Every subtractive feature, named, so checks can probe ALL of them rather than the one
-    somebody remembered. The scallop reached the skin because only the cable groove was ever
-    tested against the keepouts."""
+def _envelope():
+    """The apron's solid before anything is removed: the slab plus the two keying arms, chamfered.
+
+    Everything else in this part is a CUT, and `_cuts()` is the only place any of them is written.
+    """
+    p = E.rbox(APRON_X0, APRON_X1, APRON_Y0, APRON_Y1, DESK_Z, TOP_Z, APRON_R)
+    for x_in, x_out in ((0.0 - ARM_CLR, 0.0 - ARM_CLR - ARM_T),
+                        (ST_W + ARM_CLR, ST_W + ARM_CLR + ARM_T)):
+        p += E.bx(min(x_in, x_out), max(x_in, x_out), 0.0, ARM_L, DESK_Z, DESK_Z + ARM_H)
+    return E.chamfer_outline(p, TOP_Z, CHAMFER, "shrine apron top")
+
+
+def _connector_relief():
+    """How the connector stack leaves the pocket, through the board's short edge."""
     x_out = (APRON_X1 + 1.0) if CONN_SIDE > 0 else (APRON_X0 - 1.0)
+    return E.bx(min(ST_W / 2, x_out), max(ST_W / 2, x_out),
+                POCKET_CY - CONN_CH_W / 2, POCKET_CY + CONN_CH_W / 2, DESK_Z - 1.0, POCKET_TOP)
+
+
+def _cuts():
+    """>>> THE cuts. Not a list OF the cuts — THE cuts. <<<
+
+    `apron()` subtracts exactly these objects and every check probes exactly these objects, so the
+    part that is built and the part that is measured cannot be different parts.
+
+    They used to be two descriptions of the same intent: `apron()` inlined its own copy of each
+    feature and `_cuts()` rebuilt them for the checks. That held only while the two happened to
+    agree, and it stopped: the LED channel's interruption was added to `_cuts()` and `apron()`
+    never called it, so the built solid carried a 0.20 mm membrane while every check measured an
+    interrupted channel and passed. Three earlier defects here were checks measuring the wrong
+    QUANTITY; that one measured the right quantity on the wrong OBJECT, which no amount of
+    reviewing a check catches. One description makes the whole class unrepresentable.
+    """
     return [
         ("pad pocket", _pad_pocket(PAD_FLOOR, TOP_Z + 1.0)),
         ("finger scallop", E.cyl(ST_W / 2, PAD_CY - PAD_D / 2, TOP_Z - SCALLOP_DZ, TOP_Z + 1.0, SCALLOP_D)),
         ("LED channel", _led_channel()),
         ("reader pocket", _reader_pocket(DESK_Z - 1.0, POCKET_TOP)),
-        ("connector relief", E.bx(min(ST_W / 2, x_out), max(ST_W / 2, x_out),
-                                  POCKET_CY - CONN_CH_W / 2, POCKET_CY + CONN_CH_W / 2,
-                                  DESK_Z - 1.0, POCKET_TOP)),
+        ("connector relief", _connector_relief()),
         ("cable groove", _cable_groove(DESK_Z - 1.0, DESK_Z + CH_D)),
     ]
+
+
+# >>> PAIRS THAT MUST INTERSECT, NAMED AND ARGUED. ANYTHING ELSE IS AN ERROR. <<<
+# The minimum-wall rule previously skipped ANY intersecting pair automatically, which inverts the
+# failure mode: the worse two voids collide, the less the check says. It cost a regression —
+# LED_D = 5.0 fired an assert in 8ff03e1 and passed afterwards, because the channel then
+# intersected the cable groove, that pair was skipped, and the guard it replaced was gone.
+# The repo's own precedent for a legitimate exclusion is the 1.25 mm web: named, argued, printed
+# loudly, and marked "must not be fixed by adding it".
+JOINED = {
+    ("connector relief", "reader pocket"):
+        "the relief IS how the connector leaves the pocket; they are one void by design",
+    ("finger scallop", "pad pocket"):
+        "the scallop is cut into the pad's own floor and front wall to get a nail under a card",
+}
 
 
 def _led_channel():
@@ -356,48 +400,11 @@ def _led_channel():
 
 
 def apron():
-    """The shrine apron: envelope, card pad, LED channel, reader pocket, connector relief,
-    cable groove and the arms that embrace the plinth."""
-    p = E.rbox(APRON_X0, APRON_X1, APRON_Y0, APRON_Y1, DESK_Z, TOP_Z, APRON_R)
-
-    # the card pad
-    p -= _pad_pocket(PAD_FLOOR, TOP_Z + 1.0)
-
-    # the finger scallop, cut from the pad's front wall so a thumb arrives along the desk
-    p -= E.cyl(ST_W / 2, PAD_CY - PAD_D / 2, TOP_Z - SCALLOP_DZ, TOP_Z + 1.0, SCALLOP_D)
-
-    # The LED channel, a later fit (0005). THREE-SIDED, not a ring: the finger scallop reaches
-    # 11 mm past the pad's front edge and the channel runs 5.4 mm outside it, so a front run would
-    # be severed by the scallop wherever it sat. A continuous ring and a front scallop are not
-    # both possible on this face — LED_W/LED_D are provisional, so this is a decision to take with
-    # the strip, not a defect to fix here. The rear and both sides are continuous.
-    ring_o = RectangleRounded(PAD_W + 2 * (WALL + LED_GAP + LED_W),
-                              PAD_D + 2 * (WALL + LED_GAP + LED_W), PAD_R + WALL + LED_GAP + LED_W)
-    ring_i = RectangleRounded(PAD_W + 2 * (WALL + LED_GAP),
-                              PAD_D + 2 * (WALL + LED_GAP), PAD_R + WALL + LED_GAP)
-    ring = Pos(ST_W / 2, PAD_CY, TOP_Z - LED_D) * extrude(ring_o - ring_i, LED_D + 1.0)
-    front_cut = E.bx(APRON_X0 - 1, APRON_X1 + 1, APRON_Y0 - 1,
-                     PAD_CY - PAD_D / 2 - WALL, TOP_Z - LED_D - 1, TOP_Z + 2)
-    p -= ring - front_cut
-
-    # the reader pocket and its connector bundle channel, both open to the desk. The board is pushed UP
-    # against the skin — the shortest coil-to-card distance the design allows — and the desk
-    # closes the pocket. Playtest one is bare printed parts (materials.md), so retention is a
-    # foam pad between board and desk rather than a part.
-    p -= _reader_pocket(DESK_Z - 1.0, POCKET_TOP)
-    x_out = (APRON_X1 + 1.0) if CONN_SIDE > 0 else (APRON_X0 - 1.0)
-    p -= E.bx(min(ST_W / 2, x_out), max(ST_W / 2, x_out),
-              POCKET_CY - CONN_CH_W / 2, POCKET_CY + CONN_CH_W / 2, DESK_Z - 1.0, POCKET_TOP)
-
-    # the cable groove, open to the desk
-    p -= _cable_groove(DESK_Z - 1.0, DESK_Z + CH_D)
-
-    # keying arms, up the OUTSIDE of the plinth's side faces (see the note at ARM_CLR)
-    for x_in, x_out in ((0.0 - ARM_CLR, 0.0 - ARM_CLR - ARM_T),
-                        (ST_W + ARM_CLR, ST_W + ARM_CLR + ARM_T)):
-        p += E.bx(min(x_in, x_out), max(x_in, x_out), 0.0, ARM_L, DESK_Z, DESK_Z + ARM_H)
-
-    return E.chamfer_outline(p, TOP_Z, CHAMFER, "shrine apron top")
+    """The shrine apron: the envelope, less every cut in `_cuts()`. Nothing is written twice."""
+    p = _envelope()
+    for _, cut in _cuts():
+        p -= cut
+    return p
 
 
 def _check_geometry(part=None):
@@ -496,19 +503,41 @@ def _check_geometry(part=None):
     #     between two voids is often diagonal — which is exactly how the scallop got within
     #     0.94 mm of the board pocket while clearing it in both axes separately.
     cuts = _cuts()
-    thin = []
+    thin, unexpected, exempt = [], [], []
     for i, (na, ca) in enumerate(cuts):
         for nb, cb in cuts[i + 1:]:
+            key = (na, nb) if (na, nb) in JOINED else (nb, na)
             if (ca & cb).volume > 1e-6:
-                continue                    # deliberately joined (the relief opens into the pocket)
+                # FAIL CLOSED: an intersection nobody argued for is an error, not a skip.
+                (exempt if key in JOINED else unexpected).append(key)
+                continue
+            if key in JOINED:
+                unexpected.append(("no longer joined: " + key[0], key[1]))
+                continue
             d = ca.distance_to(cb)
             if d < MIN_FLOOR - 1e-9:
                 thin.append((na, nb, d))
+    assert not unexpected, (
+        "cuts intersect without a named reason (or a named join has come apart): "
+        + "; ".join(f"{a} + {b}" for a, b in unexpected))
     assert not thin, "wall thinner than the {:.2f} mm minimum solid: {}".format(
         MIN_FLOOR,
         "; ".join(f"{a} to {b} = {d:.2f} mm" for a, b, d in thin))
-    ok.append(f"[solid] every pair of cuts is >= {MIN_FLOOR:.2f} mm apart or deliberately joined "
+    for a, b in exempt:
+        ok.append(f"[exempt] {a} + {b} intersect on purpose — {JOINED[(a, b)]}")
+    ok.append(f"[solid] every other pair of cuts is >= {MIN_FLOOR:.2f} mm apart "
               f"({len(cuts) * (len(cuts) - 1) // 2} pairs, by true minimum distance)")
+
+    # The rule above is cut-to-cut and cannot see a cut's distance to the OUTSIDE of the part.
+    # A distance probe against the exterior does not help either, because most of these cuts open
+    # to it on purpose — the LED channel is a groove in the top face. So the one exterior wall
+    # that is neither an opening nor covered above gets a constants-level guard: the channel's
+    # outer wall is WALL, and the top chamfer takes CHAMFER off it at the edge.
+    outer_wall = WALL - CHAMFER
+    assert outer_wall >= MIN_FLOOR - 1e-9, (
+        f"LED channel's outer wall is {outer_wall:.2f} mm at the chamfered top edge")
+    ok.append(f"[solid] LED channel's outer wall {outer_wall:.2f} mm at the chamfered edge "
+              f"(WALL {WALL:.2f} less CHAMFER {CHAMFER:.2f}) — AT the {MIN_FLOOR:.2f} limit, not under it")
 
     # 5c. connector bundle and cable must not fight for the same corner
     assert CONN_SIDE == -CABLE_SIDE, "connector bundle and power cable leave on the same side"
