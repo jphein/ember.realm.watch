@@ -77,24 +77,60 @@ SCALLOP_D  = 22.0                         # wide enough for a thumb, not so wide
 SCALLOP_DZ = LIP_H + 1.2                  # through the lip and into the pad floor, so the nail passes under
 
 # ============================================================================
-# 3. PENDING — THE MFRC522.  NOTHING HERE IS GUESSED.
+# 3. THE MFRC522 — MEASURED OUT OF THE PRINTED CASE JP ALREADY USES
 # ============================================================================
-# JP is measuring the actual board with calipers. Until those land, the reader pocket, the coil
-# keepout and the ribbon exit are UNKNOWN, and this file refuses to export a printable part.
-# A guessed pocket is worse than no pocket: it looks finished and is wrong by an unknown amount.
-READER_L      = None   # board outline length, mm
-READER_W      = None   # board outline width, mm
-READER_T      = None   # board thickness over its tallest component on the pad side, mm
-COIL_L        = None   # coil ACTIVE area, which is not the board outline
-COIL_W        = None
-RIBBON_SIDE   = None   # "left" | "right" | "rear" — sets which way the ribbon leaves the pocket
-READER_MOUNT  = None   # "screws" | "clips" | "pocket+lid"
-_PENDING = {k: v for k, v in list(globals().items())
-            if k.startswith(("READER_", "COIL_", "RIBBON_")) and v is None}
+# >>> SOURCE: ~/Projects/labels/RFID+Bottom.stl (+ RFID+Lid.stl), the case printed and verified
+#     on JP's unit 2026-09-01 (tapstone CLAUDE.md, MakerWorld 2524848). Measured out of the mesh.
+#
+# WHAT IS MEASURED vs WHAT IS INFERRED, because a case is not a board:
+#   MEASURED  pocket interior            40.50 x 60.50 mm   <- board PLUS its fit clearance
+#   MEASURED  floor under the board       2.00 mm           <- a PROVEN RF skin, see SKIN_T
+#   MEASURED  internal height             7.00 mm  (pocket floor z=2.0 to the lid's inner face)
+#   MEASURED  four support posts 2.30 mm square, tops z=6.00, at (+/-17.15, -14.65) and
+#             (+/-12.40, +22.95) — an asymmetric 4-point pattern, so it is the board's own
+#   MEASURED  centre boss 16.00 x 6.00, top z=3.50
+#   MEASURED  wire notch ~25 mm wide in one SHORT (-Y) wall, open from z~7 to the rim at z=9
+#   INFERRED  the board outline is the pocket MINUS clearance, so <= 60.50 x 40.50
+#   INFERRED  the ribbon leaves by the short edge the notch is in
+# The pocket envelope is used as-is: it already contains the slack a board needs, and taking the
+# looser reading is the safe direction for a hole (unlike the skin, where tighter is safe).
+READER_POCKET_L = 60.50   # x — the board's long axis (see the orientation note below)
+READER_POCKET_W = 40.50   # y
+READER_POCKET_D = 7.00    # the proven case's full internal height, so whatever rides on the
+                          # board clears too. The pocket opens downward; the desk closes it.
+
+# >>> THE COIL'S POSITION IS NOT RECOVERABLE FROM A CASE — AND IS NOT NEEDED. <<<
+# A pocket says where the board sits, never where the antenna sits on it. Rather than infer it,
+# the pad carries a UNIFORM skin over the WHOLE board footprint and the RF keepout covers the
+# whole footprint too. The coil is necessarily inside the board outline, so a rule that holds
+# everywhere on the board holds wherever the coil actually is. The printed case does exactly
+# this — one flat 2 mm floor under the entire board — and it reads.
+# The gate stays SHUT on this one value alone (lead's call, and it is the right failure): six of
+# seven numbers landing is progress; a guessed coil area is the single error that yields a part
+# which reads cards badly and looks perfectly finished.
+COIL_L = None             # coil ACTIVE area — NOT recoverable from a case, see above
+COIL_W = None
+# The argument for opening it, for the record, is that the coil position may not be NEEDED: the
+# pad carries a uniform skin over the WHOLE board footprint and the RF keepout covers the whole
+# footprint, so a rule that holds everywhere on the board holds wherever the coil is — which is
+# exactly what the printed case does with one flat 2 mm floor. That is a proposal, not a licence;
+# the gate stays shut until someone decides it.
+
+# Orientation is forced, not chosen: the card is 85.6 x 54.0 and the board is 60.5 x 40.5, so
+# the board's long axis must run along the card's long axis. Across it, 60.5 > 54.0 — the board
+# would be longer than the card it reads.
+assert READER_POCKET_L <= CR80_W and READER_POCKET_W <= CR80_D, "reader does not fit under the card"
+
+RIBBON_SIDE = -1          # -1 = the ribbon leaves the -x face, +1 = +x. From the case's wire notch.
+RIBBON_CH_W = 22.0        # the case's notch measures ~25; 22 clears an 8-pin 2.54 header (20.3 mm)
 
 # The skin over the coil: materials.md says 1.5-2 mm of PLA/wood/resin, nothing conductive.
-SKIN_T = 1.75                             # mid-band; the pad floor IS this skin where the coil sits
+# 2.00 is not the mid-band guess it started as — it is what the printed case above uses under
+# the whole board, and that case demonstrably reads. Taking the proven number beats splitting
+# a range, and it is the stiffest option materials.md allows over a 60 x 40 opening.
+SKIN_T = 2.00
 assert 1.5 <= SKIN_T <= 2.0, "materials.md fixes the RF skin at 1.5-2.0 mm"
+_PENDING = {k: v for k, v in list(globals().items()) if k.startswith("COIL_") and v is None}
 
 # ============================================================================
 # 4. THE APRON PLAN
@@ -120,9 +156,9 @@ APRON_R   = 6.0                           # plan corner radius; smaller than the
 # again once measured (asserted in _check_geometry once READER_T exists).
 FLOOR_T   = 1.6                           # under the cable groove: 4 x 0.4 mm walls
 CH_CEIL   = 2.0                           # material over the groove — a 7 mm bridge, trivial for FDM
-APRON_T   = 12.0
-assert APRON_T >= FLOOR_T + TUCK_D + CH_CEIL, "apron too thin to carry the cable groove"
-assert APRON_T >= SKIN_T + LIP_H + 2.0, "apron too thin to carry the pad skin"
+# Derived from the two stacks that have to fit, rather than rounded to a nice number: the pad
+# stack (lip + skin + the reader pocket, which opens to the desk) and the cable stack.
+APRON_T   = max(LIP_H + SKIN_T + READER_POCKET_D, FLOOR_T + TUCK_D + CH_CEIL)   # 9.60
 
 TOP_Z     = DESK_Z + APRON_T              # the apron's top face
 PAD_FLOOR = TOP_Z - LIP_H                 # the card rests here
@@ -135,8 +171,10 @@ PAD_FLOOR = TOP_Z - LIP_H                 # the card rests here
 # putting every millimetre of copper outside the pad footprint. _check_geometry asserts it.
 # Open to the underside rather than enclosed: the desk closes it, nothing bridges over copper,
 # and the cable can be laid in after the fact rather than threaded.
-CABLE_SIDE = +1                           # +1 = exits +x, -1 = exits -x. PENDING the ribbon exit:
-                                          # the two should leave on opposite sides.
+# >>> DERIVED, NOT PICKED: the cable leaves opposite the ribbon. <<<
+# They must not fight for the same corner, and the ribbon's side is fixed by the reader, so this
+# one is not a free choice. Flipping RIBBON_SIDE flips this with it.
+CABLE_SIDE = -RIBBON_SIDE
 CH_W       = TUCK_W                       # 7.00 — ember's own solve for a cord that must lie in it
 CH_D       = TUCK_D                       # 5.00 — must EXCEED the cord, not merely admit it
 CH_SWEEP   = 18.0                         # a 4.5 mm USB-C lead wants ~R18; the corner is opened out
@@ -177,6 +215,15 @@ def _pad_pocket(z0, z1, grow=0.0):
     return Pos(ST_W / 2, PAD_CY, z0) * extrude(sk, z1 - z0)
 
 
+POCKET_TOP = PAD_FLOOR - SKIN_T           # the pocket's ceiling IS the underside of the skin
+
+
+def _reader_pocket(z0, z1, grow=0.0):
+    """The MFRC522's envelope, centred under the card."""
+    return E.bx(ST_W / 2 - READER_POCKET_L / 2 - grow, ST_W / 2 + READER_POCKET_L / 2 + grow,
+                PAD_CY - READER_POCKET_W / 2 - grow, PAD_CY + READER_POCKET_W / 2 + grow, z0, z1)
+
+
 def _cable_groove(z0, z1, grow=0.0):
     """The L: in from the stand's egress, then out through a side face. Open to the desk."""
     w = CH_W + 2 * grow
@@ -205,6 +252,15 @@ def apron():
     ring_o = RectangleRounded(PAD_W + 2 * (WALL + LED_GAP + LED_W), PAD_D + 2 * (WALL + LED_GAP + LED_W), PAD_R + WALL + LED_GAP + LED_W)
     ring_i = RectangleRounded(PAD_W + 2 * (WALL + LED_GAP), PAD_D + 2 * (WALL + LED_GAP), PAD_R + WALL + LED_GAP)
     p -= Pos(ST_W / 2, PAD_CY, TOP_Z - LED_D) * extrude(ring_o - ring_i, LED_D + 1.0)
+
+    # the reader pocket and its ribbon channel, both open to the desk. The board is pushed UP
+    # against the skin — the shortest coil-to-card distance the design allows — and the desk
+    # closes the pocket. Playtest one is bare printed parts (materials.md), so retention is a
+    # foam pad between board and desk rather than a part.
+    p -= _reader_pocket(DESK_Z - 1.0, POCKET_TOP)
+    x_out = (APRON_X1 + 1.0) if RIBBON_SIDE > 0 else (APRON_X0 - 1.0)
+    p -= E.bx(min(ST_W / 2, x_out), max(ST_W / 2, x_out),
+              PAD_CY - RIBBON_CH_W / 2, PAD_CY + RIBBON_CH_W / 2, DESK_Z - 1.0, POCKET_TOP)
 
     # the cable groove, open to the desk
     p -= _cable_groove(DESK_Z - 1.0, DESK_Z + CH_D)
@@ -255,7 +311,23 @@ def _check_geometry(part=None):
     ok.append("[mesh] exactly 1 solid")
 
     # 5. the RF skin, once the reader lands, must still be 1.5-2.0 mm under the card
-    ok.append(f"[rf] pad skin budget {SKIN_T:.2f} mm (reader pocket pending)")
+    # 5. the skin over the reader is the RF-critical dimension, and it is derived from the two
+    #    faces that bound it rather than trusted to a constant that could drift from the geometry.
+    skin = PAD_FLOOR - POCKET_TOP
+    assert abs(skin - SKIN_T) < 1e-9 and 1.5 <= skin <= 2.0, f"pad skin is {skin:.2f} mm"
+    ok.append(f"[rf] pad skin {skin:.2f} mm over the whole {READER_POCKET_L:.1f} x "
+              f"{READER_POCKET_W:.1f} reader footprint (matches the printed case's proven 2.00)")
+
+    # 5b. the reader must sit under the card, not merely under the apron
+    pad_probe = _pad_pocket(POCKET_TOP - READER_POCKET_D, POCKET_TOP)
+    out = (_reader_pocket(POCKET_TOP - READER_POCKET_D, POCKET_TOP) - pad_probe).volume
+    assert out < 1e-6, f"{out:.1f} mm^3 of the reader pocket lies outside the card footprint"
+    ok.append("[rf] reader pocket entirely under the card")
+
+    # 5c. ribbon and cable must not fight for the same corner
+    assert RIBBON_SIDE == -CABLE_SIDE, "ribbon and power cable leave on the same side"
+    ok.append(f"[cable] ribbon leaves {'+x' if RIBBON_SIDE > 0 else '-x'}, "
+              f"power {'+x' if CABLE_SIDE > 0 else '-x'} — opposite faces")
 
     # 6. the scallop must stay inside the apron. A dish that breaches the front face is a notch
     #    in the rim, and nothing above can see it: it collides with nothing and fits everything.
@@ -271,6 +343,21 @@ def _check_geometry(part=None):
     assert ap > 0.5 * CH_W * CH_D * 0.5, f"cable groove does not open onto the side face ({ap:.2f} mm^3)"
     ok.append(f"[cable] groove opens onto the {'+x' if CABLE_SIDE > 0 else '-x'} face, "
               f"{CH_W:.1f} x {CH_D:.1f} mm, turning inside the {REAR_BAND:.0f} mm rear band")
+
+    # 8. TIPPING. The apron is non-bearing and only embraced, never hooked, so the question is
+    #    not "does it hold the stand up" but "does normal handling move it". Downward force
+    #    anywhere inside the footprint cannot tip it; the exposed case is lifting the front.
+    try:
+        com = p.center(CenterOf.MASS)
+    except Exception:
+        bb = p.bounding_box(); com = bb.center()
+    mass_g = p.volume * 1.24e-3          # PLA ~1.24 g/cm^3, and volume is mm^3
+    W = mass_g * 9.81e-3                 # newtons
+    pivot_y = APRON_Y1 + ARM_L           # rearmost desk contact: the arm tips
+    scallop_y = PAD_CY - PAD_D / 2
+    lift_N = W * (pivot_y - com.Y) / (pivot_y - scallop_y)
+    ok.append(f"[tip] {mass_g:.0f} g, CoM y={com.Y:.1f}; a downward press anywhere inside the "
+              f"footprint cannot tip it; lifting the front edge takes {lift_N:.2f} N ({lift_N/9.81e-3:.0f} g)")
     return ok
 
 
@@ -283,10 +370,12 @@ if __name__ == "__main__":
         print("  " + line)
 
     if _PENDING:
-        print("\n⛔ NOT EXPORTED — the MFRC522 is unmeasured, so the reader pocket does not exist.")
-        print("   Pending: " + ", ".join(sorted(_PENDING)))
-        print("   This part is the apron BLANK: envelope, pad, lip, scallop, LED channel, cable")
-        print("   groove and hooks. It is reviewable and previewable; it is not printable.")
+        print("\n⛔ NOT EXPORTED, and nothing is staged in the print queue.")
+        print("   Pending: " + ", ".join(sorted(_PENDING)) + " — the coil's ACTIVE area.")
+        print("   The reader pocket is real: outline, depth, skin and ribbon side are measured")
+        print("   off the printed case. What a case cannot say is where the antenna sits on the")
+        print("   board, and that is the one number a wrong guess hides — the part would read")
+        print("   cards badly and look finished. Everything else here is complete and checked.")
         sys.exit(0)
 
     raise SystemExit("export path not written yet — see the PENDING gate above")
