@@ -91,7 +91,7 @@ SCALLOP_DZ = LIP_H + 1.2                  # through the lip and into the pad flo
 #   MEASURED  centre boss 16.00 x 6.00, top z=3.50
 #   MEASURED  wire notch ~25 mm wide in one SHORT (-Y) wall, open from z~7 to the rim at z=9
 #   INFERRED  the board outline is the pocket MINUS clearance, so <= 60.50 x 40.50
-#   INFERRED  the ribbon leaves by the short edge the notch is in
+#   INFERRED  the connector bundle leaves by the short edge the notch is in
 # The pocket envelope is used as-is: it already contains the slack a board needs, and taking the
 # looser reading is the safe direction for a hole (unlike the skin, where tighter is safe).
 READER_POCKET_L = 60.50   # x — the board's long axis (see the orientation note below)
@@ -124,7 +124,7 @@ assert READER_POCKET_L <= CR80_W and READER_POCKET_W <= CR80_D, "reader does not
 # >>> IT IS NOT A RIBBON. <<< Seven individual female dupont jumpers pushed onto a straight
 # 8-pin 2.54 header standing PERPENDICULAR to the board (JP's photo). The clearance that needs
 # is a connector STACK plus a loose bundle — a different shape and a much greater height than a
-# flat ribbon — so the name is wrong in a way that would mislead the next reader.
+# flat connector bundle — so the name is wrong in a way that would mislead the next reader.
 #
 # VERIFIED IN THE MESH, both bodies: the relief is in a SHORT edge, not a long one. The case
 # body's wire notch and the lid's notch are both in the min-Y wall, and the pocket runs
@@ -161,7 +161,12 @@ _PENDING = {k: v for k, v in list(globals().items()) if k.startswith("CONN_STACK
 WALL      = 2.4                           # outer wall / lip wall around the pad
 LED_GAP   = 3.0                           # solid between pad wall and LED channel
 LED_W     = 6.0                           # channel width — sized for a 5 mm WS2812 strip. PROVISIONAL:
-LED_D     = 5.0                           # confirm the strip before printing; it is a later fit (0005)
+                                          # confirm the strip before printing; it is a later fit (0005)
+# >>> DEPTH IS BOUNDED BY WHAT PASSES UNDERNEATH, NOT BY THE STRIP. <<<
+# At 5.0 the channel floor dropped below POCKET_TOP and the connector relief and cable groove
+# punched clean through it — a continuous void from the desk to the top face, which is a light
+# leak, a dust path and the wiring visible from above. Kept above POCKET_TOP by construction.
+LED_D     = 2.4
 APRON_W   = PAD_W + 2 * (WALL + LED_GAP + LED_W + WALL)      # 114.20
 # >>> THE FRONT MARGIN IS THE SCALLOP'S RADIUS PLUS A RIM, NOT A ROUND NUMBER. <<<
 # It was 9.0, against a scallop of radius 11.0 — so the dish cut straight through the apron's
@@ -194,9 +199,9 @@ PAD_FLOOR = TOP_Z - LIP_H                 # the card rests here
 # putting every millimetre of copper outside the pad footprint. _check_geometry asserts it.
 # Open to the underside rather than enclosed: the desk closes it, nothing bridges over copper,
 # and the cable can be laid in after the fact rather than threaded.
-# >>> DERIVED, NOT PICKED: the cable leaves opposite the ribbon. <<<
-# They must not fight for the same corner, and the ribbon's side is fixed by the reader, so this
-# one is not a free choice. Flipping RIBBON_SIDE flips this with it.
+# >>> DERIVED, NOT PICKED: the cable leaves opposite the connector bundle. <<<
+# They must not fight for the same corner, and the connector bundle's side is fixed by the reader, so this
+# one is not a free choice. Flipping CONN_SIDE flips this with it.
 CABLE_SIDE = -CONN_SIDE
 CH_W       = TUCK_W                       # 7.00 — ember's own solve for a cord that must lie in it
 CH_D       = TUCK_D                       # 5.00 — must EXCEED the cord, not merely admit it
@@ -213,7 +218,7 @@ RF_KEEPOUT = 6.0                          # how far the groove must stay from th
 # is to derive the number so the two cannot drift apart again.
 RF_MARGIN  = 1.5
 REAR_BAND  = 2 * (RF_KEEPOUT + CH_SWEEP / 2 + RF_MARGIN)     # 33.00
-APRON_D    = REAR_BAND + PAD_D + FRONT_MG                    # 97.00
+APRON_D    = REAR_BAND + PAD_D + FRONT_MG                    # 102.00
 APRON_Y0   = -APRON_D
 PAD_CY     = APRON_Y0 + FRONT_MG + PAD_D / 2                 # pad centre in y
 CH_Y       = -REAR_BAND / 2                                  # the turn's centreline
@@ -251,11 +256,35 @@ def _pad_pocket(z0, z1, grow=0.0):
 
 POCKET_TOP = PAD_FLOOR - SKIN_T           # the pocket's ceiling IS the underside of the skin
 
+# >>> PRINT ORIENTATION: UNDERSIDE DOWN, NO SUPPORTS. DECIDED, NOT DEFAULTED. <<<
+# The two candidates both cost something and this one costs less. Underside-down puts the whole
+# footprint and both keying arms flat on the bed — nothing overhangs — at the price of one 40.5 mm
+# bridge: the skin's underside spanning the reader pocket. Top-face-down would print the skin
+# solid on the bed, but the pad recess becomes an 86.6 mm bridge 0.6 mm off the plate and the arms
+# become unsupported cantilevers on a 3.0 x 6.0 mm face, so it trades one bridge for a bigger one
+# plus supports. The bridge here sags on the POCKET side, where a tenth of a millimetre costs
+# nothing; the card face is ten layers above it and prints clean. PRINT_LIFT puts the desk plane
+# on z = 0 in the exported file, the same trick and the same reason as ember-stand's plinth.
+PRINT_LIFT = PLINTH_H
+
+
+# >>> THE BOARD SITS BEHIND THE SCALLOP'S REACH, AND THAT IS SOLVED. <<<
+# Centring the board under the card put its front edge 7.25 mm behind the pad's front edge while
+# the scallop reaches 11.0 mm past it, so the scallop — which cuts 1.2 mm INTO the pad floor, and
+# the pad floor IS the skin — left 0.80 mm of skin over ~43 mm^2 of the board. That is worse than
+# a thin spot: it re-creates the coil dependency this design claims to have removed, because
+# "uniform skin over the whole footprint" was the entire argument for not needing the antenna's
+# position. The pocket is therefore placed from the scallop's reach, not centred, so the two
+# cannot drift apart again. There is slack at both ends to absorb it.
+POCKET_CLR = 0.50                          # solid between the scallop's arc and the board's edge
+POCKET_CY = (PAD_CY - PAD_D / 2) + SCALLOP_D / 2 + POCKET_CLR + READER_POCKET_W / 2
+
 
 def _reader_pocket(z0, z1, grow=0.0):
-    """The MFRC522's envelope, centred under the card."""
+    """The MFRC522's envelope, set back from the card's front edge — see POCKET_CY."""
     return E.bx(ST_W / 2 - READER_POCKET_L / 2 - grow, ST_W / 2 + READER_POCKET_L / 2 + grow,
-                PAD_CY - READER_POCKET_W / 2 - grow, PAD_CY + READER_POCKET_W / 2 + grow, z0, z1)
+                POCKET_CY - READER_POCKET_W / 2 - grow, POCKET_CY + READER_POCKET_W / 2 + grow,
+                z0, z1)
 
 
 def _cable_groove(z0, z1, grow=0.0):
@@ -272,6 +301,34 @@ def _cable_groove(z0, z1, grow=0.0):
     return leg_in + corner + leg_out
 
 
+def _cuts():
+    """Every subtractive feature, named, so checks can probe ALL of them rather than the one
+    somebody remembered. The scallop reached the skin because only the cable groove was ever
+    tested against the keepouts."""
+    x_out = (APRON_X1 + 1.0) if CONN_SIDE > 0 else (APRON_X0 - 1.0)
+    return [
+        ("pad pocket", _pad_pocket(PAD_FLOOR, TOP_Z + 1.0)),
+        ("finger scallop", E.cyl(ST_W / 2, PAD_CY - PAD_D / 2, TOP_Z - SCALLOP_DZ, TOP_Z + 1.0, SCALLOP_D)),
+        ("LED channel", _led_channel()),
+        ("reader pocket", _reader_pocket(DESK_Z - 1.0, POCKET_TOP)),
+        ("connector relief", E.bx(min(ST_W / 2, x_out), max(ST_W / 2, x_out),
+                                  POCKET_CY - CONN_CH_W / 2, POCKET_CY + CONN_CH_W / 2,
+                                  DESK_Z - 1.0, POCKET_TOP)),
+        ("cable groove", _cable_groove(DESK_Z - 1.0, DESK_Z + CH_D)),
+    ]
+
+
+def _led_channel():
+    ring_o = RectangleRounded(PAD_W + 2 * (WALL + LED_GAP + LED_W),
+                              PAD_D + 2 * (WALL + LED_GAP + LED_W), PAD_R + WALL + LED_GAP + LED_W)
+    ring_i = RectangleRounded(PAD_W + 2 * (WALL + LED_GAP),
+                              PAD_D + 2 * (WALL + LED_GAP), PAD_R + WALL + LED_GAP)
+    ring = Pos(ST_W / 2, PAD_CY, TOP_Z - LED_D) * extrude(ring_o - ring_i, LED_D + 1.0)
+    front_cut = E.bx(APRON_X0 - 1, APRON_X1 + 1, APRON_Y0 - 1,
+                     PAD_CY - PAD_D / 2 - WALL, TOP_Z - LED_D - 1, TOP_Z + 2)
+    return ring - front_cut
+
+
 def apron():
     """The shrine apron: envelope, card pad, LED channel, reader pocket, connector relief,
     cable groove and the arms that embrace the plinth."""
@@ -283,19 +340,28 @@ def apron():
     # the finger scallop, cut from the pad's front wall so a thumb arrives along the desk
     p -= E.cyl(ST_W / 2, PAD_CY - PAD_D / 2, TOP_Z - SCALLOP_DZ, TOP_Z + 1.0, SCALLOP_D)
 
-    # the LED ring channel, a later fit (0005): a groove following the pad, open at the top
-    ring_o = RectangleRounded(PAD_W + 2 * (WALL + LED_GAP + LED_W), PAD_D + 2 * (WALL + LED_GAP + LED_W), PAD_R + WALL + LED_GAP + LED_W)
-    ring_i = RectangleRounded(PAD_W + 2 * (WALL + LED_GAP), PAD_D + 2 * (WALL + LED_GAP), PAD_R + WALL + LED_GAP)
-    p -= Pos(ST_W / 2, PAD_CY, TOP_Z - LED_D) * extrude(ring_o - ring_i, LED_D + 1.0)
+    # The LED channel, a later fit (0005). THREE-SIDED, not a ring: the finger scallop reaches
+    # 11 mm past the pad's front edge and the channel runs 5.4 mm outside it, so a front run would
+    # be severed by the scallop wherever it sat. A continuous ring and a front scallop are not
+    # both possible on this face — LED_W/LED_D are provisional, so this is a decision to take with
+    # the strip, not a defect to fix here. The rear and both sides are continuous.
+    ring_o = RectangleRounded(PAD_W + 2 * (WALL + LED_GAP + LED_W),
+                              PAD_D + 2 * (WALL + LED_GAP + LED_W), PAD_R + WALL + LED_GAP + LED_W)
+    ring_i = RectangleRounded(PAD_W + 2 * (WALL + LED_GAP),
+                              PAD_D + 2 * (WALL + LED_GAP), PAD_R + WALL + LED_GAP)
+    ring = Pos(ST_W / 2, PAD_CY, TOP_Z - LED_D) * extrude(ring_o - ring_i, LED_D + 1.0)
+    front_cut = E.bx(APRON_X0 - 1, APRON_X1 + 1, APRON_Y0 - 1,
+                     PAD_CY - PAD_D / 2 - WALL, TOP_Z - LED_D - 1, TOP_Z + 2)
+    p -= ring - front_cut
 
-    # the reader pocket and its ribbon channel, both open to the desk. The board is pushed UP
+    # the reader pocket and its connector bundle channel, both open to the desk. The board is pushed UP
     # against the skin — the shortest coil-to-card distance the design allows — and the desk
     # closes the pocket. Playtest one is bare printed parts (materials.md), so retention is a
     # foam pad between board and desk rather than a part.
     p -= _reader_pocket(DESK_Z - 1.0, POCKET_TOP)
     x_out = (APRON_X1 + 1.0) if CONN_SIDE > 0 else (APRON_X0 - 1.0)
     p -= E.bx(min(ST_W / 2, x_out), max(ST_W / 2, x_out),
-              PAD_CY - CONN_CH_W / 2, PAD_CY + CONN_CH_W / 2, DESK_Z - 1.0, POCKET_TOP)
+              POCKET_CY - CONN_CH_W / 2, POCKET_CY + CONN_CH_W / 2, DESK_Z - 1.0, POCKET_TOP)
 
     # the cable groove, open to the desk
     p -= _cable_groove(DESK_Z - 1.0, DESK_Z + CH_D)
@@ -333,11 +399,16 @@ def _check_geometry(part=None):
     assert inter < 1e-6, f"apron interferes with the stand by {inter:.3f} mm^3"
     ok.append("[fit] no interference with desk_stand()")
 
-    # 3b. the arms must actually embrace the stand — a clearance that grew until the arms miss
-    #     the sides entirely would satisfy check 3 perfectly, which is the point of asserting it.
-    span = 2 * ARM_CLR
-    assert span <= 1.0, f"arm clearance {span:.2f} mm total — the apron would wander on the stand"
-    ok.append(f"[fit] arms embrace the plinth, {ARM_CLR:.2f} mm/side slide fit, {ARM_L:.0f} mm long")
+    # 3b. MEASURED ENGAGEMENT, not the constant. The old check asserted 2*ARM_CLR <= 1.0, which
+    #     is true with ARM_L = 0 — it would have passed a part with no arms at all. What matters
+    #     is how much arm actually runs alongside a FLAT face: the plinth's side is flat only for
+    #     y >= ST_R, so the first 10 mm of every arm faces the corner radius and grips nothing.
+    flat = E.bx(APRON_X0 - 1, APRON_X1 + 1, ST_R, APRON_Y1 + ARM_L, DESK_Z, DESK_Z + ARM_H)
+    engaged = (p & flat).volume / (ARM_T * ARM_H) / 2.0
+    assert engaged >= 12.0, f"arms engage only {engaged:.1f} mm of flat plinth face"
+    ok.append(f"[fit] arms engage {engaged:.0f} mm of FLAT plinth face each "
+              f"({ARM_L:.0f} mm long, first {ST_R:.0f} faces the corner radius), "
+              f"{ARM_CLR:.2f} mm/side slide fit")
 
     # 4. exactly one solid. An apron that severs at the hooks is two parts on the bed and the
     #    dimension checks above would all still pass — ember's own back-shell lesson.
@@ -346,12 +417,20 @@ def _check_geometry(part=None):
     ok.append("[mesh] exactly 1 solid")
 
     # 5. the RF skin, once the reader lands, must still be 1.5-2.0 mm under the card
-    # 5. the skin over the reader is the RF-critical dimension, and it is derived from the two
-    #    faces that bound it rather than trusted to a constant that could drift from the geometry.
-    skin = PAD_FLOOR - POCKET_TOP
-    assert abs(skin - SKIN_T) < 1e-9 and 1.5 <= skin <= 2.0, f"pad skin is {skin:.2f} mm"
-    ok.append(f"[rf] pad skin {skin:.2f} mm over the whole {READER_POCKET_L:.1f} x "
-              f"{READER_POCKET_W:.1f} reader footprint (matches the printed case's proven 2.00)")
+    # 5. THE SKIN, MEASURED ON THE BUILT PART. The check this replaces was algebra: it computed
+    #    PAD_FLOOR - POCKET_TOP and asserted it equalled SKIN_T, which are the two constants that
+    #    DEFINE each other. It could not see geometry, so it printed a confident 2.00 while the
+    #    finger scallop left 0.80 mm over 43 mm^2 of the board. Weigh the slab instead.
+    nominal = READER_POCKET_L * READER_POCKET_W * SKIN_T
+    slab = _reader_pocket(POCKET_TOP, PAD_FLOOR)
+    actual = (p & slab).volume
+    if abs(actual - nominal) >= 1e-6:
+        culprit = [n for n, c in _cuts() if (c & slab).volume > 1e-6]
+        raise AssertionError(
+            f"skin over the board is {actual:.1f} mm^3 of a nominal {nominal:.1f} — "
+            f"{nominal - actual:.1f} mm^3 removed by: {', '.join(culprit) or 'unknown'}")
+    ok.append(f"[rf] skin over the board measured {actual:.0f} mm^3 = a full {SKIN_T:.2f} mm "
+              f"everywhere on {READER_POCKET_L:.1f} x {READER_POCKET_W:.1f} (nominal {nominal:.0f})")
 
     # 5b. the reader must sit under the card, not merely under the apron
     pad_probe = _pad_pocket(POCKET_TOP - READER_POCKET_D, POCKET_TOP)
@@ -361,34 +440,60 @@ def _check_geometry(part=None):
 
     # 5d. THE SKIN IS THE ONE STRUCTURAL RISK: 2.00 mm spanning a 60.5 x 40.5 hole, with a card
     #     pressed onto it. Asserted as a span/thickness relationship rather than left implied.
+    #     It may use SKIN_T only because check 5 has just PROVEN the built part carries a full
+    #     SKIN_T everywhere over the board — before that, this ratio inherited a blind constant
+    #     and read 20.2 while the real figure at the scallop was 40.5/0.80 = 50.6.
     span = min(READER_POCKET_L, READER_POCKET_W)      # the short span governs a plate
-    assert span / skin <= 21.0, (
-        f"skin spans {span:.1f} mm at {skin:.2f} mm thick (ratio {span/skin:.1f}) — too slender")
-    ok.append(f"[skin] span/thickness {span/skin:.1f} over the short span "
-              f"(the printed case runs {60.5/2.0:.1f} on its long one and holds)")
+    assert span / SKIN_T <= 21.0, (
+        f"skin spans {span:.1f} mm at {SKIN_T:.2f} mm thick (ratio {span/SKIN_T:.1f}) — too slender")
+    ok.append(f"[skin] span/thickness {span/SKIN_T:.1f} over the short span, on a skin measured "
+              f"rather than assumed (the printed case runs {60.5/2.0:.1f} and holds)")
 
-    # 5e. the keepout is the BOARD footprint now, not merely the pad's: the coil is inside the
-    #     board, so that is the surface no conductor may cross.
-    board = _reader_pocket(DESK_Z - 2.0, TOP_Z + 2.0, grow=RF_KEEPOUT)
-    bad2 = (_cable_groove(DESK_Z - 1.0, DESK_Z + CH_D) & board).volume
-    assert bad2 < 1e-6, f"cable groove intrudes {bad2:.3f} mm^3 into the board footprint keepout"
-    ok.append("[rf] cable groove clear of the BOARD footprint keepout too")
+    # 5e. EVERY subtractive feature against the skin slab, not just the cable groove. The scallop
+    #     got through because checks 1 and 5e only ever probed the groove; a feature nobody probes
+    #     is a feature nobody checks, and the part still prints a reassuring line about it.
+    for name, cut in _cuts():
+        if name == "reader pocket":
+            continue                        # it IS the void under the skin
+        v = (cut & slab).volume
+        assert v < 1e-6, f"{name} removes {v:.2f} mm^3 from the skin over the board"
+    ok.append(f"[rf] all {len(_cuts()) - 1} other cuts probed against the skin slab: none enters it")
 
-    # 5c. ribbon and cable must not fight for the same corner
+    # 5f. NOTHING MAY PUNCTURE THE LED CHANNEL. At LED_D = 5.0 its floor sat below POCKET_TOP and
+    #     the connector relief (317 mm^3) and cable groove (16 mm^3) opened a continuous void from
+    #     the desk to the top face — a light leak, a dust path, and the wiring on show from above.
+    assert TOP_Z - LED_D > POCKET_TOP, (
+        f"LED channel floor {TOP_Z - LED_D:.2f} is at or below the pocket ceiling {POCKET_TOP:.2f}")
+    led = _led_channel()
+    for name, cut in _cuts():
+        if name == "LED channel":
+            continue
+        v = (cut & led).volume
+        assert v < 1e-6, f"{name} punctures the LED channel ({v:.2f} mm^3)"
+    ok.append(f"[led] channel floor {TOP_Z - LED_D - POCKET_TOP:.2f} mm above the pocket ceiling; "
+              f"nothing punctures it (three-sided: a closed ring and a front scallop are exclusive)")
+
+    # 5c. connector bundle and cable must not fight for the same corner
     assert CONN_SIDE == -CABLE_SIDE, "connector bundle and power cable leave on the same side"
     ok.append(f"[cable] connector leaves {'+x' if CONN_SIDE > 0 else '-x'} (the board's short "
               f"edge), power {'+x' if CABLE_SIDE > 0 else '-x'} — opposite faces")
 
     # 6. the scallop must stay inside the apron. A dish that breaches the front face is a notch
     #    in the rim, and nothing above can see it: it collides with nothing and fits everything.
+    #    Measured through SOLID: the old line subtracted two numbers and reported the gap, which
+    #    says nothing about whether material actually occupies it.
     reach = PAD_CY - PAD_D / 2 - SCALLOP_D / 2
-    assert reach >= APRON_Y0 + 1e-9, (
-        f"finger scallop reaches y={reach:.2f}, past the apron's front face at {APRON_Y0:.2f}")
-    ok.append(f"[hand] scallop contained, {reach - APRON_Y0:.2f} mm of rim in front of it")
+    rim = E.bx(ST_W / 2 - 2, ST_W / 2 + 2, APRON_Y0, reach, TOP_Z - SCALLOP_DZ, TOP_Z)
+    rim_v = (p & rim).volume
+    assert rim_v > 0.9 * 4 * (reach - APRON_Y0) * SCALLOP_DZ, (
+        f"the rim in front of the scallop is not solid ({rim_v:.1f} mm^3)")
+    ok.append(f"[hand] scallop contained, {reach - APRON_Y0:.2f} mm of SOLID rim in front of it")
 
     # 7. the cable must be able to LEAVE. The groove is cut toward the side face, but "cut toward"
     #    is not "opens onto" — a margin change could leave it buried with every other check green.
-    face = E.bx(APRON_X1 - 0.5, APRON_X1, APRON_Y0 - 1, APRON_Y1 + 1, DESK_Z - 1, TOP_Z + 1)
+    fx = APRON_X1 if CABLE_SIDE > 0 else APRON_X0
+    face = E.bx(min(fx, fx + 0.5 * -CABLE_SIDE), max(fx, fx + 0.5 * -CABLE_SIDE),
+                APRON_Y0 - 1, APRON_Y1 + 1, DESK_Z - 1, TOP_Z + 1)
     ap = (_cable_groove(DESK_Z - 1.0, DESK_Z + CH_D) & face).volume
     assert ap > 0.5 * CH_W * CH_D * 0.5, f"cable groove does not open onto the side face ({ap:.2f} mm^3)"
     ok.append(f"[cable] groove opens onto the {'+x' if CABLE_SIDE > 0 else '-x'} face, "
@@ -428,6 +533,6 @@ if __name__ == "__main__":
         print("   how far a VERTICAL header with sockets on it stands above the PCB: pointing up")
         print("   it hits the 2.00 mm skin and the card, pointing down it hits the desk, and the")
         print("   printed case dodges the question by letting the stack out through a notch.")
-        sys.exit(0)
+        sys.exit(3)   # not success: this run produced no part
 
     raise SystemExit("export path not written yet — see the PENDING gate above")
