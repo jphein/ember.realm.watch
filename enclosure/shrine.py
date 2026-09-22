@@ -98,6 +98,10 @@ READER_POCKET_L = 60.50   # x — the board's long axis (see the orientation not
 READER_POCKET_W = 40.50   # y
 READER_POCKET_D = 7.00    # the proven case's full internal height, so whatever rides on the
                           # board clears too. The pocket opens downward; the desk closes it.
+                          # ⚠️ NO MARGIN IS ADDED: this is the case's interior exactly, and the
+                          # skin above it is a printed bridge, so sag eats into the budget from
+                          # above. A few tenths is almost certainly fine — but the budget is
+                          # literally zero, so measure a printed one before trusting it.
 
 # >>> THE COIL'S POSITION IS NOT RECOVERABLE FROM A CASE — AND IS NOT NEEDED. <<<
 # A pocket says where the board sits, never where the antenna sits on it. Rather than infer it,
@@ -276,7 +280,18 @@ PRINT_LIFT = PLINTH_H
 # "uniform skin over the whole footprint" was the entire argument for not needing the antenna's
 # position. The pocket is therefore placed from the scallop's reach, not centred, so the two
 # cannot drift apart again. There is slack at both ends to absorb it.
-POCKET_CLR = 0.50                          # solid between the scallop's arc and the board's edge
+# >>> MINIMUM SOLID, AND IT IS NOT A NUMBER I CHOSE. <<<
+# PRINT-SHEET calls 1.60 mm this family's minimum-solid floor, and says so in the places where a
+# part deliberately goes under it (the mobile back's 0.90/0.50 separator, the 1.25 mm web) — both
+# flagged as experimental rather than normal. Nothing here has that licence.
+MIN_FLOOR = 1.60
+
+# Clearance between the scallop's arc and the board pocket, SOLVED rather than picked. They miss
+# each other vertically by LIP_H + SKIN_T - SCALLOP_DZ, so the thinnest material between them is
+# the DIAGONAL, not the gap in either axis — at 0.50 lateral it was 0.94 mm, under the floor and
+# invisible to any check that looks along one axis at a time.
+_SCALLOP_GAP_Z = LIP_H + SKIN_T - SCALLOP_DZ
+POCKET_CLR = math.sqrt(max(0.0, MIN_FLOOR**2 - _SCALLOP_GAP_Z**2)) + 0.10
 POCKET_CY = (PAD_CY - PAD_D / 2) + SCALLOP_D / 2 + POCKET_CLR + READER_POCKET_W / 2
 
 
@@ -326,7 +341,18 @@ def _led_channel():
     ring = Pos(ST_W / 2, PAD_CY, TOP_Z - LED_D) * extrude(ring_o - ring_i, LED_D + 1.0)
     front_cut = E.bx(APRON_X0 - 1, APRON_X1 + 1, APRON_Y0 - 1,
                      PAD_CY - PAD_D / 2 - WALL, TOP_Z - LED_D - 1, TOP_Z + 2)
-    return ring - front_cut
+    # >>> AND INTERRUPTED WHERE THE CONNECTOR LEAVES. <<<
+    # The relief passes under the channel's connector-side run with only 0.20 mm between them —
+    # one layer, against a 1.60 mm floor — spanning the 22 mm-wide relief unsupported. That is the
+    # underside-to-top-face puncture this channel was already shortened to avoid, reappearing as a
+    # membrane instead of a hole. A channel and an exit cannot share that strip, so the channel
+    # gives way: raising its floor would spend clearance already cut from 5.0 to 2.4, and lowering
+    # the relief would spend CONN_STACK_H, the one budget still unknown.
+    x_out = (APRON_X1 + 2.0) if CONN_SIDE > 0 else (APRON_X0 - 2.0)
+    conn_cut = E.bx(min(ST_W / 2, x_out), max(ST_W / 2, x_out),
+                    POCKET_CY - CONN_CH_W / 2 - MIN_FLOOR, POCKET_CY + CONN_CH_W / 2 + MIN_FLOOR,
+                    TOP_Z - LED_D - 1, TOP_Z + 2)
+    return ring - front_cut - conn_cut
 
 
 def apron():
@@ -459,19 +485,30 @@ def _check_geometry(part=None):
         assert v < 1e-6, f"{name} removes {v:.2f} mm^3 from the skin over the board"
     ok.append(f"[rf] all {len(_cuts()) - 1} other cuts probed against the skin slab: none enters it")
 
-    # 5f. NOTHING MAY PUNCTURE THE LED CHANNEL. At LED_D = 5.0 its floor sat below POCKET_TOP and
-    #     the connector relief (317 mm^3) and cable groove (16 mm^3) opened a continuous void from
-    #     the desk to the top face — a light leak, a dust path, and the wiring on show from above.
-    assert TOP_Z - LED_D > POCKET_TOP, (
-        f"LED channel floor {TOP_Z - LED_D:.2f} is at or below the pocket ceiling {POCKET_TOP:.2f}")
-    led = _led_channel()
-    for name, cut in _cuts():
-        if name == "LED channel":
-            continue
-        v = (cut & led).volume
-        assert v < 1e-6, f"{name} punctures the LED channel ({v:.2f} mm^3)"
-    ok.append(f"[led] channel floor {TOP_Z - LED_D - POCKET_TOP:.2f} mm above the pocket ceiling; "
-              f"nothing punctures it (three-sided: a closed ring and a front scallop are exclusive)")
+    # 5f. >>> ZERO INTERSECTION IS NOT A PRINTABLE WALL. <<<
+    #     The check this replaces asserted that no cut INTERSECTED the LED channel, and passed
+    #     with 0.20 mm between the channel's floor and the connector relief — one layer, spanning
+    #     22 mm unsupported. Non-intersection says two voids are not the same void; it says
+    #     nothing about whether the material between them can be printed. So measure the wall.
+    #
+    #     Applied PAIRWISE over every pair of cuts rather than to the one feature that failed,
+    #     and by true minimum distance rather than a vertical gap, because the thinnest material
+    #     between two voids is often diagonal — which is exactly how the scallop got within
+    #     0.94 mm of the board pocket while clearing it in both axes separately.
+    cuts = _cuts()
+    thin = []
+    for i, (na, ca) in enumerate(cuts):
+        for nb, cb in cuts[i + 1:]:
+            if (ca & cb).volume > 1e-6:
+                continue                    # deliberately joined (the relief opens into the pocket)
+            d = ca.distance_to(cb)
+            if d < MIN_FLOOR - 1e-9:
+                thin.append((na, nb, d))
+    assert not thin, "wall thinner than the {:.2f} mm minimum solid: {}".format(
+        MIN_FLOOR,
+        "; ".join(f"{a} to {b} = {d:.2f} mm" for a, b, d in thin))
+    ok.append(f"[solid] every pair of cuts is >= {MIN_FLOOR:.2f} mm apart or deliberately joined "
+              f"({len(cuts) * (len(cuts) - 1) // 2} pairs, by true minimum distance)")
 
     # 5c. connector bundle and cable must not fight for the same corner
     assert CONN_SIDE == -CABLE_SIDE, "connector bundle and power cable leave on the same side"
