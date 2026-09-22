@@ -121,8 +121,28 @@ COIL_W = None
 # would be longer than the card it reads.
 assert READER_POCKET_L <= CR80_W and READER_POCKET_W <= CR80_D, "reader does not fit under the card"
 
-RIBBON_SIDE = -1          # -1 = the ribbon leaves the -x face, +1 = +x. From the case's wire notch.
-RIBBON_CH_W = 22.0        # the case's notch measures ~25; 22 clears an 8-pin 2.54 header (20.3 mm)
+# >>> IT IS NOT A RIBBON. <<< Seven individual female dupont jumpers pushed onto a straight
+# 8-pin 2.54 header standing PERPENDICULAR to the board (JP's photo). The clearance that needs
+# is a connector STACK plus a loose bundle — a different shape and a much greater height than a
+# flat ribbon — so the name is wrong in a way that would mislead the next reader.
+#
+# VERIFIED IN THE MESH, both bodies: the relief is in a SHORT edge, not a long one. The case
+# body's wire notch and the lid's notch are both in the min-Y wall, and the pocket runs
+# 40.50 (x) x 60.50 (y), so that wall spans the board's 40.50 mm SHORT edge. The lid's notch
+# measures ~24.5 mm wide — an 8-pin 2.54 header is 20.3 mm — and it is open through the lid's
+# EDGE, which is how the case accommodates a stack taller than its 7.00 mm interior: the header
+# is not enclosed, it protrudes through the edge.
+CONN_SIDE = -1            # -1 = the connector leaves the -x face. The board's short edge.
+CONN_CH_W = 22.0          # clears the 20.3 mm header with room; the case's own notch is ~24.5
+
+# >>> BLOCKING UNKNOWN: how tall is the header + dupont socket stack above the PCB? <<<
+# The case sidesteps it by letting the stack out through a notch rather than housing it. This
+# apron cannot copy that without knowing the height: the board lies under a 2.00 mm skin with
+# the pocket only READER_POCKET_D deep, so a vertical stack has nowhere to go in either
+# orientation — pointing up it hits the skin and the card pad, pointing down it hits the desk.
+# Measuring this off a photograph is exactly the substitution that is not allowed, so it is
+# PENDING and the export gate is shut on it.
+CONN_STACK_H = None       # mm above the PCB, header + pushed-on dupont socket housings
 
 # The skin over the coil: materials.md says 1.5-2 mm of PLA/wood/resin, nothing conductive.
 # 2.00 is not the mid-band guess it started as — it is what the printed case above uses under
@@ -130,7 +150,10 @@ RIBBON_CH_W = 22.0        # the case's notch measures ~25; 22 clears an 8-pin 2.
 # a range, and it is the stiffest option materials.md allows over a 60 x 40 opening.
 SKIN_T = 2.00
 assert 1.5 <= SKIN_T <= 2.0, "materials.md fixes the RF skin at 1.5-2.0 mm"
-_PENDING = {k: v for k, v in list(globals().items()) if k.startswith("COIL_") and v is None}
+# COIL_L/COIL_W are deliberately NOT pending: the uniform skin over the whole board footprint
+# makes the coil's position unnecessary rather than unknown-and-needed (lead's ruling). The gate
+# is shut on the connector stack instead, which is a real dimension with nowhere to go.
+_PENDING = {k: v for k, v in list(globals().items()) if k.startswith("CONN_STACK") and v is None}
 
 # ============================================================================
 # 4. THE APRON PLAN
@@ -174,7 +197,7 @@ PAD_FLOOR = TOP_Z - LIP_H                 # the card rests here
 # >>> DERIVED, NOT PICKED: the cable leaves opposite the ribbon. <<<
 # They must not fight for the same corner, and the ribbon's side is fixed by the reader, so this
 # one is not a free choice. Flipping RIBBON_SIDE flips this with it.
-CABLE_SIDE = -RIBBON_SIDE
+CABLE_SIDE = -CONN_SIDE
 CH_W       = TUCK_W                       # 7.00 — ember's own solve for a cord that must lie in it
 CH_D       = TUCK_D                       # 5.00 — must EXCEED the cord, not merely admit it
 CH_SWEEP   = 18.0                         # a 4.5 mm USB-C lead wants ~R18; the corner is opened out
@@ -239,7 +262,8 @@ def _cable_groove(z0, z1, grow=0.0):
 
 
 def apron():
-    """The shrine apron. Reader pocket omitted while the MFRC522 is unmeasured — see _PENDING."""
+    """The shrine apron: envelope, card pad, LED channel, reader pocket, connector relief,
+    cable groove and the arms that embrace the plinth."""
     p = E.rbox(APRON_X0, APRON_X1, APRON_Y0, APRON_Y1, DESK_Z, TOP_Z, APRON_R)
 
     # the card pad
@@ -258,9 +282,9 @@ def apron():
     # closes the pocket. Playtest one is bare printed parts (materials.md), so retention is a
     # foam pad between board and desk rather than a part.
     p -= _reader_pocket(DESK_Z - 1.0, POCKET_TOP)
-    x_out = (APRON_X1 + 1.0) if RIBBON_SIDE > 0 else (APRON_X0 - 1.0)
+    x_out = (APRON_X1 + 1.0) if CONN_SIDE > 0 else (APRON_X0 - 1.0)
     p -= E.bx(min(ST_W / 2, x_out), max(ST_W / 2, x_out),
-              PAD_CY - RIBBON_CH_W / 2, PAD_CY + RIBBON_CH_W / 2, DESK_Z - 1.0, POCKET_TOP)
+              PAD_CY - CONN_CH_W / 2, PAD_CY + CONN_CH_W / 2, DESK_Z - 1.0, POCKET_TOP)
 
     # the cable groove, open to the desk
     p -= _cable_groove(DESK_Z - 1.0, DESK_Z + CH_D)
@@ -324,10 +348,25 @@ def _check_geometry(part=None):
     assert out < 1e-6, f"{out:.1f} mm^3 of the reader pocket lies outside the card footprint"
     ok.append("[rf] reader pocket entirely under the card")
 
+    # 5d. THE SKIN IS THE ONE STRUCTURAL RISK: 2.00 mm spanning a 60.5 x 40.5 hole, with a card
+    #     pressed onto it. Asserted as a span/thickness relationship rather than left implied.
+    span = min(READER_POCKET_L, READER_POCKET_W)      # the short span governs a plate
+    assert span / skin <= 21.0, (
+        f"skin spans {span:.1f} mm at {skin:.2f} mm thick (ratio {span/skin:.1f}) — too slender")
+    ok.append(f"[skin] span/thickness {span/skin:.1f} over the short span "
+              f"(the printed case runs {60.5/2.0:.1f} on its long one and holds)")
+
+    # 5e. the keepout is the BOARD footprint now, not merely the pad's: the coil is inside the
+    #     board, so that is the surface no conductor may cross.
+    board = _reader_pocket(DESK_Z - 2.0, TOP_Z + 2.0, grow=RF_KEEPOUT)
+    bad2 = (_cable_groove(DESK_Z - 1.0, DESK_Z + CH_D) & board).volume
+    assert bad2 < 1e-6, f"cable groove intrudes {bad2:.3f} mm^3 into the board footprint keepout"
+    ok.append("[rf] cable groove clear of the BOARD footprint keepout too")
+
     # 5c. ribbon and cable must not fight for the same corner
-    assert RIBBON_SIDE == -CABLE_SIDE, "ribbon and power cable leave on the same side"
-    ok.append(f"[cable] ribbon leaves {'+x' if RIBBON_SIDE > 0 else '-x'}, "
-              f"power {'+x' if CABLE_SIDE > 0 else '-x'} — opposite faces")
+    assert CONN_SIDE == -CABLE_SIDE, "connector bundle and power cable leave on the same side"
+    ok.append(f"[cable] connector leaves {'+x' if CONN_SIDE > 0 else '-x'} (the board's short "
+              f"edge), power {'+x' if CABLE_SIDE > 0 else '-x'} — opposite faces")
 
     # 6. the scallop must stay inside the apron. A dish that breaches the front face is a notch
     #    in the rim, and nothing above can see it: it collides with nothing and fits everything.
@@ -371,11 +410,13 @@ if __name__ == "__main__":
 
     if _PENDING:
         print("\n⛔ NOT EXPORTED, and nothing is staged in the print queue.")
-        print("   Pending: " + ", ".join(sorted(_PENDING)) + " — the coil's ACTIVE area.")
-        print("   The reader pocket is real: outline, depth, skin and ribbon side are measured")
-        print("   off the printed case. What a case cannot say is where the antenna sits on the")
-        print("   board, and that is the one number a wrong guess hides — the part would read")
-        print("   cards badly and look finished. Everything else here is complete and checked.")
+        print("   Pending: " + ", ".join(sorted(_PENDING)) + " — the header + dupont stack height.")
+        print("   Everything else is measured and checked. The board's outline, depth, skin and")
+        print("   connector edge come off the printed case; the coil's position is not needed")
+        print("   because the skin is uniform over the whole board footprint. What is missing is")
+        print("   how far a VERTICAL header with sockets on it stands above the PCB: pointing up")
+        print("   it hits the 2.00 mm skin and the card, pointing down it hits the desk, and the")
+        print("   printed case dodges the question by letting the stack out through a notch.")
         sys.exit(0)
 
     raise SystemExit("export path not written yet — see the PENDING gate above")
