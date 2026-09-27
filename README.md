@@ -813,3 +813,7 @@ fix revealed — a debounce that re-armed and cancelled deliberate presses, a
 completion chime that destroyed the reply it was announcing, a 250ms timeout
 measured off a single fast sample. The final shape (dispatch on release, never
 preempt audio that is playing) only makes sense against that history.
+
+## License
+
+AGPL-3.0-or-later © 2026 Jeffrey Pine Hein. See [LICENSE](LICENSE).
