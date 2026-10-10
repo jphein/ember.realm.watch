@@ -49,7 +49,10 @@ rest:
         value_template: "{{ value_json.state }}"
         # `unavailable` when serialhub or OctoPrint is unreachable, which the
         # tool reports honestly instead of implying the printer is idle.
-        availability: "{{ value_json.state is defined }}"
+        # `value_json is defined` first: when the fetch fails there is no
+        # value_json at all, and `value_json.state` then RAISES (UndefinedError,
+        # logged on every poll) instead of rendering false.
+        availability: "{{ value_json is defined and value_json.state is defined }}"
         json_attributes:
           - job
           - progress
