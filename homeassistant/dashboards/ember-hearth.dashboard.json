@@ -1856,7 +1856,7 @@
        "grid_options": {
         "columns": "full"
        },
-       "content": "{% set na = ['unknown','unavailable','none',''] %}\n{% set local = states('select.ember_satellite_assistant') == 'familiar-ember' %}{% set up = is_state('binary_sensor.ember_reachable', 'on') %}{% set det = (state_attr('binary_sensor.ember_reachable', 'detail') or '\u2014') | trim %}{% set hushed = is_state('switch.ember_satellite_hush', 'on') %}\n{% set pl = states('select.ember_satellite_assistant') %}\n{% set chain = {\n  'familiar-ember': ['Ember \u00b7 local Qwen3.6-35B on familiar','vosk','piper','en_GB-cori-medium'],\n  'claude-donkee': ['Claude Opus 4.7 \u00b7 Bedrock','vosk','piper','en_US-hfc_female-medium'],\n  'Chatgpt': ['ChatGPT','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Gemini-vosk-piper-donkee': ['Google Gemini','vosk','piper','en_US-hfc_female-medium'],\n  'yurt-butler': ['Home Assistant','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Home Assistant': ['Home Assistant','\u2014','HA Cloud','JennyNeural'],\n  'preferred': ['Google Gemini \u00b7 HA preferred','vosk','piper','en_US-hfc_female-medium']\n} %}\n{% set p = chain.get(pl, ['\u2014','\u2014','\u2014','\u2014']) %}\n{% set held = states.select['ember_satellite_assistant'] %}\n{% set since = relative_time(held.last_changed) ~ ' on this pipeline' if held else '\u2014' %}\n{% set mind = (det if up else '`' ~ det ~ '`') if local else 'cloud agent \u00b7 not gated on familiar' %}\n| | stage | engine | reading |\n|:--|:--|:--|:--|\n| \u25cb | **wake** | openwakeword | {{ 'ready' if states('wake_word.openwakeword') not in na else 'idle' }} |\n| \u25d4 | **ear** | {{ p[1] }} | {% set v = states('sensor.ember_satellite_mic_rms') %}{{ (v | float | round(1)) ~ ' dB' if v not in na else '\u2014' }} |\n| {{ '\u25d1' if (up or not local) else '`\u2716`' }} | **mind** | {{ p[0] }} | {{ mind }} \u00b7 {{ since }} |\n| \u25c6 | **voice** | {{ p[2] }} \u00b7 *{{ p[3] }}* | {% set v = states('sensor.ember_satellite_speaker_frames') %}{{ (v | float | int) ~ ' frames' if v not in na else '\u2014' }} |\n",
+       "content": "{% set na = ['unknown','unavailable','none',''] %}\n{% set local = states('select.ember_satellite_assistant') == 'familiar-ember' %}{% set up = is_state('binary_sensor.ember_reachable', 'on') %}{% set det = (state_attr('binary_sensor.ember_reachable', 'detail') or '\u2014') | trim %}{% set hushed = is_state('switch.ember_satellite_hush', 'on') %}\n{% set pl = states('select.ember_satellite_assistant') %}\n{% set chain = {\n  'familiar-ember': ['Ember \u00b7 local Qwen3.6-35B on familiar','vosk','piper','en_GB-cori-medium'],\n  'claude-donkee': ['Claude Opus 4.7 \u00b7 Bedrock','vosk','piper','en_US-hfc_female-medium'],\n  'Chatgpt': ['ChatGPT','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Gemini-vosk-piper-donkee': ['Google Gemini','vosk','piper','en_US-hfc_female-medium'],\n  'yurt-butler': ['Home Assistant','faster-whisper','piper','en_US-hfc_female-medium'],\n  'Home Assistant': ['Home Assistant','\u2014','HA Cloud','JennyNeural'],\n  'preferred': ['Google Gemini \u00b7 HA preferred','vosk','piper','en_US-hfc_female-medium']\n} %}\n{% set p = chain.get(pl, ['\u2014','\u2014','\u2014','\u2014']) %}\n{% set held = states.select['ember_satellite_assistant'] %}\n{% set since = relative_time(held.last_changed) ~ ' on this pipeline' if held else '\u2014' %}\n{% set mind = (det if up else '`' ~ det ~ '`') if local else 'cloud agent \u00b7 not gated on familiar' %}\n| | stage | engine | reading |\n|:--|:--|:--|:--|\n| \u25cb | **wake** | openwakeword | {{ 'ready' if states('wake_word.openwakeword_2') not in na else 'idle' }} |\n| \u25d4 | **ear** | {{ p[1] }} | {% set v = states('sensor.ember_satellite_mic_rms') %}{{ (v | float | round(1)) ~ ' dB' if v not in na else '\u2014' }} |\n| {{ '\u25d1' if (up or not local) else '`\u2716`' }} | **mind** | {{ p[0] }} | {{ mind }} \u00b7 {{ since }} |\n| \u25c6 | **voice** | {{ p[2] }} \u00b7 *{{ p[3] }}* | {% set v = states('sensor.ember_satellite_speaker_frames') %}{{ (v | float | int) ~ ' frames' if v not in na else '\u2014' }} |\n",
        "card_mod": {
         "style": {
          ".": "ha-card {\n  --em-bed:#4A1002; --em-coal:#8E2206; --em-glow:#E05A08;\n  --em-gold:#FFA81E; --em-tip:#FFE8B4; --em-alarm:#FF3C18;\n  --em-ash:#3A322C; --em-dim:#6A5240;\n}\n@media (prefers-color-scheme: light) {\n  ha-card {\n    --em-bed:#8C2E0A; --em-coal:#B83A0C; --em-glow:#C2540C;\n    --em-gold:#A84D06; --em-tip:#6B3A04; --em-alarm:#A81410;\n    --em-ash:#D8CAB8; --em-dim:#8A7662;\n  }\n}\n\nha-card { border:1px solid var(--divider-color); border-radius:10px;\n  background:linear-gradient(180deg,\n    color-mix(in srgb, var(--em-bed) 10%, var(--card-background-color)) 0%,\n    var(--card-background-color) 60%); }\n",
@@ -2072,7 +2072,7 @@
       },
       {
        "type": "tile",
-       "entity": "wake_word.openwakeword",
+       "entity": "wake_word.openwakeword_2",
        "name": "openwakeword",
        "icon": "mdi:sleep-off",
        "color": "brown"
@@ -4273,7 +4273,7 @@
       },
       {
        "type": "tile",
-       "entity": "wake_word.openwakeword",
+       "entity": "wake_word.openwakeword_2",
        "name": "openwakeword",
        "icon": "mdi:sleep-off",
        "color": "brown"
