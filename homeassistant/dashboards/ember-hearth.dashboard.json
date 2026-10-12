@@ -2050,18 +2050,8 @@
        }
       },
       {
-       "type": "tile",
-       "entity": "stt.vosk",
-       "name": "vosk \u00b7 parked",
-       "icon": "mdi:ear-hearing-off",
-       "color": "brown"
-      },
-      {
-       "type": "tile",
-       "entity": "stt.faster_whisper",
-       "name": "faster-whisper \u00b7 parked",
-       "icon": "mdi:ear-hearing-off",
-       "color": "brown"
+       "type": "markdown",
+       "content": "**vosk \u00b7 faster-whisper \u2014 parked.** Their add-ons are still installed, but their Wyoming entries were removed from HA, so they have no live entities. Parakeet (onnx-asr) is the live ear. Re-add the Wyoming integration to bring one back."
       },
       {
        "type": "tile",
@@ -4251,18 +4241,8 @@
        }
       },
       {
-       "type": "tile",
-       "entity": "stt.vosk",
-       "name": "vosk \u00b7 parked",
-       "icon": "mdi:ear-hearing-off",
-       "color": "brown"
-      },
-      {
-       "type": "tile",
-       "entity": "stt.faster_whisper",
-       "name": "faster-whisper \u00b7 parked",
-       "icon": "mdi:ear-hearing-off",
-       "color": "brown"
+       "type": "markdown",
+       "content": "**vosk \u00b7 faster-whisper \u2014 parked.** Their add-ons are still installed, but their Wyoming entries were removed from HA, so they have no live entities. Parakeet (onnx-asr) is the live ear. Re-add the Wyoming integration to bring one back."
       },
       {
        "type": "tile",
