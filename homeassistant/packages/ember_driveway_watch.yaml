@@ -110,6 +110,21 @@ automation:
         - "A {{ label }} wanders {{ place }}."
         - "Four legs on the gravel — a {{ label }}, if my eyes serve."
         - "A {{ label }} has found the driveway. It does not appear to have an appointment."
+      # DEMOTE, never drop (2026-10-11): a dark roadside post at box centre ≈(455,230) px of the
+      # 704x480 driveway frame is detected as "person" at dusk most evenings (10-10 18:49, 10-11 17:14).
+      # A suppression was REJECTED — a real child was once detected inside that window (Frigate event
+      # 1791298562.388283-r841l1; ha repo scratch/oracle-stump-review.md). So the alert still fires at
+      # the same importance with the snapshot attached; only the WORDING admits it may be the post.
+      # Any odd/missing box data → false → normal wording (fail-open to the plain alert).
+      stumpish: >-
+        {% set a = trigger.payload_json.after if trigger.payload_json.after is mapping else {} %}
+        {% set b = a.box if (a.box is defined and a.box is sequence and a.box is not string) else [] %}
+        {% if a.camera == 'driveway' and label == 'person' and b | count == 4
+              and (b | select('number') | list | count == 4)
+              and a.area is defined and a.area is number and a.area > 0 %}
+          {{ ((b[0] + b[2]) / 2 - 455) | abs <= 10 and ((b[1] + b[3]) / 2 - 230) | abs <= 8
+             and a.area < 1000 }}
+        {% else %}false{% endif %}
       bear_lines:
         - "A bear is on the driveway. I am a dragon, so I am not worried. You might be."
         - "Bear on the drive. I suggest admiring it from indoors."
@@ -128,10 +143,10 @@ automation:
                  or (label == 'person' and is_state('sun.sun','below_horizon'))
                else 'normal' }}
           message: >-
-            {{ (bear_lines if label == 'bear'
+            {% if stumpish | bool %}Someone on foot up the drive — or the roadside post fooling the camera again; check the snapshot.{% else %}{{ (bear_lines if label == 'bear'
                 else animal_lines if label in ['dog', 'cat', 'horse', 'sheep', 'cow']
                 else person_lines if label == 'person'
-                else vehicle_lines) | random }}
+                else vehicle_lines) | random }}{% endif %}
       # Absorb tracker flap on the same physical vehicle; see header.
       - delay:
           minutes: "{{ states('input_number.ember_herald_cooldown') | int(3) }}"
