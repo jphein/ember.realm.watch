@@ -1,0 +1,53 @@
+# Ember warm-up — born 2026-10-13 (ha lane, backlog #75 (h)).
+#
+# WHY: Ember's prompt is ~9K tokens (persona + Devices table + 12 tool specs). llama-server
+# keeps that prefix in its KV cache, so a WARM turn costs ~1.4 s end to end — but the cache is
+# empty after HA restarts (the Ember config entry reloads) and after the backend restarts or
+# familiar wakes, and the first turn then re-prefills all ~8.8K tokens: measured TTFT 15 s.
+# Without this, that 15 s lands on whoever speaks first. One throwaway turn through the SAME
+# agent (same rendered prefix) moves it onto nobody.
+#
+# Deliberately NOT here (yet): an hourly top-of-hour warm-up for the ~3 s re-prefill when the
+# hour line in the prompt changes. It must skip while teamclaude serves its local failover from
+# the same single llama slot, and no "failover active" signal exists yet — asked teamclaude-02.
+#
+# The warm-up line lands in the 30-day transcript log like any turn; it is recognisable by its
+# fixed text.
+automation:
+  - id: ember_warmup_after_start
+    alias: "Ember: warm the model's prompt cache after HA start / backend restart"
+    mode: single
+    max_exceeded: silent
+    trigger:
+      - platform: homeassistant
+        event: start
+        id: ha_start
+      - platform: state
+        entity_id: binary_sensor.ember_backend
+        # A sleeping familiar reads `unavailable` (the health poll fails), not `off` — so a
+        # wake is unavailable→on. At HA start both triggers can fire; mode: single drops one.
+        from: ["off", "unavailable"]
+        to: "on"
+        id: backend_back
+    action:
+      # Only when the backend actually serves — a sleeping familiar can't be warmed
+      # (and polling never wakes it; see ember_backend_health.yaml).
+      - wait_template: "{{ is_state('binary_sensor.ember_backend', 'on') }}"
+        timeout: "00:10:00"
+        continue_on_timeout: false
+      # After an HA start, let the Ember config entry and mobile_app webhooks finish loading.
+      - if:
+          - condition: trigger
+            id: ha_start
+        then:
+          - delay: "00:03:00"
+      - action: conversation.process
+        continue_on_error: true
+        data:
+          agent_id: conversation.extended_openai_conversation_2
+          text: "Reply with just the word ok."
+      - action: logbook.log
+        data:
+          name: "Ember warm-up"
+          message: "prompt cache warmed ({{ trigger.id }})"
+          entity_id: binary_sensor.ember_backend
