@@ -45,9 +45,12 @@ automation:
         to: "end"
         id: dryer
     condition:
-      - condition: time
-        after: "07:30:00"
-        before: "22:30:00"
+      # The house's shared quiet window (ha repo house_config.yaml), not a
+      # fixed 07:30–22:30 — JP 2026-10-12: Luna's bedtime is 20:00, every quiet
+      # window is 20:00–08:00. Unknown quiet_hours fails toward silence.
+      - condition: state
+        entity_id: binary_sensor.quiet_hours
+        state: "off"
     variables:
       appliance: "{{ trigger.id }}"
       fallback_lines:
