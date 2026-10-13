@@ -9,9 +9,15 @@
 # Addressed by polling the llama.cpp lane directly.
 #
 # Notes for whoever touches this next:
-#   - `familiar.lan`, NOT `familiar`. HAOS does not resolve the bare hostname.
-#     And never the IP: it moved .124 -> 10.0.6.107 and the stale literal cost
-#     a debugging session.
+#   - THE IP, ON PURPOSE (2026-10-13, jp-92's decision) — do not "fix" it back to
+#     familiar.lan. A gatekeeper netifd restart (13:24) left HA core's shared
+#     c-ares resolver holding a cached failure for familiar.lan ("DNS server
+#     returned answer with no data") long after DNS itself was fine: the HAOS DNS
+#     plugin restart and rest.reload did not clear it, only a core restart would.
+#     A health probe must not depend on DNS. familiar is STATIC at 10.0.6.107
+#     (gatekeeper reservation, MAC 04:d9:f5:fa:1e:e0). The old warning — the
+#     address moved .124 -> .107 once and a stale literal cost a debugging session —
+#     still applies: if familiar's reservation ever changes, change it here too.
 #   - Polling does NOT keep familiar awake. Its autosuspend decides on whether
 #     the inference lane is loaded, not on network traffic, and an HTTP request
 #     to a sleeping host simply fails rather than waking it (that needs WOL).
@@ -19,7 +25,7 @@
 #   - Reloadable without a full HA restart: `rest.reload`.
 
 rest:
-  - resource: http://familiar.lan:8091/health
+  - resource: http://10.0.6.107:8091/health
     scan_interval: 60
     timeout: 8
     binary_sensor:
