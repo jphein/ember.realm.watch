@@ -84,7 +84,7 @@ declare -A RELOADS=(
   # announce on the peer hearth.
   [ember_intercom]="automation script template"
   # ember_warmup: one throwaway Ember turn after HA start / backend restart (prompt cache).
-  [ember_warmup]="automation"
+  [ember_warmup]="rest automation"
   # ember_battery_watch: the mobile cell's critical alarm (speak + broadcast).
   # The 20% chime is firmware-side; only the 8% escalation lives in HA.
   [ember_battery_watch]="automation"

@@ -7,13 +7,52 @@
 # Without this, that 15 s lands on whoever speaks first. One throwaway turn through the SAME
 # agent (same rendered prefix) moves it onto nobody.
 #
-# Deliberately NOT here (yet): an hourly top-of-hour warm-up for the ~3 s re-prefill when the
-# hour line in the prompt changes. It must skip while teamclaude serves its local failover from
-# the same single llama slot, and no "failover active" signal exists yet — asked teamclaude-02.
+# Hourly (added 2026-10-13 pm): the prompt's "Current Time" line is hour-resolution and sits
+# before the ~1K-token tool block in Qwen's chat template, so the first turn of each hour
+# re-prefills ~1K tokens (~3 s). One warm-up at :00:30 absorbs it — but ONLY when teamclaude is
+# not serving its local failover from the same single llama slot (teamclaude PR #29 signal,
+# read with the "ha" client key from secrets.yaml). FAIL-SAFE: unavailable/unknown = skip.
 #
 # The warm-up line lands in the 30-day transcript log like any turn; it is recognisable by its
 # fixed text.
+rest:
+  - resource: http://10.0.6.107:3456/teamclaude/failover
+    scan_interval: 60
+    timeout: 8
+    headers:
+      x-api-key: !secret teamclaude_ha_key
+    binary_sensor:
+      - name: Teamclaude local failover
+        unique_id: teamclaude_local_failover_active
+        # true while teamclaude serves a failover request from familiar's llama slot, and for
+        # up to 2 min after. Anything unparseable → unavailable → the warm-up skips.
+        value_template: "{{ value_json.local_failover_active }}"
+        availability: "{{ value_json is defined and value_json.local_failover_active is defined }}"
+
 automation:
+  - id: ember_warmup_hourly
+    alias: "Ember: warm the prompt cache at the top of each hour (skip during teamclaude failover)"
+    mode: single
+    max_exceeded: silent
+    trigger:
+      - platform: time_pattern
+        minutes: 0
+        seconds: 30
+    condition:
+      - condition: state
+        entity_id: binary_sensor.ember_backend
+        state: "on"
+      # exactly "off" — unavailable/unknown (signal unreachable) skips, by design
+      - condition: state
+        entity_id: binary_sensor.teamclaude_local_failover
+        state: "off"
+    action:
+      - action: conversation.process
+        continue_on_error: true
+        data:
+          agent_id: conversation.extended_openai_conversation_2
+          text: "Reply with just the word ok."
+
   - id: ember_warmup_after_start
     alias: "Ember: warm the model's prompt cache after HA start / backend restart"
     mode: single
