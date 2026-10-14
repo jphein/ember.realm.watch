@@ -48,6 +48,12 @@ input_boolean:
     name: "Herald: animals"
     icon: mdi:paw
 
+input_text:
+  # Last Frigate track id that was heralded — one herald per track (see the condition).
+  ember_herald_last_event:
+    name: "Herald: last heralded track"
+    max: 64
+
 input_number:
   ember_herald_cooldown:
     name: "Herald: cooldown between announcements"
@@ -77,7 +83,17 @@ automation:
           {% set lbl = trigger.payload_json.after.label %}
           {% set vehicles = ['car', 'truck', 'motorcycle', 'bicycle'] %}
           {% set animals  = ['dog', 'cat', 'bear', 'horse', 'sheep', 'cow'] %}
-          {{ trigger.payload_json.type == 'new'
+          {#- CONFIRMED tracks only (2026-10-13, jp-92 GO; evidence: ha scratch/herald-confirm/).
+              Frigate publishes `new` for tracks it later discards (they never reach its DB: the
+              10-12 "walker", the 10-13 "bear" that was a black cat). `false_positive` is already
+              False on every `new`, so it cannot tell them apart. has_snapshot can: over 183 captured
+              tracks it was set on 13/13 Frigate KEPT (9 already on `new`, max +2.12 s) and on
+              0/170 it DROPPED; the old `type == 'new'` rule heralded 169 of those 170.
+              So: herald on the first new/update that has a snapshot, once per track (dedupe by id).
+              No label is ever dropped — bear and person herald exactly as before, just confirmed. -#}
+          {{ trigger.payload_json.type in ['new', 'update']
+             and trigger.payload_json.after.has_snapshot | default(false) == true
+             and trigger.payload_json.after.id != states('input_text.ember_herald_last_event')
              and is_state('input_boolean.ember_herald_' ~ cam, 'on')
              and ( (lbl in vehicles and is_state('input_boolean.ember_herald_vehicles', 'on'))
                 or (lbl == 'person' and is_state('input_boolean.ember_herald_people', 'on'))
@@ -129,6 +145,12 @@ automation:
         - "A bear is on the driveway. I am a dragon, so I am not worried. You might be."
         - "Bear on the drive. I suggest admiring it from indoors."
     action:
+      # once per track: later updates of the same id must not re-herald after the cooldown
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.ember_herald_last_event
+        data:
+          value: "{{ trigger.payload_json.after.id }}"
       - action: script.ember_broadcast
         data:
           category: driveway
@@ -150,3 +172,41 @@ automation:
       # Absorb tracker flap on the same physical vehicle; see header.
       - delay:
           minutes: "{{ states('input_number.ember_herald_cooldown') | int(3) }}"
+
+  # A BEAR that Frigate never confirms (no snapshot within 5 s of `new`) is LOGGED, not spoken —
+  # jp-92 2026-10-13, so a dusk misread can be tuned from data instead of scaring the house. A
+  # confirmed bear still heralds through the automation above, unchanged.
+  - id: ember_driveway_unconfirmed_bear_log
+    alias: "Ember: log a bear Frigate never confirmed (not spoken)"
+    mode: parallel
+    max: 5
+    trigger:
+      - platform: mqtt
+        topic: frigate/events
+    condition:
+      - condition: template
+        value_template: >-
+          {{ trigger.payload_json.type == 'new'
+             and trigger.payload_json.after.label == 'bear'
+             and not trigger.payload_json.after.has_snapshot | default(false) }}
+    action:
+      - variables:
+          tid: "{{ trigger.payload_json.after.id }}"
+          cam: "{{ trigger.payload_json.after.camera }}"
+      - wait_for_trigger:
+          - platform: mqtt
+            topic: frigate/events
+            value_template: >-
+              {{ value_json.after.id == tid and value_json.after.has_snapshot | default(false) }}
+        timeout: "00:00:05"
+        continue_on_timeout: true
+      - if:
+          - condition: template
+            value_template: "{{ wait.trigger is none }}"
+        then:
+          - action: logbook.log
+            data:
+              name: "Ember herald"
+              message: >-
+                unconfirmed bear on {{ cam }} (track {{ tid }}) — no snapshot within 5 s, NOT spoken
+              entity_id: input_boolean.ember_herald_animals
