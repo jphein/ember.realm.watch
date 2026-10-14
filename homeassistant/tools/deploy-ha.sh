@@ -70,7 +70,7 @@ declare -A RELOADS=(
   [ember_persona]="input_text"
   [ember_announce]="script"
   [ember_laundry_herald]="automation"
-  [ember_driveway_watch]="automation"
+  [ember_driveway_watch]="input_text automation"
   # ember_toolkit carries the credential-bearing data plane behind Ember's
   # tools: a `rest:` sensor (OctoPrint) and `rest_command:` entries (MemPalace,
   # Spyglass). Both reload live; neither needs a restart.
