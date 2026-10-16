@@ -141,6 +141,19 @@ automation:
           {{ ((b[0] + b[2]) / 2 - 455) | abs <= 10 and ((b[1] + b[3]) / 2 - 230) | abs <= 8
              and a.area < 1000 }}
         {% else %}false{% endif %}
+      # DEMOTE, never drop (2026-10-15, jp-92): after dark, a car's headlights on the SOLAR PANEL ARRAY (left of the
+      # 704x480 frame, ≈ x 0–250, y 150–360) are detected as "person" (10-15 20:42, track oxgxxx, box [40,88,220,317]
+      # while a car came up the drive). Same contract as stumpish: the alert still fires, same importance, snapshot
+      # attached; only the WORDING admits it may be glare. Daytime boxes there keep the plain wording. Odd/missing
+      # box data → false → plain wording (fail-open).
+      glareish: >-
+        {% set a = trigger.payload_json.after if trigger.payload_json.after is mapping else {} %}
+        {% set b = a.box if (a.box is defined and a.box is sequence and a.box is not string) else [] %}
+        {% if a.camera == 'driveway' and label == 'person' and b | count == 4
+              and (b | select('number') | list | count == 4) %}
+          {% set cx = (b[0] + b[2]) / 2 %}{% set cy = (b[1] + b[3]) / 2 %}
+          {{ is_state('sun.sun', 'below_horizon') and 0 <= cx <= 250 and 150 <= cy <= 360 }}
+        {% else %}false{% endif %}
       bear_lines:
         - "A bear is on the driveway. I am a dragon, so I am not worried. You might be."
         - "Bear on the drive. I suggest admiring it from indoors."
@@ -165,7 +178,7 @@ automation:
                  or (label == 'person' and is_state('sun.sun','below_horizon'))
                else 'normal' }}
           message: >-
-            {% if stumpish | bool %}Someone on foot up the drive — or the roadside post fooling the camera again; check the snapshot.{% else %}{{ (bear_lines if label == 'bear'
+            {% if stumpish | bool %}Someone on foot up the drive — or the roadside post fooling the camera again; check the snapshot.{% elif glareish | bool %}Someone on foot up the drive — or headlights on the solar panels; check the snapshot.{% else %}{{ (bear_lines if label == 'bear'
                 else animal_lines if label in ['dog', 'cat', 'horse', 'sheep', 'cow']
                 else person_lines if label == 'person'
                 else vehicle_lines) | random }}{% endif %}
