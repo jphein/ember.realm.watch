@@ -53,6 +53,15 @@ script:
           Must be reachable from HA. Slack renders it inline.
         selector:
           text:
+      silent:
+        name: Silent
+        description: >-
+          true = post everywhere as usual (incl. #yurt) but do NOT speak. Added 2026-10-17 for the
+          driveway herald's repeat-spot damper (a cobweb on the lens fired 134 'person' tracks in a
+          night). Default false — every existing caller is unchanged.
+        required: false
+        selector:
+          boolean:
       speak_on:
         name: Speak on
         description: >-
@@ -83,6 +92,7 @@ script:
                     or is_state('binary_sensor.pumphouse_radar_presence', 'on')
                     or is_state('device_tracker.jps_phone_bermuda', 'home')) }}
           high: "{{ importance | default('normal') == 'high' }}"
+          mute: "{{ silent | default(false) | bool }}"
           icon: >-
             {{ {'driveway': '🚗', 'laundry': '🧺', 'alert': '⚠️'}
                .get(category | default('event'), '🔥') }}
@@ -101,7 +111,8 @@ script:
           message: >-
             {{ icon }} `{{ stamp }}` {{ message }}
             {{- ' _(quiet hours — not spoken)_' if quiet else '' }}
-            {{- ' _(nobody home)_' if away and not quiet else '' }}
+            {{- ' _(damped repeat — not spoken)_' if mute and not quiet else '' }}
+            {{- ' _(nobody home)_' if away and not quiet and not mute else '' }}
 
       # ---- 1b. DRIVEWAY-ONLY FEED ------------------------------------------
       # #driveway carries nothing but arrivals — no laundry, no alerts, no
@@ -119,11 +130,12 @@ script:
               message: >-
                 {{ icon }} `{{ stamp }}` {{ message }}
                 {{- ' _(quiet hours — not spoken aloud)_' if quiet else '' }}
+                {{- ' _(damped repeat — not spoken aloud)_' if mute and not quiet else '' }}
 
       # ---- 2. SPEAK: only outside quiet hours -------------------------------
       - if:
           - condition: template
-            value_template: "{{ not quiet }}"
+            value_template: "{{ not quiet and not mute }}"
         then:
           - action: script.ember_announce_if_awake
             continue_on_error: true
@@ -134,7 +146,7 @@ script:
       # ---- 3. ESCALATE to #yurt: only what you'd otherwise miss -------------
       - if:
           - condition: template
-            value_template: "{{ quiet or away or high }}"
+            value_template: "{{ quiet or away or high or mute }}"
         then:
           - action: notify.the_homefront
             continue_on_error: true
@@ -144,6 +156,8 @@ script:
                 {{ icon }} *{{ message }}*
                 {% if quiet %}
                 _{{ stamp }} — quiet hours, not announced aloud._
+                {% elif mute %}
+                _{{ stamp }} — damped repeat (same spot again), not announced aloud._
                 {% elif away %}
                 _{{ stamp }} — nobody home to hear it._
                 {% else %}

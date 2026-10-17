@@ -53,6 +53,16 @@ input_text:
   ember_herald_last_event:
     name: "Herald: last heralded track"
     max: 64
+  # REPEAT-SPOT DAMPER state (2026-10-17, jp-92 GO; ha backlog #83). JSON, written only by the automations
+  # below. spot = {x,y: running-mean box centre (0–1 of the 704x480 frame), n: repeats, t: last epoch s,
+  # id: last counted track, sx,sy: that track's start centre, mv: it moved}; muted = {id,x,y} of the last
+  # voice-muted herald. Anything unparseable reads as {} → no damping (fail-open).
+  ember_herald_spot:
+    name: "Herald: repeat-spot damper state"
+    max: 255
+  ember_herald_muted:
+    name: "Herald: last muted track"
+    max: 255
 
 input_number:
   ember_herald_cooldown:
@@ -154,6 +164,26 @@ automation:
           {% set cx = (b[0] + b[2]) / 2 %}{% set cy = (b[1] + b[3]) / 2 %}
           {{ is_state('sun.sun', 'below_horizon') and 0 <= cx <= 250 and 150 <= cy <= 360 }}
         {% else %}false{% endif %}
+      # REPEAT-SPOT DAMPER (2026-10-17, jp-92 GO; ha #83): 10-16 20:23→10-17 03:57 a cobweb on the lens
+      # (IR-lit strand) was detected as 'person' 134 times in ONE spot (~45 #yurt heralds). spot_n = how
+      # many confirmed person tracks (this one included) sat within 0.05 of the same spot inside 20 min
+      # (30 min once at the mute tier). ≥3 → hedged wording; ≥6 → Slack-only (silent) until the spot has
+      # been quiet. Computed from the counter's state so it does not race it. A track elsewhere → 0 →
+      # normal. Missing/odd data → 0 → normal (fail-open). A muted track that then MOVES is spoken by
+      # ember_herald_spot_mover — a walker crossing the cobweb spot is never silenced for good.
+      spot_n: >-
+        {% set a = trigger.payload_json.after if trigger.payload_json.after is mapping else {} %}
+        {% set b = a.box if (a.box is defined and a.box is sequence and a.box is not string) else [] %}
+        {% set sp = states('input_text.ember_herald_spot') | from_json(default={}) %}
+        {% if a.camera == 'driveway' and label == 'person' and b | count == 4
+              and (b | select('number') | list | count == 4) and sp is mapping
+              and sp.x is number and sp.y is number and sp.n is number and sp.t is number %}
+          {% set cx = (b[0] + b[2]) / 2 / 704 %}{% set cy = (b[1] + b[3]) / 2 / 480 %}
+          {% set win = 1800 if sp.n >= 6 else 1200 %}
+          {% if ((cx - sp.x) ** 2 + (cy - sp.y) ** 2) ** 0.5 <= 0.05 and (now().timestamp() - sp.t) <= win %}
+            {{ sp.n + (0 if sp.id == a.id else 1) }}
+          {% else %}0{% endif %}
+        {% else %}0{% endif %}
       bear_lines:
         - "A bear is on the driveway. I am a dragon, so I am not worried. You might be."
         - "Bear on the drive. I suggest admiring it from indoors."
@@ -164,8 +194,22 @@ automation:
           entity_id: input_text.ember_herald_last_event
         data:
           value: "{{ trigger.payload_json.after.id }}"
+      - if:
+          - condition: template
+            value_template: "{{ spot_n | default(0) | int(0) >= 6 }}"
+        then:
+          - action: input_text.set_value
+            target:
+              entity_id: input_text.ember_herald_muted
+            data:
+              value: >-
+                {% set b = trigger.payload_json.after.box %}
+                {{ {'id': trigger.payload_json.after.id,
+                    'x': ((b[0] + b[2]) / 2 / 704) | round(3),
+                    'y': ((b[1] + b[3]) / 2 / 480) | round(3)} | to_json }}
       - action: script.ember_broadcast
         data:
+          silent: "{{ spot_n | default(0) | int(0) >= 6 }}"
           category: driveway
           # Frigate event snapshot, fetched by HA on the LAN. `snapshot.jpg`
           # is the annotated frame (bounding box), which is what makes the
@@ -178,7 +222,7 @@ automation:
                  or (label == 'person' and is_state('sun.sun','below_horizon'))
                else 'normal' }}
           message: >-
-            {% if stumpish | bool %}Someone on foot up the drive — or the roadside post fooling the camera again; check the snapshot.{% elif glareish | bool %}Someone on foot up the drive — or headlights on the solar panels; check the snapshot.{% else %}{{ (bear_lines if label == 'bear'
+            {% if stumpish | bool %}Someone on foot up the drive — or the roadside post fooling the camera again; check the snapshot.{% elif glareish | bool %}Someone on foot up the drive — or headlights on the solar panels; check the snapshot.{% elif spot_n | default(0) | int(0) >= 3 %}Someone on foot up the drive — the same spot again, likely a cobweb or insect on the lens; check the snapshot.{% else %}{{ (bear_lines if label == 'bear'
                 else animal_lines if label in ['dog', 'cat', 'horse', 'sheep', 'cow']
                 else person_lines if label == 'person'
                 else vehicle_lines) | random }}{% endif %}
@@ -223,3 +267,111 @@ automation:
               message: >-
                 unconfirmed bear on {{ cam }} (track {{ tid }}) — no snapshot within 5 s, NOT spoken
               entity_id: input_boolean.ember_herald_animals
+
+  # REPEAT-SPOT DAMPER — the counter. Every CONFIRMED driveway person track (first message with a snapshot)
+  # updates the remembered spot: within 0.05 of it and inside the window → n+1 (running-mean centre);
+  # spot empty or expired → this track seeds a new spot; a track ELSEWHERE while a spot is active changes
+  # nothing (it neither resets the damper nor is damped — the herald speaks it normally).
+  - id: ember_herald_spot_counter
+    alias: "Ember: herald repeat-spot damper — count confirmed person tracks per spot"
+    mode: queued
+    max: 25
+    trigger:
+      - platform: mqtt
+        topic: frigate/events
+    condition:
+      - condition: template
+        value_template: >-
+          {% set a = trigger.payload_json.after if trigger.payload_json.after is mapping else {} %}
+          {% set b = a.box if (a.box is defined and a.box is sequence and a.box is not string) else [] %}
+          {% set sp = states('input_text.ember_herald_spot') | from_json(default={}) %}
+          {{ trigger.payload_json.type in ['new', 'update'] and a.camera == 'driveway' and a.label == 'person'
+             and a.has_snapshot | default(false) == true and b | count == 4
+             and (b | select('number') | list | count == 4)
+             and a.id != (sp.id if sp is mapping else '') }}
+    action:
+      - variables:
+          new_spot: >-
+            {% set a = trigger.payload_json.after %}{% set b = a.box %}
+            {% set cx = ((b[0] + b[2]) / 2 / 704) | round(3) %}{% set cy = ((b[1] + b[3]) / 2 / 480) | round(3) %}
+            {% set sp = states('input_text.ember_herald_spot') | from_json(default={}) %}
+            {% set nt = now().timestamp() | int %}
+            {% set ok = sp is mapping and sp.x is number and sp.y is number and sp.n is number and sp.t is number %}
+            {% set win = (1800 if ok and sp.n >= 6 else 1200) %}
+            {% set age = (nt - sp.t) if ok else 999999 %}
+            {% set d = (((cx - sp.x) ** 2 + (cy - sp.y) ** 2) ** 0.5) if ok else 9 %}
+            {% if ok and d <= 0.05 and age <= win %}
+              {% set n = sp.n + 1 %}
+              {{ {'x': ((sp.x * sp.n + cx) / n) | round(3), 'y': ((sp.y * sp.n + cy) / n) | round(3), 'n': n,
+                  't': nt, 'id': a.id, 'sx': cx, 'sy': cy} | to_json }}
+            {% elif not ok or age > win %}
+              {{ {'x': cx, 'y': cy, 'n': 1, 't': nt, 'id': a.id, 'sx': cx, 'sy': cy} | to_json }}
+            {% else %}KEEP{% endif %}
+      - condition: template
+        value_template: "{{ new_spot | trim != 'KEEP' }}"
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.ember_herald_spot
+        data:
+          value: "{{ new_spot | trim }}"
+
+  # REPEAT-SPOT DAMPER — the mover guard. A cobweb/insect never moves; a person does. If the last COUNTED
+  # track, or the last MUTED one, drifts more than 0.05 from where it started, it is taken back out of the
+  # count — and if its herald was muted, it is spoken now ("…moving after all").
+  - id: ember_herald_spot_mover
+    alias: "Ember: herald repeat-spot damper — a track that moves is a person (un-count, speak if muted)"
+    mode: queued
+    max: 25
+    trigger:
+      - platform: mqtt
+        topic: frigate/events
+    condition:
+      - condition: template
+        value_template: >-
+          {% set a = trigger.payload_json.after if trigger.payload_json.after is mapping else {} %}
+          {% set b = a.box if (a.box is defined and a.box is sequence and a.box is not string) else [] %}
+          {% set sp = states('input_text.ember_herald_spot') | from_json(default={}) %}
+          {% set mu = states('input_text.ember_herald_muted') | from_json(default={}) %}
+          {% if trigger.payload_json.type in ['update', 'end'] and a.camera == 'driveway' and a.label == 'person'
+                and b | count == 4 and (b | select('number') | list | count == 4) %}
+            {% set cx = (b[0] + b[2]) / 2 / 704 %}{% set cy = (b[1] + b[3]) / 2 / 480 %}
+            {% set is_sp = sp is mapping and sp.id == a.id and not sp.mv | default(false)
+                           and sp.sx is number and sp.sy is number %}
+            {% set is_mu = mu is mapping and mu.id == a.id and mu.x is number and mu.y is number %}
+            {{ (is_sp and ((cx - sp.sx) ** 2 + (cy - sp.sy) ** 2) ** 0.5 > 0.05)
+               or (is_mu and ((cx - mu.x) ** 2 + (cy - mu.y) ** 2) ** 0.5 > 0.05) }}
+          {% else %}false{% endif %}
+    action:
+      - variables:
+          tid: "{{ trigger.payload_json.after.id }}"
+      - if:
+          - condition: template
+            value_template: >-
+              {% set sp = states('input_text.ember_herald_spot') | from_json(default={}) %}
+              {{ sp is mapping and sp.id == tid and sp.n is number }}
+        then:
+          - action: input_text.set_value
+            target:
+              entity_id: input_text.ember_herald_spot
+            data:
+              value: >-
+                {% set sp = states('input_text.ember_herald_spot') | from_json(default={}) %}
+                {{ dict(sp, n=[sp.n - 1, 0] | max, mv=true) | to_json }}
+      - if:
+          - condition: template
+            value_template: >-
+              {% set mu = states('input_text.ember_herald_muted') | from_json(default={}) %}
+              {{ mu is mapping and mu.id == tid }}
+        then:
+          - action: input_text.set_value
+            target:
+              entity_id: input_text.ember_herald_muted
+            data:
+              value: "{}"
+          - action: script.ember_broadcast
+            data:
+              category: driveway
+              importance: "{{ 'high' if is_state('sun.sun', 'below_horizon') else 'normal' }}"
+              image_url: >-
+                http://10.0.6.11:5000/api/events/{{ tid }}/snapshot.jpg?bbox=1
+              message: "Someone on foot up the drive — moving, so not the cobweb after all; check the snapshot."
