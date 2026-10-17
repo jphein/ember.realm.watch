@@ -37,7 +37,8 @@ def render(after, night):
            "{% set person_lines = ['Someone approaches on foot, up the drive.'] %}"
            "{% set vehicle_lines = ['A car approaches up the drive.'] %}{% set animal_lines = ['x'] %}{% set bear_lines = ['x'] %}"
            "{% set stumpish %}" + fix(v["stumpish"]) + "{% endset %}"
-           "{% set glareish %}" + fix(v.get("glareish", "false")) + "{% endset %}" + fix(msg))
+           "{% set glareish %}" + fix(v.get("glareish", "false")) + "{% endset %}"
+           "{% set spot_n = 0 %}" + fix(msg))
     req = urllib.request.Request(f"{HA}/api/template", json.dumps({"template": tpl}).encode(),
                                  {"Authorization": "Bearer " + TOKEN, "Content-Type": "application/json"})
     return urllib.request.urlopen(req, timeout=15).read().decode().strip()
