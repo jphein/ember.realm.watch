@@ -11,6 +11,8 @@
 #   ./deploy-ha.sh --check         # validate only, change nothing
 #   ./deploy-ha.sh --dry-run       # show what would be copied, and WHICH WAY
 #   ./deploy-ha.sh ember_persona   # deploy one package by stem (prefer this)
+#   ./deploy-ha.sh a b             # several stems: ALL of them (before 2026-10-17 only the LAST
+#                                  # was deployed, silently); an unknown stem exits 2
 #   ./deploy-ha.sh --force         # overwrite even a VM copy that is newer
 #
 # ⚠️ THE VM IS OFTEN AHEAD OF THIS REPO. Packages get edited live on the HA host,
@@ -95,15 +97,20 @@ declare -A RELOADS=(
   [ember_house_watch]="template"
 )
 
-DRY=0; CHECK_ONLY=0; ONLY=""; FORCE=0
+DRY=0; CHECK_ONLY=0; ONLY=(); FORCE=0
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY=1 ;;
     --check)   CHECK_ONLY=1 ;;
     --force)   FORCE=1 ;;
     -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
-    *)         ONLY="$arg" ;;
+    -*)        echo "!! unknown option: $arg" >&2; exit 2 ;;
+    *)         ONLY+=("$arg") ;;
   esac
+done
+# Every stem named must be a real package — a typo used to deploy NOTHING and still look successful.
+for o in "${ONLY[@]}"; do
+  case " ${PACKAGES[*]} " in *" $o "*) ;; *) echo "!! unknown package stem: $o (known: ${PACKAGES[*]})" >&2; exit 2 ;; esac
 done
 
 # ─────────────────────── WHICH SIDE IS NEWER ───────────────────────
@@ -182,7 +189,7 @@ echo "==> target $HA_SSH_HOST:$PKG_DIR"
 
 changed=()
 for p in "${PACKAGES[@]}"; do
-  [ -n "$ONLY" ] && [ "$ONLY" != "$p" ] && continue
+  if [ ${#ONLY[@]} -gt 0 ]; then case " ${ONLY[*]} " in *" $p "*) ;; *) continue ;; esac; fi
   src="$SRC_DIR/$p.yaml"
   [ -f "$src" ] || { echo "!! missing $src" >&2; exit 1; }
 
