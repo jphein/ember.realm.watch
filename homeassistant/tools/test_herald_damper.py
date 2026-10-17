@@ -81,8 +81,9 @@ def step(state, t, after, moves_to=None):
         if render(MOV["condition"][0]["value_template"], upd, "update", spot, muted, t + 5) == "True":
             if isinstance(spot, dict) and spot.get("id") == after["id"]:
                 spot = json.loads(render(MOV["action"][1]["then"][0]["data"]["value"], upd, "update", spot, muted, t + 5))
-            if isinstance(muted, dict) and muted.get("id") == after["id"]:
-                muted, spoke_late = {}, True
+            if isinstance(muted, list) and any(m.get("id") == after["id"][-24:] for m in muted):
+                muted = [m for m in muted if m.get("id") != after["id"][-24:]]
+                spoke_late = True
     kind = "hedged" if "cobweb" in msg else "plain" if "PLAIN" in msg else msg[:30]
     return (spot, muted), {"n": n, "kind": kind, "silent": silent, "spoke_late": spoke_late}
 
@@ -103,6 +104,13 @@ checks.append(("static spot: track 6+ hedged and SILENT", all(r["kind"] == "hedg
 st2, r = step(st, T0 + 40 * 8, P(*SPOT, "walker"), moves_to=(SPOT[0] + 120, SPOT[1] + 90))
 checks.append(("moving track in the spot: spoken once it moves", r["spoke_late"]))
 checks.append(("moving track is taken back out of the count", st2[0].get("n") == st[0].get("n")))
+
+# 2b. Oracle R1: two tracks muted, then the FIRST one moves → still spoken (records kept, not overwritten)
+stA, rA = step(st, T0 + 40 * 8, P(*SPOT, "mutedA"))
+stB, rB = step(stA, T0 + 40 * 9, P(SPOT[0] + 3, SPOT[1], "mutedB"))
+mv = dict(P(SPOT[0] + 140, SPOT[1] + 60, "mutedA"))
+spoken_A = render(MOV["condition"][0]["value_template"], mv, "update", stB[0], stB[1], T0 + 40 * 9 + 5) == "True" if MOV else False
+checks.append(("R1: 2 muted, the FIRST later moves → still spoken", rA["silent"] and rB["silent"] and spoken_A))
 
 # 3. a person ELSEWHERE while the spot is active: plain + spoken, and the damper is NOT reset
 st3, r = step(st, T0 + 40 * 8, P(*ELSE, "elsewhere"))

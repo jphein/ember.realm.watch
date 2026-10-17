@@ -56,7 +56,7 @@ input_text:
   # REPEAT-SPOT DAMPER state (2026-10-17, jp-92 GO; ha backlog #83). JSON, written only by the automations
   # below. spot = {x,y: running-mean box centre (0–1 of the 704x480 frame), n: repeats, t: last epoch s,
   # id: last counted track, sx,sy: that track's start centre, mv: it moved}; muted = {id,x,y} of the last
-  # voice-muted herald. Anything unparseable reads as {} → no damping (fail-open).
+  # LAST 3 voice-muted heralds ([{id: last 24 chars, x, y}]). Anything unparseable reads as empty → no damping.
   ember_herald_spot:
     name: "Herald: repeat-spot damper state"
     max: 255
@@ -208,11 +208,16 @@ automation:
             target:
               entity_id: input_text.ember_herald_muted
             data:
+              # keep the LAST 3 muted tracks (Oracle R1/F3: a single slot was overwritten by the next silent
+              # herald, so an unmoved real person could lose the record that lets the mover speak them)
               value: >-
                 {% set b = trigger.payload_json.after.box %}
-                {{ {'id': trigger.payload_json.after.id,
-                    'x': ((b[0] + b[2]) / 2 / 704) | round(3),
-                    'y': ((b[1] + b[3]) / 2 / 480) | round(3)} | to_json }}
+                {% set old = states('input_text.ember_herald_muted') | from_json(default=[]) %}
+                {% set old = old if old is list else [] %}
+                {% set rec = {'id': trigger.payload_json.after.id[-24:],
+                              'x': ((b[0] + b[2]) / 2 / 704) | round(3),
+                              'y': ((b[1] + b[3]) / 2 / 480) | round(3)} %}
+                {{ (old[-2:] + [rec]) | to_json }}
       - action: script.ember_broadcast
         data:
           silent: "{{ spot_n | default(0) | int(0) >= 6 }}"
@@ -340,13 +345,14 @@ automation:
           {% set a = trigger.payload_json.after if trigger.payload_json.after is mapping else {} %}
           {% set b = a.box if (a.box is defined and a.box is sequence and a.box is not string) else [] %}
           {% set sp = states('input_text.ember_herald_spot') | from_json(default={}) %}
-          {% set mu = states('input_text.ember_herald_muted') | from_json(default={}) %}
+          {% set mu = states('input_text.ember_herald_muted') | from_json(default=[]) %}
+          {% set mu = (mu | selectattr('id', 'defined') | selectattr('id', 'eq', (a.id | default(''))[-24:]) | list | first) if mu is list else none %}
           {% if trigger.payload_json.type in ['update', 'end'] and a.camera == 'driveway' and a.label == 'person'
                 and b | count == 4 and (b | select('number') | list | count == 4) %}
             {% set cx = (b[0] + b[2]) / 2 / 704 %}{% set cy = (b[1] + b[3]) / 2 / 480 %}
             {% set is_sp = sp is mapping and sp.id == a.id and not sp.mv | default(false)
                            and sp.sx is number and sp.sy is number %}
-            {% set is_mu = mu is mapping and mu.id == a.id and mu.x is number and mu.y is number %}
+            {% set is_mu = mu is mapping and mu.x is number and mu.y is number %}
             {{ (is_sp and ((cx - sp.sx) ** 2 + (cy - sp.sy) ** 2) ** 0.5 > 0.05)
                or (is_mu and ((cx - mu.x) ** 2 + (cy - mu.y) ** 2) ** 0.5 > 0.05) }}
           {% else %}false{% endif %}
@@ -369,14 +375,16 @@ automation:
       - if:
           - condition: template
             value_template: >-
-              {% set mu = states('input_text.ember_herald_muted') | from_json(default={}) %}
-              {{ mu is mapping and mu.id == tid }}
+              {% set mu = states('input_text.ember_herald_muted') | from_json(default=[]) %}
+              {{ mu is list and (mu | selectattr('id', 'defined') | selectattr('id', 'eq', tid[-24:]) | list | count) > 0 }}
         then:
           - action: input_text.set_value
             target:
               entity_id: input_text.ember_herald_muted
             data:
-              value: "{}"
+              value: >-
+                {% set mu = states('input_text.ember_herald_muted') | from_json(default=[]) %}
+                {{ (mu | rejectattr('id', 'eq', tid[-24:]) | list) | to_json }}
           - action: script.ember_broadcast
             data:
               category: driveway
