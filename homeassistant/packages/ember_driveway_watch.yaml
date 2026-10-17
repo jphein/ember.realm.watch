@@ -171,13 +171,19 @@ automation:
       # been quiet. Computed from the counter's state so it does not race it. A track elsewhere → 0 →
       # normal. Missing/odd data → 0 → normal (fail-open). A muted track that then MOVES is spoken by
       # ember_herald_spot_mover — a walker crossing the cobweb spot is never silenced for good.
+      # FLOATING-BOX GATE (Oracle review 10-17, F1/F4): only a LARGE box floating in the UPPER frame is
+      # damped/counted — area ≥ 8000 px and bottom edge ≤ 300 px of 480. Measured: all 134 cobweb tracks
+      # (area ≥ 8128, y2 ≤ 291) vs 0 of 28 real confirmed person tracks (a distant walker is small; a near
+      # one's box reaches the ground). Without it Frigate's slow fragments of a distant walker counted as
+      # 'static' and could be muted for good.
       spot_n: >-
         {% set a = trigger.payload_json.after if trigger.payload_json.after is mapping else {} %}
         {% set b = a.box if (a.box is defined and a.box is sequence and a.box is not string) else [] %}
         {% set sp = states('input_text.ember_herald_spot') | from_json(default={}) %}
         {% if a.camera == 'driveway' and label == 'person' and b | count == 4
               and (b | select('number') | list | count == 4) and sp is mapping
-              and sp.x is number and sp.y is number and sp.n is number and sp.t is number %}
+              and sp.x is number and sp.y is number and sp.n is number and sp.t is number
+              and (b[2] - b[0]) * (b[3] - b[1]) >= 8000 and b[3] <= 300 %}
           {% set cx = (b[0] + b[2]) / 2 / 704 %}{% set cy = (b[1] + b[3]) / 2 / 480 %}
           {% set win = 1800 if sp.n >= 6 else 1200 %}
           {% if ((cx - sp.x) ** 2 + (cy - sp.y) ** 2) ** 0.5 <= 0.05 and (now().timestamp() - sp.t) <= win %}
@@ -227,8 +233,10 @@ automation:
                 else person_lines if label == 'person'
                 else vehicle_lines) | random }}{% endif %}
       # Absorb tracker flap on the same physical vehicle; see header.
+      # No cooldown after a SILENT (damped) herald (Oracle F2): mode:single would otherwise block every
+      # other alert — a car, a person elsewhere — for minutes, for an event nobody was told about aloud.
       - delay:
-          minutes: "{{ states('input_number.ember_herald_cooldown') | int(3) }}"
+          minutes: "{{ 0 if spot_n | default(0) | int(0) >= 6 else states('input_number.ember_herald_cooldown') | int(3) }}"
 
   # A BEAR that Frigate never confirms (no snapshot within 5 s of `new`) is LOGGED, not spoken —
   # jp-92 2026-10-13, so a dusk misread can be tuned from data instead of scaring the house. A
@@ -288,6 +296,7 @@ automation:
           {{ trigger.payload_json.type in ['new', 'update'] and a.camera == 'driveway' and a.label == 'person'
              and a.has_snapshot | default(false) == true and b | count == 4
              and (b | select('number') | list | count == 4)
+             and (b[2] - b[0]) * (b[3] - b[1]) >= 8000 and b[3] <= 300
              and a.id != (sp.id if sp is mapping else '') }}
     action:
       - variables:

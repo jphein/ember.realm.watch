@@ -54,8 +54,8 @@ def sub(tpl, spot, muted, now):  # spot_n source with state substituted, for emb
                .replace("now().timestamp()", str(now)))
 
 
-def P(cx, cy, tid, has_snapshot=True, box=True):
-    w, h = 40, 90
+def P(cx, cy, tid, has_snapshot=True, box=True, w=110, h=150):
+    # default = a FLOATING near-lens box like the cobweb (area 16500 px, bottom 225 px)
     b = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2] if box else None
     return {"id": tid, "camera": "driveway", "label": "person", "has_snapshot": has_snapshot, "box": b}
 
@@ -108,6 +108,20 @@ checks.append(("moving track is taken back out of the count", st2[0].get("n") ==
 st3, r = step(st, T0 + 40 * 8, P(*ELSE, "elsewhere"))
 checks.append(("track elsewhere: plain and spoken", r["kind"] == "plain" and not r["silent"]))
 checks.append(("track elsewhere: damper state unchanged", st3[0] == st[0]))
+
+# 3b. Oracle F1: a SMALL distant walker in the muted cobweb spot → plain + SPOKEN, never damped, not counted
+st3b, r = step(st, T0 + 40 * 8, P(*SPOT, "farwalker", w=30, h=70))
+checks.append(("small (distant) walker in the muted spot: plain + spoken", r["kind"] == "plain" and not r["silent"]))
+checks.append(("small walker is not counted", st3b[0] == st[0]))
+# 3c. a person close to the camera (box reaching the ground) in the spot → plain + spoken
+st3c, r = step(st, T0 + 40 * 8, P(SPOT[0], 330, "nearwalker", w=160, h=300))
+checks.append(("near walker (box to the ground) in the spot: plain + spoken", r["kind"] == "plain" and not r["silent"]))
+
+# 3d. Oracle F2: no cooldown after a silent herald
+dl = next(x for x in herald["action"] if isinstance(x, dict) and "delay" in x)["delay"]["minutes"]
+render.spot_n_src = "7"
+cool = render(dl.replace("spot_n | default(0)", "7 | default(0)"), P(*SPOT, "c"), "new", st[0], st[1], T0)
+checks.append(("silent herald → cooldown 0", cool.strip() == "0"))
 
 # 4. missing coordinates → plain, spoken, state untouched (fail-open)
 st4, r = step(st, T0 + 40 * 8, P(*SPOT, "nobox", box=False))
