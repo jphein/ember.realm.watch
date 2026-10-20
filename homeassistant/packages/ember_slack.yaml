@@ -283,6 +283,12 @@ automation:
     conditions:
       - condition: template
         value_template: "{{ trigger.event.data.image_url is defined }}"
+      # An offline hearth has no show_image action at all — ESPHome registers a device's actions only while it is
+      # connected — so calling it raises service_not_found (a standing Repairs issue since 08-29 for ember_dad, offline
+      # since 10-13) instead of quietly showing nothing. continue_on_error does not stop that repair; skip instead.
+      - condition: template
+        value_template: >-
+          {{ states(trigger.event.data.satellite) not in ['unavailable', 'unknown'] }}
     actions:
       - action: >-
           esphome.{{ trigger.event.data.satellite.split('.')[1]
