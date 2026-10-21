@@ -1,7 +1,8 @@
 # Ember → Slack: two channels, two jobs.
 #
-#   #ember  — COMPLETE MIRROR. Every line Ember would say, whether or not she
-#             actually said it aloud. The full log: replay a day, debug a
+#   #ember  — MIRROR of every line Ember would say, whether or not she
+#             actually said it aloud, EXCEPT driveway arrivals (those live
+#             only in #driveway since 2026-10-21, JP). Replay a day, debug a
 #             silent herald, see what happened while you were out.
 #   #yurt   — SIGNAL ONLY. The house's established channel (it already carries
 #             mailbox alerts). Gets a message only when you'd have MISSED the
@@ -98,27 +99,35 @@ script:
                .get(category | default('event'), '🔥') }}
           stamp: "{{ now().strftime('%H:%M') }}"
 
-      # ---- 1. MIRROR: always, unconditionally -------------------------------
-      - action: notify.the_homefront
-        continue_on_error: true
-        data:
-          # NAMES, not IDs: HA's slack notify resolves a target by comparing it
-          # to channel["name"], so an ID is searched for as a literal name and
-          # never found ("Channel C0BM85QLJ0P not found"). It lists both public
-          # and private channels, so private is fine — it just needs the
-          # groups:read scope, granted 2026-08-03.
-          target: ["#ember"]
-          message: >-
-            {{ icon }} `{{ stamp }}` {{ message }}
-            {{- ' _(quiet hours — not spoken)_' if quiet else '' }}
-            {{- ' _(damped repeat — not spoken)_' if mute and not quiet else '' }}
-            {{- ' _(nobody home)_' if away and not quiet and not mute else '' }}
+      # ---- 1. MIRROR: everything except driveway arrivals -------------------
+      # JP (2026-10-21 10:1x): "stop sending the driveway msgs to #ember too,
+      # just have it slack in #driveway". Arrivals were the bulk of #ember and
+      # the same line twice; #driveway (1b) is their only text home now.
+      - if:
+          - condition: template
+            value_template: "{{ category | default('') != 'driveway' }}"
+        then:
+          - action: notify.the_homefront
+            continue_on_error: true
+            data:
+              # NAMES, not IDs: HA's slack notify resolves a target by comparing
+              # it to channel["name"], so an ID is searched for as a literal
+              # name and never found ("Channel C0BM85QLJ0P not found"). It lists
+              # both public and private channels, so private is fine — it just
+              # needs the groups:read scope, granted 2026-08-03.
+              target: ["#ember"]
+              message: >-
+                {{ icon }} `{{ stamp }}` {{ message }}
+                {{- ' _(quiet hours — not spoken)_' if quiet else '' }}
+                {{- ' _(damped repeat — not spoken)_' if mute and not quiet else '' }}
+                {{- ' _(nobody home)_' if away and not quiet and not mute else '' }}
 
       # ---- 1b. DRIVEWAY-ONLY FEED ------------------------------------------
       # #driveway carries nothing but arrivals — no laundry, no alerts, no
       # house chatter. Useful as a phone-notification channel you can leave
       # unmuted precisely because it only ever says "something came up the
-      # drive". Same event still lands in #ember (the full mirror).
+      # drive". Since 2026-10-21 it is the ONLY text channel for arrivals
+      # (#ember no longer mirrors them); #yurt escalation (3) is unchanged.
       - if:
           - condition: template
             value_template: "{{ category | default('') == 'driveway' }}"
