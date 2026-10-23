@@ -59,6 +59,29 @@
                       type: string
                       description: The id retrieved from areas. You can specify only
                         area_id without entity_id to act on all entities in that area
+                  brightness_pct:
+                    type: integer
+                    minimum: 0
+                    maximum: 100
+                    description: light.turn_on brightness, percent.
+                  color_name:
+                    type: string
+                    description: light.turn_on colour by name, e.g. purple.
+                  rgb_color:
+                    type: array
+                    items:
+                      type: integer
+                    description: light.turn_on colour as [r, g, b].
+                  temperature:
+                    type: number
+                    description: climate.set_temperature target.
+                  hvac_mode:
+                    type: string
+                    enum: ["off", "heat", "cool", "heat_cool", "auto", "dry", "fan_only"]
+                    description: climate.set_hvac_mode mode.
+                  item:
+                    type: string
+                    description: todo.add_item text.
             required:
             - domain
             - service
@@ -110,20 +133,6 @@
   function:
     type: read_file
     path: '{{extended_openai.skill_dir(name)}}/{{file}}'
-- spec:
-    name: bash
-    description: Execute a bash command in workspace.
-    parameters:
-      type: object
-      properties:
-        command:
-          type: string
-          description: Bash command to execute
-      required:
-      - command
-  function:
-    type: bash
-    command: '{{command}}'
 
 # ─── Ember toolkit, added 2026-08-02 ─────────────────────────────────────────
 # Everything above this line is the integration's stock set and is deployed
@@ -394,7 +403,7 @@
   function:
     type: script
     sequence:
-      # `weather.forecast_home_2` (met.no) and NOT `weather.home`. Measured
+      # `weather.forecast_home` (met.no) and NOT `weather.home`. Measured
       # 2026-08-02 at 20:38 local: `weather.home` reported "sunny, 83F" well after
       # dark while met.no reported "clear-night, 55F". One of those two is a
       # sensor that will make Ember sound like it has never been outside.
@@ -404,14 +413,14 @@
       # 'forecast')` returns nothing at all rather than failing loudly.
       - action: weather.get_forecasts
         target:
-          entity_id: weather.forecast_home_2
+          entity_id: weather.forecast_home
         data:
           type: daily
         response_variable: fc
         continue_on_error: true
       - variables:
           _function_result: >-
-            {%- set e = 'weather.forecast_home_2' -%}
+            {%- set e = 'weather.forecast_home' -%}
             {%- set now_state = states(e) | replace('-', ' ') -%}
             {%- set now_temp = state_attr(e, 'temperature') -%}
             {%- set days = ((fc | default({}, true)).get(e, {}).get('forecast', [])) if fc is defined else [] -%}
