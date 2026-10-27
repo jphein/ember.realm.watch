@@ -261,6 +261,13 @@ automation:
     triggers:
       - trigger: event
         event_type: slack_bridge_announced
+    # Same guard as ember_slack_vision below (#111): an offline hearth has no slack_note action while ESPHome is
+    # disconnected, and the call raised "Not connected to ember-dad" on every routed message (09:39, 09:40, 11:27 on
+    # 10-27; ember_dad offline since 10-13) despite continue_on_error. Skip it instead.
+    conditions:
+      - condition: template
+        value_template: >-
+          {{ states(trigger.event.data.satellite) not in ['unavailable', 'unknown'] }}
     actions:
       - action: >-
           esphome.{{ trigger.event.data.satellite.split('.')[1]
