@@ -16,7 +16,11 @@
 # The warm-up line lands in the 30-day transcript log like any turn; it is recognisable by its
 # fixed text.
 rest:
-  - resource: http://10.0.6.107:3456/teamclaude/failover
+  # 2026-11-13: off familiar's raw :3456 pipe (retiring 11-20, teamclaude-1f) onto the teamclaude VM through
+  # ubox0's Caddy: keyed requests skip Authelia and go to https://10.0.6.145:3443 with the listener CA pinned there.
+  # Not the VM directly: HA's rest has only verify_ssl on/off (no CA file), and turning it off would send the key to
+  # an unverified peer. Here TLS stays verified (public cert to Caddy, pinned CA to the VM). Same "ha" key.
+  - resource: https://tc.realm.watch/teamclaude/failover
     scan_interval: 60
     timeout: 8
     headers:
