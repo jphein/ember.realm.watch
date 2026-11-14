@@ -23,11 +23,19 @@
 #     to a sleeping host simply fails rather than waking it (that needs WOL).
 #     So a failed poll is a true signal, not an artefact of measuring.
 #   - Reloadable without a full HA restart: `rest.reload`.
+#   - QUIET WHEN STOPPED, ON PURPOSE (2026-11-14): while the :8091 lane is stopped (JP 11-13 10:25) or familiar
+#     sleeps, each poll used to log an ERROR ("Error fetching data ... Cannot connect" / "Timeout while fetching
+#     data"), 137 in 6 h. Those two lines, for this URL only, are dropped by the logger filter in the ha repo's
+#     packages/logger.yaml (tests/test_logger_filters.py). The sensor still goes `unavailable`, which is the tri-state
+#     signal ember_warmup and ember_wake_backend read, so do NOT switch this to a probe that reads `off` when
+#     unreachable. No ERROR in the log is expected; `binary_sensor.ember_backend` is where to look.
 
 rest:
   - resource: http://10.0.6.107:8091/health
     scan_interval: 60
-    timeout: 8
+    # 4 s, was 8 (Sen 11-13 21:56): llama-server answers /health in milliseconds when up; a refused connection is
+    # instant; only a sleeping or wedged host waits out the timeout, so a long one just holds a poll slot.
+    timeout: 4
     binary_sensor:
       - name: Ember Backend
         unique_id: ember_backend_health
