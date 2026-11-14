@@ -39,6 +39,7 @@ PARTS = {
     "base":     ("ember_case", "stand_base"),
     "midframe": ("ember_mobile_case", "midframe"),
     "cover":    ("ember_mobile_case", "back_cover"),
+    "apron":    ("shrine", "apron"),          # Tapstone shrine apron (tapstone decision 0005)
 }
 # back_shell() takes a variant argument; everything else takes none.
 ARGS = {"shell": ("desk",)}
