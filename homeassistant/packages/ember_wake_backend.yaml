@@ -128,8 +128,12 @@ automation:
     mode: single
     max_exceeded: silent
     trigger:
+      # Both hearths (2026-11-26): only the desk unit was listed, so the kitchen
+      # board (Ember Mobile) never woke a sleeping backend; the desk unit is retired.
       - platform: state
-        entity_id: assist_satellite.ember_satellite_assist_satellite
+        entity_id:
+          - assist_satellite.ember_mobile_assist_satellite
+          - assist_satellite.ember_satellite_assist_satellite
         to: "listening"
     condition:
       - condition: state
