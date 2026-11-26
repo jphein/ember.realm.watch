@@ -41,10 +41,18 @@
 #
 # ⚠️ Announcing to the MOBILE unit is not equivalent to announcing to the desk
 # unit, for a reason no amount of config can fix: it is portable, so it may be
-# in another room, in a drawer, or flat. `assist_satellite.announce` to an
-# unavailable satellite fails the action rather than queueing it — so anything
-# that MUST be heard should target the desk unit (the default) or use
-# ember_announce_all, never the mobile unit alone.
+# in another room, in a drawer, or flat. Anything that MUST be heard should use
+# ember_announce_all, never one unit alone.
+#
+# 2026-11-26: THE DEFAULT IS NOW THE MOBILE UNIT. The desk unit has been dark
+# since 11-18 and was retired on JP's 11-24 word (via Sen, ha card a759c0456e5b);
+# Ember Mobile is the kitchen board. While the default still named the desk unit,
+# every caller that passes only `message` spoke to a dead box for 8 days, and
+# NOTHING said so: on this HA (2026.11) `assist_satellite.announce` to an
+# unavailable satellite FINISHES WITHOUT AN ERROR (traces read "finished"; the
+# old note here said it fails, which is no longer true). So the script now writes
+# a WARNING to HA's log, logger `ember.announce`, whenever its target is not
+# reachable: silence must never pass as delivered (ha flow c25ca5b5).
 
 # The Hearth-view composer's target chooser (JP, 2026-08-09). ember_say
 # consults it ONLY when no explicit `satellite` field is passed — dashboard
@@ -78,20 +86,33 @@ script:
       satellite:
         name: Satellite
         description: >
-          Which Ember speaks. Defaults to the desk unit, which is what every
-          pre-existing caller expects. Name a satellite entity to mean another
-          hearth — the portable (assist_satellite.ember_mobile_assist_satellite)
-          or Dad's house (assist_satellite.ember_dad_assist_satellite,
+          Which Ember speaks. Defaults to Ember Mobile, the kitchen board (the desk
+          unit was retired 2026-11-24). Name a satellite entity to mean another
+          hearth, e.g. Dad's house (assist_satellite.ember_dad_assist_satellite,
           commissioned 2026-08-09).
         required: false
         selector:
           entity:
             domain: assist_satellite
     sequence:
+      - variables:
+          target_sat: "{{ satellite | default('assist_satellite.ember_mobile_assist_satellite', true) }}"
+      # Silence must never pass as delivered (ha flow c25ca5b5): an announce to an
+      # unreachable satellite finishes with no error, so say so in HA's log.
+      - if:
+          - condition: template
+            value_template: "{{ states(target_sat) in ['unavailable', 'unknown'] }}"
+        then:
+          - action: system_log.write
+            data:
+              level: warning
+              logger: ember.announce
+              message: >-
+                not delivered: {{ target_sat }} is {{ states(target_sat) }};
+                message was "{{ message | string | truncate(80) }}"
       - action: assist_satellite.announce
         target:
-          entity_id: >
-            {{ satellite | default('assist_satellite.ember_satellite_assist_satellite', true) }}
+          entity_id: "{{ target_sat }}"
         data:
           message: "{{ message }}"
           # >>> Do not remove. Without it HA prepends its own generic chime and
